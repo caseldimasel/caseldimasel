@@ -1,0 +1,96 @@
+{
+  "sections": {
+    "header": {
+      "type": "page-header",
+      "settings": {
+        "eyebrow": "Sobre Sidonia",
+        "text": "Una plataforma con criterio editorial, tecnología útil y sensibilidad humana para coches, barcos y casas con carácter.",
+        "show_breadcrumbs": true
+      }
+    },
+    "text": {
+      "type": "rich-text",
+      "settings": {
+        "heading": "Qué es Sidonia",
+        "text": "<p>Sidonia ayuda a propietarios a vender coches, barcos y casas que tienen carácter, historia y personalidad. Descubrimos qué hace especial cada pieza, vamos a grabarla y la presentamos con una narración cuidada ante una comunidad que pueda apreciarla.</p><p>Edita este texto desde el personalizador con la historia y los valores reales de Sidonia.</p>",
+        "width": "narrow"
+      }
+    },
+    "criteria": {
+      "type": "selection-criteria",
+      "settings": {},
+      "blocks": {
+        "criterion-1": {
+          "type": "criterion",
+          "settings": {
+            "title": "Historia",
+            "text": "Una vida detrás: quién la tuvo, qué ha vivido, por qué importa."
+          }
+        },
+        "criterion-2": {
+          "type": "criterion",
+          "settings": {
+            "title": "Carácter",
+            "text": "Personalidad propia, que se note al verla y al oírla."
+          }
+        },
+        "criterion-3": {
+          "type": "criterion",
+          "settings": {
+            "title": "Diseño",
+            "text": "Una forma de resolver las cosas que merece ser mirada."
+          }
+        },
+        "criterion-4": {
+          "type": "criterion",
+          "settings": {
+            "title": "Singularidad",
+            "text": "Algo que la distingue de otras piezas parecidas."
+          }
+        },
+        "criterion-5": {
+          "type": "criterion",
+          "settings": {
+            "title": "Cuidado",
+            "text": "Se nota que alguien se ha ocupado de ella."
+          }
+        },
+        "criterion-6": {
+          "type": "criterion",
+          "settings": {
+            "title": "Procedencia",
+            "text": "Un origen interesante que se pueda contar."
+          }
+        }
+      },
+      "block_order": [
+        "criterion-1",
+        "criterion-2",
+        "criterion-3",
+        "criterion-4",
+        "criterion-5",
+        "criterion-6"
+      ]
+    },
+    "team": {
+      "type": "team",
+      "settings": {}
+    },
+    "community": {
+      "type": "community",
+      "settings": {}
+    },
+    "cta": {
+      "type": "owner-cta",
+      "settings": {}
+    }
+  },
+  "order": [
+    "header",
+    "text",
+    "criteria",
+    "team",
+    "community",
+    "cta"
+  ]
+}

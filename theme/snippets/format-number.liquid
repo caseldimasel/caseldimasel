@@ -1,0 +1,47 @@
+{%- comment -%}
+  Formatea un número con separador de miles según el idioma. Parámetros: n, decimals (opcional, máx. 2).
+{%- endcomment -%}
+{%- liquid
+  assign str = n | append: ''
+  assign parts = str | split: '.'
+  assign int_part = parts[0]
+  assign frac = parts[1]
+  assign sep = 'general.thousands_separator' | t
+  assign out = ''
+  assign i = int_part.size
+  assign neg = false
+  if int_part contains '-'
+    assign neg = true
+    assign int_part = int_part | remove: '-'
+    assign i = int_part.size
+  endif
+  for k in (1..7)
+    if i <= 0
+      break
+    endif
+    assign start = i | minus: 3
+    if start < 0
+      assign start = 0
+    endif
+    assign chunk_len = i | minus: start
+    assign chunk = int_part | slice: start, chunk_len
+    if out == ''
+      assign out = chunk
+    else
+      assign out = chunk | append: sep | append: out
+    endif
+    assign i = start
+  endfor
+  if neg
+    echo '-'
+  endif
+  echo out
+  if decimals != blank and frac != blank
+    assign frac_cut = frac | slice: 0, decimals
+    assign frac_num = frac_cut | plus: 0
+    if frac_num > 0
+      echo 'general.decimal_separator' | t
+      echo frac_cut
+    endif
+  endif
+-%}

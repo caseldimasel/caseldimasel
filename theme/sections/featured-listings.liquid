@@ -1,0 +1,95 @@
+{%- liquid
+  assign s = section.settings
+  if s.source == 'collection'
+    assign pool = s.collection.products
+  else
+    assign pool = s.products
+  endif
+  assign shown = 0
+  assign max_items = s.limit | default: 6
+  capture cta_default
+    render 'page-url', key: 'explore'
+  endcapture
+  assign cta_url = s.cta_url | default: cta_default | strip
+  assign cta_label = s.cta_label
+  if cta_label == blank
+    assign cta_label = 'selection.see_all' | t
+  endif
+  assign grid_class = 'sd-grid sd-grid--wide'
+  if settings.mobile_columns == '2'
+    assign grid_class = grid_class | append: ' sd-grid--m2'
+  endif
+-%}
+{%- capture cells -%}
+  {%- for product in pool limit: 16 -%}
+    {%- capture st -%}{%- render 'listing-status', product: product -%}{%- endcapture -%}
+    {%- assign st = st | strip -%}
+    {%- if st == 'sold' and s.hide_sold -%}
+      {%- continue -%}
+    {%- endif -%}
+    {%- if shown >= max_items -%}
+      {%- break -%}
+    {%- endif -%}
+    <li>{%- render 'listing-card', product: product, priority: false -%}</li>
+    {%- assign shown = shown | plus: 1 -%}
+  {%- endfor -%}
+{%- endcapture -%}
+
+{%- if shown > 0 or request.design_mode -%}
+<section class="sd-section sd-selection" data-section-id="{{ section.id }}">
+  <div class="sd-container">
+    <div class="sd-section-head sd-section-head--split">
+      <div>
+        {%- if s.eyebrow != blank -%}<p class="sd-eyebrow">{{ s.eyebrow }}</p>{%- endif -%}
+        <h2>{{ s.heading }}</h2>
+      </div>
+      {%- if s.text != blank -%}<p class="sd-lead">{{ s.text }}</p>{%- endif -%}
+    </div>
+
+    {%- if shown > 0 -%}
+      <ul class="{{ grid_class }}" role="list">{{ cells }}</ul>
+      <p class="sd-selection__more">
+        <a class="sd-btn sd-btn--secondary" href="{{ cta_url }}">
+          <span>{{ cta_label }}</span>{%- render 'icon', name: 'arrow-right', size: 18 -%}
+        </a>
+      </p>
+    {%- else -%}
+      <div class="sd-empty">
+        <h3>{{ 'selection.editor_empty_title' | t }}</h3>
+        <p>{{ 'selection.editor_empty_text' | t }}</p>
+      </div>
+    {%- endif -%}
+  </div>
+</section>
+{%- endif -%}
+
+{% schema %}
+{
+  "name": "Selección de piezas",
+  "tag": "section",
+  "settings": [
+    { "type": "text", "id": "eyebrow", "label": "Antetítulo", "default": "Disponible ahora" },
+    { "type": "text", "id": "heading", "label": "Título", "default": "La selección" },
+    { "type": "textarea", "id": "text", "label": "Texto" },
+    {
+      "type": "select",
+      "id": "source",
+      "label": "Origen de las piezas",
+      "options": [
+        { "value": "collection", "label": "Una colección (recomendado)" },
+        { "value": "products", "label": "Productos elegidos a mano" }
+      ],
+      "default": "collection"
+    },
+    { "type": "collection", "id": "collection", "label": "Colección", "info": "Por ejemplo una colección «Destacadas» con la condición sidonia.featured = verdadero. El orden es el de la colección." },
+    { "type": "product_list", "id": "products", "label": "Productos", "limit": 16 },
+    { "type": "range", "id": "limit", "label": "Número de piezas", "min": 4, "max": 8, "step": 1, "default": 6 },
+    { "type": "checkbox", "id": "hide_sold", "label": "Ocultar las vendidas", "info": "Las vendidas pertenecen al archivo. Las reservadas se muestran con su etiqueta.", "default": true },
+    { "type": "text", "id": "cta_label", "label": "Texto del botón", "info": "Vacío = «Ver toda la selección»." },
+    { "type": "url", "id": "cta_url", "label": "Enlace del botón", "info": "Vacío = colección «Explorar»." }
+  ],
+  "presets": [
+    { "name": "Selección de piezas" }
+  ]
+}
+{% endschema %}

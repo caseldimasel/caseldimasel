@@ -1,0 +1,190 @@
+{
+  "sections": {
+    "hero": {
+      "type": "hero",
+      "settings": {}
+    },
+    "divisions": {
+      "type": "divisions",
+      "settings": {}
+    },
+    "selection": {
+      "type": "featured-listings",
+      "settings": {}
+    },
+    "how": {
+      "type": "how-we-sell",
+      "settings": {},
+      "blocks": {
+        "step-1": {
+          "type": "step",
+          "settings": {
+            "title": "Nos cuentas qué tienes",
+            "text": "Nos explicas qué es y qué lo hace especial. Cuanto más personal sea la historia, mejor."
+          }
+        },
+        "step-2": {
+          "type": "step",
+          "settings": {
+            "title": "Valoramos si encaja",
+            "text": "Miramos si encaja en Sidonia y acordamos contigo cómo trabajar."
+          }
+        },
+        "step-3": {
+          "type": "step",
+          "settings": {
+            "title": "Grabamos y contamos su historia",
+            "text": "Vamos a verla, la grabamos y preparamos un vídeo con una narración cuidada."
+          }
+        },
+        "step-4": {
+          "type": "step",
+          "settings": {
+            "title": "La presentamos a nuestra comunidad",
+            "text": "La publicamos y atendemos el interés que genere, según el servicio que contrates."
+          }
+        }
+      },
+      "block_order": [
+        "step-1",
+        "step-2",
+        "step-3",
+        "step-4"
+      ]
+    },
+    "story": {
+      "type": "featured-story",
+      "settings": {}
+    },
+    "community": {
+      "type": "community",
+      "settings": {}
+    },
+    "criteria": {
+      "type": "selection-criteria",
+      "settings": {},
+      "blocks": {
+        "criterion-1": {
+          "type": "criterion",
+          "settings": {
+            "title": "Historia",
+            "text": "Una vida detrás: quién la tuvo, qué ha vivido, por qué importa."
+          }
+        },
+        "criterion-2": {
+          "type": "criterion",
+          "settings": {
+            "title": "Carácter",
+            "text": "Personalidad propia, que se note al verla y al oírla."
+          }
+        },
+        "criterion-3": {
+          "type": "criterion",
+          "settings": {
+            "title": "Diseño",
+            "text": "Una forma de resolver las cosas que merece ser mirada."
+          }
+        },
+        "criterion-4": {
+          "type": "criterion",
+          "settings": {
+            "title": "Singularidad",
+            "text": "Algo que la distingue de otras piezas parecidas."
+          }
+        },
+        "criterion-5": {
+          "type": "criterion",
+          "settings": {
+            "title": "Cuidado",
+            "text": "Se nota que alguien se ha ocupado de ella."
+          }
+        },
+        "criterion-6": {
+          "type": "criterion",
+          "settings": {
+            "title": "Procedencia",
+            "text": "Un origen interesante que se pueda contar."
+          }
+        }
+      },
+      "block_order": [
+        "criterion-1",
+        "criterion-2",
+        "criterion-3",
+        "criterion-4",
+        "criterion-5",
+        "criterion-6"
+      ]
+    },
+    "testimonials": {
+      "type": "testimonials",
+      "settings": {}
+    },
+    "cta": {
+      "type": "owner-cta",
+      "settings": {}
+    },
+    "faq": {
+      "type": "faq",
+      "settings": {
+        "heading": "Preguntas frecuentes"
+      },
+      "blocks": {
+        "q-1": {
+          "type": "question",
+          "settings": {
+            "question": "¿Qué piezas seleccionáis?",
+            "answer": "<p>Piezas con historia, carácter, diseño, singularidad, cuidado o una procedencia interesante. No hace falta que sean caras ni antiguas: lo que importa es que haya algo que contar.</p>"
+          }
+        },
+        "q-2": {
+          "type": "question",
+          "settings": {
+            "question": "¿Qué información necesitáis para estudiar mi pieza?",
+            "answer": "<p>Qué es, dónde está, qué la hace especial, cuál es tu relación con ella y cómo prefieres que te contactemos. Puedes añadir un enlace a un vídeo, una carpeta o un anuncio existente. En esta fase no pedimos escrituras, DNI ni documentación sensible.</p>"
+          }
+        },
+        "q-3": {
+          "type": "question",
+          "settings": {
+            "question": "¿Cómo es la grabación?",
+            "answer": "<p>Vamos a ver la pieza y la grabamos para contar su historia. La fecha, el lugar y lo que necesitamos de ti lo acordamos contigo después de contactar.</p>"
+          }
+        },
+        "q-4": {
+          "type": "question",
+          "settings": {
+            "question": "¿Cómo pido información sobre una pieza?",
+            "answer": "<p>Desde su ficha puedes escribirnos por WhatsApp o por correo, o usar el formulario. Todos los canales incluyen el nombre y la referencia de la pieza.</p>"
+          }
+        },
+        "q-5": {
+          "type": "question",
+          "settings": {
+            "question": "¿Qué ocurre después de contactar?",
+            "answer": "<p>Revisamos tu mensaje y te respondemos por el canal que prefieras. Si la pieza encaja, hablamos de cómo trabajar juntos. Enviar la solicitud no implica ningún compromiso de venta por ninguna de las partes.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "q-1",
+        "q-2",
+        "q-3",
+        "q-4",
+        "q-5"
+      ]
+    }
+  },
+  "order": [
+    "hero",
+    "divisions",
+    "selection",
+    "how",
+    "story",
+    "community",
+    "criteria",
+    "testimonials",
+    "cta",
+    "faq"
+  ]
+}

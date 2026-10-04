@@ -1,0 +1,120 @@
+{%- liquid
+  assign s = section.settings
+  assign uid = 'cont-' | append: section.id
+  capture wa
+    render 'contact-link', kind: 'whatsapp'
+  endcapture
+  assign wa = wa | strip
+  capture mail
+    render 'contact-link', kind: 'email'
+  endcapture
+  assign mail = mail | strip
+  capture tel
+    render 'contact-link', kind: 'tel'
+  endcapture
+  assign tel = tel | strip
+  capture sell_url
+    render 'page-url', key: 'sell'
+  endcapture
+  assign l_submit = 'contact.submit' | t
+  assign cats = 'garage,harbor,estate' | split: ','
+-%}
+<section class="sd-section sd-contact" data-section-id="{{ section.id }}">
+  <div class="sd-container sd-contact__grid">
+    <div class="sd-contact__channels">
+      <h2>{{ s.channels_heading }}</h2>
+      {%- if wa == blank and mail == blank and tel == blank -%}
+        <p class="sd-note">{{ 'contact.no_channels' | t }}</p>
+      {%- endif -%}
+      <ul class="sd-channels" role="list">
+        {%- if wa != blank -%}
+          <li><a class="sd-channel" href="{{ wa }}" target="_blank" rel="noopener" data-sd-track="contact_whatsapp" data-sd-track-category="general">{%- render 'icon', name: 'chat', size: 24 -%}<span><strong>WhatsApp</strong><span class="sd-channel__sub">{{ 'contact.whatsapp_sub' | t }}</span></span><span class="sd-sr"> {{ 'general.opens_new_window' | t }}</span></a></li>
+        {%- endif -%}
+        {%- if mail != blank -%}
+          <li><a class="sd-channel" href="{{ mail }}" data-sd-track="contact_email" data-sd-track-category="general">{%- render 'icon', name: 'mail', size: 24 -%}<span><strong>{{ 'contact.email' | t }}</strong><span class="sd-channel__sub">{{ settings.contact_email | strip }}</span></span></a></li>
+        {%- endif -%}
+        {%- if tel != blank -%}
+          <li><a class="sd-channel" href="{{ tel }}">{%- render 'icon', name: 'phone', size: 24 -%}<span><strong>{{ 'contact.phone' | t }}</strong><span class="sd-channel__sub">{{ settings.contact_phone | strip }}</span></span></a></li>
+        {%- endif -%}
+      </ul>
+      {%- if settings.contact_hours != blank -%}
+        <p class="sd-contact__hours">{%- render 'icon', name: 'clock', size: 18 -%}<span>{{ settings.contact_hours }}</span></p>
+      {%- endif -%}
+      {%- if settings.contact_response_note != blank -%}
+        <p class="sd-note">{{ settings.contact_response_note }}</p>
+      {%- endif -%}
+      {%- if wa != blank or mail != blank -%}
+        <p class="sd-note">{{ 'inquiry.mailto_note' | t }}</p>
+      {%- endif -%}
+
+      {%- if s.show_divisions -%}
+        {%- capture division_rows -%}
+          {%- for c in cats -%}
+            {%- capture d_wa -%}{%- render 'contact-link', kind: 'whatsapp', category: c -%}{%- endcapture -%}
+            {%- capture d_mail -%}{%- render 'contact-link', kind: 'email', category: c -%}{%- endcapture -%}
+            {%- assign d_wa = d_wa | strip -%}
+            {%- assign d_mail = d_mail | strip -%}
+            {%- assign dk_w = 'division_' | append: c | append: '_whatsapp' -%}
+            {%- assign dk_e = 'division_' | append: c | append: '_email' -%}
+            {%- if settings[dk_w] != blank or settings[dk_e] != blank -%}
+              {%- capture d_name -%}{%- render 'division-info', key: c, out: 'name' -%}{%- endcapture -%}
+              <li class="sd-cat sd-cat--{{ c }}">
+                <span class="sd-eyebrow"><span class="sd-nav__dot" aria-hidden="true"></span>SIDONIA {{ d_name | strip | upcase }}</span>
+                {%- if d_wa != blank and settings[dk_w] != blank -%}<a href="{{ d_wa }}" target="_blank" rel="noopener">WhatsApp<span class="sd-sr"> {{ 'general.opens_new_window' | t }}</span></a>{%- endif -%}
+                {%- if d_mail != blank and settings[dk_e] != blank -%}<a href="{{ d_mail }}">{{ settings[dk_e] | strip }}</a>{%- endif -%}
+              </li>
+            {%- endif -%}
+          {%- endfor -%}
+        {%- endcapture -%}
+        {%- assign division_rows = division_rows | strip -%}
+        {%- if division_rows != blank -%}
+          <h3 class="sd-contact__sub">{{ 'contact.by_division' | t }}</h3>
+          <ul class="sd-divcontacts" role="list">{{ division_rows }}</ul>
+        {%- endif -%}
+      {%- endif -%}
+
+      <p class="sd-contact__sell"><a class="sd-btn sd-btn--secondary" href="{{ sell_url | strip }}">{{ 'contact.sell_link' | t }}</a></p>
+    </div>
+
+    <div class="sd-contact__form">
+      <h2>{{ s.form_heading }}</h2>
+      <sd-form class="sd-form-wrap" data-kind="contact">
+        {%- form 'contact', id: uid, class: 'sd-form', novalidate: 'novalidate' -%}
+          {%- if form.posted_successfully? -%}
+            <div class="sd-notice sd-notice--success sd-form-success" role="status" tabindex="-1" data-sd-form-success>
+              {%- render 'icon', name: 'check', size: 22 -%}
+              <div>
+                <p class="sd-notice__title">{{ 'contact.success_title' | t }}</p>
+                <p>{{ 'contact.success_text' | t }}</p>
+                {%- if settings.contact_response_note != blank -%}<p>{{ settings.contact_response_note }}</p>{%- endif -%}
+              </div>
+            </div>
+          {%- else -%}
+            {%- render 'form-errors', form: form, uid: uid -%}
+            <div class="sd-form-status" role="status" aria-live="polite" data-sd-status></div>
+            <input type="hidden" name="contact[Tipo de consulta]" value="{{ 'contact.kind' | t }}">
+            <input type="hidden" name="contact[tags]" value="contacto">
+            {%- render 'form-field', uid: uid, name: 'contact[body]', field: 'body', type: 'textarea', label_key: 'contact.f.body_label', required: true, value: form.body, errors: form.errors, rows: 6 -%}
+            {%- render 'form-person-fields', form: form, uid: uid, phone_required: false, submit_label: l_submit -%}
+          {%- endif -%}
+        {%- endform -%}
+      </sd-form>
+    </div>
+  </div>
+</section>
+
+{% schema %}
+{
+  "name": "Contacto",
+  "tag": "div",
+  "settings": [
+    { "type": "text", "id": "channels_heading", "label": "Título de canales", "default": "Escríbenos" },
+    { "type": "text", "id": "form_heading", "label": "Título del formulario", "default": "O déjanos un mensaje" },
+    { "type": "checkbox", "id": "show_divisions", "label": "Mostrar contactos por división (si están configurados)", "default": true },
+    { "type": "paragraph", "content": "Los canales salen de Ajustes del tema > Contacto y mensajes. Los que estén vacíos no se muestran." }
+  ],
+  "presets": [
+    { "name": "Contacto" }
+  ]
+}
+{% endschema %}

@@ -1,0 +1,15 @@
+{
+  "sections": {
+    "main": {
+      "type": "main-collection",
+      "settings": {
+        "category": "",
+        "archive": true,
+        "show_description": true
+      }
+    }
+  },
+  "order": [
+    "main"
+  ]
+}

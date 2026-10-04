@@ -1,0 +1,125 @@
+{%- liquid
+  assign s = section.settings
+  assign mf = product.metafields.sidonia
+  capture cat
+    render 'listing-category', product: product
+  endcapture
+  assign cat = cat | strip
+  case cat
+    when 'garage'
+      assign groups = 'identity,mechanics,look' | split: ','
+    when 'harbor'
+      assign groups = 'identity,dimensions,engine,admin' | split: ','
+    when 'estate'
+      assign groups = 'property,layout,energy' | split: ','
+    else
+      assign groups = '' | split: ','
+  endcase
+  assign cond = mf.condition_notes.value
+  assign work = mf.work_done.value
+  assign docs = mf.documents.value
+  assign place = ''
+  capture place
+    render 'listing-location', product: product
+  endcapture
+  assign place = place | strip
+  assign any_tech = false
+  capture tech
+    for g in groups
+      capture rows
+        render 'listing-facts', product: product, category: cat, mode: g
+      endcapture
+      assign rows = rows | strip
+      if rows != blank
+        assign any_tech = true
+        assign g_key = 'specs.group_' | append: g
+        assign g_title = g_key | t
+        echo '<div class="sd-specgroup"><h3 class="sd-specgroup__title">' | append: g_title | append: '</h3><dl class="sd-dl">' | append: rows | append: '</dl></div>'
+      endif
+    endfor
+  endcapture
+  assign has_condition = false
+  if cond != blank or work.size > 0
+    assign has_condition = true
+  endif
+  assign has_docs = false
+  if docs.size > 0
+    assign has_docs = true
+  endif
+-%}
+{%- if any_tech or has_condition or has_docs or request.design_mode -%}
+<section class="sd-section sd-section--alt sd-pspecs{% if cat != blank %} sd-cat sd-cat--{{ cat }}{% endif %}" data-section-id="{{ section.id }}">
+  <div class="sd-container">
+    {%- if any_tech or has_condition or has_docs -%}
+      <div class="sd-pspecs__grid">
+        {%- if any_tech or place != blank -%}
+          <div class="sd-pspecs__tech">
+            <h2>{{ s.heading }}</h2>
+            <div class="sd-specgroups">
+              {{ tech }}
+              {%- if place != blank -%}
+                <div class="sd-specgroup">
+                  <h3 class="sd-specgroup__title">{{ 'specs.group_location' | t }}</h3>
+                  <dl class="sd-dl">
+                    {%- assign l = 'specs.public_location' | t -%}
+                    {%- render 'fact-row', label: l, value: place -%}
+                  </dl>
+                  <p class="sd-note">{{ 'specs.location_note' | t }}</p>
+                </div>
+              {%- endif -%}
+            </div>
+          </div>
+        {%- endif -%}
+
+        {%- if has_condition or has_docs -%}
+          <div class="sd-pspecs__more">
+            {%- if has_condition -%}
+              <h2>{{ s.condition_heading }}</h2>
+              {%- if cond != blank -%}<p class="sd-pspecs__cond">{{ cond | escape | newline_to_br }}</p>{%- endif -%}
+              {%- if work.size > 0 -%}
+                <h3 class="sd-pstory__h3">{{ 'product.work_done' | t }}</h3>
+                <ul class="sd-checks" role="list">
+                  {%- for item in work -%}<li>{%- render 'icon', name: 'check', size: 20 -%}<span>{{ item | escape }}</span></li>{%- endfor -%}
+                </ul>
+              {%- endif -%}
+              <p class="sd-note">{{ 'product.facts_note' | t }}</p>
+            {%- endif -%}
+            {%- if has_docs -%}
+              <h2 class="sd-pspecs__docs">{{ 'product.documents' | t }}</h2>
+              <ul class="sd-doclist" role="list">
+                {%- for doc in docs -%}
+                  {%- assign doc_name = doc.alt -%}
+                  {%- if doc_name == blank -%}{%- assign doc_name = doc.url | split: '?' | first | split: '/' | last -%}{%- endif -%}
+                  <li><a href="{{ doc.url }}" target="_blank" rel="noopener">{%- render 'icon', name: 'external', size: 18 -%}<span>{{ doc_name }}</span><span class="sd-sr"> {{ 'general.opens_new_window' | t }}</span></a></li>
+                {%- endfor -%}
+              </ul>
+              <p class="sd-note">{{ 'product.documents_note' | t }}</p>
+            {%- endif -%}
+          </div>
+        {%- endif -%}
+      </div>
+    {%- else -%}
+      <div class="sd-empty">
+        <h2>{{ 'product.specs_empty_title' | t }}</h2>
+        <p>{{ 'product.specs_empty_text' | t }}</p>
+      </div>
+    {%- endif -%}
+  </div>
+</section>
+{%- endif -%}
+
+{% schema %}
+{
+  "name": "Datos técnicos",
+  "tag": "div",
+  "enabled_on": { "templates": ["product"] },
+  "settings": [
+    { "type": "text", "id": "heading", "label": "Título de datos técnicos", "default": "Datos técnicos" },
+    { "type": "text", "id": "condition_heading", "label": "Título de estado y observaciones", "default": "Estado y observaciones" },
+    { "type": "paragraph", "content": "Los grupos dependen de la categoría de la pieza. Los datos desconocidos no aparecen. Los documentos son opcionales y públicos: no subas documentación personal." }
+  ],
+  "presets": [
+    { "name": "Datos técnicos" }
+  ]
+}
+{% endschema %}

@@ -1,0 +1,154 @@
+{%- liquid
+  assign s = section.settings
+  assign per_page = settings.products_per_page | default: 12
+  assign uid = 'srch-' | append: section.id
+  assign grid_class = 'sd-grid'
+  if settings.mobile_columns == '2'
+    assign grid_class = grid_class | append: ' sd-grid--m2'
+  endif
+  capture wanted_url
+    render 'page-url', key: 'wanted'
+  endcapture
+  capture explore_url
+    render 'page-url', key: 'explore'
+  endcapture
+  assign load_more = settings.enable_load_more
+  assign terms = search.terms
+  assign terms_enc = terms | url_encode
+  assign clear_url = routes.search_url | append: '?q=' | append: terms_enc | append: '&type=product&options%5Bprefix%5D=last'
+  capture garage_url
+    render 'division-info', key: 'garage', out: 'url'
+  endcapture
+  capture harbor_url
+    render 'division-info', key: 'harbor', out: 'url'
+  endcapture
+  capture estate_url
+    render 'division-info', key: 'estate', out: 'url'
+  endcapture
+  capture garage_name
+    render 'division-info', key: 'garage', out: 'name'
+  endcapture
+  capture harbor_name
+    render 'division-info', key: 'harbor', out: 'name'
+  endcapture
+  capture estate_name
+    render 'division-info', key: 'estate', out: 'name'
+  endcapture
+-%}
+
+{%- paginate search.results by per_page -%}
+  {%- liquid
+    assign active_n = 0
+    for filter in search.filters
+      if filter.type == 'price_range'
+        if filter.min_value.value != blank or filter.max_value.value != blank
+          assign active_n = active_n | plus: 1
+        endif
+      else
+        assign active_n = active_n | plus: filter.active_values.size
+      endif
+    endfor
+    assign total = search.results_count
+  -%}
+  <section class="sd-listing" data-section-id="{{ section.id }}">
+    <div class="sd-container">
+      {%- render 'breadcrumbs' -%}
+      <header class="sd-listing__head">
+        <h1>{{ 'search.title' | t }}</h1>
+        <form class="sd-bigsearch" action="{{ routes.search_url }}" method="get" role="search">
+          <label class="sd-sr" for="{{ uid }}-q">{{ 'search.label' | t }}</label>
+          <input type="hidden" name="type" value="product">
+          <input type="hidden" name="options[prefix]" value="last">
+          <input id="{{ uid }}-q" class="sd-input" type="search" name="q" value="{{ terms | escape }}" placeholder="{{ 'search.placeholder' | t }}" autocomplete="off" enterkeyhint="search">
+          <button type="submit" class="sd-btn sd-btn--primary">{%- render 'icon', name: 'search', size: 20 -%}<span>{{ 'search.submit' | t }}</span></button>
+        </form>
+        <p class="sd-note">{{ 'search.text_only_note' | t }}</p>
+      </header>
+
+      {%- if search.performed and terms != blank -%}
+        <sd-facets class="sd-facets" data-section-id="{{ section.id }}" data-load-more="{{ load_more }}">
+          <form class="sd-facets-form" action="{{ routes.search_url }}" method="get" data-sd-facets-form>
+            <input type="hidden" name="q" value="{{ terms | escape }}">
+            <input type="hidden" name="type" value="product">
+            <input type="hidden" name="options[prefix]" value="last">
+            <div class="sd-listing__toolbar">
+              <button type="button" class="sd-btn sd-btn--secondary sd-filters-toggle" data-sd-open-filters aria-haspopup="dialog">
+                {%- render 'icon', name: 'filter', size: 20 -%}
+                <span>{{ 'facets.filters' | t }}</span>
+                <span data-sd-swap="toggle">{% if active_n > 0 %}({{ active_n }}){% endif %}</span>
+              </button>
+              <p class="sd-listing__count" data-sd-swap="count">{{ 'search.count' | t: count: total, terms: terms }}</p>
+              {%- render 'facets-sort', results: search, uid: uid -%}
+            </div>
+
+            <div class="sd-listing__layout">
+              <dialog class="sd-filters" open aria-labelledby="{{ uid }}-ftitle">
+                <div class="sd-filters__head">
+                  <h2 class="sd-filters__title" id="{{ uid }}-ftitle">{{ 'facets.filters' | t }}</h2>
+                  <button type="button" class="sd-iconbtn" data-sd-close-filters aria-label="{{ 'general.close' | t }}">{%- render 'icon', name: 'close', size: 24 -%}</button>
+                </div>
+                <div class="sd-filters__body" data-sd-swap="filters">
+                  {%- render 'facets-panel', results: search, uid: uid -%}
+                </div>
+                <div class="sd-filters__foot">
+                  <a class="sd-btn sd-btn--ghost" href="{{ clear_url }}" data-sd-facet-link>{{ 'facets.clear_all' | t }}</a>
+                  <button type="button" class="sd-btn sd-btn--primary" data-sd-close-filters><span data-sd-swap="apply">{{ 'facets.view_results' | t: count: total }}</span></button>
+                </div>
+                <noscript><button type="submit" class="sd-btn sd-btn--primary sd-nojs-only">{{ 'facets.apply' | t }}</button></noscript>
+              </dialog>
+
+              <div class="sd-results" data-sd-results aria-busy="false">
+                <div data-sd-swap="active">{%- render 'facets-active', results: search, clear_url: clear_url -%}</div>
+                <div data-sd-swap="grid">
+                  {%- if search.results.size > 0 -%}
+                    <ul class="{{ grid_class }}" role="list" data-sd-grid>
+                      {%- for item in search.results -%}
+                        {%- if item.object_type == 'product' -%}
+                          <li>{%- render 'listing-card', product: item, priority: forloop.first, sizes: '(min-width: 1024px) 26vw, (min-width: 600px) 45vw, 92vw' -%}</li>
+                        {%- endif -%}
+                      {%- endfor -%}
+                    </ul>
+                  {%- else -%}
+                    <div class="sd-empty">
+                      <h2>{{ 'search.empty_title' | t: terms: terms }}</h2>
+                      <p>{{ 'search.empty_text' | t }}</p>
+                      <div class="sd-empty__actions">
+                        {%- if active_n > 0 -%}
+                          <a class="sd-btn sd-btn--primary" href="{{ clear_url }}" data-sd-facet-link>{{ 'facets.clear_all' | t }}</a>
+                        {%- endif -%}
+                        <a class="sd-btn sd-btn--secondary" href="{{ explore_url | strip }}">{{ 'facets.explore_all' | t }}</a>
+                        <a class="sd-btn sd-btn--secondary" href="{{ wanted_url | strip }}">{{ 'facets.wanted_cta' | t }}</a>
+                      </div>
+                    </div>
+                  {%- endif -%}
+                </div>
+                <div data-sd-swap="pagination">{%- render 'pagination-nav', paginate: paginate, load_more: load_more -%}</div>
+              </div>
+            </div>
+          </form>
+        </sd-facets>
+      {%- else -%}
+        <div class="sd-empty">
+          <h2>{{ 'search.start_title' | t }}</h2>
+          <p>{{ 'search.start_text' | t }}</p>
+          <ul class="sd-chiprow" role="list">
+            <li class="sd-cat sd-cat--garage"><a class="sd-chip sd-chip--cat" href="{{ garage_url | strip }}">{{ garage_name | strip }}</a></li>
+            <li class="sd-cat sd-cat--harbor"><a class="sd-chip sd-chip--cat" href="{{ harbor_url | strip }}">{{ harbor_name | strip }}</a></li>
+            <li class="sd-cat sd-cat--estate"><a class="sd-chip sd-chip--cat" href="{{ estate_url | strip }}">{{ estate_name | strip }}</a></li>
+          </ul>
+        </div>
+      {%- endif -%}
+    </div>
+  </section>
+{%- endpaginate -%}
+
+{% schema %}
+{
+  "name": "Resultados de búsqueda",
+  "tag": "section",
+  "enabled_on": { "templates": ["search"] },
+  "settings": [
+    { "type": "paragraph", "content": "La búsqueda es textual (título, descripción, etiquetas, proveedor, tipo). No es una búsqueda semántica." }
+  ]
+}
+{% endschema %}

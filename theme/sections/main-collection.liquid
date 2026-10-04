@@ -1,0 +1,166 @@
+{%- liquid
+  assign s = section.settings
+  assign cat = s.category
+  assign per_page = settings.products_per_page | default: 12
+  assign uid = 'col-' | append: section.id
+  assign grid_class = 'sd-grid'
+  if settings.mobile_columns == '2'
+    assign grid_class = grid_class | append: ' sd-grid--m2'
+  endif
+  if cat != blank
+    capture cat_name
+      render 'division-info', key: cat, out: 'name'
+    endcapture
+    assign cat_name = cat_name | strip
+  endif
+  capture wanted_url
+    render 'page-url', key: 'wanted'
+  endcapture
+  capture sell_url
+    render 'page-url', key: 'sell'
+  endcapture
+  capture explore_url
+    render 'page-url', key: 'explore'
+  endcapture
+  assign load_more = settings.enable_load_more
+-%}
+
+{%- paginate collection.products by per_page -%}
+  {%- liquid
+    assign active_n = 0
+    for filter in collection.filters
+      if filter.type == 'price_range'
+        if filter.min_value.value != blank or filter.max_value.value != blank
+          assign active_n = active_n | plus: 1
+        endif
+      else
+        assign active_n = active_n | plus: filter.active_values.size
+      endif
+    endfor
+    assign total = collection.products_count
+  -%}
+  <section class="sd-listing{% if cat != blank %} sd-cat sd-cat--{{ cat }}{% endif %}" data-section-id="{{ section.id }}">
+    <div class="sd-container">
+      {%- render 'breadcrumbs' -%}
+      <header class="sd-listing__head">
+        {%- if cat != blank -%}
+          <p class="sd-eyebrow"><span class="sd-nav__dot" aria-hidden="true"></span>{{ settings.brand_name | default: shop.name }} {{ cat_name | upcase }}</p>
+        {%- elsif s.archive -%}
+          <p class="sd-eyebrow">{{ 'listing.archive_eyebrow' | t }}</p>
+        {%- endif -%}
+        <h1>{{ collection.title }}</h1>
+        {%- if s.intro != blank -%}
+          <p class="sd-lead">{{ s.intro }}</p>
+        {%- elsif collection.description != blank and s.show_description -%}
+          <div class="sd-prose sd-lead">{{ collection.description }}</div>
+        {%- endif -%}
+        {%- if s.archive -%}
+          <p class="sd-note">{{ 'listing.archive_note' | t }}</p>
+        {%- endif -%}
+      </header>
+
+      <sd-facets class="sd-facets" data-section-id="{{ section.id }}" data-load-more="{{ load_more }}">
+        <form class="sd-facets-form" action="{{ collection.url }}" method="get" data-sd-facets-form>
+          <div class="sd-listing__toolbar">
+            <button type="button" class="sd-btn sd-btn--secondary sd-filters-toggle" data-sd-open-filters aria-haspopup="dialog">
+              {%- render 'icon', name: 'filter', size: 20 -%}
+              <span>{{ 'facets.filters' | t }}</span>
+              <span data-sd-swap="toggle">{% if active_n > 0 %}({{ active_n }}){% endif %}</span>
+            </button>
+            <p class="sd-listing__count" data-sd-swap="count">{{ 'facets.count' | t: count: total }}</p>
+            {%- render 'facets-sort', results: collection, uid: uid -%}
+          </div>
+
+          <div class="sd-listing__layout">
+            <dialog class="sd-filters" open aria-labelledby="{{ uid }}-ftitle">
+              <div class="sd-filters__head">
+                <h2 class="sd-filters__title" id="{{ uid }}-ftitle">{{ 'facets.filters' | t }}</h2>
+                <button type="button" class="sd-iconbtn" data-sd-close-filters aria-label="{{ 'general.close' | t }}">{%- render 'icon', name: 'close', size: 24 -%}</button>
+              </div>
+              <div class="sd-filters__body" data-sd-swap="filters">
+                {%- render 'facets-panel', results: collection, uid: uid -%}
+              </div>
+              <div class="sd-filters__foot">
+                <a class="sd-btn sd-btn--ghost" href="{{ collection.url }}" data-sd-facet-link>{{ 'facets.clear_all' | t }}</a>
+                <button type="button" class="sd-btn sd-btn--primary" data-sd-close-filters><span data-sd-swap="apply">{{ 'facets.view_results' | t: count: total }}</span></button>
+              </div>
+              <noscript><button type="submit" class="sd-btn sd-btn--primary sd-nojs-only">{{ 'facets.apply' | t }}</button></noscript>
+            </dialog>
+
+            <div class="sd-results" data-sd-results aria-busy="false">
+              <div data-sd-swap="active">{%- render 'facets-active', results: collection, clear_url: collection.url -%}</div>
+              <div data-sd-swap="grid">
+                {%- if collection.products.size > 0 -%}
+                  <ul class="{{ grid_class }}" role="list" data-sd-grid>
+                    {%- for product in collection.products -%}
+                      <li>{%- render 'listing-card', product: product, priority: forloop.first, sizes: '(min-width: 1024px) 26vw, (min-width: 600px) 45vw, 92vw' -%}</li>
+                    {%- endfor -%}
+                  </ul>
+                {%- else -%}
+                  <div class="sd-empty">
+                    {%- if active_n > 0 -%}
+                      <h2>{{ 'facets.empty_filtered_title' | t }}</h2>
+                      <p>{{ 'facets.empty_filtered_text' | t }}</p>
+                      <div class="sd-empty__actions">
+                        <a class="sd-btn sd-btn--primary" href="{{ collection.url }}" data-sd-facet-link>{{ 'facets.clear_all' | t }}</a>
+                        <a class="sd-btn sd-btn--secondary" href="{{ wanted_url | strip }}">{{ 'facets.wanted_cta' | t }}</a>
+                      </div>
+                    {%- else -%}
+                      <h2>{{ 'facets.empty_title' | t }}</h2>
+                      <p>{{ 'facets.empty_text' | t }}</p>
+                      <div class="sd-empty__actions">
+                        <a class="sd-btn sd-btn--primary" href="{{ explore_url | strip }}">{{ 'facets.explore_all' | t }}</a>
+                        <a class="sd-btn sd-btn--secondary" href="{{ wanted_url | strip }}">{{ 'facets.wanted_cta' | t }}</a>
+                      </div>
+                      {%- if request.design_mode -%}
+                        <p class="sd-note">{{ 'facets.editor_hint' | t }}</p>
+                      {%- endif -%}
+                    {%- endif -%}
+                  </div>
+                {%- endif -%}
+              </div>
+              <div data-sd-swap="pagination">{%- render 'pagination-nav', paginate: paginate, load_more: load_more -%}</div>
+            </div>
+          </div>
+        </form>
+      </sd-facets>
+    </div>
+
+    {%- if s.archive -%}
+      <div class="sd-container sd-archivecta">
+        <div class="sd-notice">
+          <div>
+            <p class="sd-notice__title">{{ 'listing.archive_cta_title' | t }}</p>
+            <p>{{ 'listing.archive_cta_text' | t }}</p>
+            <a class="sd-btn sd-btn--primary" href="{{ wanted_url | strip }}">{{ 'listing.archive_cta_button' | t }}</a>
+          </div>
+        </div>
+      </div>
+    {%- endif -%}
+  </section>
+{%- endpaginate -%}
+
+{% schema %}
+{
+  "name": "Colección con filtros",
+  "tag": "section",
+  "enabled_on": { "templates": ["collection"] },
+  "settings": [
+    {
+      "type": "select",
+      "id": "category",
+      "label": "Acento de división",
+      "options": [
+        { "value": "", "label": "Ninguno (Explorar)" },
+        { "value": "garage", "label": "Garage" },
+        { "value": "harbor", "label": "Harbor" },
+        { "value": "estate", "label": "Estate" }
+      ],
+      "default": ""
+    },
+    { "type": "textarea", "id": "intro", "label": "Introducción", "info": "Si está vacía y activas la descripción, se usa la de la colección." },
+    { "type": "checkbox", "id": "show_description", "label": "Mostrar la descripción de la colección", "default": true },
+    { "type": "checkbox", "id": "archive", "label": "Modo archivo de vendidas", "info": "Muestra el aviso de archivo y la invitación a buscar algo parecido.", "default": false }
+  ]
+}
+{% endschema %}

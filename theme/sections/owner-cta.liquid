@@ -1,0 +1,56 @@
+{%- liquid
+  assign s = section.settings
+  capture sell_default
+    render 'page-url', key: 'sell'
+  endcapture
+  assign btn_url = s.button_url | default: sell_default | strip
+  assign btn_label = s.button_label
+  if btn_label == blank
+    assign btn_label = 'owner_cta.button' | t
+  endif
+  assign joiner = '?'
+  if btn_url contains '?'
+    assign joiner = '&'
+  endif
+  assign garage_name = settings.division_garage_name
+  assign harbor_name = settings.division_harbor_name
+  assign estate_name = settings.division_estate_name
+-%}
+<section class="sd-section sd-section--dark sd-ownercta" data-section-id="{{ section.id }}">
+  <div class="sd-container sd-ownercta__grid">
+    <div>
+      {%- if s.eyebrow != blank -%}<p class="sd-eyebrow">{{ s.eyebrow }}</p>{%- endif -%}
+      <h2>{{ s.heading }}</h2>
+      {%- if s.text != blank -%}<p class="sd-lead">{{ s.text }}</p>{%- endif -%}
+    </div>
+    <div class="sd-ownercta__actions">
+      <a class="sd-btn sd-btn--light" href="{{ btn_url }}"><span>{{ btn_label }}</span>{%- render 'icon', name: 'arrow-right', size: 18 -%}</a>
+      {%- if s.show_categories -%}
+        <ul class="sd-ownercta__cats" role="list">
+          <li class="sd-cat sd-cat--garage"><a href="{{ btn_url }}{{ joiner }}cat=garage"><span class="sd-nav__dot" aria-hidden="true"></span>{{ 'owner_cta.car' | t }}</a></li>
+          <li class="sd-cat sd-cat--harbor"><a href="{{ btn_url }}{{ joiner }}cat=harbor"><span class="sd-nav__dot" aria-hidden="true"></span>{{ 'owner_cta.boat' | t }}</a></li>
+          <li class="sd-cat sd-cat--estate"><a href="{{ btn_url }}{{ joiner }}cat=estate"><span class="sd-nav__dot" aria-hidden="true"></span>{{ 'owner_cta.house' | t }}</a></li>
+        </ul>
+      {%- endif -%}
+      <p class="sd-note">{{ 'owner_cta.note' | t }}</p>
+    </div>
+  </div>
+</section>
+
+{% schema %}
+{
+  "name": "Llamada a propietarios",
+  "tag": "section",
+  "settings": [
+    { "type": "text", "id": "eyebrow", "label": "Antetítulo", "default": "Para propietarios" },
+    { "type": "text", "id": "heading", "label": "Título", "default": "¿Tienes algo que merece ser contado?" },
+    { "type": "textarea", "id": "text", "label": "Texto", "default": "Cuéntanos qué es y qué lo hace especial. Estudiamos cada pieza con calma y te respondemos." },
+    { "type": "text", "id": "button_label", "label": "Texto del botón", "info": "Vacío = «Cuéntanos su historia»." },
+    { "type": "url", "id": "button_url", "label": "Enlace del botón", "info": "Vacío = página «Vender con Sidonia»." },
+    { "type": "checkbox", "id": "show_categories", "label": "Mostrar accesos directos Coche · Barco · Casa", "default": true }
+  ],
+  "presets": [
+    { "name": "Llamada a propietarios" }
+  ]
+}
+{% endschema %}

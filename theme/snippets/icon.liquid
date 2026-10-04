@@ -1,0 +1,75 @@
+{%- comment -%}
+  Iconos de interfaz (trazo 24x24). Parámetros: name, size (px, por defecto 20), class.
+  Son iconos funcionales; no forman parte de la identidad de marca.
+{%- endcomment -%}
+{%- liquid
+  assign s = size | default: 20
+-%}
+<svg class="sd-icon sd-icon--{{ name }}{% if class != blank %} {{ class }}{% endif %}" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="{{ s }}" height="{{ s }}" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+  {%- case name -%}
+    {%- when 'heart' -%}
+      <path d="M12 20.5s-7.2-4.4-9.3-9.2C1.2 7.9 3.1 4.5 6.6 4.5c2 0 3.5 1 5.4 3.1 1.9-2.1 3.4-3.1 5.4-3.1 3.5 0 5.4 3.400 3.900 6.800-2.100 4.800-9.300 9.200-9.300 9.200z"/>
+    {%- when 'heart-filled' -%}
+      <path fill="currentColor" d="M12 20.5s-7.2-4.4-9.3-9.2C1.2 7.9 3.1 4.5 6.6 4.5c2 0 3.5 1 5.4 3.1 1.9-2.1 3.4-3.1 5.4-3.1 3.5 0 5.4 3.400 3.900 6.800-2.100 4.800-9.300 9.200-9.300 9.200z"/>
+    {%- when 'play' -%}
+      <path fill="currentColor" stroke="none" d="M8 5.200v13.600a.6.6 0 00.9.5l10.800-6.800a.6.6 0 000-1L8.900 4.700a.6.6 0 00-.9.500z"/>
+    {%- when 'pause' -%}
+      <path fill="currentColor" stroke="none" d="M7 5h3.500v14H7zM13.500 5H17v14h-3.500z"/>
+    {%- when 'sound' -%}
+      <path d="M4 9.500h3.500L12 6v12l-4.500-3.500H4z"/><path d="M15.500 9.200a4 4 0 010 5.600M18.200 6.600a8 8 0 010 10.800"/>
+    {%- when 'close' -%}
+      <path d="M6 6l12 12M18 6L6 18"/>
+    {%- when 'menu' -%}
+      <path d="M4 7h16M4 12h16M4 17h16"/>
+    {%- when 'search' -%}
+      <circle cx="11" cy="11" r="6.500"/><path d="M16 16l4.500 4.500"/>
+    {%- when 'arrow-right' -%}
+      <path d="M5 12h14M13 6l6 6-6 6"/>
+    {%- when 'arrow-left' -%}
+      <path d="M19 12H5M11 6l-6 6 6 6"/>
+    {%- when 'arrow-up-right' -%}
+      <path d="M7 17L17 7M8 7h9v9"/>
+    {%- when 'share' -%}
+      <path d="M12 15V4M7.500 8.500L12 4l4.500 4.500M5 13v6.500h14V13"/>
+    {%- when 'chat' -%}
+      <path d="M4 5.500h16v11H9.500L4.500 20.500v-4H4z"/>
+    {%- when 'mail' -%}
+      <path d="M3.500 6h17v12h-17z"/><path d="M3.500 7.500l8.500 6.500 8.500-6.500"/>
+    {%- when 'phone' -%}
+      <path d="M6.500 3.500h3l1.500 4-2 1.500a11 11 0 005.500 5.500l1.500-2 4 1.500v3a2 2 0 01-2 2A15.500 15.500 0 014.500 5.500a2 2 0 012-2z"/>
+    {%- when 'check' -%}
+      <path d="M5 12.500l4.500 4.500L19 7.500"/>
+    {%- when 'chevron-down' -%}
+      <path d="M6 9l6 6 6-6"/>
+    {%- when 'chevron-right' -%}
+      <path d="M9 6l6 6-6 6"/>
+    {%- when 'plus' -%}
+      <path d="M12 5v14M5 12h14"/>
+    {%- when 'minus' -%}
+      <path d="M5 12h14"/>
+    {%- when 'pin' -%}
+      <path d="M12 21s6.500-5.800 6.500-11a6.500 6.500 0 00-13 0c0 5.200 6.500 11 6.500 11z"/><circle cx="12" cy="10" r="2.300"/>
+    {%- when 'filter' -%}
+      <path d="M4 7h8M16 7h4M4 17h4M12 17h8"/><circle cx="14" cy="7" r="2"/><circle cx="10" cy="17" r="2"/>
+    {%- when 'copy' -%}
+      <rect x="8.500" y="8.500" width="11" height="11" rx="2"/><path d="M15.500 8.500v-2a2 2 0 00-2-2h-7a2 2 0 00-2 2v7a2 2 0 002 2h2"/>
+    {%- when 'alert' -%}
+      <path d="M12 4l9 16H3z"/><path d="M12 10.500v4M12 17.500v.01"/>
+    {%- when 'external' -%}
+      <path d="M14 4h6v6M20 4l-9 9M18 14v5H5V6h5"/>
+    {%- when 'instagram' -%}
+      <rect x="4" y="4" width="16" height="16" rx="4.500"/><circle cx="12" cy="12" r="3.700"/><path d="M16.800 7.200v.01"/>
+    {%- when 'tiktok' -%}
+      <path d="M14 4v10.200a3.700 3.700 0 11-3.700-3.700M14 4c.4 2.600 2 4.200 4.500 4.400"/>
+    {%- when 'youtube' -%}
+      <rect x="3" y="6" width="18" height="12" rx="3.500"/><path fill="currentColor" stroke="none" d="M10.300 9.300v5.400l4.600-2.700z"/>
+    {%- when 'facebook' -%}
+      <path d="M14.500 20v-7h2.400l.4-3h-2.800V8.300c0-.9.300-1.500 1.600-1.500h1.300V4.200C17 4.100 16.300 4 15.400 4c-2.200 0-3.700 1.300-3.700 3.800V10H9.300v3h2.400v7"/>
+    {%- when 'clock' -%}
+      <circle cx="12" cy="12" r="8.500"/><path d="M12 7.500V12l3 2"/>
+    {%- when 'info' -%}
+      <circle cx="12" cy="12" r="8.500"/><path d="M12 11v5M12 8v.01"/>
+    {%- else -%}
+      <circle cx="12" cy="12" r="8.500"/>
+  {%- endcase -%}
+</svg>

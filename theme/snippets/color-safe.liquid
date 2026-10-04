@@ -1,0 +1,22 @@
+{%- comment -%}
+  Devuelve un color apto como texto sobre el fondo indicado (contraste >= 4,5:1).
+  Si el color no llega, se oscurece (fondo claro) o aclara (fondo oscuro) hasta cumplirlo.
+  Parámetros: color, against
+  Uso: {% capture c %}{% render 'color-safe', color: settings.color_garage, against: settings.color_surface_alt %}{% endcapture %}
+{%- endcomment -%}
+{%- liquid
+  assign out = color
+  assign bright = against | color_brightness
+  for i in (1..16)
+    assign ratio = out | color_contrast: against
+    if ratio >= 4.5
+      break
+    endif
+    if bright < 128
+      assign out = out | color_lighten: 4
+    else
+      assign out = out | color_darken: 4
+    endif
+  endfor
+  echo out
+-%}

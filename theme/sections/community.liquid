@@ -1,0 +1,127 @@
+{%- liquid
+  assign s = section.settings
+  assign nets = 'instagram,tiktok,youtube,facebook' | split: ','
+  assign net_count = 0
+  for n in nets
+    assign url_key = 'social_' | append: n | append: '_url'
+    assign fol_key = 'social_' | append: n | append: '_followers'
+    assign n_url = settings[url_key]
+    assign n_fol = settings[fol_key] | strip
+    if n_url != blank and n_fol != blank
+      assign net_count = net_count | plus: 1
+    endif
+  endfor
+  assign show_nets = false
+  if s.show_social and net_count > 0
+    assign show_nets = true
+  endif
+  assign has_statement = false
+  if s.statement_number != blank or s.statement_text != blank
+    assign has_statement = true
+  endif
+-%}
+{%- if has_statement or show_nets or section.blocks.size > 0 or request.design_mode -%}
+<section class="sd-section sd-community" data-section-id="{{ section.id }}">
+  <div class="sd-container">
+    {%- if s.heading != blank -%}
+      <div class="sd-section-head">
+        {%- if s.eyebrow != blank -%}<p class="sd-eyebrow">{{ s.eyebrow }}</p>{%- endif -%}
+        <h2>{{ s.heading }}</h2>
+      </div>
+    {%- endif -%}
+
+    <div class="sd-community__grid">
+      {%- if has_statement -%}
+        <div class="sd-community__fact">
+          {%- if s.statement_number != blank -%}<p class="sd-community__num">{{ s.statement_number }}</p>{%- endif -%}
+          {%- if s.statement_text != blank -%}<p class="sd-community__txt">{{ s.statement_text }}</p>{%- endif -%}
+        </div>
+      {%- endif -%}
+
+      {%- if show_nets or section.blocks.size > 0 -%}
+        <ul class="sd-metrics" role="list">
+          {%- if show_nets -%}
+            {%- for n in nets -%}
+              {%- assign url_key = 'social_' | append: n | append: '_url' -%}
+              {%- assign fol_key = 'social_' | append: n | append: '_followers' -%}
+              {%- assign n_url = settings[url_key] -%}
+              {%- assign n_fol = settings[fol_key] | strip -%}
+              {%- if n_url != blank and n_fol != blank -%}
+                <li class="sd-metric">
+                  <a class="sd-metric__link" href="{{ n_url }}" target="_blank" rel="noopener me">
+                    <span class="sd-metric__icon">{%- render 'icon', name: n, size: 26 -%}</span>
+                    <span class="sd-metric__value">{{ n_fol }}</span>
+                    <span class="sd-metric__label">
+                      {%- if n == 'youtube' -%}{{ 'community.subscribers_youtube' | t }}
+                      {%- else -%}{{ 'community.followers' | t }}{%- endif -%}
+                      <span class="sd-metric__net"> · {{ n | capitalize }}</span>
+                      <span class="sd-sr"> {{ 'general.opens_new_window' | t }}</span>
+                    </span>
+                  </a>
+                </li>
+              {%- endif -%}
+            {%- endfor -%}
+          {%- endif -%}
+          {%- for block in section.blocks -%}
+            {%- if block.settings.value != blank and block.settings.label != blank -%}
+              <li class="sd-metric" {{ block.shopify_attributes }}>
+                {%- if block.settings.link != blank -%}
+                  <a class="sd-metric__link" href="{{ block.settings.link }}">
+                {%- else -%}
+                  <div class="sd-metric__link">
+                {%- endif -%}
+                    <span class="sd-metric__value">{{ block.settings.value }}</span>
+                    <span class="sd-metric__label">{{ block.settings.label }}</span>
+                {%- if block.settings.link != blank -%}
+                  </a>
+                {%- else -%}
+                  </div>
+                {%- endif -%}
+              </li>
+            {%- endif -%}
+          {%- endfor -%}
+        </ul>
+      {%- endif -%}
+    </div>
+
+    {%- if show_nets and settings.social_metrics_updated != blank -%}
+      <p class="sd-note">{{ 'community.updated' | t: date: settings.social_metrics_updated }}</p>
+    {%- endif -%}
+    {%- if request.design_mode and show_nets == false -%}
+      <p class="sd-note">{{ 'community.editor_hint' | t }}</p>
+    {%- endif -%}
+  </div>
+</section>
+{%- endif -%}
+
+{% schema %}
+{
+  "name": "Confianza y comunidad",
+  "tag": "section",
+  "settings": [
+    { "type": "text", "id": "eyebrow", "label": "Antetítulo", "default": "Confianza" },
+    { "type": "text", "id": "heading", "label": "Título", "default": "Personas que ya nos han confiado su historia" },
+    { "type": "header", "content": "Dato del fundador" },
+    { "type": "paragraph", "content": "Significa clientes que han confiado en Sidonia. No lo presentes como ventas cerradas ni como testimonios." },
+    { "type": "text", "id": "statement_number", "label": "Cifra destacada", "default": "Más de 200" },
+    { "type": "text", "id": "statement_text", "label": "Texto", "default": "clientes han confiado en nosotros para vender sus propiedades" },
+    { "type": "header", "content": "Redes" },
+    { "type": "checkbox", "id": "show_social", "label": "Mostrar seguidores de las redes", "info": "Las cifras se escriben en Ajustes del tema > Redes y comunidad. Solo se publican las que tengan perfil y cifra.", "default": true }
+  ],
+  "blocks": [
+    {
+      "type": "metric",
+      "name": "Contador manual",
+      "settings": [
+        { "type": "text", "id": "value", "label": "Cifra" },
+        { "type": "text", "id": "label", "label": "Descripción" },
+        { "type": "url", "id": "link", "label": "Enlace (opcional)" }
+      ]
+    }
+  ],
+  "max_blocks": 4,
+  "presets": [
+    { "name": "Confianza y comunidad" }
+  ]
+}
+{% endschema %}

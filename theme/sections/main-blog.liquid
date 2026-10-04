@@ -1,0 +1,36 @@
+{%- paginate blog.articles by 9 -%}
+<section class="sd-section sd-blog" data-section-id="{{ section.id }}">
+  <div class="sd-container">
+    {%- render 'breadcrumbs' -%}
+    <h1>{{ blog.title }}</h1>
+    {%- if blog.articles.size > 0 -%}
+      <ul class="sd-grid" role="list">
+        {%- for article in blog.articles -%}
+          <li class="sd-article-card">
+            {%- if article.image != blank -%}
+              <a href="{{ article.url }}" tabindex="-1" aria-hidden="true" class="sd-article-card__media">{%- render 'sd-image', image: article.image, widths: '400,600,800', sizes: '(min-width: 1000px) 30vw, 92vw', decorative: true, cover: true -%}</a>
+            {%- endif -%}
+            <h2 class="sd-article-card__title"><a href="{{ article.url }}">{{ article.title }}</a></h2>
+            <p class="sd-note">{{ article.published_at | time_tag: '%d/%m/%Y' }}</p>
+            <p>{{ article.excerpt_or_content | strip_html | truncatewords: 30 }}</p>
+          </li>
+        {%- endfor -%}
+      </ul>
+      {%- render 'pagination-nav', paginate: paginate, load_more: false -%}
+    {%- else -%}
+      <div class="sd-empty"><h2>{{ 'blog.empty' | t }}</h2></div>
+    {%- endif -%}
+  </div>
+</section>
+{%- endpaginate -%}
+
+{% schema %}
+{
+  "name": "Blog",
+  "tag": "div",
+  "enabled_on": { "templates": ["blog"] },
+  "settings": [
+    { "type": "paragraph", "content": "Opcional: Historias o Journal con el blog de Shopify. No bloquea el lanzamiento." }
+  ]
+}
+{% endschema %}

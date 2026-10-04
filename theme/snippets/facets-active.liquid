@@ -1,0 +1,37 @@
+{%- comment -%}
+  Chips de filtros activos y «Limpiar todo». Parámetros: results, clear_url.
+{%- endcomment -%}
+{%- liquid
+  assign active_n = 0
+  for filter in results.filters
+    if filter.type == 'price_range'
+      if filter.min_value.value != blank or filter.max_value.value != blank
+        assign active_n = active_n | plus: 1
+      endif
+    else
+      assign active_n = active_n | plus: filter.active_values.size
+    endif
+  endfor
+-%}
+{%- if active_n > 0 -%}
+  <div class="sd-activebar" role="group" aria-label="{{ 'facets.active' | t }}">
+    {%- for filter in results.filters -%}
+      {%- if filter.type == 'price_range' -%}
+        {%- if filter.min_value.value != blank or filter.max_value.value != blank -%}
+          <a class="sd-chip sd-chip--filter" href="{{ filter.url_to_remove }}" data-sd-facet-link>
+            <span class="sd-sr">{{ 'facets.remove' | t }}: </span>{{ filter.label }}
+            {%- render 'icon', name: 'close', size: 16 -%}
+          </a>
+        {%- endif -%}
+      {%- else -%}
+        {%- for value in filter.active_values -%}
+          <a class="sd-chip sd-chip--filter" href="{{ value.url_to_remove }}" data-sd-facet-link>
+            <span class="sd-sr">{{ 'facets.remove' | t }}: </span>{{ filter.label }}: {{ value.label }}
+            {%- render 'icon', name: 'close', size: 16 -%}
+          </a>
+        {%- endfor -%}
+      {%- endif -%}
+    {%- endfor -%}
+    <a class="sd-btn sd-btn--ghost sd-btn--sm" href="{{ clear_url }}" data-sd-facet-link>{{ 'facets.clear_all' | t }}</a>
+  </div>
+{%- endif -%}

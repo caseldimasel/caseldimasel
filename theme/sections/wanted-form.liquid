@@ -1,0 +1,54 @@
+{%- liquid
+  assign s = section.settings
+  assign uid = 'want-' | append: section.id
+  assign l_submit = 'wanted.submit' | t
+-%}
+<section class="sd-section sd-wanted" id="busco" data-section-id="{{ section.id }}">
+  <div class="sd-container sd-container--narrow">
+    {%- if s.heading != blank -%}<h2>{{ s.heading }}</h2>{%- endif -%}
+    {%- if s.intro != blank -%}<p class="sd-lead">{{ s.intro }}</p>{%- endif -%}
+    <div class="sd-notice">
+      {%- render 'icon', name: 'info', size: 22 -%}
+      <p>{{ 'wanted.no_alerts' | t }}</p>
+    </div>
+
+    <sd-form class="sd-form-wrap" data-kind="wanted">
+      {%- form 'contact', id: uid, class: 'sd-form', novalidate: 'novalidate' -%}
+        {%- if form.posted_successfully? -%}
+          <div class="sd-notice sd-notice--success sd-form-success" role="status" tabindex="-1" data-sd-form-success>
+            {%- render 'icon', name: 'check', size: 22 -%}
+            <div>
+              <p class="sd-notice__title">{{ 'wanted.success_title' | t }}</p>
+              <p>{{ 'wanted.success_text' | t }}</p>
+              {%- if settings.contact_response_note != blank -%}<p>{{ settings.contact_response_note }}</p>{%- endif -%}
+            </div>
+          </div>
+        {%- else -%}
+          {%- render 'form-errors', form: form, uid: uid -%}
+          <div class="sd-form-status" role="status" aria-live="polite" data-sd-status></div>
+          <input type="hidden" name="contact[Tipo de consulta]" value="{{ 'wanted.kind' | t }}">
+          <input type="hidden" name="contact[tags]" value="busqueda">
+          {%- render 'form-field', uid: uid, name: 'contact[Categoría]', field: 'cat', type: 'select', label_key: 'wanted.f.cat_label', options_key: 'wanted.f.cat_options', value: '' -%}
+          {%- render 'form-field', uid: uid, name: 'contact[body]', field: 'body', type: 'textarea', label_key: 'wanted.f.body_label', help_key: 'wanted.f.body_help', required: true, value: form.body, errors: form.errors, rows: 5 -%}
+          {%- render 'form-field', uid: uid, name: 'contact[Zona]', field: 'area', type: 'text', label_key: 'wanted.f.area_label', value: '' -%}
+          {%- render 'form-field', uid: uid, name: 'contact[Presupuesto orientativo]', field: 'budget', type: 'text', label_key: 'wanted.f.budget_label', help_key: 'wanted.f.budget_help', value: '' -%}
+          {%- render 'form-person-fields', form: form, uid: uid, phone_required: false, submit_label: l_submit -%}
+        {%- endif -%}
+      {%- endform -%}
+    </sd-form>
+  </div>
+</section>
+
+{% schema %}
+{
+  "name": "Cuéntanos qué buscas",
+  "tag": "div",
+  "settings": [
+    { "type": "text", "id": "heading", "label": "Título", "default": "Cuéntanos qué buscas" },
+    { "type": "textarea", "id": "intro", "label": "Introducción", "default": "Si no encuentras lo que buscas, dinos qué te gustaría y lo tendremos en cuenta." }
+  ],
+  "presets": [
+    { "name": "Cuéntanos qué buscas" }
+  ]
+}
+{% endschema %}

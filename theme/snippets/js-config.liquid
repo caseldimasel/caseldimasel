@@ -1,0 +1,62 @@
+{%- comment -%}
+  Configuración pública para los scripts del tema. No contiene secretos, tokens ni datos personales.
+  Las cadenas viajan traducidas desde locales/*.json (sidonia usa {marcadores} simples en JS).
+{%- endcomment -%}
+<script type="application/json" id="sd-config">
+{
+  "locale": {{ request.locale.iso_code | json }},
+  "routes": {
+    "root": {{ routes.root_url | json }},
+    "search": {{ routes.search_url | json }},
+    "predictiveSearch": {{ routes.predictive_search_url | json }}
+  },
+  "video": {
+    "externalConsent": {{ settings.video_external_consent | json }}
+  },
+  "analytics": {
+    "enabled": {{ settings.analytics_enabled | json }},
+    "sinkShopify": {{ settings.analytics_sink_shopify | json }},
+    "sinkDataLayer": {{ settings.analytics_sink_datalayer | json }},
+    "requireConsent": {{ settings.analytics_require_consent | json }}
+  },
+  "strings": {
+    "favorites.save": {{ 'favorites.save' | t | json }},
+    "favorites.saved": {{ 'favorites.saved' | t | json }},
+    "favorites.added_announce": {{ 'favorites.added_announce' | t | json }},
+    "favorites.removed_announce": {{ 'favorites.removed_announce' | t | json }},
+    "favorites.warn_session": {{ 'favorites.warn_session' | t | json }},
+    "favorites.warn_memory": {{ 'favorites.warn_memory' | t | json }},
+    "favorites.warn_corrupt": {{ 'favorites.warn_corrupt' | t | json }},
+    "favorites.warn_fetch": {{ 'favorites.warn_fetch' | t | json }},
+    "favorites.confirm_title": {{ 'favorites.confirm_title' | t | json }},
+    "favorites.count_one": {{ 'favorites.count_one' | t | json }},
+    "favorites.count_other": {{ 'favorites.count_other' | t | json }},
+    "favorites.link_count": {{ 'favorites.link_count' | t | json }},
+    "favorites.link_empty": {{ 'favorites.link_empty' | t | json }},
+    "video.subtitles_label": {{ 'video.subtitles_label' | t | json }},
+    "video.retry": {{ 'video.retry' | t | json }},
+    "video.error": {{ 'video.error' | t | json }},
+    "video.consent_button": {{ 'video.consent_button' | t | json }},
+    "video.consent_text": {{ 'video.consent_text' | t | json }},
+    "video.see_listing": {{ 'video.see_listing' | t | json }},
+    "search.suggestions_count": {{ 'search.suggestions_count' | t | json }},
+    "search.no_suggestions": {{ 'search.no_suggestions' | t | json }},
+    "product.copy_link": {{ 'product.copy_link' | t | json }},
+    "product.link_copied": {{ 'product.link_copied' | t | json }},
+    "forms.err_privacy": {{ 'forms.err_privacy' | t | json }},
+    "forms.err_required": {{ 'forms.err_required' | t | json }},
+    "forms.err_email": {{ 'forms.err_email' | t | json }},
+    "forms.err_url": {{ 'forms.err_url' | t | json }},
+    "forms.err_number": {{ 'forms.err_number' | t | json }},
+    "forms.err_invalid": {{ 'forms.err_invalid' | t | json }},
+    "forms.err_choose": {{ 'forms.err_choose' | t | json }},
+    "forms.review_one": {{ 'forms.review_one' | t | json }},
+    "forms.review_other": {{ 'forms.review_other' | t | json }},
+    "forms.sending": {{ 'forms.sending' | t | json }},
+    "forms.network_error": {{ 'forms.network_error' | t | json }},
+    "sell.step_announce": {{ 'sell.step_announce' | t | json }},
+    "sell.err_category": {{ 'sell.err_category' | t | json }},
+    "facets.loaded_more": {{ 'facets.loaded_more' | t | json }}
+  }
+}
+</script>

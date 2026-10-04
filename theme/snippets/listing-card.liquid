@@ -1,0 +1,100 @@
+{%- comment -%}
+  Tarjeta de pieza. Reutilizable en colecciones, búsqueda, selección, favoritos y relacionadas.
+
+  Estructura de accesibilidad: el enlace a la ficha es el título; el enlace de la portada es
+  decorativo (aria-hidden, fuera del orden de tabulación). Reproducir y Guardar son botones
+  hermanos, nunca hijos de un enlace.
+
+  Parámetros: product, priority (bool), sizes, show_hook (por defecto true), card_class
+{%- endcomment -%}
+{%- liquid
+  capture cat
+    render 'listing-category', product: product
+  endcapture
+  assign cat = cat | strip
+  capture status
+    render 'listing-status', product: product
+  endcapture
+  assign status = status | strip
+  capture price_kind
+    render 'listing-price', product: product, out: 'kind'
+  endcapture
+  assign price_kind = price_kind | strip
+  capture price_text
+    render 'listing-price', product: product
+  endcapture
+  capture place
+    render 'listing-location', product: product
+  endcapture
+  assign place = place | strip
+  capture vattrs
+    render 'video-attrs', product: product, max_height: 720
+  endcapture
+  assign vattrs = vattrs | strip
+  assign hook = product.metafields.sidonia.hook.value
+  assign show_hook_line = show_hook | default: true
+  assign img = product.featured_image
+  assign card_sizes = sizes | default: '(min-width: 1024px) 28vw, (min-width: 600px) 45vw, 92vw'
+  if cat != blank
+    capture cat_name
+      render 'division-info', key: cat, out: 'name'
+    endcapture
+    assign cat_name = cat_name | strip
+  endif
+  assign dur_sec = product.metafields.sidonia.video_duration.value
+  capture dur_text
+    render 'video-duration', seconds: dur_sec
+  endcapture
+  assign dur_text = dur_text | strip
+-%}
+<article
+  class="sd-card{% if cat != blank %} sd-cat sd-cat--{{ cat }}{% endif %}{% if status != blank %} sd-card--{{ status }}{% endif %}{% if card_class != blank %} {{ card_class }}{% endif %}"
+  data-product-id="{{ product.id }}"
+  data-product-handle="{{ product.handle }}"
+>
+  <div class="sd-card__media">
+    <a class="sd-card__cover" href="{{ product.url }}" tabindex="-1" aria-hidden="true">
+      {%- if img != blank -%}
+        {%- render 'sd-image', image: img, widths: '320,480,640,800,1000', sizes: card_sizes, priority: priority, class: 'sd-card__img', decorative: true, cover: true -%}
+      {%- else -%}
+        <span class="sd-card__placeholder" aria-hidden="true">{{ cat_name | default: settings.brand_name }}</span>
+      {%- endif -%}
+    </a>
+
+    {%- if status == 'sold' or status == 'reserved' -%}
+      <div class="sd-card__badges">{% render 'status-chip', status: status %}</div>
+    {%- endif -%}
+
+    {%- if vattrs != blank -%}
+      <button type="button" class="sd-play" data-sd-play {{ vattrs }} aria-label="{{ 'listing.play_aria' | t: title: product.title }}">
+        <span class="sd-play__icon">{%- render 'icon', name: 'play', size: 20 -%}</span>
+        <span class="sd-play__label">{{ 'listing.watch' | t }}</span>
+        {%- if dur_text != blank -%}<span class="sd-play__time">{{ dur_text }}</span>{%- endif -%}
+      </button>
+    {%- endif -%}
+
+    {%- render 'save-button', product: product, variant: 'card' -%}
+  </div>
+
+  <div class="sd-card__body">
+    <p class="sd-card__meta">
+      {%- if cat != blank -%}<span class="sd-card__cat">{{ cat_name }}</span>{%- endif -%}
+      {%- if place != blank -%}<span class="sd-card__place">{%- render 'icon', name: 'pin', size: 14 -%}{{ place }}</span>{%- endif -%}
+    </p>
+    <h3 class="sd-card__title"><a class="sd-card__link" href="{{ product.url }}">{{ product.title }}</a></h3>
+    {%- if hook != blank and show_hook_line -%}
+      <p class="sd-card__hook">{{ hook }}</p>
+    {%- endif -%}
+    {%- capture specs -%}{%- render 'listing-specs', product: product, category: cat, limit: 3 -%}{%- endcapture -%}
+    {%- assign specs = specs | strip -%}
+    {%- if specs != blank -%}
+      <ul class="sd-card__facts" role="list">{{ specs }}</ul>
+    {%- endif -%}
+    <p class="sd-card__foot">
+      <span class="sd-price sd-price--{{ price_kind }}">{{ price_text }}</span>
+      {%- if status == 'available' -%}
+        {%- render 'status-chip', status: status -%}
+      {%- endif -%}
+    </p>
+  </div>
+</article>

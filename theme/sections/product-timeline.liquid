@@ -1,0 +1,45 @@
+{%- liquid
+  assign s = section.settings
+  assign entries = product.metafields.sidonia.timeline.value
+-%}
+{%- if entries.size > 0 or request.design_mode -%}
+<section class="sd-section sd-ptimeline" data-section-id="{{ section.id }}">
+  <div class="sd-container sd-container--narrow">
+    <h2>{{ s.heading }}</h2>
+    {%- if entries.size > 0 -%}
+      <ol class="sd-timeline" role="list">
+        {%- for entry in entries -%}
+          <li class="sd-timeline__item">
+            <p class="sd-timeline__when">{{ entry.period.value | escape }}</p>
+            <div>
+              <h3 class="sd-timeline__title">{{ entry.title.value | escape }}</h3>
+              {%- if entry.description.value != blank -%}<p>{{ entry.description.value | escape }}</p>{%- endif -%}
+            </div>
+          </li>
+        {%- endfor -%}
+      </ol>
+      <p class="sd-note">{{ 'product.timeline_note' | t }}</p>
+    {%- else -%}
+      <div class="sd-empty">
+        <h3>{{ 'product.timeline_empty_title' | t }}</h3>
+        <p>{{ 'product.timeline_empty_text' | t }}</p>
+      </div>
+    {%- endif -%}
+  </div>
+</section>
+{%- endif -%}
+
+{% schema %}
+{
+  "name": "Cronología",
+  "tag": "div",
+  "enabled_on": { "templates": ["product"] },
+  "settings": [
+    { "type": "text", "id": "heading", "label": "Título", "default": "Cronología" },
+    { "type": "paragraph", "content": "Lee el metacampo sidonia.timeline (lista de metaobjetos «Hito de cronología»). Solo fechas reales y autorizadas. Se oculta si está vacío." }
+  ],
+  "presets": [
+    { "name": "Cronología" }
+  ]
+}
+{% endschema %}

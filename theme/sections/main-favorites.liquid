@@ -1,0 +1,105 @@
+{%- liquid
+  assign s = section.settings
+  capture explore_url
+    render 'page-url', key: 'explore'
+  endcapture
+  capture garage_url
+    render 'division-info', key: 'garage', out: 'url'
+  endcapture
+  capture harbor_url
+    render 'division-info', key: 'harbor', out: 'url'
+  endcapture
+  capture estate_url
+    render 'division-info', key: 'estate', out: 'url'
+  endcapture
+  capture garage_name
+    render 'division-info', key: 'garage', out: 'name'
+  endcapture
+  capture harbor_name
+    render 'division-info', key: 'harbor', out: 'name'
+  endcapture
+  capture estate_name
+    render 'division-info', key: 'estate', out: 'name'
+  endcapture
+  assign grid_class = 'sd-grid'
+  if settings.mobile_columns == '2'
+    assign grid_class = grid_class | append: ' sd-grid--m2'
+  endif
+-%}
+<section class="sd-section sd-favpage" data-section-id="{{ section.id }}">
+  <div class="sd-container">
+    <header class="sd-listing__head">
+      {%- render 'breadcrumbs' -%}
+      <h1>{{ s.heading }}</h1>
+      <p class="sd-lead">{{ s.text }}</p>
+      <p class="sd-note sd-favpage__local"><span data-sd-fav-storage-note>{{ 'favorites.local_note' | t }}</span></p>
+    </header>
+
+    <sd-favorites-page class="sd-favpage__app" data-card-url-suffix="view=card">
+      <div class="sd-favpage__bar" data-sd-fav-bar hidden>
+        <p class="sd-favpage__count" data-sd-fav-count-text></p>
+        <button type="button" class="sd-btn sd-btn--secondary sd-btn--sm" data-sd-fav-clear>{{ 'favorites.clear' | t }}</button>
+      </div>
+
+      <div class="sd-notice sd-notice--error" data-sd-fav-warning hidden>
+        {%- render 'icon', name: 'alert', size: 22 -%}
+        <p data-sd-fav-warning-text></p>
+      </div>
+
+      <p class="sd-note" data-sd-fav-loading hidden role="status">{{ 'favorites.loading' | t }}</p>
+
+      <ul class="{{ grid_class }}" role="list" data-sd-fav-grid></ul>
+
+      <div class="sd-empty" data-sd-fav-empty>
+        <h2>{{ 'favorites.empty_title' | t }}</h2>
+        <p>{{ 'favorites.empty_text' | t }}</p>
+        <ul class="sd-chiprow" role="list">
+          <li><a class="sd-chip sd-chip--cat" href="{{ explore_url | strip }}">{{ 'header.explore' | t }}</a></li>
+          <li class="sd-cat sd-cat--garage"><a class="sd-chip sd-chip--cat" href="{{ garage_url | strip }}">{{ garage_name | strip }}</a></li>
+          <li class="sd-cat sd-cat--harbor"><a class="sd-chip sd-chip--cat" href="{{ harbor_url | strip }}">{{ harbor_name | strip }}</a></li>
+          <li class="sd-cat sd-cat--estate"><a class="sd-chip sd-chip--cat" href="{{ estate_url | strip }}">{{ estate_name | strip }}</a></li>
+        </ul>
+      </div>
+
+      <noscript><p class="sd-notice">{{ 'favorites.noscript' | t }}</p></noscript>
+
+      <template data-sd-fav-removed>
+        <li class="sd-favremoved">
+          <article class="sd-card sd-card--removed">
+            <div class="sd-card__body">
+              <p class="sd-card__cat">{{ 'favorites.removed_label' | t }}</p>
+              <h3 class="sd-card__title" data-sd-fav-removed-title></h3>
+              <p class="sd-card__hook">{{ 'favorites.removed_text' | t }}</p>
+              <button type="button" class="sd-btn sd-btn--secondary sd-btn--sm" data-sd-fav-remove>{{ 'favorites.remove' | t }}</button>
+            </div>
+          </article>
+        </li>
+      </template>
+
+      <dialog class="sd-confirm" data-sd-fav-confirm aria-labelledby="fav-confirm-title-{{ section.id }}">
+        <form method="dialog" class="sd-confirm__inner">
+          <h2 id="fav-confirm-title-{{ section.id }}" class="sd-confirm__title">{{ 'favorites.confirm_title' | t }}</h2>
+          <p>{{ 'favorites.confirm_text' | t }}</p>
+          <div class="sd-confirm__actions">
+            <button type="submit" value="cancel" class="sd-btn sd-btn--secondary">{{ 'general.cancel' | t }}</button>
+            <button type="submit" value="confirm" class="sd-btn sd-btn--primary">{{ 'favorites.clear' | t }}</button>
+          </div>
+        </form>
+      </dialog>
+    </sd-favorites-page>
+  </div>
+</section>
+
+{% schema %}
+{
+  "name": "Favoritos",
+  "tag": "div",
+  "settings": [
+    { "type": "text", "id": "heading", "label": "Título", "default": "Tus favoritos" },
+    { "type": "textarea", "id": "text", "label": "Texto", "default": "Las piezas que has guardado en este navegador. Su estado y precio se consultan de nuevo cada vez que abres esta página." }
+  ],
+  "presets": [
+    { "name": "Favoritos" }
+  ]
+}
+{% endschema %}

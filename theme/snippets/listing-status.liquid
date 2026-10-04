@@ -1,0 +1,15 @@
+{%- comment -%}
+  Estado editorial: available, reserved o sold (vacío si no consta).
+  Es independiente del inventario de Shopify: la disponibilidad de compra NO se usa para esto.
+{%- endcomment -%}
+{%- liquid
+  assign s = product.metafields.sidonia.status.value | downcase | strip
+  case s
+    when 'disponible', 'available'
+      echo 'available'
+    when 'reservado', 'reserved'
+      echo 'reserved'
+    when 'vendido', 'sold'
+      echo 'sold'
+  endcase
+-%}

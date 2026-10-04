@@ -1,0 +1,102 @@
+{%- liquid
+  assign s = section.settings
+  assign product = s.product
+-%}
+{%- if product != blank or request.design_mode -%}
+<section class="sd-section sd-story" data-section-id="{{ section.id }}">
+  <div class="sd-container">
+    {%- if product != blank -%}
+      {%- liquid
+        capture cat
+          render 'listing-category', product: product
+        endcapture
+        assign cat = cat | strip
+        capture vattrs
+          render 'video-attrs', product: product
+        endcapture
+        assign vattrs = vattrs | strip
+        capture place
+          render 'listing-location', product: product
+        endcapture
+        assign place = place | strip
+        assign story_mf = product.metafields.sidonia.story
+        assign excerpt = story_mf | metafield_text | strip | truncatewords: s.excerpt_words
+        if excerpt == blank
+          assign excerpt = product.metafields.sidonia.why_special.value | default: product.metafields.sidonia.hook.value
+        endif
+        assign cover = product.featured_image
+        assign dur_sec = product.metafields.sidonia.video_duration.value
+        capture dur_text
+          render 'video-duration', seconds: dur_sec
+        endcapture
+        assign dur_text = dur_text | strip
+        if cat != blank
+          capture cat_name
+            render 'division-info', key: cat, out: 'name'
+          endcapture
+          assign cat_name = cat_name | strip
+        endif
+      -%}
+      <div class="sd-story__grid{% if cat != blank %} sd-cat sd-cat--{{ cat }}{% endif %}">
+        <div class="sd-story__media">
+          <div class="sd-vplayer__stage" style="--sd-vratio: 0.5625">
+            {%- if cover != blank -%}
+              {%- render 'sd-image', image: cover, widths: '480,640,800,1000', sizes: '(min-width: 900px) 40vw, 92vw', class: 'sd-vplayer__poster', decorative: true, cover: true -%}
+            {%- else -%}
+              <span class="sd-vplayer__poster-fallback" aria-hidden="true">{{ product.title }}</span>
+            {%- endif -%}
+            {%- if vattrs != blank -%}
+              <button type="button" class="sd-vplayer__start" data-sd-play {{ vattrs }} aria-label="{{ 'listing.play_aria' | t: title: product.title }}">
+                <span class="sd-play__icon">{%- render 'icon', name: 'play', size: 20 -%}</span>
+                <span>{{ 'video.watch_story' | t }}</span>
+                {%- if dur_text != blank -%}<span class="sd-play__time">{{ dur_text }}</span>{%- endif -%}
+              </button>
+            {%- endif -%}
+          </div>
+        </div>
+        <div class="sd-story__copy">
+          {%- if s.eyebrow != blank -%}<p class="sd-eyebrow">{{ s.eyebrow }}</p>{%- endif -%}
+          <h2>{{ s.heading }}</h2>
+          {%- if s.text != blank -%}<p class="sd-lead">{{ s.text }}</p>{%- endif -%}
+          <div class="sd-story__piece">
+            <p class="sd-card__meta">
+              {%- if cat_name != blank -%}<span class="sd-card__cat">{{ cat_name }}</span>{%- endif -%}
+              {%- if place != blank -%}<span class="sd-card__place">{%- render 'icon', name: 'pin', size: 14 -%}{{ place }}</span>{%- endif -%}
+            </p>
+            <h3>{{ product.title }}</h3>
+            {%- if excerpt != blank -%}<blockquote class="sd-story__excerpt">{{ excerpt }}</blockquote>{%- endif -%}
+          </div>
+          <a class="sd-btn sd-btn--primary" href="{{ product.url }}"><span>{{ 'video.see_listing' | t }}</span>{%- render 'icon', name: 'arrow-right', size: 18 -%}</a>
+        </div>
+      </div>
+    {%- else -%}
+      <div class="sd-empty">
+        <h3>{{ 'story.editor_empty_title' | t }}</h3>
+        <p>{{ 'story.editor_empty_text' | t }}</p>
+      </div>
+    {%- endif -%}
+  </div>
+</section>
+{%- endif -%}
+
+{% schema %}
+{
+  "name": "Una historia concreta",
+  "tag": "section",
+  "settings": [
+    { "type": "product", "id": "product", "label": "Pieza real", "info": "Si no eliges ninguna, el bloque se oculta fuera del editor. Usa una pieza publicada de verdad, no una de prueba." },
+    { "type": "text", "id": "eyebrow", "label": "Antetítulo", "default": "Así lo contamos" },
+    { "type": "text", "id": "heading", "label": "Título", "default": "Una historia, contada de principio a fin" },
+    {
+      "type": "textarea",
+      "id": "text",
+      "label": "Qué hacemos al contar una pieza",
+      "default": "Vamos a ver la pieza, hablamos con su propietario y la grabamos. Después la contamos en vídeo, con una narración pensada para escucharla."
+    },
+    { "type": "range", "id": "excerpt_words", "label": "Palabras del extracto", "min": 30, "max": 120, "step": 10, "default": 60 }
+  ],
+  "presets": [
+    { "name": "Una historia concreta" }
+  ]
+}
+{% endschema %}

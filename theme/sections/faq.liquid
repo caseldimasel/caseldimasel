@@ -1,0 +1,61 @@
+{%- liquid
+  assign s = section.settings
+-%}
+{%- if section.blocks.size > 0 -%}
+<section class="sd-section sd-faq" data-section-id="{{ section.id }}">
+  <div class="sd-container sd-faq__grid">
+    <div class="sd-faq__head">
+      {%- if s.eyebrow != blank -%}<p class="sd-eyebrow">{{ s.eyebrow }}</p>{%- endif -%}
+      <h2>{{ s.heading }}</h2>
+      {%- if s.text != blank -%}<p class="sd-lead">{{ s.text }}</p>{%- endif -%}
+    </div>
+    <div class="sd-faq__list">
+      {%- for block in section.blocks -%}
+        <details class="sd-qa" {{ block.shopify_attributes }}>
+          <summary class="sd-qa__q">
+            <span>{{ block.settings.question }}</span>
+            {%- render 'icon', name: 'chevron-down', size: 22 -%}
+          </summary>
+          <div class="sd-qa__a sd-prose">{{ block.settings.answer }}</div>
+        </details>
+      {%- endfor -%}
+    </div>
+  </div>
+</section>
+{%- endif -%}
+
+{% schema %}
+{
+  "name": "Preguntas frecuentes",
+  "tag": "section",
+  "settings": [
+    { "type": "text", "id": "eyebrow", "label": "Antetítulo", "default": "Dudas habituales" },
+    { "type": "text", "id": "heading", "label": "Título", "default": "Preguntas frecuentes" },
+    { "type": "textarea", "id": "text", "label": "Texto" },
+    { "type": "paragraph", "content": "Las tarifas, la exclusividad y los plazos no se inventan: añade esa pregunta solo cuando hayas decidido la respuesta real." }
+  ],
+  "blocks": [
+    {
+      "type": "question",
+      "name": "Pregunta",
+      "settings": [
+        { "type": "text", "id": "question", "label": "Pregunta", "default": "Pregunta" },
+        { "type": "richtext", "id": "answer", "label": "Respuesta", "default": "<p>Respuesta.</p>" }
+      ]
+    }
+  ],
+  "max_blocks": 14,
+  "presets": [
+    {
+      "name": "Preguntas frecuentes",
+      "blocks": [
+        { "type": "question", "settings": { "question": "¿Qué piezas seleccionáis?", "answer": "<p>Piezas con historia, carácter, diseño, singularidad, cuidado o una procedencia interesante. No hace falta que sean caras ni antiguas: lo que importa es que haya algo que contar.</p>" } },
+        { "type": "question", "settings": { "question": "¿Qué información necesitáis para estudiar mi pieza?", "answer": "<p>Qué es, dónde está, qué la hace especial, cuál es tu relación con ella y cómo prefieres que te contactemos. Puedes añadir un enlace a un vídeo, una carpeta o un anuncio existente. En esta fase no pedimos escrituras, DNI ni documentación sensible.</p>" } },
+        { "type": "question", "settings": { "question": "¿Cómo es la grabación?", "answer": "<p>Vamos a ver la pieza y la grabamos para contar su historia. La fecha, el lugar y lo que necesitamos de ti lo acordamos contigo después de contactar.</p>" } },
+        { "type": "question", "settings": { "question": "¿Cómo pido información sobre una pieza?", "answer": "<p>Desde su ficha puedes escribirnos por WhatsApp o por correo, o usar el formulario. Todos los canales incluyen el nombre y la referencia de la pieza.</p>" } },
+        { "type": "question", "settings": { "question": "¿Qué ocurre después de contactar?", "answer": "<p>Revisamos tu mensaje y te respondemos por el canal que prefieras. Si la pieza encaja, hablamos de cómo trabajar juntos. Enviar la solicitud no implica ningún compromiso de venta por ninguna de las partes.</p>" } }
+      ]
+    }
+  ]
+}
+{% endschema %}

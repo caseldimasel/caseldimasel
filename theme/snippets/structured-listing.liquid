@@ -1,0 +1,122 @@
+{%- comment -%}
+  Datos estructurados de una pieza (JSON-LD). Reglas:
+  - Nunca se emite una oferta con precio 0, a consultar o no publicado.
+  - La oferta solo existe si hay precio publicado y la pieza está Disponible (estado editorial).
+  - No se inventan valoraciones, reseñas ni disponibilidad.
+  - VideoObject solo con vídeo alojado (URL pública) o YouTube, y con portada.
+  Parámetros: product, category, status
+{%- endcomment -%}
+{%- liquid
+  assign mf = product.metafields.sidonia
+  capture price_kind
+    render 'listing-price', product: product, out: 'kind'
+  endcapture
+  assign price_kind = price_kind | strip
+  capture price_amount
+    render 'listing-price', product: product, out: 'amount'
+  endcapture
+  assign price_amount = price_amount | strip
+  capture price_cur
+    render 'listing-price', product: product, out: 'currency'
+  endcapture
+  assign price_cur = price_cur | strip
+  assign desc = mf.why_special.value | default: mf.hook.value | default: product.description
+  assign desc = desc | strip_html | strip | truncate: 500
+  assign ref = mf.reference.value | strip
+  assign cover = product.featured_image
+  assign prec = mf.location_precision.value | downcase | strip
+  assign pub_date = product.published_at | date: '%Y-%m-%d'
+-%}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  {%- if category == 'garage' -%}
+  "@type": "Car",
+  {%- elsif category == 'estate' -%}
+  "@type": "RealEstateListing",
+  {%- else -%}
+  "@type": "Product",
+  {%- endif -%}
+  "name": {{ product.title | json }},
+  "url": {{ canonical_url | json }}
+  {%- if desc != blank -%}, "description": {{ desc | json }}{%- endif -%}
+  {%- if cover != blank -%}, "image": {{ cover | image_url: width: 1200 | replace: 'https:', '' | prepend: 'https:' | json }}{%- endif -%}
+  {%- if ref != blank -%}, "sku": {{ ref | json }}{%- endif -%}
+
+  {%- if category == 'garage' -%}
+    {%- if mf.brand.value != blank -%}, "brand": { "@type": "Brand", "name": {{ mf.brand.value | json }} }{%- endif -%}
+    {%- if mf.model.value != blank -%}, "model": {{ mf.model.value | json }}{%- endif -%}
+    {%- if mf.year.value != blank -%}, "productionDate": {{ mf.year.value | append: '' | json }}{%- endif -%}
+    {%- if mf.mileage_km.value != blank -%}, "mileageFromOdometer": { "@type": "QuantitativeValue", "value": {{ mf.mileage_km.value | json }}, "unitCode": "KMT" }{%- endif -%}
+    {%- if mf.fuel.value != blank -%}, "fuelType": {{ mf.fuel.value | json }}{%- endif -%}
+    {%- if mf.gearbox.value != blank -%}, "vehicleTransmission": {{ mf.gearbox.value | json }}{%- endif -%}
+    {%- if mf.color.value != blank -%}, "color": {{ mf.color.value | json }}{%- endif -%}
+  {%- elsif category == 'harbor' -%}
+    , "category": "Boat"
+    {%- if mf.builder.value != blank -%}, "brand": { "@type": "Brand", "name": {{ mf.builder.value | json }} }{%- endif -%}
+    {%- if mf.model.value != blank -%}, "model": {{ mf.model.value | json }}{%- endif -%}
+    {%- if mf.year.value != blank -%}, "productionDate": {{ mf.year.value | append: '' | json }}{%- endif -%}
+    {%- if mf.length_m.value != blank -%}, "additionalProperty": [{ "@type": "PropertyValue", "name": "LOA", "value": {{ mf.length_m.value | json }}, "unitCode": "MTR" }]{%- endif -%}
+  {%- elsif category == 'estate' -%}
+    , "datePosted": {{ pub_date | json }}
+    , "about": {
+      "@type": "Accommodation"
+      {%- if mf.bedrooms.value != blank -%}, "numberOfBedrooms": {{ mf.bedrooms.value | json }}{%- endif -%}
+      {%- if mf.bathrooms.value != blank -%}, "numberOfBathroomsTotal": {{ mf.bathrooms.value | json }}{%- endif -%}
+      {%- if mf.area_value.value != blank -%}, "floorSize": { "@type": "QuantitativeValue", "value": {{ mf.area_value.value | json }}, "unitCode": "MTK" }{%- endif -%}
+      {%- if mf.region.value != blank or mf.country.value != blank -%}
+        , "address": { "@type": "PostalAddress"
+          {%- if prec == 'ciudad' or prec == 'city' -%}{%- if mf.city.value != blank -%}, "addressLocality": {{ mf.city.value | json }}{%- endif -%}{%- endif -%}
+          {%- if prec != 'país' and prec != 'pais' and prec != 'country' -%}{%- if mf.region.value != blank -%}, "addressRegion": {{ mf.region.value | json }}{%- endif -%}{%- endif -%}
+          {%- if mf.country.value != blank -%}, "addressCountry": {{ mf.country.value | json }}{%- endif -%}
+        }
+      {%- endif -%}
+    }
+  {%- endif -%}
+
+  {%- if price_kind == 'published' and status == 'available' and category != 'estate' -%}
+    , "offers": {
+      "@type": "Offer",
+      "price": {{ price_amount | json }},
+      "priceCurrency": {{ price_cur | json }},
+      "availability": "https://schema.org/InStock",
+      "url": {{ canonical_url | json }}
+    }
+  {%- endif -%}
+}
+</script>
+
+{%- capture v_kind -%}{%- render 'video-attrs', product: product, out: 'kind' -%}{%- endcapture -%}
+{%- assign v_kind = v_kind | strip -%}
+{%- if v_kind == 'file' or v_kind == 'youtube' -%}
+  {%- capture v_src -%}{%- render 'video-attrs', product: product, out: 'src' -%}{%- endcapture -%}
+  {%- capture v_id -%}{%- render 'video-attrs', product: product, out: 'id' -%}{%- endcapture -%}
+  {%- capture v_poster -%}{%- render 'video-attrs', product: product, out: 'poster' -%}{%- endcapture -%}
+  {%- capture v_dur -%}{%- render 'video-attrs', product: product, out: 'duration' -%}{%- endcapture -%}
+  {%- assign v_src = v_src | strip -%}
+  {%- assign v_id = v_id | strip -%}
+  {%- assign v_poster = v_poster | strip | replace: 'https:', '' | prepend: 'https:' -%}
+  {%- assign v_dur = v_dur | strip -%}
+  {%- if v_poster != 'https:' and desc != blank -%}
+    {%- if v_src != blank or v_id != blank -%}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "VideoObject",
+  "name": {{ product.title | json }},
+  "description": {{ desc | json }},
+  "thumbnailUrl": [{{ v_poster | json }}],
+  "uploadDate": {{ pub_date | json }}
+  {%- if v_src != blank -%}, "contentUrl": {{ v_src | replace: 'https:', '' | prepend: 'https:' | json }}{%- endif -%}
+  {%- if v_kind == 'youtube' -%}, "embedUrl": {{ v_id | prepend: 'https://www.youtube.com/embed/' | json }}{%- endif -%}
+  {%- if v_dur != blank -%}
+    {%- assign d_total = v_dur | plus: 0 -%}
+    {%- assign d_min = d_total | divided_by: 60 -%}
+    {%- assign d_sec = d_total | modulo: 60 -%}
+    , "duration": "PT{{ d_min }}M{{ d_sec }}S"
+  {%- endif -%}
+}
+</script>
+    {%- endif -%}
+  {%- endif -%}
+{%- endif -%}

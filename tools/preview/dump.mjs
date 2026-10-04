@@ -1,0 +1,11 @@
+import { createStore, createRenderer } from './server.mjs';
+import { writeFileSync, mkdirSync } from 'node:fs';
+const [,, route = '/', profile = 'full', out = '/tmp/dump.html'] = process.argv;
+const store = createStore(profile);
+const r = createRenderer(store);
+const u = new URL(route, 'http://x');
+const query = {};
+u.searchParams.forEach((v, k) => (query[k] = query[k] || []).push(v));
+const res = r.renderRequest({ path: u.pathname, query, sectionId: query.section_id?.[0] });
+writeFileSync(out, res.html);
+console.log(res.status, res.html.length);

@@ -1,0 +1,34 @@
+{%- comment -%}
+  Selector de orden. Solo ofrece ordenaciones reales de Shopify: selección editorial (manual), novedades,
+  relevancia (búsqueda) y precio (solo si se activa en Ajustes del tema). Parámetros: results, uid.
+{%- endcomment -%}
+{%- assign sort_by = results.sort_by | default: results.default_sort_by -%}
+<div class="sd-listing__sort">
+  <label class="sd-label" for="{{ uid }}-sort">{{ 'facets.sort' | t }}</label>
+  <select class="sd-select" id="{{ uid }}-sort" name="sort_by" data-sd-sort>
+    {%- for option in results.sort_options -%}
+      {%- liquid
+        assign label = ''
+        case option.value
+          when 'manual'
+            assign label = 'facets.sort_editorial' | t
+          when 'created-descending'
+            assign label = 'facets.sort_newest' | t
+          when 'relevance'
+            assign label = 'facets.sort_relevance' | t
+          when 'price-ascending'
+            if settings.enable_price_sort
+              assign label = 'facets.sort_price_asc' | t
+            endif
+          when 'price-descending'
+            if settings.enable_price_sort
+              assign label = 'facets.sort_price_desc' | t
+            endif
+        endcase
+      -%}
+      {%- if label != blank -%}
+        <option value="{{ option.value }}"{% if option.value == sort_by %} selected="selected"{% endif %}>{{ label }}</option>
+      {%- endif -%}
+    {%- endfor -%}
+  </select>
+</div>

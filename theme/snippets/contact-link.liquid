@@ -1,0 +1,116 @@
+{%- comment -%}
+  Construye enlaces de contacto. No emite nada si el canal no está configurado
+  (nunca se genera un enlace con datos de ejemplo).
+
+  Parámetros:
+    kind     = whatsapp | email | tel
+    product  = pieza (opcional)
+    category = garage | harbor | estate (opcional, para usar el contacto de la división)
+    sold     = true si la pieza está vendida (mensaje de «algo parecido»)
+    url      = URL canónica de la pieza (opcional; por defecto se calcula con el handle)
+{%- endcomment -%}
+{%- liquid
+  assign cat = category | downcase
+  assign target = ''
+  if kind == 'whatsapp'
+    if cat != blank
+      capture raw
+        render 'division-info', key: cat, out: 'whatsapp'
+      endcapture
+    else
+      assign raw = settings.contact_whatsapp
+    endif
+    assign raw = raw | strip
+  elsif kind == 'email'
+    if cat != blank
+      capture raw
+        render 'division-info', key: cat, out: 'email'
+      endcapture
+    else
+      assign raw = settings.contact_email
+    endif
+    assign raw = raw | strip
+  else
+    assign raw = settings.contact_phone | strip
+  endif
+
+  if kind == 'whatsapp' or kind == 'tel'
+    assign digits = raw | replace: '+', '' | replace: ' ', '' | replace: '-', '' | replace: '(', '' | replace: ')', '' | replace: '.', ''
+    if digits.size > 2
+      assign first2 = digits | slice: 0, 2
+      if first2 == '00'
+        assign digits = digits | slice: 2, digits.size
+      endif
+    endif
+    assign valid = true
+    if digits.size < 8 or digits.size > 15
+      assign valid = false
+    endif
+    if valid
+      assign chars = digits | split: ''
+      for ch in chars
+        unless '0123456789' contains ch
+          assign valid = false
+          break
+        endunless
+      endfor
+    endif
+  elsif kind == 'email'
+    assign valid = false
+    if raw contains '@' and raw contains '.' and raw.size > 5
+      assign has_space = false
+      if raw contains ' '
+        assign has_space = true
+      endif
+      unless has_space
+        assign valid = true
+      endunless
+    endif
+  endif
+
+  if valid
+    if product != blank
+      assign p_name = product.title
+      assign p_ref = product.metafields.sidonia.reference.value | strip
+      if p_ref == blank
+        assign p_ref = product.selected_or_first_available_variant.sku | strip
+      endif
+      if p_ref == blank
+        assign p_ref = product.handle
+      endif
+      if url != blank
+        assign p_url = url
+      else
+        assign p_url = shop.url | append: '/products/' | append: product.handle
+      endif
+    endif
+
+    if kind == 'whatsapp'
+      if product != blank
+        if sold
+          assign msg = settings.whatsapp_message_sold
+        else
+          assign msg = settings.whatsapp_message
+        endif
+        assign msg = msg | replace: '[nombre]', p_name | replace: '[referencia]', p_ref | replace: '[url]', p_url
+      else
+        assign msg = settings.whatsapp_message_general
+      endif
+      assign enc = msg | url_encode | replace: '+', '%20'
+      assign target = 'https://wa.me/' | append: digits | append: '?text=' | append: enc
+    elsif kind == 'email'
+      if product != blank
+        assign subj = settings.email_subject | replace: '[nombre]', p_name | replace: '[referencia]', p_ref | replace: '[url]', p_url
+        assign body = settings.email_body | replace: '[nombre]', p_name | replace: '[referencia]', p_ref | replace: '[url]', p_url
+        assign subj_enc = subj | url_encode | replace: '+', '%20'
+        assign body_enc = body | url_encode | replace: '+', '%20' | replace: '%0A', '%0D%0A'
+        assign target = 'mailto:' | append: raw | append: '?subject=' | append: subj_enc | append: '&body=' | append: body_enc
+      else
+        assign target = 'mailto:' | append: raw
+      endif
+    else
+      assign target = 'tel:+' | append: digits
+    endif
+  endif
+  echo target
+-%}

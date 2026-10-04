@@ -1,0 +1,33 @@
+{%- comment -%}
+  Ubicación pública según la precisión elegida (nunca dirección exacta).
+  Precisión: Ciudad = ciudad, región · Región = región, país · País = país. Sin dato: región.
+{%- endcomment -%}
+{%- liquid
+  assign city = product.metafields.sidonia.city.value | strip
+  assign region = product.metafields.sidonia.region.value | strip
+  assign country = product.metafields.sidonia.country.value | strip
+  assign prec = product.metafields.sidonia.location_precision.value | downcase | strip
+  assign out = ''
+  if prec == 'ciudad' or prec == 'city'
+    assign out = city
+    if region != blank
+      if out != blank
+        assign out = out | append: ', ' | append: region
+      else
+        assign out = region
+      endif
+    endif
+  elsif prec == 'país' or prec == 'pais' or prec == 'country'
+    assign out = country
+  else
+    assign out = region
+    if country != blank
+      if out != blank
+        assign out = out | append: ', ' | append: country
+      else
+        assign out = country
+      endif
+    endif
+  endif
+  echo out
+-%}

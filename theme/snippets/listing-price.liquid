@@ -1,0 +1,49 @@
+{%- comment -%}
+  Precio editorial de una pieza. Nunca usa el precio de la variante de Shopify.
+  Parámetros: product, out = 'text' (por defecto) | 'kind' | 'amount' | 'currency'
+  kind: published | request | hidden
+{%- endcomment -%}
+{%- liquid
+  assign mode = product.metafields.sidonia.price_mode.value | downcase | strip
+  assign amount = product.metafields.sidonia.price_amount.value
+  assign cur = product.metafields.sidonia.price_currency.value | strip | upcase
+  if cur == blank
+    assign cur = shop.currency
+  endif
+  assign kind = 'hidden'
+  if mode == 'a consultar' or mode == 'consultar' or mode == 'request'
+    assign kind = 'request'
+  elsif mode == 'publicado' or mode == 'published'
+    if amount != blank
+      if amount > 0
+        assign kind = 'published'
+      endif
+    endif
+  endif
+  case out
+    when 'kind'
+      echo kind
+    when 'amount'
+      if kind == 'published'
+        echo amount
+      endif
+    when 'currency'
+      echo cur
+    else
+      if kind == 'published'
+        render 'format-amount', amount: amount, currency: cur
+      elsif kind == 'request'
+        if settings.label_price_request != blank
+          echo settings.label_price_request
+        else
+          echo 'listing.price_request' | t
+        endif
+      else
+        if settings.label_price_hidden != blank
+          echo settings.label_price_hidden
+        else
+          echo 'listing.price_hidden' | t
+        endif
+      endif
+  endcase
+-%}

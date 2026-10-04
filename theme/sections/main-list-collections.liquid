@@ -1,0 +1,22 @@
+<section class="sd-section" data-section-id="{{ section.id }}">
+  <div class="sd-container">
+    {%- render 'breadcrumbs' -%}
+    <h1>{{ 'collections.title' | t }}</h1>
+    <ul class="sd-grid" role="list">
+      {%- for collection in collections -%}
+        <li class="sd-article-card">
+          <h2 class="sd-article-card__title"><a href="{{ collection.url }}">{{ collection.title }}</a></h2>
+          {%- if collection.description != blank -%}<p>{{ collection.description | strip_html | truncatewords: 24 }}</p>{%- endif -%}
+        </li>
+      {%- endfor -%}
+    </ul>
+  </div>
+</section>
+
+{% schema %}
+{
+  "name": "Lista de colecciones",
+  "tag": "div",
+  "enabled_on": { "templates": ["list-collections"] }
+}
+{% endschema %}

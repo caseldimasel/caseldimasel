@@ -1,0 +1,105 @@
+{%- liquid
+  assign s = section.settings
+  assign mf = product.metafields.sidonia
+  assign uid = 'inq-' | append: section.id
+  capture cat
+    render 'listing-category', product: product
+  endcapture
+  assign cat = cat | strip
+  capture status
+    render 'listing-status', product: product
+  endcapture
+  assign status = status | strip
+  assign ref = mf.reference.value | strip
+  if ref == blank
+    assign ref = product.handle
+  endif
+  assign is_sold = false
+  if status == 'sold'
+    assign is_sold = true
+  endif
+  if cat != blank
+    capture cat_name
+      render 'division-info', key: cat, out: 'name'
+    endcapture
+    assign cat_name = cat_name | strip
+  endif
+  assign kind_label = 'inquiry.kind_piece' | t
+  assign heading = s.heading
+  assign intro = s.intro
+  assign submit_label = 'inquiry.submit' | t
+  assign msg_label = 'inquiry.message' | t
+  if is_sold
+    assign kind_label = 'inquiry.kind_similar' | t
+    assign heading = 'inquiry.heading_similar' | t
+    assign intro = 'inquiry.intro_similar' | t
+    assign submit_label = 'inquiry.submit_similar' | t
+    assign msg_label = 'inquiry.message_similar' | t
+  endif
+  if heading == blank
+    assign heading = 'inquiry.heading' | t
+  endif
+  assign cover = product.featured_image
+-%}
+<section class="sd-section sd-inquiry{% if cat != blank %} sd-cat sd-cat--{{ cat }}{% endif %}" id="consulta" data-section-id="{{ section.id }}">
+  <div class="sd-container sd-container--narrow">
+    <h2>{{ heading }}</h2>
+    {%- if intro != blank -%}<p class="sd-lead">{{ intro }}</p>{%- endif -%}
+
+    <div class="sd-inqpiece">
+      {%- if cover != blank -%}
+        {%- render 'sd-image', image: cover, widths: '96,192,288', sizes: '72px', class: 'sd-inqpiece__img', decorative: true, cover: true -%}
+      {%- endif -%}
+      <div>
+        <p class="sd-inqpiece__label">{{ 'inquiry.consulting' | t }}</p>
+        <p class="sd-inqpiece__title">{{ product.title | escape }}</p>
+        <p class="sd-inqpiece__meta">{{ 'product.reference' | t }}: {{ ref | escape }}{% if cat_name != blank %} · {{ cat_name }}{% endif %}</p>
+      </div>
+    </div>
+
+    <sd-form class="sd-form-wrap" data-kind="inquiry" data-category="{{ cat }}">
+      {%- form 'contact', id: uid, class: 'sd-form', novalidate: 'novalidate' -%}
+        {%- if form.posted_successfully? -%}
+          <div class="sd-notice sd-notice--success sd-form-success" role="status" tabindex="-1" data-sd-form-success>
+            {%- render 'icon', name: 'check', size: 22 -%}
+            <div>
+              <p class="sd-notice__title">{{ 'inquiry.success_title' | t }}</p>
+              <p>{{ 'inquiry.success_text' | t: title: product.title }}</p>
+              {%- if settings.contact_response_note != blank -%}<p>{{ settings.contact_response_note }}</p>{%- endif -%}
+            </div>
+          </div>
+        {%- else -%}
+          {%- render 'form-errors', form: form, uid: uid -%}
+          <div class="sd-form-status" role="status" aria-live="polite" data-sd-status></div>
+          <input type="hidden" name="contact[Tipo de consulta]" value="{{ kind_label }}">
+          <input type="hidden" name="contact[Pieza]" value="{{ product.title | escape }}">
+          <input type="hidden" name="contact[Referencia]" value="{{ ref | escape }}">
+          <input type="hidden" name="contact[Categoría]" value="{{ cat_name | default: cat }}">
+          <input type="hidden" name="contact[URL del anuncio]" value="{{ canonical_url }}">
+          <input type="hidden" name="contact[tags]" value="consulta-pieza{% if cat != blank %},{{ cat }}{% endif %}">
+          {%- render 'form-field', uid: uid, name: 'contact[body]', field: 'body', type: 'textarea', label: msg_label, required: true, value: form.body, errors: form.errors, rows: 5 -%}
+          {%- render 'form-person-fields', form: form, uid: uid, phone_required: false, submit_label: submit_label -%}
+          {%- unless is_sold -%}
+            <p class="sd-note">{{ 'inquiry.not_a_reservation' | t }}</p>
+          {%- endunless -%}
+        {%- endif -%}
+      {%- endform -%}
+    </sd-form>
+  </div>
+</section>
+
+{% schema %}
+{
+  "name": "Formulario de consulta",
+  "tag": "div",
+  "enabled_on": { "templates": ["product"] },
+  "settings": [
+    { "type": "text", "id": "heading", "label": "Título", "info": "Vacío = «Consulta sobre esta pieza»." },
+    { "type": "textarea", "id": "intro", "label": "Introducción" },
+    { "type": "paragraph", "content": "Usa el formulario de contacto nativo de Shopify. El destinatario es el correo del contacto de la tienda (Ajustes > Notificaciones). La pieza, la referencia, la categoría y la URL viajan en el mensaje." }
+  ],
+  "presets": [
+    { "name": "Formulario de consulta" }
+  ]
+}
+{% endschema %}

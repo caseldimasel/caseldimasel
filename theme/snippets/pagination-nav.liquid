@@ -1,0 +1,32 @@
+{%- comment -%}
+  Paginación real con enlaces. «Cargar más» es una mejora progresiva (sd-facets.js) que usa la misma URL siguiente.
+  Parámetros: paginate, load_more (bool)
+{%- endcomment -%}
+{%- if paginate.pages > 1 -%}
+  <nav class="sd-pagination{% if load_more and paginate.next %} has-loadmore{% endif %}" aria-label="{{ 'facets.pagination' | t }}" data-sd-pagination>
+    {%- if load_more and paginate.next -%}
+      <div class="sd-loadmore is-active">
+        <button type="button" class="sd-btn sd-btn--secondary" data-sd-load-more data-next-url="{{ paginate.next.url }}">{{ 'facets.load_more' | t }}</button>
+      </div>
+    {%- endif -%}
+    <ul class="sd-pagination__list" role="list">
+      {%- if paginate.previous -%}
+        <li><a class="sd-pagination__link" href="{{ paginate.previous.url }}" rel="prev" data-sd-facet-link>{%- render 'icon', name: 'arrow-left', size: 18 -%}<span class="sd-sr">{{ 'facets.previous' | t }}</span></a></li>
+      {%- endif -%}
+      {%- for part in paginate.parts -%}
+        <li>
+          {%- if part.is_link -%}
+            <a class="sd-pagination__link" href="{{ part.url }}" data-sd-facet-link><span class="sd-sr">{{ 'facets.page' | t }} </span>{{ part.title }}</a>
+          {%- elsif part.title == paginate.current_page -%}
+            <span class="sd-pagination__link" aria-current="page"><span class="sd-sr">{{ 'facets.page' | t }} </span>{{ part.title }}</span>
+          {%- else -%}
+            <span class="sd-pagination__link" aria-hidden="true">{{ part.title }}</span>
+          {%- endif -%}
+        </li>
+      {%- endfor -%}
+      {%- if paginate.next -%}
+        <li><a class="sd-pagination__link" href="{{ paginate.next.url }}" rel="next" data-sd-facet-link>{%- render 'icon', name: 'arrow-right', size: 18 -%}<span class="sd-sr">{{ 'facets.next' | t }}</span></a></li>
+      {%- endif -%}
+    </ul>
+  </nav>
+{%- endif -%}

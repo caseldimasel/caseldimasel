@@ -1,0 +1,155 @@
+{%- comment -%}
+  Datos técnicos de una pieza como filas <div><dt><dd></div> (dentro de un <dl>). Solo se emiten los datos conocidos:
+  un valor vacío no se convierte en cero ni en «desconocido».
+  Parámetros: product, category, mode = key | identity | mechanics | look | dimensions | engine | admin | property | layout | energy
+{%- endcomment -%}
+{%- liquid
+  assign mf = product.metafields.sidonia
+  assign unit_default = 'm²'
+  assign area_unit = mf.area_unit.value | default: unit_default
+-%}
+{%- if category == 'garage' -%}
+  {%- liquid
+    assign v_brand = mf.brand.value
+    assign v_model = mf.model.value
+    assign v_version = mf.version.value
+    assign v_year = mf.year.value
+    assign v_fuel = mf.fuel.value
+    assign v_gear = mf.gearbox.value
+    assign v_color = mf.color.value
+    assign v_km = ''
+    if mf.mileage_km.value != blank
+      capture v_km
+        render 'format-number', n: mf.mileage_km.value
+        echo '&nbsp;km'
+      endcapture
+    endif
+    assign v_power = ''
+    if mf.power_hp.value != blank
+      capture v_power
+        render 'format-number', n: mf.power_hp.value
+        echo '&nbsp;CV'
+      endcapture
+    endif
+  -%}
+  {%- if mode == 'key' -%}
+    {%- if v_year != blank -%}{%- assign l = 'specs.year' | t -%}{%- render 'fact-row', label: l, value: v_year -%}{%- endif -%}
+    {%- if v_km != blank -%}{%- assign l = 'specs.mileage' | t -%}{%- render 'fact-row', label: l, value: v_km -%}{%- endif -%}
+    {%- if v_gear != blank -%}{%- assign l = 'specs.gearbox' | t -%}{%- render 'fact-row', label: l, value: v_gear -%}{%- endif -%}
+    {%- if v_fuel != blank -%}{%- assign l = 'specs.fuel' | t -%}{%- render 'fact-row', label: l, value: v_fuel -%}{%- endif -%}
+    {%- if v_power != blank -%}{%- assign l = 'specs.power' | t -%}{%- render 'fact-row', label: l, value: v_power -%}{%- endif -%}
+    {%- if v_color != blank -%}{%- assign l = 'specs.color' | t -%}{%- render 'fact-row', label: l, value: v_color -%}{%- endif -%}
+  {%- elsif mode == 'identity' -%}
+    {%- if v_brand != blank -%}{%- assign l = 'specs.brand' | t -%}{%- render 'fact-row', label: l, value: v_brand -%}{%- endif -%}
+    {%- if v_model != blank -%}{%- assign l = 'specs.model' | t -%}{%- render 'fact-row', label: l, value: v_model -%}{%- endif -%}
+    {%- if v_version != blank -%}{%- assign l = 'specs.version' | t -%}{%- render 'fact-row', label: l, value: v_version -%}{%- endif -%}
+    {%- if v_year != blank -%}{%- assign l = 'specs.year' | t -%}{%- render 'fact-row', label: l, value: v_year -%}{%- endif -%}
+  {%- elsif mode == 'mechanics' -%}
+    {%- if v_fuel != blank -%}{%- assign l = 'specs.fuel' | t -%}{%- render 'fact-row', label: l, value: v_fuel -%}{%- endif -%}
+    {%- if v_gear != blank -%}{%- assign l = 'specs.gearbox' | t -%}{%- render 'fact-row', label: l, value: v_gear -%}{%- endif -%}
+    {%- if v_power != blank -%}{%- assign l = 'specs.power' | t -%}{%- render 'fact-row', label: l, value: v_power -%}{%- endif -%}
+    {%- if v_km != blank -%}{%- assign l = 'specs.mileage' | t -%}{%- render 'fact-row', label: l, value: v_km -%}{%- endif -%}
+  {%- elsif mode == 'look' -%}
+    {%- if v_color != blank -%}{%- assign l = 'specs.color' | t -%}{%- render 'fact-row', label: l, value: v_color -%}{%- endif -%}
+  {%- endif -%}
+
+{%- elsif category == 'harbor' -%}
+  {%- liquid
+    assign v_builder = mf.builder.value
+    assign v_model = mf.model.value
+    assign v_type = mf.boat_type.value
+    assign v_year = mf.year.value
+    assign v_engine = mf.engine.value
+    assign v_tax = mf.tax_regime.value
+    assign v_loa = ''
+    if mf.length_m.value != blank
+      capture v_loa
+        render 'format-number', n: mf.length_m.value, decimals: 2
+        echo '&nbsp;m'
+      endcapture
+    endif
+    assign v_beam = ''
+    if mf.beam_m.value != blank
+      capture v_beam
+        render 'format-number', n: mf.beam_m.value, decimals: 2
+        echo '&nbsp;m'
+      endcapture
+    endif
+    assign v_hours = ''
+    if mf.engine_hours.value != blank
+      capture v_hours
+        render 'format-number', n: mf.engine_hours.value
+        echo '&nbsp;h'
+      endcapture
+    endif
+  -%}
+  {%- if mode == 'key' -%}
+    {%- if v_year != blank -%}{%- assign l = 'specs.year' | t -%}{%- render 'fact-row', label: l, value: v_year -%}{%- endif -%}
+    {%- if v_loa != blank -%}{%- assign l = 'specs.length' | t -%}{%- render 'fact-row', label: l, value: v_loa -%}{%- endif -%}
+    {%- if v_type != blank -%}{%- assign l = 'specs.boat_type' | t -%}{%- render 'fact-row', label: l, value: v_type -%}{%- endif -%}
+    {%- if v_builder != blank -%}{%- assign l = 'specs.builder' | t -%}{%- render 'fact-row', label: l, value: v_builder -%}{%- endif -%}
+    {%- if v_engine != blank -%}{%- assign l = 'specs.engine' | t -%}{%- render 'fact-row', label: l, value: v_engine -%}{%- endif -%}
+    {%- if v_hours != blank -%}{%- assign l = 'specs.hours' | t -%}{%- render 'fact-row', label: l, value: v_hours -%}{%- endif -%}
+  {%- elsif mode == 'identity' -%}
+    {%- if v_builder != blank -%}{%- assign l = 'specs.builder' | t -%}{%- render 'fact-row', label: l, value: v_builder -%}{%- endif -%}
+    {%- if v_model != blank -%}{%- assign l = 'specs.model' | t -%}{%- render 'fact-row', label: l, value: v_model -%}{%- endif -%}
+    {%- if v_type != blank -%}{%- assign l = 'specs.boat_type' | t -%}{%- render 'fact-row', label: l, value: v_type -%}{%- endif -%}
+    {%- if v_year != blank -%}{%- assign l = 'specs.year' | t -%}{%- render 'fact-row', label: l, value: v_year -%}{%- endif -%}
+  {%- elsif mode == 'dimensions' -%}
+    {%- if v_loa != blank -%}{%- assign l = 'specs.length' | t -%}{%- render 'fact-row', label: l, value: v_loa -%}{%- endif -%}
+    {%- if v_beam != blank -%}{%- assign l = 'specs.beam' | t -%}{%- render 'fact-row', label: l, value: v_beam -%}{%- endif -%}
+  {%- elsif mode == 'engine' -%}
+    {%- if v_engine != blank -%}{%- assign l = 'specs.engine' | t -%}{%- render 'fact-row', label: l, value: v_engine -%}{%- endif -%}
+    {%- if v_hours != blank -%}{%- assign l = 'specs.hours' | t -%}{%- render 'fact-row', label: l, value: v_hours -%}{%- endif -%}
+  {%- elsif mode == 'admin' -%}
+    {%- if v_tax != blank -%}{%- assign l = 'specs.tax_regime' | t -%}{%- render 'fact-row', label: l, value: v_tax -%}{%- endif -%}
+  {%- endif -%}
+
+{%- elsif category == 'estate' -%}
+  {%- liquid
+    assign v_type = mf.property_type.value
+    assign v_period = mf.built_period.value
+    assign v_energy = mf.energy_rating.value
+    assign v_area = ''
+    if mf.area_value.value != blank
+      capture v_area
+        render 'format-number', n: mf.area_value.value, decimals: 2
+        echo '&nbsp;'
+        echo area_unit
+      endcapture
+    endif
+    assign v_plot = ''
+    if mf.plot_area.value != blank
+      capture v_plot
+        render 'format-number', n: mf.plot_area.value, decimals: 2
+        echo '&nbsp;m²'
+      endcapture
+    endif
+    assign v_beds = ''
+    if mf.bedrooms.value != blank
+      assign v_beds = 'specs.bedrooms_count' | t: count: mf.bedrooms.value
+    endif
+    assign v_baths = ''
+    if mf.bathrooms.value != blank
+      assign v_baths = 'specs.bathrooms_count' | t: count: mf.bathrooms.value
+    endif
+  -%}
+  {%- if mode == 'key' -%}
+    {%- if v_area != blank -%}{%- assign l = 'specs.area' | t -%}{%- render 'fact-row', label: l, value: v_area -%}{%- endif -%}
+    {%- if v_beds != blank -%}{%- assign l = 'specs.bedrooms' | t -%}{%- render 'fact-row', label: l, value: v_beds -%}{%- endif -%}
+    {%- if v_baths != blank -%}{%- assign l = 'specs.bathrooms' | t -%}{%- render 'fact-row', label: l, value: v_baths -%}{%- endif -%}
+    {%- if v_type != blank -%}{%- assign l = 'specs.property_type' | t -%}{%- render 'fact-row', label: l, value: v_type -%}{%- endif -%}
+    {%- if v_plot != blank -%}{%- assign l = 'specs.plot' | t -%}{%- render 'fact-row', label: l, value: v_plot -%}{%- endif -%}
+    {%- if v_period != blank -%}{%- assign l = 'specs.built_period' | t -%}{%- render 'fact-row', label: l, value: v_period -%}{%- endif -%}
+  {%- elsif mode == 'property' -%}
+    {%- if v_type != blank -%}{%- assign l = 'specs.property_type' | t -%}{%- render 'fact-row', label: l, value: v_type -%}{%- endif -%}
+    {%- if v_period != blank -%}{%- assign l = 'specs.built_period' | t -%}{%- render 'fact-row', label: l, value: v_period -%}{%- endif -%}
+    {%- if v_area != blank -%}{%- assign l = 'specs.area' | t -%}{%- render 'fact-row', label: l, value: v_area -%}{%- endif -%}
+    {%- if v_plot != blank -%}{%- assign l = 'specs.plot' | t -%}{%- render 'fact-row', label: l, value: v_plot -%}{%- endif -%}
+  {%- elsif mode == 'layout' -%}
+    {%- if v_beds != blank -%}{%- assign l = 'specs.bedrooms' | t -%}{%- render 'fact-row', label: l, value: v_beds -%}{%- endif -%}
+    {%- if v_baths != blank -%}{%- assign l = 'specs.bathrooms' | t -%}{%- render 'fact-row', label: l, value: v_baths -%}{%- endif -%}
+  {%- elsif mode == 'energy' -%}
+    {%- if v_energy != blank -%}{%- assign l = 'specs.energy_rating' | t -%}{%- render 'fact-row', label: l, value: v_energy -%}{%- endif -%}
+  {%- endif -%}
+{%- endif -%}

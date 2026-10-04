@@ -1,0 +1,23 @@
+{%- comment -%}
+  Reproductor modal único para toda la tienda. Usa <dialog> nativo:
+  gestiona foco, Escape y restauración del foco. El vídeo se crea solo al abrirlo.
+{%- endcomment -%}
+<sd-video-modal>
+  <dialog class="sd-vmodal" aria-labelledby="sd-vmodal-title">
+    <div class="sd-vmodal__inner">
+      <div class="sd-vmodal__head">
+        <p class="sd-vmodal__title" id="sd-vmodal-title" data-sd-title></p>
+        <button type="button" class="sd-iconbtn sd-iconbtn--onDark" data-sd-close aria-label="{{ 'general.close' | t }}">
+          {%- render 'icon', name: 'close', size: 22 -%}
+        </button>
+      </div>
+      <div class="sd-vmodal__stage" data-sd-stage></div>
+      <div class="sd-vmodal__foot">
+        <a class="sd-btn sd-btn--light" href="#" data-sd-link>
+          <span>{{ 'video.see_listing' | t }}</span>
+          {%- render 'icon', name: 'arrow-right', size: 18 -%}
+        </a>
+      </div>
+    </div>
+  </dialog>
+</sd-video-modal>

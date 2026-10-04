@@ -1,0 +1,37 @@
+{%- comment -%}
+  Datos de una división desde los ajustes del tema.
+  Parámetros: key (garage|harbor|estate|…), out = name | tagline | url | email | whatsapp | image | count
+  Para añadir una división nueva: ver docs/01-guia-de-edicion.md.
+{%- endcomment -%}
+{%- liquid
+  assign k = key | downcase
+  assign col_key = 'division_' | append: k | append: '_collection'
+  assign col = settings[col_key]
+  case out
+    when 'name'
+      assign nk = 'division_' | append: k | append: '_name'
+      assign v = settings[nk]
+      echo v | default: k | capitalize
+    when 'tagline'
+      assign tk = 'division_' | append: k | append: '_tagline'
+      echo settings[tk]
+    when 'url'
+      if col != blank
+        echo col.url
+      else
+        echo routes.collections_url | append: '/' | append: k
+      endif
+    when 'email'
+      assign ek = 'division_' | append: k | append: '_email'
+      assign v = settings[ek]
+      echo v | default: settings.contact_email
+    when 'whatsapp'
+      assign wk = 'division_' | append: k | append: '_whatsapp'
+      assign v = settings[wk]
+      echo v | default: settings.contact_whatsapp
+    when 'count'
+      if col != blank
+        echo col.products_count
+      endif
+  endcase
+-%}

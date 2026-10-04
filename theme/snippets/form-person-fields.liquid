@@ -1,0 +1,54 @@
+{%- comment -%}
+  Datos de contacto de la persona + preferencia de contacto + consentimientos.
+  Parámetros: form, uid, phone_required (bool), submit_label
+  La casilla de novedades es opcional, está desmarcada y solo se registra en el email recibido.
+{%- endcomment -%}
+{%- liquid
+  assign privacy = settings.privacy_url
+  if privacy == blank and policies.privacy_policy != blank
+    assign privacy = policies.privacy_policy.url
+  endif
+  assign l_name = 'forms.name' | t
+  assign l_email = 'forms.email' | t
+  assign l_phone = 'forms.phone' | t
+-%}
+{%- render 'form-field', uid: uid, name: 'contact[name]', field: 'name', type: 'text', label: l_name, required: true, autocomplete: 'name', value: form.name, errors: form.errors -%}
+{%- render 'form-field', uid: uid, name: 'contact[email]', field: 'email', type: 'email', label: l_email, required: true, autocomplete: 'email', value: form.email, errors: form.errors -%}
+{%- render 'form-field', uid: uid, name: 'contact[phone]', field: 'phone', type: 'tel', label: l_phone, required: phone_required, autocomplete: 'tel', inputmode: 'tel', value: form.phone, errors: form.errors -%}
+
+<fieldset class="sd-fieldset">
+  <legend>{{ 'forms.preferred_channel' | t }}</legend>
+  <label class="sd-choice"><input type="radio" name="contact[Preferencia de contacto]" value="Email" checked><span>{{ 'forms.channel_email' | t }}</span></label>
+  <label class="sd-choice"><input type="radio" name="contact[Preferencia de contacto]" value="WhatsApp" data-sd-needs-phone><span>{{ 'forms.channel_whatsapp' | t }}</span></label>
+  <label class="sd-choice"><input type="radio" name="contact[Preferencia de contacto]" value="Teléfono" data-sd-needs-phone><span>{{ 'forms.channel_phone' | t }}</span></label>
+</fieldset>
+
+<div class="sd-field" data-sd-field>
+  <label class="sd-choice">
+    <input type="checkbox" name="contact[Aviso de privacidad]" value="Leído y aceptado" required aria-required="true" id="{{ uid }}-privacy" aria-describedby="{{ uid }}-privacy-err">
+    <span>
+      {%- if privacy != blank -%}
+        {{ 'forms.privacy_before' | t }} <a href="{{ privacy }}" target="_blank" rel="noopener">{{ 'forms.privacy_link' | t }}</a><span class="sd-sr"> {{ 'general.opens_new_window' | t }}</span>
+      {%- else -%}
+        {{ 'forms.privacy_before' | t }} {{ 'forms.privacy_link' | t }}
+      {%- endif -%}
+    </span>
+  </label>
+  <p class="sd-error-text" id="{{ uid }}-privacy-err" data-sd-error></p>
+</div>
+
+{%- if settings.show_marketing_consent -%}
+  <div class="sd-field">
+    <label class="sd-choice">
+      <input type="checkbox" name="contact[Acepta novedades]" value="Sí">
+      <span>{{ 'forms.marketing' | t }}</span>
+    </label>
+  </div>
+{%- endif -%}
+
+<div class="sd-form-actions">
+  <button type="submit" class="sd-btn sd-btn--primary" data-sd-submit>
+    <span>{{ submit_label }}</span>{%- render 'icon', name: 'arrow-right', size: 18 -%}
+  </button>
+</div>
+<p class="sd-note" data-sd-privacy-note>{{ 'forms.data_note' | t }}</p>

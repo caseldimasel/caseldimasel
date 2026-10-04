@@ -1,0 +1,21 @@
+<section class="sd-section sd-mainpage" data-section-id="{{ section.id }}">
+  <div class="sd-container sd-container--narrow">
+    {%- if section.settings.show_title -%}
+      {%- render 'breadcrumbs' -%}
+      <h1 class="sd-mainpage__title">{{ page.title }}</h1>
+    {%- endif -%}
+    <div class="sd-prose">{{ page.content }}</div>
+  </div>
+</section>
+
+{% schema %}
+{
+  "name": "Contenido de la página",
+  "tag": "div",
+  "enabled_on": { "templates": ["page"] },
+  "settings": [
+    { "type": "checkbox", "id": "show_title", "label": "Mostrar el título de la página", "default": true },
+    { "type": "paragraph", "content": "Muestra el contenido de la página tal y como está escrito en Shopify (por ejemplo, páginas legales). Los textos legales los redactas tú: el tema no incluye condiciones definitivas." }
+  ]
+}
+{% endschema %}

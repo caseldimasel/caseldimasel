@@ -1,0 +1,54 @@
+{
+  "sections": {
+    "main": {
+      "type": "main-collection",
+      "settings": {
+        "category": "estate",
+        "show_description": true
+      }
+    },
+    "faq": {
+      "type": "faq",
+      "settings": {
+        "heading": "Preguntas frecuentes"
+      },
+      "blocks": {
+        "q-1": {
+          "type": "question",
+          "settings": {
+            "question": "¿Qué significan Disponible, Reservado y Vendido?",
+            "answer": "<p>Disponible: la pieza admite consultas. Reservado: de momento no está disponible. Vendido: ya tiene nuevo propietario y se conserva en el archivo para que veas cómo contamos cada historia.</p>"
+          }
+        },
+        "q-2": {
+          "type": "question",
+          "settings": {
+            "question": "¿Qué datos aparecen en la ficha?",
+            "answer": "<p>Los que han aportado el propietario o el equipo: superficie, dormitorios, tipo de inmueble y otros. La ubicación se muestra de forma aproximada; no publicamos la dirección exacta. Si un dato no aparece, pregúntanos.</p>"
+          }
+        },
+        "q-3": {
+          "type": "question",
+          "settings": {
+            "question": "¿Cómo pregunto por una casa?",
+            "answer": "<p>Desde su ficha puedes escribirnos por WhatsApp o por correo, o usar el formulario. Todos los canales incluyen el nombre y la referencia de la pieza, y puedes guardarla para volver a verla.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "q-1",
+        "q-2",
+        "q-3"
+      ]
+    },
+    "cta": {
+      "type": "owner-cta",
+      "settings": {}
+    }
+  },
+  "order": [
+    "main",
+    "faq",
+    "cta"
+  ]
+}

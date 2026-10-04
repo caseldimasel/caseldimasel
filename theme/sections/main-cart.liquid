@@ -1,0 +1,29 @@
+{%- liquid
+  capture explore_url
+    render 'page-url', key: 'explore'
+  endcapture
+  capture contact_url
+    render 'page-url', key: 'contact'
+  endcapture
+-%}
+<section class="sd-section sd-cartinfo" data-section-id="{{ section.id }}">
+  <div class="sd-container sd-container--narrow">
+    <h1>{{ 'cart.title' | t }}</h1>
+    <p class="sd-lead">{{ 'cart.text' | t }}</p>
+    <div class="sd-404__actions">
+      <a class="sd-btn sd-btn--primary" href="{{ explore_url | strip }}">{{ 'header.explore' | t }}</a>
+      <a class="sd-btn sd-btn--secondary" href="{{ contact_url | strip }}">{{ 'error404.contact' | t }}</a>
+    </div>
+  </div>
+</section>
+
+{% schema %}
+{
+  "name": "Carrito (sin compra)",
+  "tag": "div",
+  "enabled_on": { "templates": ["cart"] },
+  "settings": [
+    { "type": "paragraph", "content": "Sidonia no vende mediante carrito. Esta página existe solo para que /cart no quede vacío." }
+  ]
+}
+{% endschema %}

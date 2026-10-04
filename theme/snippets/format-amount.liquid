@@ -1,0 +1,20 @@
+{%- comment -%}
+  Importe público con símbolo de moneda, sin conversión. Parámetros: amount, currency.
+{%- endcomment -%}
+{%- liquid
+  assign n = amount | round
+  capture grouped
+    render 'format-number', n: n
+  endcapture
+  case currency
+    when 'EUR'
+      assign symbol = '€'
+    when 'USD'
+      assign symbol = '$'
+    when 'GBP'
+      assign symbol = '£'
+    else
+      assign symbol = currency
+  endcase
+  echo 'general.price_format' | t: amount: grouped, symbol: symbol
+-%}

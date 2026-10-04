@@ -1,0 +1,65 @@
+{%- comment -%}
+  Grupos de filtros de Search & Discovery. Parámetros: results (collection o search), uid.
+  Cada filtro viene de results.filters: se consulta todo el catálogo, no solo la página visible.
+  Los rangos numéricos no son nativos: se usan bandas de texto (ver docs/04-colecciones-y-filtros.md).
+{%- endcomment -%}
+{%- for filter in results.filters -%}
+  {%- liquid
+    assign skip = false
+    if filter.type == 'price_range' and settings.show_native_price_filter == false
+      assign skip = true
+    endif
+    if filter.type != 'price_range' and filter.values.size == 0
+      assign skip = true
+    endif
+    assign is_open = false
+    if filter.active_values.size > 0 or forloop.index <= 3
+      assign is_open = true
+    endif
+  -%}
+  {%- unless skip -%}
+    {%- if filter.type == 'price_range' -%}
+      {%- liquid
+        if filter.min_value.value != blank or filter.max_value.value != blank
+          assign is_open = true
+        endif
+      -%}
+      <details class="sd-fgroup" data-group="{{ filter.param_name }}"{% if is_open %} open{% endif %}>
+        <summary><span>{{ filter.label }}</span>{% render 'icon', name: 'chevron-down', size: 20 %}</summary>
+        <div class="sd-pricefilter">
+          <div class="sd-field">
+            <label class="sd-label" for="{{ uid }}-pmin">{{ 'facets.price_min' | t }}</label>
+            <input id="{{ uid }}-pmin" class="sd-input" type="number" inputmode="numeric" name="{{ filter.min_value.param_name }}" value="{% if filter.min_value.value != blank %}{{ filter.min_value.value | money_without_currency | replace: ',', '' }}{% endif %}" min="0" placeholder="0">
+          </div>
+          <div class="sd-field">
+            <label class="sd-label" for="{{ uid }}-pmax">{{ 'facets.price_max' | t }}</label>
+            <input id="{{ uid }}-pmax" class="sd-input" type="number" inputmode="numeric" name="{{ filter.max_value.param_name }}" value="{% if filter.max_value.value != blank %}{{ filter.max_value.value | money_without_currency | replace: ',', '' }}{% endif %}" min="0" placeholder="{{ filter.range_max | money_without_currency | replace: ',', '' }}">
+          </div>
+        </div>
+      </details>
+    {%- else -%}
+      <details class="sd-fgroup" data-group="{{ filter.param_name }}"{% if is_open %} open{% endif %}>
+        <summary>
+          <span>{{ filter.label }}{% if filter.active_values.size > 0 %} <span class="sd-count">({{ filter.active_values.size }})</span>{% endif %}</span>
+          {%- render 'icon', name: 'chevron-down', size: 20 -%}
+        </summary>
+        <ul class="sd-fgroup__list" role="list">
+          {%- for value in filter.values -%}
+            <li>
+              <label class="sd-choice">
+                <input
+                  type="checkbox"
+                  name="{{ value.param_name }}"
+                  value="{{ value.value }}"
+                  {% if value.active %}checked{% endif %}
+                  {% if value.count == 0 and value.active == false %}disabled{% endif %}
+                >
+                <span>{{ value.label }} <span class="sd-count">({{ value.count }})</span></span>
+              </label>
+            </li>
+          {%- endfor -%}
+        </ul>
+      </details>
+    {%- endif -%}
+  {%- endunless -%}
+{%- endfor -%}

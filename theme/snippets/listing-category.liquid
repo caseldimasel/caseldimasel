@@ -1,0 +1,21 @@
+{%- comment -%}
+  Devuelve la categoría de una pieza: garage, harbor o estate (o nada si no consta).
+  Fuente: metacampo sidonia.category; si falta, el sufijo de plantilla del producto.
+{%- endcomment -%}
+{%- liquid
+  assign c = product.metafields.sidonia.category.value | downcase | strip
+  case c
+    when 'coche', 'coches', 'car'
+      assign c = 'garage'
+    when 'barco', 'barcos', 'boat'
+      assign c = 'harbor'
+    when 'casa', 'casas', 'house'
+      assign c = 'estate'
+  endcase
+  if c != 'garage' and c != 'harbor' and c != 'estate'
+    assign c = product.template_suffix | downcase | strip
+  endif
+  if c == 'garage' or c == 'harbor' or c == 'estate'
+    echo c
+  endif
+-%}

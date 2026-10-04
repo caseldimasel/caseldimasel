@@ -1,0 +1,20 @@
+{
+  "sections": {
+    "header": {
+      "type": "page-header",
+      "settings": {
+        "eyebrow": "Contacto",
+        "text": "Elige el canal que prefieras. Si no estás seguro, el formulario siempre funciona.",
+        "show_breadcrumbs": true
+      }
+    },
+    "main": {
+      "type": "main-contact",
+      "settings": {}
+    }
+  },
+  "order": [
+    "header",
+    "main"
+  ]
+}

@@ -1,0 +1,9 @@
+{%- comment -%}Estado editorial como chip con texto e icono (no solo color). Parámetro: status.{%- endcomment -%}
+{%- if status == 'available' or status == 'reserved' or status == 'sold' -%}
+  <span class="sd-chip sd-chip--status sd-chip--{{ status }}">
+    <span class="sd-chip__dot" aria-hidden="true"></span>
+    {%- if status == 'available' -%}{{ 'listing.status_available' | t }}
+    {%- elsif status == 'reserved' -%}{{ 'listing.status_reserved' | t }}
+    {%- else -%}{{ 'listing.status_sold' | t }}{%- endif -%}
+  </span>
+{%- endif -%}

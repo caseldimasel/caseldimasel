@@ -1,0 +1,71 @@
+{
+  "sections": {
+    "main": {
+      "type": "main-product",
+      "settings": {}
+    },
+    "story": {
+      "type": "product-story",
+      "settings": {}
+    },
+    "specs": {
+      "type": "product-specs",
+      "settings": {}
+    },
+    "timeline": {
+      "type": "product-timeline",
+      "settings": {}
+    },
+    "inquiry": {
+      "type": "product-inquiry",
+      "settings": {}
+    },
+    "related": {
+      "type": "related-listings",
+      "settings": {}
+    },
+    "faq": {
+      "type": "faq",
+      "settings": {
+        "heading": "Preguntas frecuentes"
+      },
+      "blocks": {
+        "q-1": {
+          "type": "question",
+          "settings": {
+            "question": "¿Qué significan Disponible, Reservado y Vendido?",
+            "answer": "<p>Disponible: la pieza admite consultas. Reservado: de momento no está disponible. Vendido: ya tiene nuevo propietario y se conserva en el archivo para que veas cómo contamos cada historia.</p>"
+          }
+        },
+        "q-2": {
+          "type": "question",
+          "settings": {
+            "question": "¿Qué datos aparecen en la ficha?",
+            "answer": "<p>Los que han aportado el propietario o el equipo: año, kilometraje, cambio, combustible y otros. Si un dato no aparece es que todavía no lo conocemos: pregúntanos y lo comprobamos.</p>"
+          }
+        },
+        "q-3": {
+          "type": "question",
+          "settings": {
+            "question": "¿Cómo pregunto por un coche?",
+            "answer": "<p>Desde su ficha puedes escribirnos por WhatsApp o por correo, o usar el formulario. Todos los canales incluyen el nombre y la referencia de la pieza, y puedes guardarla para volver a verla.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "q-1",
+        "q-2",
+        "q-3"
+      ]
+    }
+  },
+  "order": [
+    "main",
+    "story",
+    "specs",
+    "timeline",
+    "inquiry",
+    "related",
+    "faq"
+  ]
+}

@@ -1,0 +1,84 @@
+{%- liquid
+  assign s = section.settings
+  capture sell_url
+    render 'page-url', key: 'sell'
+  endcapture
+  capture how_url
+    render 'page-url', key: 'how'
+  endcapture
+  assign sell_label = s.sell_label
+  if sell_label == blank
+    assign sell_label = 'how.sell_cta' | t
+  endif
+-%}
+<section class="sd-section sd-section--alt sd-how" data-section-id="{{ section.id }}">
+  <div class="sd-container">
+    <div class="sd-section-head sd-section-head--split">
+      <div>
+        {%- if s.eyebrow != blank -%}<p class="sd-eyebrow">{{ s.eyebrow }}</p>{%- endif -%}
+        <h2>{{ s.heading }}</h2>
+      </div>
+      {%- if s.text != blank -%}<p class="sd-lead">{{ s.text }}</p>{%- endif -%}
+    </div>
+
+    {%- if section.blocks.size > 0 -%}
+      <ol class="sd-steps" role="list">
+        {%- for block in section.blocks -%}
+          <li class="sd-step" {{ block.shopify_attributes }}>
+            <span class="sd-step__n" aria-hidden="true">{{ forloop.index }}</span>
+            <h3 class="sd-step__title"><span class="sd-sr">{{ 'general.step_n' | t: n: forloop.index }}. </span>{{ block.settings.title }}</h3>
+            {%- if block.settings.text != blank -%}<p class="sd-step__text">{{ block.settings.text }}</p>{%- endif -%}
+          </li>
+        {%- endfor -%}
+      </ol>
+    {%- endif -%}
+
+    <div class="sd-how__ctas">
+      {%- if s.show_sell_cta -%}
+        <a class="sd-btn sd-btn--primary" href="{{ sell_url | strip }}"><span>{{ sell_label }}</span>{%- render 'icon', name: 'arrow-right', size: 18 -%}</a>
+      {%- endif -%}
+      {%- if s.show_how_link -%}
+        <a class="sd-btn sd-btn--ghost" href="{{ how_url | strip }}">{{ 'how.more' | t }}</a>
+      {%- endif -%}
+    </div>
+    {%- if s.disclaimer != blank -%}<p class="sd-note">{{ s.disclaimer }}</p>{%- endif -%}
+  </div>
+</section>
+
+{% schema %}
+{
+  "name": "Cómo vendemos",
+  "tag": "section",
+  "settings": [
+    { "type": "text", "id": "eyebrow", "label": "Antetítulo", "default": "Para propietarios" },
+    { "type": "text", "id": "heading", "label": "Título", "default": "Cómo vendemos" },
+    { "type": "textarea", "id": "text", "label": "Texto", "default": "Un proceso sencillo y a tu medida. Primero hablamos; los detalles los acordamos contigo." },
+    { "type": "checkbox", "id": "show_sell_cta", "label": "Mostrar botón «Vender con Sidonia»", "default": true },
+    { "type": "text", "id": "sell_label", "label": "Texto de ese botón" },
+    { "type": "checkbox", "id": "show_how_link", "label": "Mostrar enlace a «Cómo vendemos»", "default": true },
+    { "type": "text", "id": "disclaimer", "label": "Nota al pie (opcional)", "info": "Sin tiempos, tarifas ni garantías hasta que estén confirmados." }
+  ],
+  "blocks": [
+    {
+      "type": "step",
+      "name": "Paso",
+      "settings": [
+        { "type": "text", "id": "title", "label": "Título", "default": "Paso" },
+        { "type": "textarea", "id": "text", "label": "Texto" }
+      ]
+    }
+  ],
+  "max_blocks": 6,
+  "presets": [
+    {
+      "name": "Cómo vendemos",
+      "blocks": [
+        { "type": "step", "settings": { "title": "Nos cuentas qué tienes", "text": "Nos explicas qué es y qué lo hace especial. Cuanto más personal sea la historia, mejor." } },
+        { "type": "step", "settings": { "title": "Valoramos si encaja", "text": "Miramos si encaja en Sidonia y acordamos contigo cómo trabajar." } },
+        { "type": "step", "settings": { "title": "Grabamos y contamos su historia", "text": "Vamos a verla, la grabamos y preparamos un vídeo con una narración cuidada." } },
+        { "type": "step", "settings": { "title": "La presentamos a nuestra comunidad", "text": "La publicamos y atendemos el interés que genere, según el servicio que contrates." } }
+      ]
+    }
+  ]
+}
+{% endschema %}

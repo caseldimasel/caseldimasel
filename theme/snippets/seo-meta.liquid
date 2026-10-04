@@ -1,0 +1,98 @@
+{%- comment -%}
+  Título, descripción, Open Graph, Twitter y robots.
+  Los títulos y metadescripciones se editan desde Shopify (campo «Optimización para motores de búsqueda»
+  de cada producto, página o colección): aquí solo se imprimen page_title y page_description.
+{%- endcomment -%}
+{%- liquid
+  assign seo_desc = page_description | default: shop.description
+  assign og_image = settings.og_image
+  assign og_type = 'website'
+  case template.name
+    when 'product'
+      if product.featured_image != blank
+        assign og_image = product.featured_image
+      endif
+    when 'collection'
+      if collection.image != blank
+        assign og_image = collection.image
+      endif
+    when 'article'
+      assign og_type = 'article'
+      if article.image != blank
+        assign og_image = article.image
+      endif
+  endcase
+
+  assign noindex = false
+  if template.name == 'search' or template.name == 'password' or template.name == 'cart'
+    assign noindex = true
+  endif
+  if template.name == 'collection'
+    for f in collection.filters
+      if f.active_values.size > 0
+        assign noindex = true
+      endif
+      if f.type == 'price_range'
+        if f.min_value.value != blank or f.max_value.value != blank
+          assign noindex = true
+        endif
+      endif
+    endfor
+  endif
+-%}
+<title>{{ page_title }}{% if current_page != 1 %} – {{ 'general.page_n' | t: n: current_page }}{% endif %}{% unless page_title contains shop.name %} – {{ shop.name }}{% endunless %}</title>
+{%- if seo_desc != blank -%}
+  <meta name="description" content="{{ seo_desc | strip_html | escape | truncate: 300 }}">
+{%- endif -%}
+{%- if noindex -%}
+  <meta name="robots" content="noindex, follow">
+{%- endif -%}
+
+<meta property="og:site_name" content="{{ shop.name | escape }}">
+<meta property="og:url" content="{{ canonical_url }}">
+<meta property="og:title" content="{{ page_title | escape }}">
+<meta property="og:type" content="{{ og_type }}">
+{%- if seo_desc != blank -%}
+  <meta property="og:description" content="{{ seo_desc | strip_html | escape | truncate: 300 }}">
+{%- endif -%}
+{%- if og_image != blank -%}
+  {%- assign og_w = og_image.width | at_most: 1200 -%}
+  {%- assign og_h = og_w | times: og_image.height | divided_by: og_image.width -%}
+  {%- assign og_url = og_image | image_url: width: og_w | replace: 'https:', '' | prepend: 'https:' -%}
+  <meta property="og:image" content="{{ og_url }}">
+  <meta property="og:image:secure_url" content="{{ og_url }}">
+  <meta property="og:image:width" content="{{ og_w }}">
+  <meta property="og:image:height" content="{{ og_h }}">
+  {%- if og_image.alt != blank -%}
+    <meta property="og:image:alt" content="{{ og_image.alt | escape }}">
+  {%- endif -%}
+  <meta name="twitter:image" content="{{ og_url }}">
+{%- endif -%}
+<meta name="twitter:card" content="{% if og_image != blank %}summary_large_image{% else %}summary{% endif %}">
+<meta name="twitter:title" content="{{ page_title | escape }}">
+{%- if seo_desc != blank -%}
+  <meta name="twitter:description" content="{{ seo_desc | strip_html | escape | truncate: 200 }}">
+{%- endif -%}
+
+{%- if template.name == 'index' -%}
+  {%- assign socials = settings.social_instagram_url | append: ' ' | append: settings.social_tiktok_url | append: ' ' | append: settings.social_youtube_url | append: ' ' | append: settings.social_facebook_url | split: ' ' -%}
+  <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "Organization",
+      "name": {{ settings.brand_name | default: shop.name | json }},
+      "url": {{ shop.url | json }}
+      {%- if settings.logo_dark != blank or settings.logo != blank -%}
+        {%- assign ld_logo = settings.logo_dark | default: settings.logo -%}
+        ,"logo": {{ ld_logo | image_url: width: 600 | replace: 'https:', '' | prepend: 'https:' | json }}
+      {%- endif -%}
+      {%- assign first_social = true -%}
+      {%- for s in socials -%}
+        {%- if s != blank -%}
+          {%- if first_social -%}, "sameAs": [{%- assign first_social = false -%}{%- else -%},{%- endif -%}{{ s | json }}
+        {%- endif -%}
+      {%- endfor -%}
+      {%- unless first_social -%}]{%- endunless -%}
+    }
+  </script>
+{%- endif -%}

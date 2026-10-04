@@ -1,0 +1,119 @@
+{%- liquid
+  assign s = section.settings
+  capture cat
+    render 'listing-category', product: product
+  endcapture
+  assign cat = cat | strip
+  capture status
+    render 'listing-status', product: product
+  endcapture
+  assign status = status | strip
+  assign manual = product.metafields.sidonia.related.value
+  assign max_items = s.limit | default: 4
+  assign shown = 0
+  assign explain = ''
+  if cat != blank
+    capture cat_name
+      render 'division-info', key: cat, out: 'name'
+    endcapture
+    assign cat_name = cat_name | strip
+    assign col_key = 'division_' | append: cat | append: '_collection'
+    assign cat_col = settings[col_key]
+    capture cat_url
+      render 'division-info', key: cat, out: 'url'
+    endcapture
+    assign cat_url = cat_url | strip
+  endif
+  capture sell_url
+    render 'page-url', key: 'sell'
+  endcapture
+  capture wanted_url
+    render 'page-url', key: 'wanted'
+  endcapture
+  assign grid_class = 'sd-grid sd-grid--wide'
+  if settings.mobile_columns == '2'
+    assign grid_class = grid_class | append: ' sd-grid--m2'
+  endif
+  assign manual_ids = ''
+-%}
+{%- capture cells -%}
+  {%- if manual.size > 0 -%}
+    {%- for item in manual -%}
+      {%- if item.id != product.id and item.published_at != blank -%}
+        {%- capture st -%}{%- render 'listing-status', product: item -%}{%- endcapture -%}
+        {%- assign st = st | strip -%}
+        {%- if st != 'sold' and shown < max_items -%}
+          <li>{%- render 'listing-card', product: item -%}</li>
+          {%- assign shown = shown | plus: 1 -%}
+          {%- assign manual_ids = manual_ids | append: item.id | append: ',' -%}
+        {%- endif -%}
+      {%- endif -%}
+    {%- endfor -%}
+  {%- endif -%}
+  {%- if shown < max_items and cat_col != blank -%}
+    {%- for item in cat_col.products limit: 16 -%}
+      {%- assign item_key = item.id | append: ',' -%}
+      {%- unless item.id == product.id or manual_ids contains item_key -%}
+        {%- capture st -%}{%- render 'listing-status', product: item -%}{%- endcapture -%}
+        {%- assign st = st | strip -%}
+        {%- if st != 'sold' and shown < max_items -%}
+          <li>{%- render 'listing-card', product: item -%}</li>
+          {%- assign shown = shown | plus: 1 -%}
+        {%- endif -%}
+      {%- endunless -%}
+    {%- endfor -%}
+  {%- endif -%}
+{%- endcapture -%}
+
+{%- if shown > 0 or request.design_mode or status == 'sold' -%}
+<section class="sd-section sd-related{% if cat != blank %} sd-cat sd-cat--{{ cat }}{% endif %}" data-section-id="{{ section.id }}">
+  <div class="sd-container">
+    <div class="sd-section-head sd-section-head--split">
+      <div>
+        <h2>{% if status == 'sold' %}{{ 'related.heading_similar' | t }}{% else %}{{ s.heading }}{% endif %}</h2>
+      </div>
+      <p class="sd-lead">
+        {%- if manual.size > 0 and shown > 0 -%}{{ 'related.why_manual' | t }}
+        {%- elsif cat_name != blank -%}{{ 'related.why_category' | t: category: cat_name }}
+        {%- endif -%}
+      </p>
+    </div>
+    {%- if shown > 0 -%}
+      <ul class="{{ grid_class }}" role="list">{{ cells }}</ul>
+      {%- if cat_url != blank -%}
+        <p class="sd-selection__more"><a class="sd-btn sd-btn--secondary" href="{{ cat_url }}"><span>{{ 'related.see_all' | t: category: cat_name }}</span>{%- render 'icon', name: 'arrow-right', size: 18 -%}</a></p>
+      {%- endif -%}
+    {%- else -%}
+      <div class="sd-empty">
+        <h3>{{ 'related.empty_title' | t }}</h3>
+        <p>{{ 'related.empty_text' | t }}</p>
+        <a class="sd-btn sd-btn--secondary" href="{{ wanted_url | strip }}">{{ 'facets.wanted_cta' | t }}</a>
+      </div>
+    {%- endif -%}
+
+    <aside class="sd-related__sell" aria-label="{{ 'related.sell_aria' | t }}">
+      <div>
+        <p class="sd-related__selltitle">{{ 'related.sell_title' | t }}</p>
+        <p class="sd-note">{{ 'related.sell_text' | t }}</p>
+      </div>
+      <a class="sd-btn sd-btn--accent" href="{{ sell_url | strip }}{% if cat != blank %}?cat={{ cat }}{% endif %}">{{ 'owner_cta.button' | t }}</a>
+    </aside>
+  </div>
+</section>
+{%- endif -%}
+
+{% schema %}
+{
+  "name": "Piezas relacionadas",
+  "tag": "div",
+  "enabled_on": { "templates": ["product"] },
+  "settings": [
+    { "type": "text", "id": "heading", "label": "Título", "default": "Otras piezas que te pueden interesar" },
+    { "type": "range", "id": "limit", "label": "Número de piezas", "min": 2, "max": 8, "step": 1, "default": 4 },
+    { "type": "paragraph", "content": "Primero se muestran las piezas elegidas a mano en el metacampo sidonia.related; después, las de la colección de su división (Ajustes del tema > Divisiones). Nunca se muestran vendidas." }
+  ],
+  "presets": [
+    { "name": "Piezas relacionadas" }
+  ]
+}
+{% endschema %}

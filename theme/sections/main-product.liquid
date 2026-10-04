@@ -1,0 +1,214 @@
+{%- liquid
+  assign s = section.settings
+  assign mf = product.metafields.sidonia
+
+  capture cat
+    render 'listing-category', product: product
+  endcapture
+  assign cat = cat | strip
+  capture status
+    render 'listing-status', product: product
+  endcapture
+  assign status = status | strip
+  capture price_kind
+    render 'listing-price', product: product, out: 'kind'
+  endcapture
+  assign price_kind = price_kind | strip
+  capture price_text
+    render 'listing-price', product: product
+  endcapture
+  capture place
+    render 'listing-location', product: product
+  endcapture
+  assign place = place | strip
+  capture vattrs
+    render 'video-attrs', product: product
+  endcapture
+  assign vattrs = vattrs | strip
+  capture vkind
+    render 'video-attrs', product: product, out: 'kind'
+  endcapture
+  assign vkind = vkind | strip
+  capture vratio
+    render 'video-attrs', product: product, out: 'ratio'
+  endcapture
+  assign vratio = vratio | strip
+  capture vlang
+    render 'video-attrs', product: product, out: 'lang'
+  endcapture
+  assign vlang = vlang | strip
+  capture vsubs
+    render 'video-attrs', product: product, out: 'subs'
+  endcapture
+  assign vsubs = vsubs | strip
+  capture vsrc
+    render 'video-attrs', product: product, out: 'src'
+  endcapture
+  assign vsrc = vsrc | strip
+  capture vdur
+    render 'video-duration', seconds: mf.video_duration.value
+  endcapture
+  assign vdur = vdur | strip
+
+  assign cover = product.featured_image
+  assign hook = mf.hook.value
+  assign ref = mf.reference.value | strip
+  assign social_url = mf.social_url.value
+  assign transcript = mf.transcript.value
+  assign poster_alt = cover.alt | default: product.title
+
+  if cat != blank
+    capture cat_name
+      render 'division-info', key: cat, out: 'name'
+    endcapture
+    assign cat_name = cat_name | strip
+    capture cat_url
+      render 'division-info', key: cat, out: 'url'
+    endcapture
+    assign cat_url = cat_url | strip
+  endif
+  assign ratio_style = vratio
+  if ratio_style == blank
+    assign ratio_style = '0.8'
+  endif
+-%}
+
+<section class="sd-pdp{% if cat != blank %} sd-cat sd-cat--{{ cat }}{% endif %}" data-section-id="{{ section.id }}" data-product-id="{{ product.id }}" data-category="{{ cat }}" data-status="{{ status }}">
+  <sd-track hidden data-event="view_listing" data-key="view_listing:{{ product.id }}" data-category="{{ cat }}" data-status="{{ status }}"></sd-track>
+  <div class="sd-container">
+    {%- render 'breadcrumbs', crumb_url: cat_url, crumb_title: cat_name -%}
+
+    <div class="sd-pdp__grid">
+      <header class="sd-pdp__head">
+        <p class="sd-eyebrow">
+          {%- if cat != blank -%}<span class="sd-nav__dot" aria-hidden="true"></span>{{ settings.brand_name | default: shop.name }} {{ cat_name | upcase }}{%- endif -%}
+        </p>
+        <h1 class="sd-pdp__title">{{ product.title }}</h1>
+        {%- if hook != blank -%}<p class="sd-lead sd-pdp__hook">{{ hook }}</p>{%- endif -%}
+        <p class="sd-pdp__line">
+          {%- if place != blank -%}<span class="sd-card__place">{%- render 'icon', name: 'pin', size: 16 -%}{{ place }}</span>{%- endif -%}
+          {%- render 'status-chip', status: status -%}
+          {%- if ref != blank -%}<span class="sd-pdp__ref">{{ 'product.reference' | t }}: {{ ref }}</span>{%- endif -%}
+        </p>
+      </header>
+
+      <div class="sd-pdp__media">
+        {%- if vattrs != blank -%}
+          <sd-video-stage class="sd-vplayer" {{ vattrs }} data-preview-enabled="{{ settings.video_preview_enabled }}" data-preview-mobile="{{ settings.video_preview_mobile }}" data-consent-required="{{ settings.video_external_consent }}">
+            <div class="sd-vplayer__stage" style="--sd-vratio: {{ ratio_style }}" data-sd-stage>
+              {%- if cover != blank -%}
+                {%- render 'sd-image', image: cover, widths: '480,640,800,1000,1200', sizes: '(min-width: 900px) 46vw, 92vw', priority: true, class: 'sd-vplayer__poster', alt: poster_alt, cover: true -%}
+              {%- else -%}
+                <span class="sd-vplayer__poster-fallback" aria-hidden="true">{{ product.title }}</span>
+              {%- endif -%}
+              <button type="button" class="sd-vplayer__start" data-sd-start>
+                <span class="sd-play__icon">{%- render 'icon', name: 'play', size: 20 -%}</span>
+                <span>{{ 'video.watch_with_sound' | t }}</span>
+                {%- if vdur != blank -%}<span class="sd-play__time">{{ vdur }}</span>{%- endif -%}
+              </button>
+            </div>
+            <noscript>
+              {%- if vkind == 'file' -%}
+                <video controls preload="none" playsinline src="{{ vsrc }}" {% if cover != blank %}poster="{{ cover | image_url: width: 900 }}"{% endif %} style="width:100%"></video>
+              {%- else -%}
+                <p class="sd-note">{{ 'video.noscript' | t }}</p>
+              {%- endif -%}
+            </noscript>
+            <div class="sd-vplayer__meta">
+              {%- if vdur != blank -%}<p>{{ 'video.duration' | t }}: {{ vdur }}</p>{%- endif -%}
+              {%- if vlang != blank -%}<p>{{ 'video.language' | t }}: {{ vlang }}</p>{%- endif -%}
+              {%- if vsubs != blank -%}<p>{{ 'video.subtitles_available' | t }}</p>{%- endif -%}
+              {%- if social_url != blank -%}
+                <p><a href="{{ social_url }}" target="_blank" rel="noopener">{{ 'video.original_post' | t }}<span class="sd-sr"> {{ 'general.opens_new_window' | t }}</span></a></p>
+              {%- endif -%}
+            </div>
+          </sd-video-stage>
+          {%- if transcript != blank -%}
+            <details class="sd-transcript">
+              <summary><span>{{ 'video.transcript' | t }}</span>{%- render 'icon', name: 'chevron-down', size: 22 -%}</summary>
+              <div class="sd-transcript__body">{{ transcript }}</div>
+              <p class="sd-note">{{ 'video.transcript_note' | t }}</p>
+            </details>
+          {%- endif -%}
+        {%- else -%}
+          <div class="sd-vplayer">
+            <div class="sd-vplayer__stage" style="--sd-vratio: 0.8">
+              {%- if cover != blank -%}
+                {%- render 'sd-image', image: cover, widths: '480,640,800,1000,1200', sizes: '(min-width: 900px) 46vw, 92vw', priority: true, class: 'sd-vplayer__poster', alt: poster_alt, cover: true -%}
+              {%- else -%}
+                <span class="sd-vplayer__poster-fallback" aria-hidden="true">{{ product.title }}</span>
+              {%- endif -%}
+            </div>
+            <p class="sd-vplayer__meta">{{ 'video.none' | t }}</p>
+          </div>
+        {%- endif -%}
+      </div>
+
+      <div class="sd-pdp__info">
+        <div class="sd-pdp__price">
+          {%- if status == 'sold' -%}
+            <p class="sd-pdp__soldnote">{{ 'product.sold_note' | t }}</p>
+          {%- else -%}
+            <p class="sd-pdp__priceval sd-price sd-price--{{ price_kind }}">{{ price_text }}</p>
+            {%- if price_kind == 'published' -%}<p class="sd-note">{{ 'product.price_note' | t }}</p>{%- endif -%}
+          {%- endif -%}
+        </div>
+
+        {%- capture key_facts -%}{%- render 'listing-facts', product: product, category: cat, mode: 'key' -%}{%- endcapture -%}
+        {%- assign key_facts = key_facts | strip -%}
+        {%- if key_facts != blank -%}
+          <section class="sd-pdp__facts" aria-labelledby="facts-{{ section.id }}">
+            <h2 class="sd-sr" id="facts-{{ section.id }}">{{ 'product.key_facts' | t }}</h2>
+            <dl class="sd-dl sd-dl--key">{{ key_facts }}</dl>
+          </section>
+        {%- endif -%}
+
+        <div class="sd-pdp__actions">
+          {%- render 'contact-actions', product: product, category: cat, status: status, layout: 'stack' -%}
+          <div class="sd-pdp__secondary">
+            {%- render 'save-button', product: product, variant: 'page' -%}
+            {%- if settings.show_share_button -%}
+              <sd-share class="sd-share" data-url="{{ canonical_url }}" data-title="{{ product.title | escape }}" hidden>
+                <button type="button" class="sd-btn sd-btn--ghost" data-sd-share-btn>{%- render 'icon', name: 'share', size: 20 -%}<span>{{ 'product.share' | t }}</span></button>
+              </sd-share>
+            {%- endif -%}
+          </div>
+          <p class="sd-note">{{ 'favorites.local_note' | t }}</p>
+        </div>
+
+        {%- if settings.contact_response_note != blank or settings.contact_hours != blank -%}
+          <p class="sd-note">{{ settings.contact_response_note }} {{ settings.contact_hours }}</p>
+        {%- endif -%}
+      </div>
+    </div>
+  </div>
+
+  {%- comment -%} Barra fija de contacto en móvil: se oculta al ver el formulario, con el teclado abierto y con un modal. {%- endcomment -%}
+  {%- capture bar_wa -%}{%- render 'contact-link', kind: 'whatsapp', product: product, category: cat, sold: false, url: canonical_url -%}{%- endcapture -%}
+  {%- assign bar_wa = bar_wa | strip -%}
+  {%- if status != 'sold' -%}
+    <sd-stickybar class="sd-stickybar" data-target="consulta" hidden>
+      <div class="sd-stickybar__inner">
+        {%- if bar_wa != blank -%}
+          <a class="sd-btn sd-btn--primary" href="{{ bar_wa }}" target="_blank" rel="noopener" data-sd-track="contact_whatsapp" data-sd-track-category="{{ cat }}">{%- render 'icon', name: 'chat', size: 20 -%}<span>{{ 'inquiry.whatsapp_short' | t }}</span><span class="sd-sr"> {{ 'general.opens_new_window' | t }}</span></a>
+        {%- else -%}
+          <a class="sd-btn sd-btn--primary" href="#consulta">{%- render 'icon', name: 'arrow-right', size: 20 -%}<span>{{ 'inquiry.form_short' | t }}</span></a>
+        {%- endif -%}
+        {%- render 'save-button', product: product, variant: 'page' -%}
+      </div>
+    </sd-stickybar>
+  {%- endif -%}
+</section>
+
+{%- render 'structured-listing', product: product, category: cat, status: status -%}
+
+{% schema %}
+{
+  "name": "Ficha de pieza",
+  "tag": "div",
+  "enabled_on": { "templates": ["product"] },
+  "settings": [
+    { "type": "paragraph", "content": "Los datos de la pieza salen del producto y de sus metacampos sidonia.*. Aquí no hay texto de la pieza que editar." }
+  ]
+}
+{% endschema %}

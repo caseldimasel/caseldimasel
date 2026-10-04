@@ -1,0 +1,46 @@
+{%- liquid
+  assign s = section.settings
+  assign heading = s.heading
+  if heading == blank
+    if template.name == 'page'
+      assign heading = page.title
+    elsif template.name == 'blog'
+      assign heading = blog.title
+    elsif template.name == 'article'
+      assign heading = article.title
+    else
+      assign heading = page_title
+    endif
+  endif
+-%}
+<section class="sd-pagehead" data-section-id="{{ section.id }}">
+  <div class="sd-container sd-pagehead__inner">
+    {%- if s.show_breadcrumbs -%}
+      {%- render 'breadcrumbs' -%}
+    {%- endif -%}
+    {%- if s.eyebrow != blank -%}<p class="sd-eyebrow">{{ s.eyebrow }}</p>{%- endif -%}
+    <h1>{{ heading }}</h1>
+    {%- if s.text != blank -%}<p class="sd-lead">{{ s.text }}</p>{%- endif -%}
+    {%- if s.button_label != blank and s.button_url != blank -%}
+      <p class="sd-pagehead__cta"><a class="sd-btn sd-btn--primary" href="{{ s.button_url }}"><span>{{ s.button_label }}</span>{%- render 'icon', name: 'arrow-right', size: 18 -%}</a></p>
+    {%- endif -%}
+  </div>
+</section>
+
+{% schema %}
+{
+  "name": "Cabecera de página",
+  "tag": "section",
+  "settings": [
+    { "type": "text", "id": "eyebrow", "label": "Antetítulo" },
+    { "type": "text", "id": "heading", "label": "Título", "info": "Vacío = título de la página." },
+    { "type": "textarea", "id": "text", "label": "Introducción" },
+    { "type": "text", "id": "button_label", "label": "Texto del botón (opcional)" },
+    { "type": "url", "id": "button_url", "label": "Enlace del botón", "info": "Puedes usar un ancla de la misma página, por ejemplo #solicitud." },
+    { "type": "checkbox", "id": "show_breadcrumbs", "label": "Mostrar migas de pan", "default": true }
+  ],
+  "presets": [
+    { "name": "Cabecera de página" }
+  ]
+}
+{% endschema %}

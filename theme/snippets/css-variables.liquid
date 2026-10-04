@@ -1,0 +1,128 @@
+{%- comment -%}
+  Tokens de diseño de Sidonia. Todo el CSS usa estas variables.
+  Los colores de división se comprueban: --sd-<div>-text garantiza contraste 4,5:1 como texto.
+{%- endcomment -%}
+{%- liquid
+  capture garage_text
+    render 'color-safe', color: settings.color_garage, against: settings.color_surface_alt
+  endcapture
+  capture harbor_text
+    render 'color-safe', color: settings.color_harbor, against: settings.color_surface_alt
+  endcapture
+  capture estate_text
+    render 'color-safe', color: settings.color_estate, against: settings.color_surface_alt
+  endcapture
+  capture garage_on
+    render 'color-on', fill: settings.color_garage, light: settings.color_surface, dark: settings.color_text
+  endcapture
+  capture harbor_on
+    render 'color-on', fill: settings.color_harbor, light: settings.color_surface, dark: settings.color_text
+  endcapture
+  capture estate_on
+    render 'color-on', fill: settings.color_estate, light: settings.color_surface, dark: settings.color_text
+  endcapture
+  capture dark_text
+    render 'color-on', fill: settings.color_dark, light: '#F5F0E6', dark: '#231F1A'
+  endcapture
+  assign scale = settings.heading_scale | divided_by: 100.0
+  assign base_px = settings.body_size | default: 17
+  assign radius = settings.radius | default: 10
+  assign radius_s = radius | divided_by: 2.0 | round
+  assign radius_l = radius | times: 1.6 | round
+-%}
+<style id="sd-tokens">
+  {%- if settings.heading_font_mode == 'shopify' -%}
+    {{ settings.heading_font | font_face: font_display: 'swap' }}
+  {%- endif -%}
+  {%- if settings.body_font_mode == 'shopify' -%}
+    {{ settings.body_font | font_face: font_display: 'swap' }}
+    {%- assign body_bold = settings.body_font | font_modify: 'weight', 'bold' -%}
+    {{ body_bold | font_face: font_display: 'swap' }}
+  {%- endif -%}
+
+  :root {
+    /* Color */
+    --sd-bg: {{ settings.color_bg }};
+    --sd-surface: {{ settings.color_surface }};
+    --sd-surface-alt: {{ settings.color_surface_alt }};
+    --sd-text: {{ settings.color_text }};
+    --sd-muted: {{ settings.color_muted }};
+    --sd-border: {{ settings.color_border }};
+    --sd-button: {{ settings.color_button }};
+    --sd-button-text: {{ settings.color_button_text }};
+    --sd-dark: {{ settings.color_dark }};
+    --sd-dark-text: {{ dark_text | strip }};
+    --sd-focus: {{ settings.color_focus }};
+
+    --sd-garage: {{ settings.color_garage }};
+    --sd-garage-text: {{ garage_text | strip }};
+    --sd-garage-on: {{ garage_on | strip }};
+    --sd-harbor: {{ settings.color_harbor }};
+    --sd-harbor-text: {{ harbor_text | strip }};
+    --sd-harbor-on: {{ harbor_on | strip }};
+    --sd-estate: {{ settings.color_estate }};
+    --sd-estate-text: {{ estate_text | strip }};
+    --sd-estate-on: {{ estate_on | strip }};
+
+    /* Tipografía */
+    --sd-font-heading: {% if settings.heading_font_mode == 'shopify' %}{{ settings.heading_font.family }}, {{ settings.heading_font.fallback_families }}{% else %}"Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, "Noto Serif", serif{% endif %};
+    --sd-font-body: {% if settings.body_font_mode == 'shopify' %}{{ settings.body_font.family }}, {{ settings.body_font.fallback_families }}{% else %}system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif{% endif %};
+    --sd-heading-weight: {% if settings.heading_font_mode == 'shopify' %}{{ settings.heading_font.weight }}{% else %}400{% endif %};
+    --sd-heading-scale: {{ scale }};
+    --sd-text-base: {{ base_px }}px;
+
+    /* Escala de texto (rem sobre la base) */
+    --sd-fs-xs: 0.875rem;
+    --sd-fs-s: 0.9375rem;
+    --sd-fs-m: 1rem;
+    --sd-fs-l: 1.1875rem;
+    --sd-fs-h4: calc(1.25rem * var(--sd-heading-scale));
+    --sd-fs-h3: calc(1.5rem * var(--sd-heading-scale));
+    --sd-fs-h2: calc(clamp(1.75rem, 1.2rem + 2.4vw, 2.75rem) * var(--sd-heading-scale));
+    --sd-fs-h1: calc(clamp(2.25rem, 1.4rem + 4.2vw, 4.5rem) * var(--sd-heading-scale));
+
+    /* Espaciado */
+    --sd-s1: 0.25rem;
+    --sd-s2: 0.5rem;
+    --sd-s3: 0.75rem;
+    --sd-s4: 1rem;
+    --sd-s5: 1.5rem;
+    --sd-s6: 2rem;
+    --sd-s7: 3rem;
+    --sd-s8: 4.5rem;
+    --sd-s9: 7rem;
+    --sd-gutter: clamp(1rem, 0.6rem + 1.8vw, 2rem);
+    --sd-section-y: clamp(3rem, 2rem + 4vw, 6rem);
+
+    /* Anchos */
+    --sd-page-width: {{ settings.page_width | default: 1320 }}px;
+    --sd-narrow: 46rem;
+    --sd-tap: 2.75rem;
+
+    /* Forma */
+    --sd-radius-s: {{ radius_s }}px;
+    --sd-radius: {{ radius }}px;
+    --sd-radius-l: {{ radius_l }}px;
+    --sd-radius-pill: 999px;
+    --sd-border-w: 1px;
+    --sd-card-ratio: {{ settings.card_ratio | default: '4/5' }};
+
+    /* Sombras discretas */
+    --sd-shadow-1: 0 1px 2px rgba(35, 31, 26, 0.08);
+    --sd-shadow-2: 0 10px 28px -14px rgba(35, 31, 26, 0.32);
+
+    /* Capas */
+    --sd-z-header: 40;
+    --sd-z-overlay: 60;
+    --sd-z-modal: 80;
+    --sd-z-toast: 90;
+
+    /* Movimiento */
+    --sd-ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+    --sd-dur: 180ms;
+    --sd-dur-slow: 420ms;
+  }
+</style>
+{%- if settings.body_font_mode == 'shopify' -%}
+  <link rel="preload" as="font" href="{{ settings.body_font | font_url }}" type="font/woff2" crossorigin>
+{%- endif -%}

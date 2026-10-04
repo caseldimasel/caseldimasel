@@ -1,0 +1,85 @@
+{%- comment -%}
+  Dos o tres datos técnicos clave por categoría, solo los conocidos.
+  Parámetros: product, category, limit (por defecto 3)
+{%- endcomment -%}
+{%- liquid
+  assign max = limit | default: 3
+  assign n = 0
+  assign mf = product.metafields.sidonia
+  assign unit_default = 'm²'
+-%}
+{%- if category == 'garage' -%}
+  {%- liquid
+    assign year = mf.year.value
+    assign km = mf.mileage_km.value
+    assign gear = mf.gearbox.value
+    assign fuel = mf.fuel.value
+  -%}
+  {%- if year != blank and n < max -%}
+    {%- assign lbl = 'specs.year' | t -%}
+    {%- render 'spec-item', label: lbl, value: year -%}
+    {%- assign n = n | plus: 1 -%}
+  {%- endif -%}
+  {%- if km != blank and n < max -%}
+    {%- assign lbl = 'specs.mileage' | t -%}
+    {%- capture km_text -%}{%- render 'format-number', n: km -%}&nbsp;km{%- endcapture -%}
+    {%- render 'spec-item', label: lbl, value: km_text -%}
+    {%- assign n = n | plus: 1 -%}
+  {%- endif -%}
+  {%- if gear != blank and n < max -%}
+    {%- assign lbl = 'specs.gearbox' | t -%}
+    {%- render 'spec-item', label: lbl, value: gear -%}
+    {%- assign n = n | plus: 1 -%}
+  {%- endif -%}
+  {%- if fuel != blank and n < max -%}
+    {%- assign lbl = 'specs.fuel' | t -%}
+    {%- render 'spec-item', label: lbl, value: fuel -%}
+    {%- assign n = n | plus: 1 -%}
+  {%- endif -%}
+{%- elsif category == 'harbor' -%}
+  {%- liquid
+    assign year = mf.year.value
+    assign loa = mf.length_m.value
+    assign btype = mf.boat_type.value
+  -%}
+  {%- if year != blank and n < max -%}
+    {%- assign lbl = 'specs.year' | t -%}
+    {%- render 'spec-item', label: lbl, value: year -%}
+    {%- assign n = n | plus: 1 -%}
+  {%- endif -%}
+  {%- if loa != blank and n < max -%}
+    {%- assign lbl = 'specs.length' | t -%}
+    {%- capture loa_text -%}{%- render 'format-number', n: loa, decimals: 2 -%}&nbsp;m{%- endcapture -%}
+    {%- render 'spec-item', label: lbl, value: loa_text -%}
+    {%- assign n = n | plus: 1 -%}
+  {%- endif -%}
+  {%- if btype != blank and n < max -%}
+    {%- assign lbl = 'specs.boat_type' | t -%}
+    {%- render 'spec-item', label: lbl, value: btype -%}
+    {%- assign n = n | plus: 1 -%}
+  {%- endif -%}
+{%- elsif category == 'estate' -%}
+  {%- liquid
+    assign area = mf.area_value.value
+    assign unit = mf.area_unit.value | default: unit_default
+    assign beds = mf.bedrooms.value
+    assign ptype = mf.property_type.value
+  -%}
+  {%- if area != blank and n < max -%}
+    {%- assign lbl = 'specs.area' | t -%}
+    {%- capture area_text -%}{%- render 'format-number', n: area, decimals: 2 -%}&nbsp;{{ unit }}{%- endcapture -%}
+    {%- render 'spec-item', label: lbl, value: area_text -%}
+    {%- assign n = n | plus: 1 -%}
+  {%- endif -%}
+  {%- if beds != blank and n < max -%}
+    {%- assign lbl = 'specs.bedrooms' | t -%}
+    {%- assign beds_text = 'specs.bedrooms_count' | t: count: beds -%}
+    {%- render 'spec-item', label: lbl, value: beds_text -%}
+    {%- assign n = n | plus: 1 -%}
+  {%- endif -%}
+  {%- if ptype != blank and n < max -%}
+    {%- assign lbl = 'specs.property_type' | t -%}
+    {%- render 'spec-item', label: lbl, value: ptype -%}
+    {%- assign n = n | plus: 1 -%}
+  {%- endif -%}
+{%- endif -%}

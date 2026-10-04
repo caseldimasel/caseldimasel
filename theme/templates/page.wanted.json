@@ -1,0 +1,19 @@
+{
+  "sections": {
+    "header": {
+      "type": "page-header",
+      "settings": {
+        "eyebrow": "Busco algo",
+        "show_breadcrumbs": true
+      }
+    },
+    "form": {
+      "type": "wanted-form",
+      "settings": {}
+    }
+  },
+  "order": [
+    "header",
+    "form"
+  ]
+}

@@ -1,0 +1,26 @@
+{%- comment -%}Migas de pan accesibles. Usa el contexto de plantilla (producto, colección, página).{%- endcomment -%}
+<nav class="sd-crumbs" aria-label="{{ 'general.breadcrumbs' | t }}">
+  <ol>
+    <li><a href="{{ routes.root_url }}">{{ 'general.home' | t }}</a></li>
+    {%- case template.name -%}
+      {%- when 'product' -%}
+        {%- if crumb_url != blank -%}
+          <li><a href="{{ crumb_url }}">{{ crumb_title }}</a></li>
+        {%- endif -%}
+        <li><span aria-current="page">{{ product.title }}</span></li>
+      {%- when 'collection' -%}
+        <li><span aria-current="page">{{ collection.title }}</span></li>
+      {%- when 'page' -%}
+        <li><span aria-current="page">{{ page.title }}</span></li>
+      {%- when 'article' -%}
+        <li><a href="{{ blog.url }}">{{ blog.title }}</a></li>
+        <li><span aria-current="page">{{ article.title }}</span></li>
+      {%- when 'blog' -%}
+        <li><span aria-current="page">{{ blog.title }}</span></li>
+      {%- when 'search' -%}
+        <li><span aria-current="page">{{ 'search.title' | t }}</span></li>
+      {%- else -%}
+        <li><span aria-current="page">{{ page_title }}</span></li>
+    {%- endcase -%}
+  </ol>
+</nav>

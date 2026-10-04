@@ -1,0 +1,31 @@
+{%- comment -%}
+  Mejor fuente mp4 de un vídeo alojado en Shopify con altura <= max_height (o la más pequeña si todas son mayores).
+  Parámetros: video, max_height, out = url (por defecto) | mime
+{%- endcomment -%}
+{%- liquid
+  assign maxh = max_height | default: settings.video_max_height | plus: 0
+  assign best = nil
+  assign smallest = nil
+  for s in video.sources
+    if s.format == 'mp4'
+      if smallest == blank or s.height < smallest.height
+        assign smallest = s
+      endif
+      if s.height <= maxh
+        if best == blank or s.height > best.height
+          assign best = s
+        endif
+      endif
+    endif
+  endfor
+  if best == blank
+    assign best = smallest
+  endif
+  if best != blank
+    if out == 'mime'
+      echo best.mime_type | default: 'video/mp4'
+    else
+      echo best.url
+    endif
+  endif
+-%}

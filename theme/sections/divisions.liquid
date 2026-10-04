@@ -1,0 +1,74 @@
+{%- liquid
+  capture keys
+    render 'division-keys'
+  endcapture
+  assign list = keys | strip | split: ','
+  assign s = section.settings
+-%}
+<section class="sd-section sd-divisions" data-section-id="{{ section.id }}">
+  <div class="sd-container">
+    <div class="sd-section-head sd-section-head--split">
+      <div>
+        {%- if s.eyebrow != blank -%}<p class="sd-eyebrow">{{ s.eyebrow }}</p>{%- endif -%}
+        <h2>{{ s.heading }}</h2>
+      </div>
+      {%- if s.text != blank -%}<p class="sd-lead">{{ s.text }}</p>{%- endif -%}
+    </div>
+
+    <ul class="sd-divisions__grid" role="list">
+      {%- for c in list -%}
+        {%- capture c_name -%}{%- render 'division-info', key: c, out: 'name' -%}{%- endcapture -%}
+        {%- capture c_url -%}{%- render 'division-info', key: c, out: 'url' -%}{%- endcapture -%}
+        {%- capture c_tag -%}{%- render 'division-info', key: c, out: 'tagline' -%}{%- endcapture -%}
+        {%- capture c_count -%}{%- render 'division-info', key: c, out: 'count' -%}{%- endcapture -%}
+        {%- assign img_key = 'division_' | append: c | append: '_image' -%}
+        {%- assign c_img = settings[img_key] -%}
+        {%- assign c_name = c_name | strip -%}
+        {%- assign c_count = c_count | strip -%}
+        {%- assign c_count_n = c_count | plus: 0 -%}
+        <li class="sd-divcard sd-cat sd-cat--{{ c }}">
+          <div class="sd-divcard__media">
+            {%- if c_img != blank -%}
+              {%- render 'sd-image', image: c_img, widths: '400,600,800,1000', sizes: '(min-width: 900px) 30vw, 92vw', class: 'sd-divcard__img', decorative: true, cover: true -%}
+            {%- else -%}
+              <span class="sd-divcard__fill" aria-hidden="true">{{ c_name }}</span>
+            {%- endif -%}
+          </div>
+          <div class="sd-divcard__body">
+            <p class="sd-eyebrow">{{ settings.brand_name | default: shop.name }}</p>
+            <h3 class="sd-divcard__name"><a class="sd-divcard__link" href="{{ c_url | strip }}">{{ c_name }}</a></h3>
+            {%- assign c_tag = c_tag | strip -%}
+            {%- if c_tag != blank -%}<p class="sd-divcard__tag">{{ c_tag }}</p>{%- endif -%}
+            <p class="sd-divcard__foot">
+              {%- if settings.show_listing_counts and c_count != blank and c_count_n > 0 -%}
+                <span class="sd-divcard__count">{{ 'divisions.count' | t: count: c_count_n }}</span>
+              {%- endif -%}
+              <span class="sd-divcard__go" aria-hidden="true">{%- render 'icon', name: 'arrow-right', size: 22 -%}</span>
+            </p>
+          </div>
+        </li>
+      {%- endfor -%}
+    </ul>
+  </div>
+</section>
+
+{% schema %}
+{
+  "name": "Tres mundos",
+  "tag": "section",
+  "settings": [
+    { "type": "text", "id": "eyebrow", "label": "Antetítulo", "default": "Una misma selección" },
+    { "type": "text", "id": "heading", "label": "Título", "default": "Tres mundos, una misma selección" },
+    {
+      "type": "textarea",
+      "id": "text",
+      "label": "Texto",
+      "default": "Cada división tiene su color y su forma de mirar, pero comparten el mismo criterio: piezas con historia, bien contadas."
+    },
+    { "type": "paragraph", "content": "Nombres, frases, portadas y colecciones se editan en Ajustes del tema > Divisiones. El número de piezas solo se muestra si la colección está enlazada y tiene contenido." }
+  ],
+  "presets": [
+    { "name": "Tres mundos" }
+  ]
+}
+{% endschema %}

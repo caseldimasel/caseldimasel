@@ -1,0 +1,7 @@
+{%- layout none -%}
+{%- comment -%}
+  Vista alternativa de producto (/products/handle?view=card).
+  La usa la página de Favoritos para consultar el estado, precio y vídeo ACTUALES de cada pieza guardada
+  con una vía soportada por Shopify (plantillas alternativas). Devuelve solo la tarjeta, sin layout.
+{%- endcomment -%}
+{%- render 'listing-card', product: product -%}

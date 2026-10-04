@@ -1,0 +1,47 @@
+{%- comment -%}
+  Respuesta de la API de búsqueda predictiva (Section Rendering). La invoca sd-header.js con
+  /search/suggest?section_id=predictive-search&q=...&resources[type]=product
+{%- endcomment -%}
+{%- if predictive_search.performed -%}
+  {%- assign products = predictive_search.resources.products -%}
+  {%- if products.size > 0 -%}
+    <p class="sd-eyebrow" id="sd-suggest-title">{{ 'search.suggestions' | t }}</p>
+    <ul class="sd-suggest" role="list" aria-labelledby="sd-suggest-title">
+      {%- for product in products -%}
+        {%- capture cat -%}{%- render 'listing-category', product: product -%}{%- endcapture -%}
+        {%- assign cat = cat | strip -%}
+        {%- capture place -%}{%- render 'listing-location', product: product -%}{%- endcapture -%}
+        {%- assign place = place | strip -%}
+        {%- capture status -%}{%- render 'listing-status', product: product -%}{%- endcapture -%}
+        {%- assign status = status | strip -%}
+        <li class="{% if cat != blank %}sd-cat sd-cat--{{ cat }}{% endif %}">
+          <a class="sd-suggest__item" href="{{ product.url }}">
+            {%- if product.featured_image != blank -%}
+              {%- render 'sd-image', image: product.featured_image, widths: '96,192', sizes: '64px', class: 'sd-suggest__img', decorative: true, cover: true -%}
+            {%- else -%}
+              <span class="sd-suggest__img" aria-hidden="true"></span>
+            {%- endif -%}
+            <span>
+              <span class="sd-suggest__title">{{ product.title | escape }}</span>
+              <span class="sd-suggest__meta">
+                {%- if cat != blank -%}{%- render 'division-info', key: cat, out: 'name' -%}{%- endif -%}
+                {%- if place != blank %} · {{ place }}{% endif -%}
+                {%- if status == 'sold' %} · {{ 'listing.status_sold' | t }}{% elsif status == 'reserved' %} · {{ 'listing.status_reserved' | t }}{% endif -%}
+              </span>
+            </span>
+          </a>
+        </li>
+      {%- endfor -%}
+    </ul>
+    <p class="sd-suggest__all"><a class="sd-btn sd-btn--ghost" href="{{ routes.search_url }}?q={{ predictive_search.terms | url_encode }}&type=product&options%5Bprefix%5D=last">{{ 'search.see_all' | t }}{%- render 'icon', name: 'arrow-right', size: 18 -%}</a></p>
+  {%- else -%}
+    <p class="sd-note">{{ 'search.no_suggestions' | t }}</p>
+  {%- endif -%}
+{%- endif -%}
+
+{% schema %}
+{
+  "name": "Búsqueda predictiva",
+  "tag": "div"
+}
+{% endschema %}

@@ -1,0 +1,18 @@
+{%- comment -%}
+  Botón Guardar (favoritos locales del navegador). Parámetros: product, variant ('card' | 'page'), class.
+  El estado real (aria-pressed) lo gestiona <sd-save> en sd-favorites.js; sin JS el botón no se muestra.
+{%- endcomment -%}
+<sd-save
+  class="sd-save sd-save--{{ variant | default: 'card' }}{% if class != blank %} {{ class }}{% endif %}"
+  data-id="{{ product.id }}"
+  data-handle="{{ product.handle }}"
+  data-title="{{ product.title | escape }}"
+  hidden
+>
+  <button type="button" class="sd-save__btn" aria-pressed="false" data-sd-save-btn>
+    <span class="sd-save__icon sd-save__icon--off" aria-hidden="true">{%- render 'icon', name: 'heart', size: 22 -%}</span>
+    <span class="sd-save__icon sd-save__icon--on" aria-hidden="true">{%- render 'icon', name: 'heart-filled', size: 22 -%}</span>
+    <span class="sd-save__label" data-sd-save-label aria-hidden="true">{{ 'favorites.save' | t }}</span>
+    <span class="sd-sr">{{ 'favorites.save_aria' | t: title: product.title }}</span>
+  </button>
+</sd-save>

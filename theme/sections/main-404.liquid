@@ -1,0 +1,70 @@
+{%- liquid
+  capture explore_url
+    render 'page-url', key: 'explore'
+  endcapture
+  capture sell_url
+    render 'page-url', key: 'sell'
+  endcapture
+  capture contact_url
+    render 'page-url', key: 'contact'
+  endcapture
+  capture garage_url
+    render 'division-info', key: 'garage', out: 'url'
+  endcapture
+  capture harbor_url
+    render 'division-info', key: 'harbor', out: 'url'
+  endcapture
+  capture estate_url
+    render 'division-info', key: 'estate', out: 'url'
+  endcapture
+  capture garage_name
+    render 'division-info', key: 'garage', out: 'name'
+  endcapture
+  capture harbor_name
+    render 'division-info', key: 'harbor', out: 'name'
+  endcapture
+  capture estate_name
+    render 'division-info', key: 'estate', out: 'name'
+  endcapture
+-%}
+<section class="sd-section sd-404" data-section-id="{{ section.id }}">
+  <div class="sd-container sd-container--narrow">
+    <p class="sd-eyebrow">404</p>
+    <h1>{{ section.settings.heading }}</h1>
+    <p class="sd-lead">{{ section.settings.text }}</p>
+
+    <form class="sd-bigsearch" action="{{ routes.search_url }}" method="get" role="search">
+      <label class="sd-sr" for="q404-{{ section.id }}">{{ 'search.label' | t }}</label>
+      <input type="hidden" name="type" value="product">
+      <input type="hidden" name="options[prefix]" value="last">
+      <input id="q404-{{ section.id }}" class="sd-input" type="search" name="q" placeholder="{{ 'search.placeholder' | t }}" autocomplete="off">
+      <button type="submit" class="sd-btn sd-btn--primary">{%- render 'icon', name: 'search', size: 20 -%}<span>{{ 'search.submit' | t }}</span></button>
+    </form>
+
+    <h2 class="sd-404__sub">{{ 'error404.explore' | t }}</h2>
+    <ul class="sd-chiprow" role="list">
+      <li><a class="sd-chip sd-chip--cat" href="{{ explore_url | strip }}">{{ 'header.explore' | t }}</a></li>
+      <li class="sd-cat sd-cat--garage"><a class="sd-chip sd-chip--cat" href="{{ garage_url | strip }}">{{ garage_name | strip }}</a></li>
+      <li class="sd-cat sd-cat--harbor"><a class="sd-chip sd-chip--cat" href="{{ harbor_url | strip }}">{{ harbor_name | strip }}</a></li>
+      <li class="sd-cat sd-cat--estate"><a class="sd-chip sd-chip--cat" href="{{ estate_url | strip }}">{{ estate_name | strip }}</a></li>
+    </ul>
+
+    <div class="sd-404__actions">
+      <a class="sd-btn sd-btn--primary" href="{{ sell_url | strip }}">{{ 'owner_cta.button' | t }}</a>
+      <a class="sd-btn sd-btn--secondary" href="{{ contact_url | strip }}">{{ 'error404.contact' | t }}</a>
+      <a class="sd-btn sd-btn--ghost" href="{{ routes.root_url }}">{{ 'error404.home' | t }}</a>
+    </div>
+  </div>
+</section>
+
+{% schema %}
+{
+  "name": "Página 404",
+  "tag": "div",
+  "enabled_on": { "templates": ["404"] },
+  "settings": [
+    { "type": "text", "id": "heading", "label": "Título", "default": "Esta página no existe" },
+    { "type": "textarea", "id": "text", "label": "Texto", "default": "Puede que el enlace haya cambiado o que la pieza ya no esté publicada. Prueba a buscarla o explora la selección." }
+  ]
+}
+{% endschema %}

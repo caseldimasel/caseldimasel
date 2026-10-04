@@ -1,0 +1,79 @@
+{%- liquid
+  assign s = section.settings
+  assign valid = 0
+  for block in section.blocks
+    if block.settings.quote != blank and block.settings.authorized
+      assign valid = valid | plus: 1
+    endif
+  endfor
+-%}
+{%- if valid > 0 or request.design_mode -%}
+<section class="sd-section sd-testimonials" data-section-id="{{ section.id }}">
+  <div class="sd-container">
+    <div class="sd-section-head">
+      {%- if s.eyebrow != blank -%}<p class="sd-eyebrow">{{ s.eyebrow }}</p>{%- endif -%}
+      <h2>{{ s.heading }}</h2>
+    </div>
+    {%- if valid > 0 -%}
+      <ul class="sd-quotes" role="list">
+        {%- for block in section.blocks -%}
+          {%- if block.settings.quote != blank and block.settings.authorized -%}
+            <li class="sd-quote" {{ block.shopify_attributes }}>
+              <figure>
+                <blockquote class="sd-quote__text">{{ block.settings.quote }}</blockquote>
+                <figcaption class="sd-quote__who">
+                  {%- if block.settings.image != blank -%}
+                    {%- render 'sd-image', image: block.settings.image, widths: '96,192', sizes: '48px', class: 'sd-quote__avatar', alt: block.settings.name, cover: true -%}
+                  {%- endif -%}
+                  <span>
+                    {%- if block.settings.name != blank -%}<strong>{{ block.settings.name }}</strong>{%- endif -%}
+                    {%- if block.settings.role != blank -%}<span class="sd-quote__role">{{ block.settings.role }}</span>{%- endif -%}
+                  </span>
+                </figcaption>
+                {%- if block.settings.product != blank -%}
+                  <a class="sd-quote__case" href="{{ block.settings.product.url }}">{{ 'testimonials.see_case' | t }}: {{ block.settings.product.title }}</a>
+                {%- endif -%}
+              </figure>
+            </li>
+          {%- endif -%}
+        {%- endfor -%}
+      </ul>
+    {%- else -%}
+      <div class="sd-empty">
+        <h3>{{ 'testimonials.editor_empty_title' | t }}</h3>
+        <p>{{ 'testimonials.editor_empty_text' | t }}</p>
+      </div>
+    {%- endif -%}
+  </div>
+</section>
+{%- endif -%}
+
+{% schema %}
+{
+  "name": "Testimonios y casos",
+  "tag": "section",
+  "settings": [
+    { "type": "paragraph", "content": "Solo contenido real y con autorización de uso. Un testimonio sin la casilla de autorización marcada no se publica. Sin testimonios, la sección se oculta fuera del editor." },
+    { "type": "text", "id": "eyebrow", "label": "Antetítulo", "default": "Lo que cuentan" },
+    { "type": "text", "id": "heading", "label": "Título", "default": "Propietarios y compradores" }
+  ],
+  "blocks": [
+    {
+      "type": "testimonial",
+      "name": "Testimonio",
+      "settings": [
+        { "type": "textarea", "id": "quote", "label": "Texto del testimonio" },
+        { "type": "text", "id": "name", "label": "Nombre" },
+        { "type": "text", "id": "role", "label": "Relación con Sidonia", "info": "Por ejemplo: propietario, comprador." },
+        { "type": "image_picker", "id": "image", "label": "Foto (solo con autorización)" },
+        { "type": "product", "id": "product", "label": "Pieza relacionada (opcional)" },
+        { "type": "checkbox", "id": "authorized", "label": "Tengo autorización escrita para publicarlo", "default": false }
+      ]
+    }
+  ],
+  "max_blocks": 6,
+  "presets": [
+    { "name": "Testimonios y casos" }
+  ]
+}
+{% endschema %}

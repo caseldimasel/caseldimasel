@@ -1,0 +1,857 @@
+[
+  {
+    "name": "theme_info",
+    "theme_name": "Sidonia",
+    "theme_version": "1.0.0",
+    "theme_author": "Sidonia",
+    "theme_documentation_url": "https://github.com/caseldimasel/caseldimasel",
+    "theme_support_url": "https://github.com/caseldimasel/caseldimasel/issues"
+  },
+  {
+    "name": "Marca y logos",
+    "settings": [
+      {
+        "type": "paragraph",
+        "content": "Sidonia usa un único logo para la marca madre y para sus divisiones. Si no subes ninguno, el tema muestra la palabra del nombre de marca en texto. Se admiten PNG, JPG, WebP y SVG (súbelos primero en Contenido > Archivos o desde el propio selector)."
+      },
+      {
+        "type": "text",
+        "id": "brand_name",
+        "label": "Nombre de la marca",
+        "default": "SIDONIA"
+      },
+      {
+        "type": "image_picker",
+        "id": "logo",
+        "label": "Logo principal",
+        "info": "Se usa si no hay versión clara u oscura."
+      },
+      {
+        "type": "image_picker",
+        "id": "logo_dark",
+        "label": "Logo versión oscura",
+        "info": "Para fondos claros (cabecera). Tiene prioridad sobre el logo principal en la cabecera."
+      },
+      {
+        "type": "image_picker",
+        "id": "logo_light",
+        "label": "Logo versión clara",
+        "info": "Para fondos oscuros (pie de página y reproductor)."
+      },
+      {
+        "type": "image_picker",
+        "id": "isotype",
+        "label": "Isotipo",
+        "info": "Marca reducida. Se usa en móvil cuando la cabecera va justa y en el pie."
+      },
+      {
+        "type": "image_picker",
+        "id": "favicon",
+        "label": "Favicon",
+        "info": "PNG cuadrado, mínimo 48 × 48 px."
+      },
+      {
+        "type": "range",
+        "id": "logo_width",
+        "label": "Ancho del logo",
+        "min": 80,
+        "max": 320,
+        "step": 4,
+        "unit": "px",
+        "default": 160
+      },
+      {
+        "type": "image_picker",
+        "id": "og_image",
+        "label": "Imagen para compartir por defecto",
+        "info": "1200 × 630 px. Se usa en páginas sin imagen propia."
+      }
+    ]
+  },
+  {
+    "name": "Colores",
+    "settings": [
+      {
+        "type": "header",
+        "content": "Base"
+      },
+      {
+        "type": "color",
+        "id": "color_bg",
+        "label": "Fondo de página",
+        "default": "#F5F0E6"
+      },
+      {
+        "type": "color",
+        "id": "color_surface",
+        "label": "Superficies (tarjetas, campos)",
+        "default": "#FBF8F2"
+      },
+      {
+        "type": "color",
+        "id": "color_surface_alt",
+        "label": "Superficie alternativa",
+        "default": "#EBE3D3"
+      },
+      {
+        "type": "color",
+        "id": "color_text",
+        "label": "Texto",
+        "default": "#231F1A"
+      },
+      {
+        "type": "color",
+        "id": "color_muted",
+        "label": "Texto secundario",
+        "default": "#5C5549"
+      },
+      {
+        "type": "color",
+        "id": "color_border",
+        "label": "Bordes y separadores",
+        "default": "#D8CFBD"
+      },
+      {
+        "type": "color",
+        "id": "color_button",
+        "label": "Botón principal",
+        "default": "#231F1A"
+      },
+      {
+        "type": "color",
+        "id": "color_button_text",
+        "label": "Texto del botón principal",
+        "default": "#FBF8F2"
+      },
+      {
+        "type": "color",
+        "id": "color_dark",
+        "label": "Fondo oscuro (pie y reproductor)",
+        "default": "#26211B"
+      },
+      {
+        "type": "header",
+        "content": "Divisiones"
+      },
+      {
+        "type": "paragraph",
+        "content": "Si un color no alcanza contraste 4,5:1 sobre el fondo, el tema lo oscurece automáticamente cuando se usa como texto o icono."
+      },
+      {
+        "type": "color",
+        "id": "color_garage",
+        "label": "Garage (coches)",
+        "default": "#A3261C"
+      },
+      {
+        "type": "color",
+        "id": "color_harbor",
+        "label": "Harbor (barcos)",
+        "default": "#1D4F7C"
+      },
+      {
+        "type": "color",
+        "id": "color_estate",
+        "label": "Estate (casas)",
+        "default": "#2D6A4A"
+      },
+      {
+        "type": "color",
+        "id": "color_focus",
+        "label": "Anillo de foco",
+        "default": "#1D4F7C"
+      }
+    ]
+  },
+  {
+    "name": "Tipografía",
+    "settings": [
+      {
+        "type": "paragraph",
+        "content": "Máximo dos familias: una para títulos y otra para interfaz y datos. Por defecto se usan fuentes del sistema (sin descarga, sin licencias). Puedes cambiar a la biblioteca de fuentes de Shopify, cuyas licencias gestiona Shopify."
+      },
+      {
+        "type": "select",
+        "id": "heading_font_mode",
+        "label": "Fuente de títulos",
+        "options": [
+          {
+            "value": "system",
+            "label": "Serif editorial del sistema"
+          },
+          {
+            "value": "shopify",
+            "label": "Biblioteca de Shopify (elige abajo)"
+          }
+        ],
+        "default": "system"
+      },
+      {
+        "type": "font_picker",
+        "id": "heading_font",
+        "label": "Fuente de títulos (biblioteca)",
+        "default": "assistant_n4"
+      },
+      {
+        "type": "select",
+        "id": "body_font_mode",
+        "label": "Fuente de interfaz y datos",
+        "options": [
+          {
+            "value": "system",
+            "label": "Sans del sistema"
+          },
+          {
+            "value": "shopify",
+            "label": "Biblioteca de Shopify (elige abajo)"
+          }
+        ],
+        "default": "system"
+      },
+      {
+        "type": "font_picker",
+        "id": "body_font",
+        "label": "Fuente de interfaz (biblioteca)",
+        "default": "assistant_n4"
+      },
+      {
+        "type": "range",
+        "id": "heading_scale",
+        "label": "Escala de títulos",
+        "min": 85,
+        "max": 125,
+        "step": 5,
+        "unit": "%",
+        "default": 100
+      },
+      {
+        "type": "select",
+        "id": "body_size",
+        "label": "Tamaño del texto",
+        "options": [
+          {
+            "value": "16",
+            "label": "16 px"
+          },
+          {
+            "value": "17",
+            "label": "17 px"
+          },
+          {
+            "value": "18",
+            "label": "18 px"
+          }
+        ],
+        "default": "17"
+      }
+    ]
+  },
+  {
+    "name": "Diseño",
+    "settings": [
+      {
+        "type": "range",
+        "id": "page_width",
+        "label": "Ancho máximo del contenido",
+        "min": 1100,
+        "max": 1600,
+        "step": 20,
+        "unit": "px",
+        "default": 1320
+      },
+      {
+        "type": "range",
+        "id": "radius",
+        "label": "Radio de esquinas",
+        "min": 0,
+        "max": 24,
+        "step": 2,
+        "unit": "px",
+        "default": 10
+      },
+      {
+        "type": "select",
+        "id": "card_ratio",
+        "label": "Proporción de la portada en tarjetas",
+        "options": [
+          {
+            "value": "4/5",
+            "label": "4:5 (vertical suave)"
+          },
+          {
+            "value": "3/4",
+            "label": "3:4"
+          },
+          {
+            "value": "1/1",
+            "label": "1:1"
+          },
+          {
+            "value": "9/16",
+            "label": "9:16 (como el vídeo vertical)"
+          }
+        ],
+        "default": "4/5"
+      },
+      {
+        "type": "select",
+        "id": "card_density",
+        "label": "Densidad de tarjetas",
+        "options": [
+          {
+            "value": "comfortable",
+            "label": "Cómoda"
+          },
+          {
+            "value": "compact",
+            "label": "Compacta"
+          }
+        ],
+        "default": "comfortable"
+      },
+      {
+        "type": "select",
+        "id": "mobile_columns",
+        "label": "Columnas del catálogo en móvil",
+        "options": [
+          {
+            "value": "1",
+            "label": "Una columna"
+          },
+          {
+            "value": "2",
+            "label": "Dos columnas (tarjeta compacta)"
+          }
+        ],
+        "default": "1"
+      },
+      {
+        "type": "checkbox",
+        "id": "sticky_header",
+        "label": "Cabecera fija al desplazarse",
+        "default": true
+      }
+    ]
+  },
+  {
+    "name": "Divisiones",
+    "settings": [
+      {
+        "type": "paragraph",
+        "content": "Datos de cada división. La colección enlazada define el destino y el número de anuncios. Para añadir una división nueva en el futuro, consulta docs/01-guia-de-edicion.md."
+      },
+      {
+        "type": "header",
+        "content": "Garage (coches)"
+      },
+      {
+        "type": "text",
+        "id": "division_garage_name",
+        "label": "Nombre",
+        "default": "Garage"
+      },
+      {
+        "type": "text",
+        "id": "division_garage_tagline",
+        "label": "Frase breve",
+        "default": "Coches con historia y carácter"
+      },
+      {
+        "type": "collection",
+        "id": "division_garage_collection",
+        "label": "Colección"
+      },
+      {
+        "type": "image_picker",
+        "id": "division_garage_image",
+        "label": "Portada de la división"
+      },
+      {
+        "type": "text",
+        "id": "division_garage_email",
+        "label": "Email propio (opcional)"
+      },
+      {
+        "type": "text",
+        "id": "division_garage_whatsapp",
+        "label": "WhatsApp propio (opcional)",
+        "info": "Formato internacional: signo + y prefijo del país seguidos del número, sin espacios."
+      },
+      {
+        "type": "header",
+        "content": "Harbor (barcos)"
+      },
+      {
+        "type": "text",
+        "id": "division_harbor_name",
+        "label": "Nombre",
+        "default": "Harbor"
+      },
+      {
+        "type": "text",
+        "id": "division_harbor_tagline",
+        "label": "Frase breve",
+        "default": "Barcos con personalidad propia"
+      },
+      {
+        "type": "collection",
+        "id": "division_harbor_collection",
+        "label": "Colección"
+      },
+      {
+        "type": "image_picker",
+        "id": "division_harbor_image",
+        "label": "Portada de la división"
+      },
+      {
+        "type": "text",
+        "id": "division_harbor_email",
+        "label": "Email propio (opcional)"
+      },
+      {
+        "type": "text",
+        "id": "division_harbor_whatsapp",
+        "label": "WhatsApp propio (opcional)",
+        "info": "Formato internacional: signo + y prefijo del país seguidos del número, sin espacios."
+      },
+      {
+        "type": "header",
+        "content": "Estate (casas)"
+      },
+      {
+        "type": "text",
+        "id": "division_estate_name",
+        "label": "Nombre",
+        "default": "Estate"
+      },
+      {
+        "type": "text",
+        "id": "division_estate_tagline",
+        "label": "Frase breve",
+        "default": "Casas con alma propia"
+      },
+      {
+        "type": "collection",
+        "id": "division_estate_collection",
+        "label": "Colección"
+      },
+      {
+        "type": "image_picker",
+        "id": "division_estate_image",
+        "label": "Portada de la división"
+      },
+      {
+        "type": "text",
+        "id": "division_estate_email",
+        "label": "Email propio (opcional)"
+      },
+      {
+        "type": "text",
+        "id": "division_estate_whatsapp",
+        "label": "WhatsApp propio (opcional)",
+        "info": "Formato internacional: signo + y prefijo del país seguidos del número, sin espacios."
+      },
+      {
+        "type": "header",
+        "content": "Colecciones generales"
+      },
+      {
+        "type": "collection",
+        "id": "explore_collection",
+        "label": "Colección «Explorar»",
+        "info": "Si está vacía se usa /collections/all."
+      },
+      {
+        "type": "collection",
+        "id": "archive_collection",
+        "label": "Colección del archivo de vendidas",
+        "info": "Solo piezas con estado Vendido y autorizadas."
+      }
+    ]
+  },
+  {
+    "name": "Páginas clave",
+    "settings": [
+      {
+        "type": "paragraph",
+        "content": "Elige aquí las páginas de Shopify que usa el tema en botones y enlaces automáticos. Si dejas una vacía, se usa la ruta /pages/<handle> indicada, que debes crear con ese handle (o redirigir)."
+      },
+      {
+        "type": "page",
+        "id": "page_sell",
+        "label": "Vender con Sidonia",
+        "info": "Handle de reserva: vender"
+      },
+      {
+        "type": "page",
+        "id": "page_how",
+        "label": "Cómo vendemos",
+        "info": "Handle de reserva: como-vendemos"
+      },
+      {
+        "type": "page",
+        "id": "page_about",
+        "label": "Sobre Sidonia",
+        "info": "Handle de reserva: sobre-sidonia"
+      },
+      {
+        "type": "page",
+        "id": "page_favorites",
+        "label": "Favoritos",
+        "info": "Handle de reserva: favoritos"
+      },
+      {
+        "type": "page",
+        "id": "page_contact",
+        "label": "Contacto",
+        "info": "Handle de reserva: contacto"
+      },
+      {
+        "type": "page",
+        "id": "page_archive",
+        "label": "Archivo de piezas vendidas",
+        "info": "Handle de reserva: archivo"
+      },
+      {
+        "type": "page",
+        "id": "page_wanted",
+        "label": "Cuéntanos qué buscas",
+        "info": "Handle de reserva: busco"
+      }
+    ]
+  },
+  {
+    "name": "Contacto y mensajes",
+    "settings": [
+      {
+        "type": "paragraph",
+        "content": "Si un canal está vacío, el tema lo oculta. Nunca se genera un enlace con datos de ejemplo."
+      },
+      {
+        "type": "text",
+        "id": "contact_email",
+        "label": "Email general"
+      },
+      {
+        "type": "text",
+        "id": "contact_whatsapp",
+        "label": "WhatsApp general",
+        "info": "Formato internacional: signo + y prefijo del país seguidos del número, sin espacios."
+      },
+      {
+        "type": "text",
+        "id": "contact_phone",
+        "label": "Teléfono (opcional)"
+      },
+      {
+        "type": "text",
+        "id": "contact_hours",
+        "label": "Horario de atención (opcional)",
+        "info": "Se muestra tal cual. No se promete tiempo de respuesta salvo que lo escribas aquí."
+      },
+      {
+        "type": "text",
+        "id": "contact_response_note",
+        "label": "Nota de respuesta (opcional)",
+        "info": "Por ejemplo: «Respondemos en días laborables». Déjala vacía si no quieres prometer plazos."
+      },
+      {
+        "type": "textarea",
+        "id": "whatsapp_message",
+        "label": "Mensaje de WhatsApp para una pieza",
+        "info": "Variables: [nombre], [referencia], [url].",
+        "default": "Hola, me interesa [nombre], referencia [referencia]. La he visto aquí: [url]. ¿Podéis darme más información?"
+      },
+      {
+        "type": "textarea",
+        "id": "whatsapp_message_sold",
+        "label": "Mensaje de WhatsApp para una pieza vendida",
+        "info": "Variables: [nombre], [referencia], [url].",
+        "default": "Hola, he visto [nombre] (referencia [referencia]) en vuestro archivo: [url]. Busco algo parecido. ¿Podéis ayudarme?"
+      },
+      {
+        "type": "text",
+        "id": "email_subject",
+        "label": "Asunto del email para una pieza",
+        "default": "Consulta sobre [nombre] (ref. [referencia])"
+      },
+      {
+        "type": "textarea",
+        "id": "email_body",
+        "label": "Cuerpo del email para una pieza",
+        "info": "Variables: [nombre], [referencia], [url].",
+        "default": "Hola, me interesa [nombre], referencia [referencia].\nLa he visto aquí: [url]\n\n¿Podéis darme más información?"
+      },
+      {
+        "type": "textarea",
+        "id": "whatsapp_message_general",
+        "label": "Mensaje de WhatsApp general",
+        "default": "Hola, quería haceros una consulta sobre Sidonia."
+      }
+    ]
+  },
+  {
+    "name": "Redes y comunidad",
+    "settings": [
+      {
+        "type": "paragraph",
+        "content": "Las cifras son manuales. Si un campo de cifra está vacío no se publica. El tema nunca suma cuentas ni las llama personas únicas."
+      },
+      {
+        "type": "url",
+        "id": "social_instagram_url",
+        "label": "Instagram: perfil"
+      },
+      {
+        "type": "text",
+        "id": "social_instagram_followers",
+        "label": "Instagram: seguidores",
+        "info": "Texto libre, por ejemplo «12,4 mil»."
+      },
+      {
+        "type": "url",
+        "id": "social_tiktok_url",
+        "label": "TikTok: perfil"
+      },
+      {
+        "type": "text",
+        "id": "social_tiktok_followers",
+        "label": "TikTok: seguidores"
+      },
+      {
+        "type": "url",
+        "id": "social_youtube_url",
+        "label": "YouTube: canal"
+      },
+      {
+        "type": "text",
+        "id": "social_youtube_followers",
+        "label": "YouTube: suscriptores"
+      },
+      {
+        "type": "url",
+        "id": "social_facebook_url",
+        "label": "Facebook: página"
+      },
+      {
+        "type": "text",
+        "id": "social_facebook_followers",
+        "label": "Facebook: seguidores"
+      },
+      {
+        "type": "text",
+        "id": "social_metrics_updated",
+        "label": "Fecha de actualización de las cifras (opcional)",
+        "info": "Por ejemplo «octubre de 2026»."
+      }
+    ]
+  },
+  {
+    "name": "Vídeo",
+    "settings": [
+      {
+        "type": "checkbox",
+        "id": "video_preview_enabled",
+        "label": "Permitir previsualizaciones silenciosas en fichas",
+        "info": "Solo si la pieza tiene clip de previsualización, el navegador lo permite y el visitante no ha pedido reducir movimiento ni ahorro de datos.",
+        "default": true
+      },
+      {
+        "type": "checkbox",
+        "id": "video_preview_mobile",
+        "label": "Permitir previsualizaciones en móvil",
+        "default": false
+      },
+      {
+        "type": "checkbox",
+        "id": "video_external_consent",
+        "label": "Pedir confirmación antes de cargar YouTube o Vimeo",
+        "default": true
+      },
+      {
+        "type": "select",
+        "id": "video_max_height",
+        "label": "Calidad máxima del vídeo alojado en Shopify",
+        "options": [
+          {
+            "value": "720",
+            "label": "720 px (ahorra datos)"
+          },
+          {
+            "value": "1080",
+            "label": "1080 px"
+          }
+        ],
+        "default": "1080"
+      },
+      {
+        "type": "text",
+        "id": "video_default_language",
+        "label": "Idioma del vídeo por defecto",
+        "default": "Español",
+        "info": "Se muestra si la pieza no indica otro idioma."
+      }
+    ]
+  },
+  {
+    "name": "Textos de botones",
+    "settings": [
+      {
+        "type": "text",
+        "id": "label_sell_cta",
+        "label": "Botón de venta (cabecera)",
+        "default": "Vender con Sidonia"
+      },
+      {
+        "type": "text",
+        "id": "label_explore_cta",
+        "label": "Botón de explorar",
+        "default": "Explorar la selección"
+      },
+      {
+        "type": "text",
+        "id": "label_story_cta",
+        "label": "Botón de vídeo del hero",
+        "default": "Ver cómo lo contamos"
+      },
+      {
+        "type": "text",
+        "id": "label_inquiry_cta",
+        "label": "Botón de consulta",
+        "default": "Consultar esta pieza"
+      },
+      {
+        "type": "text",
+        "id": "label_price_request",
+        "label": "Texto de precio a consultar",
+        "default": "Precio a consultar"
+      },
+      {
+        "type": "text",
+        "id": "label_price_hidden",
+        "label": "Texto de precio no publicado",
+        "default": "Precio no publicado"
+      }
+    ]
+  },
+  {
+    "name": "Catálogo y funciones",
+    "settings": [
+      {
+        "type": "checkbox",
+        "id": "enable_load_more",
+        "label": "Botón «Cargar más» (mejora progresiva sobre la paginación)",
+        "default": true
+      },
+      {
+        "type": "range",
+        "id": "products_per_page",
+        "label": "Piezas por página",
+        "min": 8,
+        "max": 48,
+        "step": 4,
+        "default": 12
+      },
+      {
+        "type": "checkbox",
+        "id": "show_listing_counts",
+        "label": "Mostrar el número de anuncios en las divisiones",
+        "info": "Procede de la colección enlazada, igual que el listado.",
+        "default": true
+      },
+      {
+        "type": "checkbox",
+        "id": "enable_price_sort",
+        "label": "Ofrecer orden por precio",
+        "info": "Ordena por el precio de la variante de Shopify. Actívalo solo si todas las piezas tienen ahí su precio público real (ver docs/05-precios-y-compra.md).",
+        "default": false
+      },
+      {
+        "type": "checkbox",
+        "id": "show_native_price_filter",
+        "label": "Mostrar el filtro nativo de precio",
+        "info": "Filtra por el precio de la variante. Mismo requisito que el orden por precio.",
+        "default": false
+      },
+      {
+        "type": "checkbox",
+        "id": "show_share_button",
+        "label": "Botón de compartir en fichas",
+        "default": true
+      },
+      {
+        "type": "checkbox",
+        "id": "show_marketing_consent",
+        "label": "Casilla opcional de novedades en formularios",
+        "info": "Desmarcada por defecto. Solo se registra en el email recibido: no suscribe a nadie automáticamente.",
+        "default": false
+      }
+    ]
+  },
+  {
+    "name": "Legal y privacidad",
+    "settings": [
+      {
+        "type": "link_list",
+        "id": "legal_menu",
+        "label": "Enlaces legales del pie",
+        "default": "footer"
+      },
+      {
+        "type": "url",
+        "id": "privacy_url",
+        "label": "Aviso de privacidad (si no usas la política de Shopify)",
+        "info": "Si está vacío se usa la política de privacidad de Shopify, cuando exista."
+      },
+      {
+        "type": "text",
+        "id": "copyright_text",
+        "label": "Texto de derechos (opcional)",
+        "info": "Si está vacío se muestra © año y nombre de la marca."
+      }
+    ]
+  },
+  {
+    "name": "Analítica",
+    "settings": [
+      {
+        "type": "paragraph",
+        "content": "El adaptador está apagado por defecto. Nunca envía mensajes, emails, teléfonos ni búsquedas. Un clic en WhatsApp o email no es un lead recibido."
+      },
+      {
+        "type": "checkbox",
+        "id": "analytics_enabled",
+        "label": "Activar el adaptador de eventos",
+        "default": false
+      },
+      {
+        "type": "checkbox",
+        "id": "analytics_sink_shopify",
+        "label": "Enviar a eventos personalizados de Shopify (píxeles web)",
+        "default": true
+      },
+      {
+        "type": "checkbox",
+        "id": "analytics_sink_datalayer",
+        "label": "Enviar también a window.dataLayer",
+        "default": false
+      },
+      {
+        "type": "checkbox",
+        "id": "analytics_require_consent",
+        "label": "Exigir consentimiento de analítica de Shopify",
+        "info": "Si no hay API de privacidad de Shopify disponible, no se envía nada.",
+        "default": true
+      }
+    ]
+  },
+  {
+    "name": "Carrito y compra",
+    "settings": [
+      {
+        "type": "paragraph",
+        "content": "Este tema no muestra carrito, cantidades, compra rápida ni botones de pago en los anuncios. Para impedir también la compra por endpoints, configura el inventario como se explica en docs/05-precios-y-compra.md."
+      }
+    ]
+  }
+]

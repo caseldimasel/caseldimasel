@@ -1,0 +1,84 @@
+{%- comment -%}
+  Campo de formulario con etiqueta, ayuda y mensaje de error asociados.
+  Parámetros: uid, name (contact[...]), field (clave de error: name|email|phone|body), type (text|email|tel|url|number|textarea|select),
+              label o label_key, help o help_key, placeholder o placeholder_key, options o options_key (csv con |), required, autocomplete, value, help, placeholder, inputmode, errors (objeto form.errors), options (csv, solo select), rows, min, max
+{%- endcomment -%}
+{%- liquid
+  assign label_text = label
+  if label_key != blank
+    assign label_text = label_key | t
+  endif
+  assign help_text = help
+  if help_key != blank
+    assign help_text = help_key | t
+  endif
+  assign ph_text = placeholder
+  if placeholder_key != blank
+    assign ph_text = placeholder_key | t
+  endif
+  assign opts_text = options
+  if options_key != blank
+    assign opts_text = options_key | t
+  endif
+  assign fid = uid | append: '-' | append: field
+  assign err = ''
+  if errors
+    assign err = errors.messages[field]
+  endif
+  assign described = ''
+  if help_text != blank
+    assign described = fid | append: '-help'
+  endif
+  assign described = described | append: ' ' | append: fid | append: '-err' | strip
+-%}
+<div class="sd-field{% if err != blank %} sd-field--error{% endif %}" data-sd-field>
+  <label class="sd-label" for="{{ fid }}">
+    {{ label_text }}
+    {%- unless required -%}<span class="sd-optional"> ({{ 'forms.optional' | t }})</span>{%- endunless -%}
+  </label>
+  {%- if help_text != blank -%}<p class="sd-help" id="{{ fid }}-help">{{ help_text }}</p>{%- endif -%}
+  {%- if type == 'textarea' -%}
+    <textarea
+      class="sd-textarea"
+      id="{{ fid }}"
+      name="{{ name }}"
+      rows="{{ rows | default: 5 }}"
+      {% if required %}required aria-required="true"{% endif %}
+      {% if ph_text != blank %}placeholder="{{ ph_text | escape }}"{% endif %}
+      {% if err != blank %}aria-invalid="true"{% endif %}
+      aria-describedby="{{ described }}"
+    >{{ value }}</textarea>
+  {%- elsif type == 'select' -%}
+    {%- assign opts = opts_text | split: '|' -%}
+    <select
+      class="sd-select"
+      id="{{ fid }}"
+      name="{{ name }}"
+      {% if required %}required aria-required="true"{% endif %}
+      {% if err != blank %}aria-invalid="true"{% endif %}
+      aria-describedby="{{ described }}"
+    >
+      {%- unless required and value != blank -%}<option value="">{{ 'forms.choose' | t }}</option>{%- endunless -%}
+      {%- for o in opts -%}
+        <option value="{{ o | escape }}"{% if o == value %} selected{% endif %}>{{ o }}</option>
+      {%- endfor -%}
+    </select>
+  {%- else -%}
+    <input
+      class="sd-input"
+      id="{{ fid }}"
+      type="{{ type | default: 'text' }}"
+      name="{{ name }}"
+      value="{{ value | escape }}"
+      {% if required %}required aria-required="true"{% endif %}
+      {% if autocomplete != blank %}autocomplete="{{ autocomplete }}"{% endif %}
+      {% if inputmode != blank %}inputmode="{{ inputmode }}"{% endif %}
+      {% if ph_text != blank %}placeholder="{{ ph_text | escape }}"{% endif %}
+      {% if min != blank %}min="{{ min }}"{% endif %}
+      {% if max != blank %}max="{{ max }}"{% endif %}
+      {% if err != blank %}aria-invalid="true"{% endif %}
+      aria-describedby="{{ described }}"
+    >
+  {%- endif -%}
+  <p class="sd-error-text" id="{{ fid }}-err" data-sd-error>{%- if err != blank -%}{%- render 'icon', name: 'alert', size: 18 -%}<span>{{ err }}</span>{%- endif -%}</p>
+</div>

@@ -1,0 +1,15 @@
+{%- comment -%}
+  Devuelve el color de texto (blanco o tinta) con mejor contraste sobre un relleno.
+  Parámetros: fill, light, dark
+{%- endcomment -%}
+{%- liquid
+  assign c_light = light | default: '#ffffff'
+  assign c_dark = dark | default: '#231F1A'
+  assign r_light = fill | color_contrast: c_light
+  assign r_dark = fill | color_contrast: c_dark
+  if r_light >= r_dark
+    echo c_light
+  else
+    echo c_dark
+  endif
+-%}

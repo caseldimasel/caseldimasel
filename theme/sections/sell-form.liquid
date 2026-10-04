@@ -1,0 +1,156 @@
+{%- liquid
+  assign s = section.settings
+  assign uid = 'sell-' | append: section.id
+  capture garage_name
+    render 'division-info', key: 'garage', out: 'name'
+  endcapture
+  capture harbor_name
+    render 'division-info', key: 'harbor', out: 'name'
+  endcapture
+  capture estate_name
+    render 'division-info', key: 'estate', out: 'name'
+  endcapture
+  assign l_next = 'sell.next' | t
+  assign l_submit = 'sell.submit' | t
+-%}
+<section class="sd-section sd-sell" id="solicitud" data-section-id="{{ section.id }}">
+  <div class="sd-container sd-container--narrow">
+    {%- if s.heading != blank -%}<h2>{{ s.heading }}</h2>{%- endif -%}
+    {%- if s.intro != blank -%}<p class="sd-lead">{{ s.intro }}</p>{%- endif -%}
+    <div class="sd-notice">
+      {%- render 'icon', name: 'info', size: 22 -%}
+      <p>{{ 'sell.evaluation_note' | t }}</p>
+    </div>
+
+    <sd-sell-form class="sd-form-wrap" data-kind="owner">
+      {%- form 'contact', id: uid, class: 'sd-form sd-form--sell', novalidate: 'novalidate' -%}
+        {%- if form.posted_successfully? -%}
+          <div class="sd-notice sd-notice--success sd-form-success" role="status" tabindex="-1" data-sd-form-success>
+            {%- render 'icon', name: 'check', size: 22 -%}
+            <div>
+              <p class="sd-notice__title">{{ 'sell.success_title' | t }}</p>
+              <p>{{ 'sell.success_text' | t }}</p>
+              {%- if settings.contact_response_note != blank -%}<p>{{ settings.contact_response_note }}</p>{%- endif -%}
+            </div>
+          </div>
+        {%- else -%}
+          {%- render 'form-errors', form: form, uid: uid -%}
+          <div class="sd-form-status" role="status" aria-live="polite" data-sd-status></div>
+          <input type="hidden" name="contact[Tipo de consulta]" value="{{ 'sell.kind' | t }}">
+          <input type="hidden" name="contact[tags]" value="propietario">
+
+          <ol class="sd-stepper" data-sd-stepper hidden aria-label="{{ 'sell.progress' | t }}">
+            <li class="sd-stepper__item" data-sd-stepper-item="1"><span class="sd-stepper__n">1</span><span>{{ 'sell.step1_short' | t }}</span></li>
+            <li class="sd-stepper__item" data-sd-stepper-item="2"><span class="sd-stepper__n">2</span><span>{{ 'sell.step2_short' | t }}</span></li>
+            <li class="sd-stepper__item" data-sd-stepper-item="3"><span class="sd-stepper__n">3</span><span>{{ 'sell.step3_short' | t }}</span></li>
+          </ol>
+
+          {%- comment -%} Paso 1 {%- endcomment -%}
+          <fieldset class="sd-fieldset sd-formstep" data-sd-step="1">
+            <legend><span class="sd-formstep__n">1</span> {{ 'sell.step1_title' | t }}</legend>
+            <div class="sd-optioncards" role="radiogroup">
+              <label class="sd-optioncard sd-cat sd-cat--garage">
+                <input type="radio" name="contact[Categoría]" value="Coche ({{ garage_name | strip }})" data-sd-cat="garage" required>
+                <span class="sd-optioncard__body"><span class="sd-nav__dot" aria-hidden="true"></span><strong>{{ 'sell.car' | t }}</strong><span class="sd-optioncard__sub">SIDONIA {{ garage_name | strip | upcase }}</span></span>
+              </label>
+              <label class="sd-optioncard sd-cat sd-cat--harbor">
+                <input type="radio" name="contact[Categoría]" value="Barco ({{ harbor_name | strip }})" data-sd-cat="harbor" required>
+                <span class="sd-optioncard__body"><span class="sd-nav__dot" aria-hidden="true"></span><strong>{{ 'sell.boat' | t }}</strong><span class="sd-optioncard__sub">SIDONIA {{ harbor_name | strip | upcase }}</span></span>
+              </label>
+              <label class="sd-optioncard sd-cat sd-cat--estate">
+                <input type="radio" name="contact[Categoría]" value="Casa ({{ estate_name | strip }})" data-sd-cat="estate" required>
+                <span class="sd-optioncard__body"><span class="sd-nav__dot" aria-hidden="true"></span><strong>{{ 'sell.house' | t }}</strong><span class="sd-optioncard__sub">SIDONIA {{ estate_name | strip | upcase }}</span></span>
+              </label>
+            </div>
+            <p class="sd-error-text" data-sd-error data-sd-step-error="1"></p>
+          </fieldset>
+
+          {%- comment -%} Paso 2 {%- endcomment -%}
+          <fieldset class="sd-fieldset sd-formstep" data-sd-step="2">
+            <legend><span class="sd-formstep__n">2</span> {{ 'sell.step2_title' | t }}</legend>
+
+            <div class="sd-catgroup" data-sd-cat-group="garage">
+              <p class="sd-catgroup__title sd-cat sd-cat--garage"><span class="sd-nav__dot" aria-hidden="true"></span>{{ 'sell.if_car' | t }}</p>
+              <div class="sd-formgrid">
+                {%- render 'form-field', uid: uid, name: 'contact[Marca]', field: 'g-make', type: 'text', label_key: 'sell.f.g_make_label', required: true, value: '' -%}
+                {%- render 'form-field', uid: uid, name: 'contact[Modelo]', field: 'g-model', type: 'text', label_key: 'sell.f.g_model_label', required: true, value: '' -%}
+                {%- render 'form-field', uid: uid, name: 'contact[Año del coche]', field: 'g-year', type: 'number', label_key: 'sell.f.g_year_label', inputmode: 'numeric', min: 1885, max: 2100, value: '' -%}
+                {%- render 'form-field', uid: uid, name: 'contact[Kilometraje]', field: 'g-km', type: 'number', label_key: 'sell.f.g_km_label', inputmode: 'numeric', min: 0, help_key: 'sell.f.g_km_help', value: '' -%}
+                {%- render 'form-field', uid: uid, name: 'contact[Ubicación del coche]', field: 'g-loc', type: 'text', label_key: 'sell.f.g_loc_label', required: true, value: '' -%}
+                {%- render 'form-field', uid: uid, name: 'contact[Precio orientativo del coche]', field: 'g-price', type: 'text', label_key: 'sell.f.g_price_label', help_key: 'sell.f.g_price_help', value: '' -%}
+              </div>
+            </div>
+
+            <div class="sd-catgroup" data-sd-cat-group="harbor">
+              <p class="sd-catgroup__title sd-cat sd-cat--harbor"><span class="sd-nav__dot" aria-hidden="true"></span>{{ 'sell.if_boat' | t }}</p>
+              <div class="sd-formgrid">
+                {%- render 'form-field', uid: uid, name: 'contact[Constructor y modelo]', field: 'h-make', type: 'text', label_key: 'sell.f.h_make_label', required: true, value: '' -%}
+                {%- render 'form-field', uid: uid, name: 'contact[Tipo de embarcación]', field: 'h-type', type: 'text', label_key: 'sell.f.h_type_label', help_key: 'sell.f.h_type_help', value: '' -%}
+                {%- render 'form-field', uid: uid, name: 'contact[Año del barco]', field: 'h-year', type: 'number', label_key: 'sell.f.h_year_label', inputmode: 'numeric', min: 1800, max: 2100, value: '' -%}
+                {%- render 'form-field', uid: uid, name: 'contact[Eslora (m)]', field: 'h-loa', type: 'text', label_key: 'sell.f.h_loa_label', inputmode: 'decimal', help_key: 'sell.f.h_loa_help', value: '' -%}
+                {%- render 'form-field', uid: uid, name: 'contact[Ubicación del barco]', field: 'h-loc', type: 'text', label_key: 'sell.f.h_loc_label', required: true, value: '' -%}
+                {%- render 'form-field', uid: uid, name: 'contact[Precio orientativo del barco]', field: 'h-price', type: 'text', label_key: 'sell.f.h_price_label', help_key: 'sell.f.h_price_help', value: '' -%}
+              </div>
+            </div>
+
+            <div class="sd-catgroup" data-sd-cat-group="estate">
+              <p class="sd-catgroup__title sd-cat sd-cat--estate"><span class="sd-nav__dot" aria-hidden="true"></span>{{ 'sell.if_house' | t }}</p>
+              <div class="sd-formgrid">
+                {%- render 'form-field', uid: uid, name: 'contact[Tipo de inmueble]', field: 'e-type', type: 'text', label_key: 'sell.f.e_type_label', required: true, help_key: 'sell.f.e_type_help', value: '' -%}
+                {%- render 'form-field', uid: uid, name: 'contact[Ciudad o región de la casa]', field: 'e-loc', type: 'text', label_key: 'sell.f.e_loc_label', required: true, value: '' -%}
+                {%- render 'form-field', uid: uid, name: 'contact[Superficie (m²)]', field: 'e-area', type: 'number', label_key: 'sell.f.e_area_label', inputmode: 'numeric', min: 0, value: '' -%}
+                {%- render 'form-field', uid: uid, name: 'contact[Habitaciones]', field: 'e-beds', type: 'number', label_key: 'sell.f.e_beds_label', inputmode: 'numeric', min: 0, value: '' -%}
+                {%- render 'form-field', uid: uid, name: 'contact[Precio orientativo de la casa]', field: 'e-price', type: 'text', label_key: 'sell.f.e_price_label', help_key: 'sell.f.e_price_help', value: '' -%}
+              </div>
+            </div>
+
+            <div class="sd-catgroup sd-catgroup--common">
+              {%- render 'form-field', uid: uid, name: 'contact[Qué la hace especial]', field: 'special', type: 'textarea', label_key: 'sell.f.special_label', required: true, rows: 4, value: '' -%}
+              {%- render 'form-field', uid: uid, name: 'contact[Historia]', field: 'story', type: 'textarea', label_key: 'sell.f.story_label', help_key: 'sell.f.story_help', rows: 5, value: '' -%}
+              {%- render 'form-field', uid: uid, name: 'contact[Estado]', field: 'state', type: 'text', label_key: 'sell.f.state_label', help_key: 'sell.f.state_help', value: '' -%}
+              {%- render 'form-field', uid: uid, name: 'contact[Relación con la propiedad]', field: 'rel', type: 'select', label_key: 'sell.f.rel_label', required: true, options_key: 'sell.f.rel_options', value: '' -%}
+              {%- render 'form-field', uid: uid, name: 'contact[Enlace]', field: 'link', type: 'url', label_key: 'sell.f.link_label', help_key: 'sell.f.link_help', placeholder_key: 'sell.f.link_placeholder', value: '' -%}
+            </div>
+
+            {%- for block in section.blocks -%}
+              {%- if block.type == '@app' -%}
+                <div class="sd-sell__app" {{ block.shopify_attributes }}>{% render block %}</div>
+              {%- endif -%}
+            {%- endfor -%}
+            <p class="sd-error-text" data-sd-error data-sd-step-error="2"></p>
+          </fieldset>
+
+          {%- comment -%} Paso 3 {%- endcomment -%}
+          <fieldset class="sd-fieldset sd-formstep" data-sd-step="3">
+            <legend><span class="sd-formstep__n">3</span> {{ 'sell.step3_title' | t }}</legend>
+            {%- render 'form-person-fields', form: form, uid: uid, phone_required: true, submit_label: l_submit -%}
+            <p class="sd-note">{{ 'sell.evaluation_note' | t }}</p>
+          </fieldset>
+
+          <div class="sd-formnav" data-sd-nav hidden>
+            <button type="button" class="sd-btn sd-btn--ghost" data-sd-prev>{%- render 'icon', name: 'arrow-left', size: 18 -%}<span>{{ 'sell.back' | t }}</span></button>
+            <button type="button" class="sd-btn sd-btn--primary" data-sd-next><span>{{ l_next }}</span>{%- render 'icon', name: 'arrow-right', size: 18 -%}</button>
+          </div>
+        {%- endif -%}
+      {%- endform -%}
+    </sd-sell-form>
+  </div>
+</section>
+
+{% schema %}
+{
+  "name": "Formulario propietarios",
+  "tag": "div",
+  "settings": [
+    { "type": "text", "id": "heading", "label": "Título", "default": "Cuéntanos qué tienes" },
+    { "type": "textarea", "id": "intro", "label": "Introducción", "default": "Tres pasos cortos. Cuanto más nos cuentes, mejor podremos estudiar si encaja en Sidonia." },
+    { "type": "paragraph", "content": "Usa el formulario de contacto nativo de Shopify con campos personalizados: el aviso va al correo del contacto de la tienda. No admite subir archivos (solo un enlace). Para repartir solicitudes por categoría, guardar expedientes o subir archivos hace falta una integración aparte (ver docs/08-formularios-y-leads.md)." }
+  ],
+  "blocks": [
+    { "type": "@app" }
+  ],
+  "presets": [
+    { "name": "Formulario propietarios" }
+  ]
+}
+{% endschema %}

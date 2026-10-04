@@ -1,0 +1,37 @@
+{%- comment -%}
+  Imagen adaptable con srcset, dimensiones reservadas y punto focal.
+  Parámetros: image, widths (csv), sizes, loading ('lazy' por defecto o 'eager'), priority (bool),
+              class, alt (texto), decorative (bool), cover (bool: object-fit cover con punto focal)
+{%- endcomment -%}
+{%- liquid
+  assign ws = widths | default: '320,480,640,800,1000,1280,1600'
+  assign wlist = ws | split: ','
+  assign ld = loading | default: 'lazy'
+  if priority
+    assign ld = 'eager'
+  endif
+  assign focal = image.presentation.focal_point
+  assign alt_text = alt | default: image.alt
+-%}
+{%- if image != blank -%}
+  <img
+    class="sd-img{% if class != blank %} {{ class }}{% endif %}"
+    src="{{ image | image_url: width: 800 }}"
+    srcset="
+      {%- for w in wlist -%}
+        {%- assign wn = w | plus: 0 -%}
+        {%- if wn <= image.width -%}
+          {{ image | image_url: width: wn }} {{ wn }}w{% unless forloop.last %}, {% endunless %}
+        {%- endif -%}
+      {%- endfor -%}
+    "
+    {% if sizes != blank %}sizes="{{ sizes }}"{% endif %}
+    width="{{ image.width }}"
+    height="{{ image.height }}"
+    alt="{% if decorative %}{% else %}{{ alt_text | escape }}{% endif %}"
+    loading="{{ ld }}"
+    decoding="async"
+    {% if priority %}fetchpriority="high"{% endif %}
+    {% if cover and focal != blank %}style="object-position: {{ focal }}"{% endif %}
+  >
+{%- endif -%}

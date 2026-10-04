@@ -1,0 +1,42 @@
+{%- comment -%}
+  Acciones de contacto de una ficha: WhatsApp, email, formulario y Guardar/Compartir.
+  Los canales no configurados se ocultan. El mailto abre el cliente de correo: no equivale a un envío desde la web.
+  Parámetros: product, category, status, form_anchor (id del formulario), layout ('stack' | 'row')
+{%- endcomment -%}
+{%- liquid
+  assign is_sold = false
+  if status == 'sold'
+    assign is_sold = true
+  endif
+  capture wa
+    render 'contact-link', kind: 'whatsapp', product: product, category: category, sold: is_sold, url: canonical_url
+  endcapture
+  assign wa = wa | strip
+  capture mail
+    render 'contact-link', kind: 'email', product: product, category: category, sold: is_sold, url: canonical_url
+  endcapture
+  assign mail = mail | strip
+  assign anchor = form_anchor | default: 'consulta'
+-%}
+<div class="sd-actions sd-actions--{{ layout | default: 'stack' }}">
+  {%- if wa != blank -%}
+    <a class="sd-btn sd-btn--primary" href="{{ wa }}" target="_blank" rel="noopener" data-sd-track="contact_whatsapp" data-sd-track-category="{{ category }}">
+      {%- render 'icon', name: 'chat', size: 20 -%}
+      <span>{% if is_sold %}{{ 'inquiry.whatsapp_similar' | t }}{% else %}{{ 'inquiry.whatsapp' | t }}{% endif %}</span>
+      <span class="sd-sr">{{ 'general.opens_new_window' | t }}</span>
+    </a>
+  {%- endif -%}
+  {%- if mail != blank -%}
+    <a class="sd-btn sd-btn--secondary" href="{{ mail }}" data-sd-track="contact_email" data-sd-track-category="{{ category }}">
+      {%- render 'icon', name: 'mail', size: 20 -%}
+      <span>{{ 'inquiry.email' | t }}</span>
+    </a>
+  {%- endif -%}
+  <a class="sd-btn {% if wa == blank and mail == blank %}sd-btn--primary{% else %}sd-btn--ghost{% endif %}" href="#{{ anchor }}">
+    {%- render 'icon', name: 'arrow-right', size: 20 -%}
+    <span>{% if is_sold %}{{ 'inquiry.form_similar' | t }}{% else %}{{ 'inquiry.form' | t }}{% endif %}</span>
+  </a>
+</div>
+{%- if wa != blank or mail != blank -%}
+  <p class="sd-note">{{ 'inquiry.mailto_note' | t }}</p>
+{%- endif -%}

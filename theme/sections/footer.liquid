@@ -1,0 +1,190 @@
+{%- liquid
+  assign legal = settings.legal_menu
+  assign menu = section.settings.menu
+  capture contact_email
+    render 'contact-link', kind: 'email'
+  endcapture
+  assign contact_email = contact_email | strip
+  capture contact_wa
+    render 'contact-link', kind: 'whatsapp'
+  endcapture
+  assign contact_wa = contact_wa | strip
+  capture contact_tel
+    render 'contact-link', kind: 'tel'
+  endcapture
+  assign contact_tel = contact_tel | strip
+  capture contact_page
+    render 'page-url', key: 'contact'
+  endcapture
+  assign privacy_url = settings.privacy_url
+  if privacy_url == blank and policies.privacy_policy != blank
+    assign privacy_url = policies.privacy_policy.url
+  endif
+  assign cats = 'garage,harbor,estate' | split: ','
+  assign year = 'now' | date: '%Y'
+  assign has_social = false
+  if settings.social_instagram_url != blank or settings.social_tiktok_url != blank or settings.social_youtube_url != blank or settings.social_facebook_url != blank
+    assign has_social = true
+  endif
+-%}
+
+<footer class="sd-footer">
+  <div class="sd-container">
+    <div class="sd-footer__top">
+      <div class="sd-footer__brand">
+        <a class="sd-footer__logo" href="{{ routes.root_url }}" aria-label="{{ settings.brand_name | default: shop.name | escape }}">
+          {%- render 'logo', variant: 'light' -%}
+        </a>
+        {%- if section.settings.statement != blank -%}
+          <p class="sd-footer__statement">{{ section.settings.statement }}</p>
+        {%- endif -%}
+      </div>
+
+      <div class="sd-footer__cols">
+        <section class="sd-footer__col" aria-labelledby="ft-div-{{ section.id }}">
+          <h2 class="sd-footer__title" id="ft-div-{{ section.id }}">{{ 'footer.divisions' | t }}</h2>
+          <ul class="sd-footer__list" role="list">
+            {%- for c in cats -%}
+              {%- capture d_name -%}{%- render 'division-info', key: c, out: 'name' -%}{%- endcapture -%}
+              {%- capture d_url -%}{%- render 'division-info', key: c, out: 'url' -%}{%- endcapture -%}
+              <li class="sd-cat sd-cat--{{ c }}"><a href="{{ d_url | strip }}"><span class="sd-nav__dot" aria-hidden="true"></span>SIDONIA {{ d_name | strip | upcase }}</a></li>
+            {%- endfor -%}
+          </ul>
+        </section>
+
+        {%- if menu != blank and menu.links.size > 0 -%}
+          <section class="sd-footer__col" aria-labelledby="ft-menu-{{ section.id }}">
+            <h2 class="sd-footer__title" id="ft-menu-{{ section.id }}">{{ section.settings.menu_title | default: settings.brand_name }}</h2>
+            <ul class="sd-footer__list" role="list">
+              {%- for link in menu.links -%}
+                <li><a href="{{ link.url }}"{% if link.current %} aria-current="page"{% endif %}>{{ link.title }}</a></li>
+              {%- endfor -%}
+            </ul>
+          </section>
+        {%- endif -%}
+
+        <section class="sd-footer__col" aria-labelledby="ft-contact-{{ section.id }}">
+          <h2 class="sd-footer__title" id="ft-contact-{{ section.id }}">{{ 'footer.contact' | t }}</h2>
+          <ul class="sd-footer__list" role="list">
+            {%- if contact_wa != blank -%}
+              <li><a href="{{ contact_wa }}" target="_blank" rel="noopener" data-sd-track="contact_whatsapp" data-sd-track-category="general">{{ 'footer.whatsapp' | t }}<span class="sd-sr"> {{ 'general.opens_new_window' | t }}</span></a></li>
+            {%- endif -%}
+            {%- if contact_email != blank -%}
+              <li><a href="{{ contact_email }}" data-sd-track="contact_email" data-sd-track-category="general">{{ settings.contact_email | strip }}</a></li>
+            {%- endif -%}
+            {%- if contact_tel != blank -%}
+              <li><a href="{{ contact_tel }}">{{ settings.contact_phone | strip }}</a></li>
+            {%- endif -%}
+            <li><a href="{{ contact_page | strip }}">{{ 'footer.contact_form' | t }}</a></li>
+          </ul>
+          {%- if settings.contact_hours != blank -%}
+            <p class="sd-footer__small">{{ settings.contact_hours }}</p>
+          {%- endif -%}
+          {%- if settings.contact_response_note != blank -%}
+            <p class="sd-footer__small">{{ settings.contact_response_note }}</p>
+          {%- endif -%}
+        </section>
+
+        {%- if has_social -%}
+          <section class="sd-footer__col" aria-labelledby="ft-social-{{ section.id }}">
+            <h2 class="sd-footer__title" id="ft-social-{{ section.id }}">{{ 'footer.follow' | t }}</h2>
+            <ul class="sd-footer__list" role="list">
+              {%- if settings.social_instagram_url != blank -%}
+                <li><a href="{{ settings.social_instagram_url }}" target="_blank" rel="noopener me">{% render 'icon', name: 'instagram', size: 20 %}<span>Instagram</span><span class="sd-sr"> {{ 'general.opens_new_window' | t }}</span></a></li>
+              {%- endif -%}
+              {%- if settings.social_tiktok_url != blank -%}
+                <li><a href="{{ settings.social_tiktok_url }}" target="_blank" rel="noopener me">{% render 'icon', name: 'tiktok', size: 20 %}<span>TikTok</span><span class="sd-sr"> {{ 'general.opens_new_window' | t }}</span></a></li>
+              {%- endif -%}
+              {%- if settings.social_youtube_url != blank -%}
+                <li><a href="{{ settings.social_youtube_url }}" target="_blank" rel="noopener me">{% render 'icon', name: 'youtube', size: 20 %}<span>YouTube</span><span class="sd-sr"> {{ 'general.opens_new_window' | t }}</span></a></li>
+              {%- endif -%}
+              {%- if settings.social_facebook_url != blank -%}
+                <li><a href="{{ settings.social_facebook_url }}" target="_blank" rel="noopener me">{% render 'icon', name: 'facebook', size: 20 %}<span>Facebook</span><span class="sd-sr"> {{ 'general.opens_new_window' | t }}</span></a></li>
+              {%- endif -%}
+            </ul>
+          </section>
+        {%- endif -%}
+      </div>
+    </div>
+
+    {%- for block in section.blocks -%}
+      {%- case block.type -%}
+        {%- when 'newsletter' -%}
+          <div class="sd-footer__newsletter" {{ block.shopify_attributes }}>
+            <h2 class="sd-footer__title">{{ block.settings.title }}</h2>
+            {%- if block.settings.text != blank -%}<p class="sd-footer__small">{{ block.settings.text }}</p>{%- endif -%}
+            {%- form 'customer', id: 'sd-newsletter', novalidate: 'novalidate' -%}
+              {%- if form.posted_successfully? -%}
+                <p class="sd-notice sd-notice--success" role="status">{{ 'footer.newsletter_ok' | t }}</p>
+              {%- else -%}
+                {%- if form.errors -%}
+                  <div class="sd-notice sd-notice--error" role="alert">{{ form.errors | default_errors }}</div>
+                {%- endif -%}
+                <input type="hidden" name="contact[tags]" value="newsletter">
+                <div class="sd-newsletter__row">
+                  <label class="sd-sr" for="sd-nl-{{ block.id }}">{{ 'general.email' | t }}</label>
+                  <input id="sd-nl-{{ block.id }}" class="sd-input" type="email" name="contact[email]" autocomplete="email" required placeholder="{{ 'general.email' | t }}">
+                  <button type="submit" class="sd-btn sd-btn--light">{{ 'footer.newsletter_submit' | t }}</button>
+                </div>
+                {%- if block.settings.consent != blank -%}<p class="sd-footer__small">{{ block.settings.consent }}</p>{%- endif -%}
+              {%- endif -%}
+            {%- endform -%}
+          </div>
+      {%- endcase -%}
+    {%- endfor -%}
+
+    <div class="sd-footer__bottom">
+      <p class="sd-footer__copy">
+        {%- if settings.copyright_text != blank -%}
+          {{ settings.copyright_text }}
+        {%- else -%}
+          © {{ year }} {{ settings.brand_name | default: shop.name }}
+        {%- endif -%}
+      </p>
+      <ul class="sd-footer__legal" role="list">
+        {%- if legal != blank and legal.links.size > 0 -%}
+          {%- for link in legal.links -%}
+            <li><a href="{{ link.url }}">{{ link.title }}</a></li>
+          {%- endfor -%}
+        {%- else -%}
+          {%- if privacy_url != blank -%}
+            <li><a href="{{ privacy_url }}">{{ 'footer.privacy' | t }}</a></li>
+          {%- endif -%}
+          {%- if policies.terms_of_service != blank -%}
+            <li><a href="{{ policies.terms_of_service.url }}">{{ 'footer.terms' | t }}</a></li>
+          {%- endif -%}
+        {%- endif -%}
+      </ul>
+    </div>
+  </div>
+</footer>
+
+{% schema %}
+{
+  "name": "Pie de página",
+  "max_blocks": 1,
+  "settings": [
+    {
+      "type": "textarea",
+      "id": "statement",
+      "label": "Frase de marca",
+      "default": "Coches, barcos y casas con alma. Seleccionamos lo que publicamos y contamos su historia."
+    },
+    { "type": "link_list", "id": "menu", "label": "Menú del pie", "default": "footer" },
+    { "type": "text", "id": "menu_title", "label": "Título del menú del pie", "info": "Si está vacío se usa el nombre de la marca." }
+  ],
+  "blocks": [
+    {
+      "type": "newsletter",
+      "name": "Newsletter (opcional)",
+      "limit": 1,
+      "settings": [
+        { "type": "paragraph", "content": "Úsalo solo si Shopify Email o tu herramienta de envío está configurada y has redactado el texto de consentimiento. Un suscriptor se registra como cliente con etiqueta «newsletter»." },
+        { "type": "text", "id": "title", "label": "Título", "default": "Novedades de Sidonia" },
+        { "type": "textarea", "id": "text", "label": "Texto" },
+        { "type": "textarea", "id": "consent", "label": "Texto de consentimiento y privacidad", "info": "Obligatorio redactarlo con tu información legal real." }
+      ]
+    }
+  ]
+}
+{% endschema %}

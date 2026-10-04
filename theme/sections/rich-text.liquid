@@ -1,0 +1,54 @@
+{%- liquid
+  assign s = section.settings
+  assign has_cta = false
+  if s.button_label != blank and s.button_url != blank
+    assign has_cta = true
+  endif
+-%}
+<section class="sd-section{% if s.background == 'alt' %} sd-section--alt{% endif %} sd-richtext" data-section-id="{{ section.id }}">
+  <div class="sd-container {% if s.width == 'narrow' %}sd-container--narrow{% endif %}">
+    {%- if s.eyebrow != blank -%}<p class="sd-eyebrow">{{ s.eyebrow }}</p>{%- endif -%}
+    {%- if s.heading != blank -%}<h2>{{ s.heading }}</h2>{%- endif -%}
+    {%- if s.text != blank -%}<div class="sd-prose">{{ s.text }}</div>{%- endif -%}
+    {%- if has_cta -%}
+      <p class="sd-richtext__cta"><a class="sd-btn sd-btn--primary" href="{{ s.button_url }}">{{ s.button_label }}</a></p>
+    {%- endif -%}
+  </div>
+</section>
+
+{% schema %}
+{
+  "name": "Texto",
+  "tag": "section",
+  "settings": [
+    { "type": "text", "id": "eyebrow", "label": "Antetítulo" },
+    { "type": "text", "id": "heading", "label": "Título" },
+    { "type": "richtext", "id": "text", "label": "Texto" },
+    { "type": "text", "id": "button_label", "label": "Texto del botón" },
+    { "type": "url", "id": "button_url", "label": "Enlace del botón" },
+    {
+      "type": "select",
+      "id": "width",
+      "label": "Ancho",
+      "options": [
+        { "value": "narrow", "label": "Estrecho (lectura)" },
+        { "value": "wide", "label": "Ancho completo" }
+      ],
+      "default": "narrow"
+    },
+    {
+      "type": "select",
+      "id": "background",
+      "label": "Fondo",
+      "options": [
+        { "value": "default", "label": "Fondo de página" },
+        { "value": "alt", "label": "Superficie alternativa" }
+      ],
+      "default": "default"
+    }
+  ],
+  "presets": [
+    { "name": "Texto" }
+  ]
+}
+{% endschema %}

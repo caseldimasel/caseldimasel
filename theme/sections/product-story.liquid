@@ -1,0 +1,75 @@
+{%- liquid
+  assign s = section.settings
+  assign mf = product.metafields.sidonia
+  assign story_mf = mf.story
+  assign why = mf.why_special.value
+  assign highlights = mf.highlights.value
+  assign provenance = mf.provenance.value
+  assign has_story = false
+  if story_mf.value != blank
+    assign has_story = true
+  endif
+  assign has_side = false
+  if why != blank or highlights.size > 0 or provenance != blank
+    assign has_side = true
+  endif
+  capture cat
+    render 'listing-category', product: product
+  endcapture
+  assign cat = cat | strip
+-%}
+{%- if has_story or has_side or request.design_mode -%}
+<section class="sd-section sd-pstory{% if cat != blank %} sd-cat sd-cat--{{ cat }}{% endif %}" data-section-id="{{ section.id }}">
+  <div class="sd-container">
+    {%- if has_story or has_side -%}
+      <div class="sd-pstory__grid">
+        {%- if has_story -%}
+          <div class="sd-pstory__main">
+            <h2>{{ s.heading }}</h2>
+            <div class="sd-prose sd-pstory__text">{{ story_mf | metafield_tag }}</div>
+          </div>
+        {%- endif -%}
+        {%- if has_side -%}
+          <aside class="sd-pstory__side" aria-labelledby="special-{{ section.id }}">
+            <h2 class="sd-pstory__sidetitle" id="special-{{ section.id }}">{{ s.special_heading }}</h2>
+            {%- if why != blank -%}<p>{{ why | escape }}</p>{%- endif -%}
+            {%- if highlights.size > 0 -%}
+              <ul class="sd-checks" role="list">
+                {%- for item in highlights -%}
+                  <li>{%- render 'icon', name: 'check', size: 20 -%}<span>{{ item | escape }}</span></li>
+                {%- endfor -%}
+              </ul>
+            {%- endif -%}
+            {%- if provenance != blank -%}
+              <h3 class="sd-pstory__h3">{{ 'product.provenance' | t }}</h3>
+              <p class="sd-pstory__prov">{{ provenance | escape }}</p>
+            {%- endif -%}
+            <p class="sd-note">{{ 'product.facts_note' | t }}</p>
+          </aside>
+        {%- endif -%}
+      </div>
+    {%- else -%}
+      <div class="sd-empty">
+        <h2>{{ 'product.story_empty_title' | t }}</h2>
+        <p>{{ 'product.story_empty_text' | t }}</p>
+      </div>
+    {%- endif -%}
+  </div>
+</section>
+{%- endif -%}
+
+{% schema %}
+{
+  "name": "Historia de la pieza",
+  "tag": "div",
+  "enabled_on": { "templates": ["product"] },
+  "settings": [
+    { "type": "text", "id": "heading", "label": "Título de la historia", "default": "La historia" },
+    { "type": "text", "id": "special_heading", "label": "Título de «qué la hace especial»", "default": "Qué la hace especial" },
+    { "type": "paragraph", "content": "Los textos salen de los metacampos sidonia.story, why_special, highlights y provenance. Si están vacíos, el bloque se oculta fuera del editor." }
+  ],
+  "presets": [
+    { "name": "Historia de la pieza" }
+  ]
+}
+{% endschema %}

@@ -1,0 +1,19 @@
+{
+  "sections": {
+    "main": {
+      "type": "main-collection",
+      "settings": {
+        "category": "",
+        "show_description": true
+      }
+    },
+    "cta": {
+      "type": "owner-cta",
+      "settings": {}
+    }
+  },
+  "order": [
+    "main",
+    "cta"
+  ]
+}

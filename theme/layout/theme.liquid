@@ -1,0 +1,66 @@
+<!doctype html>
+<html class="no-js" lang="{{ request.locale.iso_code }}">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="theme-color" content="{{ settings.color_bg }}">
+    <link rel="canonical" href="{{ canonical_url }}">
+    <link rel="preconnect" href="https://cdn.shopify.com" crossorigin>
+
+    {%- if settings.favicon != blank -%}
+      <link rel="icon" type="image/png" href="{{ settings.favicon | image_url: width: 48, height: 48 }}">
+      <link rel="apple-touch-icon" href="{{ settings.favicon | image_url: width: 180, height: 180 }}">
+    {%- endif -%}
+
+    {% render 'seo-meta' %}
+    {% render 'css-variables' %}
+
+    {{ 'sd-base.css' | asset_url | stylesheet_tag }}
+    {{ 'sd-components.css' | asset_url | stylesheet_tag }}
+    {{ 'sd-sections.css' | asset_url | stylesheet_tag }}
+
+    <script>
+      document.documentElement.className = document.documentElement.className.replace('no-js', 'js');
+    </script>
+
+    {{ content_for_header }}
+  </head>
+
+  <body
+    class="sd-body template-{{ template.name | handleize }}{% if template.suffix != blank %} template-suffix-{{ template.suffix | handleize }}{% endif %}"
+    data-template="{{ template.name }}"
+    data-template-suffix="{{ template.suffix }}"
+    data-density="{{ settings.card_density }}"
+    {% if request.design_mode %}data-design-mode="true"{% endif %}
+  >
+    <a class="sd-skip-link" href="#MainContent">{{ 'general.skip_to_content' | t }}</a>
+
+    {% sections 'header-group' %}
+
+    <main id="MainContent" class="sd-main" tabindex="-1">
+      {{ content_for_layout }}
+    </main>
+
+    {% sections 'footer-group' %}
+
+    {% render 'video-modal' %}
+
+    <div class="sd-live" id="sd-live" role="status" aria-live="polite" aria-atomic="true"></div>
+
+    {% render 'js-config' %}
+
+    <script src="{{ 'sd-core.js' | asset_url }}" defer></script>
+    <script src="{{ 'sd-analytics.js' | asset_url }}" defer></script>
+    <script src="{{ 'sd-favorites.js' | asset_url }}" defer></script>
+    <script src="{{ 'sd-video.js' | asset_url }}" defer></script>
+    <script src="{{ 'sd-header.js' | asset_url }}" defer></script>
+    <script src="{{ 'sd-forms.js' | asset_url }}" defer></script>
+    {%- if template.name == 'product' -%}
+      <script src="{{ 'sd-product.js' | asset_url }}" defer></script>
+    {%- endif -%}
+    {%- if template.name == 'collection' or template.name == 'search' -%}
+      <script src="{{ 'sd-facets.js' | asset_url }}" defer></script>
+    {%- endif -%}
+  </body>
+</html>
