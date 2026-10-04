@@ -42,6 +42,8 @@ Las plantillas JSON se generan con `node tools/generate-templates.mjs`. `product
 | `header.liquid` | Cabecera |
 | `hero.liquid` | Hero con vídeo |
 | `how-we-sell.liquid` | Cómo vendemos |
+| `journal.liquid` | Diario (blog) |
+| `listing-carousel.liquid` | Carrusel de piezas |
 | `main-404.liquid` | Página 404 |
 | `main-article.liquid` | Artículo |
 | `main-blog.liquid` | Blog |
@@ -54,9 +56,11 @@ Las plantillas JSON se generan con `node tools/generate-templates.mjs`. `product
 | `main-password.liquid` | Página de contraseña |
 | `main-product.liquid` | Ficha de pieza |
 | `main-search.liquid` | Resultados de búsqueda |
+| `newsletter.liquid` | Boletín |
 | `owner-cta.liquid` | Llamada a propietarios |
 | `page-header.liquid` | Cabecera de página |
 | `photo-story.liquid` | Galería de fotos |
+| `popular-searches.liquid` | Búsquedas populares |
 | `predictive-search.liquid` | Búsqueda predictiva |
 | `product-inquiry.liquid` | Formulario de consulta |
 | `product-specs.liquid` | Datos técnicos |
@@ -68,6 +72,7 @@ Las plantillas JSON se generan con `node tools/generate-templates.mjs`. `product
 | `sell-form.liquid` | Formulario propietarios |
 | `team.liquid` | Equipo |
 | `testimonials.liquid` | Testimonios y casos |
+| `trust-band.liquid` | Franja de valores |
 | `wanted-form.liquid` | Cuéntanos qué buscas |
 
 ## Snippets (`snippets/`)
@@ -106,8 +111,10 @@ Las plantillas JSON se generan con `node tools/generate-templates.mjs`. `product
 | `listing-specs.liquid` | Dos o tres datos técnicos clave por categoría, solo los conocidos. |
 | `listing-status.liquid` | Estado editorial: available, reserved o sold (vacío si no consta). |
 | `logo.liquid` | Logo de marca. Parámetros: variant ('dark' = para fondos claros, 'light' = para fondos oscuros), class. |
+| `mega-panel.liquid` | Panel del megamenú de una división (se muestra al pasar el ratón o al enfocar con el teclado el enlace de su categoría). |
 | `page-url.liquid` | URL de una página clave del tema. |
 | `pagination-nav.liquid` | Paginación real con enlaces. «Cargar más» es una mejora progresiva (sd-facets.js) que usa la misma URL siguiente. |
+| `product-gallery.liquid` | Galería de fotos de la pieza: mosaico en escritorio, carrusel con deslizamiento en móvil y visor a pantalla completa. |
 | `save-button.liquid` | Botón Guardar (favoritos locales del navegador). Parámetros: product, variant ('card' / 'page'), class. |
 | `sd-image.liquid` | Imagen adaptable con srcset, dimensiones reservadas y punto focal. |
 | `seo-meta.liquid` | Título, descripción, Open Graph, Twitter y robots. |
@@ -118,6 +125,7 @@ Las plantillas JSON se generan con `node tools/generate-templates.mjs`. `product
 | `video-best-source.liquid` | Mejor fuente mp4 de un vídeo alojado en Shopify con altura <= max_height (o la más pequeña si todas son mayores). |
 | `video-duration.liquid` | Duración mm:ss si se conoce. Parámetro: seconds. |
 | `video-modal.liquid` | Reproductor modal único para toda la tienda. Usa <dialog> nativo: |
+| `view-toggle.liquid` | Interruptor cuadrícula / lista del listado. Solo aparece con JavaScript; la preferencia se recuerda en este navegador. |
 
 ## Assets (`assets/`)
 
@@ -134,14 +142,15 @@ Las plantillas JSON se generan con `node tools/generate-templates.mjs`. `product
 | `sd-analytics.js` | 4.2 KB | Adaptador de analítica opcional (lista blanca, consentimiento, sin datos personales) |
 | `sd-base.css` | 12.9 KB | Reinicio, tipografía, utilidades, botones, chips, formularios, tabla de datos (usa los tokens) |
 | `sd-brands.js` | 7.6 KB |  |
-| `sd-components.css` | 32.6 KB | Cabecera, menús, cajones, pie, tarjetas, vídeo, filtros, paginación, avisos |
+| `sd-components.css` | 37.3 KB | Cabecera, menús, cajones, pie, tarjetas, vídeo, filtros, paginación, avisos |
 | `sd-core.js` | 5.0 KB | Espacio de nombres, configuración, utilidades, avisos accesibles, diálogos |
 | `sd-facets.js` | 12.4 KB | Filtros y orden por AJAX con estado en URL; «Cargar más»; restauración de posición |
 | `sd-favorites.js` | 16.0 KB | Favoritos locales, `<sd-save>`, `<sd-fav-count>`, `<sd-favorites-page>` |
 | `sd-forms.js` | 15.4 KB | Validación y envío mejorado de formularios; formulario de propietarios en 3 pasos |
 | `sd-header.js` | 5.9 KB | Cajón de navegación, buscador y búsqueda predictiva |
 | `sd-product.js` | 4.6 KB | Compartir y barra fija de contacto en móvil |
-| `sd-sections.css` | 29.9 KB | Hero, secciones de la home, ficha, formularios, contacto, favoritos |
+| `sd-sections.css` | 40.3 KB | Hero, secciones de la home, ficha, formularios, contacto, favoritos |
+| `sd-ui.js` | 9.4 KB |  |
 | `sd-video.js` | 17.9 KB | Reproductor modal, reproductor de ficha, previsualización, proveedores externos, un solo audio |
 | `sidonia-firma-dark.png` | 24.2 KB |  |
 | `sidonia-firma-light.png` | 29.5 KB |  |

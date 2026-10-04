@@ -10,7 +10,7 @@
 | Plantillas Liquid renderizadas | `tools/preview/liquid.mjs` (**intérprete propio**, no el de Shopify) + datos de prueba `tools/preview/store.mjs` | Que las plantillas producen el HTML esperado con datos de ejemplo |
 | Comportamiento en navegador | Chromium (Playwright) contra la previsualización local, 5 anchos | Layout, JS, vídeo, filtros, favoritos, formularios, accesibilidad básica |
 
-Resultado de la última ejecución: **73 de 73 pruebas correctas**; validador: **0 errores**, 1 avisos informativos.
+Resultado de la última ejecución: **77 de 77 pruebas correctas**; validador: **0 errores**, 1 avisos informativos.
 
 ## 2. Lo que NO se ha podido hacer en esta entrega
 
@@ -81,6 +81,10 @@ Estas limitaciones son del entorno de desarrollo (sin acceso a Internet salvo el
 | ✔ | Listado: pestañas Todo/Coches/Barcos/Casas y fila de marcas con piezas filtran de verdad |  |
 | ✔ | Filtros en escritorio: cajón lateral modal (cerrado al inicio), Escape lo cierra y devuelve el foco |  |
 | ✔ | Marca: tipografías KMR Apparat y Switzer cargadas, logo de marca, galería con fotos y pestañas Coches/Barcos/Casas |  |
+| ✔ | Ficha: galería en mosaico, visor modal con teclado, contador y foco devuelto |  |
+| ✔ | Megamenú: se abre con ratón y teclado, enlaces reales con filtros, Escape lo cierra |  |
+| ✔ | Portada: carruseles por tipo con piezas reales, flechas que desplazan y secciones sin datos ocultas |  |
+| ✔ | Listado: vista en lista recordada, barra de herramientas fija y pie con marcas |  |
 | ✔ | Buscador: diálogo accesible, sugerencias reales (API), resultados con filtros y estado vacío |  |
 | ✔ | Favoritos: guardar en tarjeta y ficha, aria-pressed, contador, persisten tras recargar y sincronizan entre pestañas |  |
 | ✔ | Favoritos: la página consulta el estado ACTUAL (vendida, retirada) y permite quitar y vaciar con confirmación |  |
@@ -102,8 +106,8 @@ Estas limitaciones son del entorno de desarrollo (sin acceso a Internet salvo el
 | ✔ | Analítica: eventos útiles, una sola vez, sin datos personales y solo con consentimiento |  |
 | ✔ | Analítica: filtros aplicados solo envían nombres de filtro y recuento, no valores ni búsquedas |  |
 | ✔ | Los componentes son idempotentes: quitar y volver a insertar secciones no duplica listeners ni vídeos |  |
-| ✔ | Sección renderizada de forma independiente (Section Rendering API): cada sección devuelve su HTML | 10 secciones |
-| ✔ | Home y ficha: sin terceros, imagen principal con prioridad, resto diferido, CLS bajo | / CLS 0.002 eager 0 · /collections/explorar CLS 0.007 eager 1 · /products/prueba-coche-a CLS 0.000 eager 1 |
+| ✔ | Sección renderizada de forma independiente (Section Rendering API): cada sección devuelve su HTML | 13 secciones |
+| ✔ | Home y ficha: sin terceros, imagen principal con prioridad, resto diferido, CLS bajo | / CLS 0.002 eager 0 · /collections/explorar CLS 0.007 eager 1 · /products/prueba-coche-a CLS 0.000 eager 0 |
 
 ## 4. Validador estático y contraste
 
@@ -133,9 +137,10 @@ Contraste calculado de la paleta por defecto (WCAG, fórmula de luminancia relat
 | Reservado (#8a5a00) sobre superficie | 5.93:1 | 3:1 | cumple |
 
 - Ajustes globales: 107
-- Cadenas de interfaz: 378
-- CSS total: 75.5 KB · JS total: 89.0 KB (sin comprimir)
-- Archivos del tema: 147 · secciones: 37 · snippets: 44
+- Traducciones sin uso detectado (2): footer.by_brand, footer.by_builder
+- Cadenas de interfaz: 407
+- CSS total: 90.4 KB · JS total: 98.4 KB (sin comprimir)
+- Archivos del tema: 156 · secciones: 42 · snippets: 47
 
 Peso de los recursos propios (sin comprimir; el CDN de Shopify los sirve comprimidos):
 
@@ -152,14 +157,15 @@ Peso de los recursos propios (sin comprimir; el CDN de Shopify los sirve comprim
 | sd-analytics.js | 4.2 KB |
 | sd-base.css | 12.9 KB |
 | sd-brands.js | 7.6 KB |
-| sd-components.css | 32.6 KB |
+| sd-components.css | 37.3 KB |
 | sd-core.js | 5.0 KB |
 | sd-facets.js | 12.4 KB |
 | sd-favorites.js | 16.0 KB |
 | sd-forms.js | 15.4 KB |
 | sd-header.js | 5.9 KB |
 | sd-product.js | 4.6 KB |
-| sd-sections.css | 29.9 KB |
+| sd-sections.css | 40.3 KB |
+| sd-ui.js | 9.4 KB |
 | sd-video.js | 17.9 KB |
 | sidonia-firma-dark.png | 24.2 KB |
 | sidonia-firma-light.png | 29.5 KB |
@@ -174,7 +180,7 @@ Peso de los recursos propios (sin comprimir; el CDN de Shopify los sirve comprim
 | sidonia-punto.png | 6.6 KB |
 | switzer-light.otf | 35.8 KB |
 
-Avisos del validador (informativos): Clases usadas en Liquid sin regla en el CSS (64): sd-body (theme/layout/password.liquid), sd-brands (theme/sections/bran.
+Avisos del validador (informativos): Clases usadas en Liquid sin regla en el CSS (68): sd-body (theme/layout/password.liquid), sd-brands (theme/sections/bran.
 
 ## 5. Hechos de Shopify por verificar (no se pudo consultar la documentación)
 

@@ -11,13 +11,13 @@ Plataforma de catálogo y contactos para **coches (punto rojo), barcos (punto az
 | Carpeta | Contenido |
 |---|---|
 | `theme/` | El tema (se sube a Shopify) |
-| `dist/` | `sidonia-theme-1.2.0.zip` (+ SHA-256): contenido de `theme/` con las carpetas en la raíz |
+| `dist/` | `sidonia-theme-1.3.0.zip` (+ SHA-256): contenido de `theme/` con las carpetas en la raíz |
 | `docs/` | Documentación en español (índice abajo) |
 | `tools/` | Validador, generadores, previsualización local y pruebas (no van en el ZIP) |
 
 ## Empezar
 
-1. Sube `dist/sidonia-theme-1.2.0.zip` en *Tienda online → Temas → Añadir tema → Subir archivo ZIP*. Queda **sin publicar**.
+1. Sube `dist/sidonia-theme-1.3.0.zip` en *Tienda online → Temas → Añadir tema → Subir archivo ZIP*. Queda **sin publicar**.
 2. Sigue `docs/02-instalacion-y-previsualizacion.md` (metacampos, colecciones, páginas, menús).
 3. Rellena los *Ajustes del tema* (`docs/01-guia-de-edicion.md`).
 4. Antes de publicar, repasa el checklist de `docs/09-informe-de-pruebas.md` (§6).

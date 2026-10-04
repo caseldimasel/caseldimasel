@@ -1,11 +1,11 @@
 # 02 · Instalación y previsualización SIN publicar
 
-El tema se entrega en `dist/sidonia-theme-1.2.0.zip` (carpetas del tema en la raíz del ZIP, sin documentación ni herramientas). **Subir el ZIP no lo publica.**
+El tema se entrega en `dist/sidonia-theme-1.3.0.zip` (carpetas del tema en la raíz del ZIP, sin documentación ni herramientas). **Subir el ZIP no lo publica.**
 
 ## Opción A · Subir el ZIP (recomendada)
 
 1. Administrador de Shopify → **Tienda online → Temas**.
-2. **Añadir tema → Subir archivo ZIP** → elige `sidonia-theme-1.2.0.zip`.
+2. **Añadir tema → Subir archivo ZIP** → elige `sidonia-theme-1.3.0.zip`.
 3. El tema aparece en «Biblioteca de temas», **sin publicar**. El tema actual (Impact) sigue activo.
 4. Pulsa **Personalizar** en el tema nuevo para editarlo y **Acciones → Previsualizar** para ver una URL de previsualización. Si la tienda tiene contraseña, funciona igual.
 
