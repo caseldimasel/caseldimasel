@@ -15,9 +15,16 @@ const dist = join(root, 'dist');
 mkdirSync(dist, { recursive: true });
 const out = join(dist, `sidonia-theme-${version}.zip`);
 if (existsSync(out)) rmSync(out);
-execFileSync('zip', ['-r', '-X', '-q', out, '.', '-x', '*.DS_Store'], { cwd: join(root, 'theme') });
+// -D: sin entradas de carpeta (solo archivos); -9: compresión máxima; rutas relativas a theme/
+execFileSync('zip', ['-r', '-X', '-D', '-9', '-q', out, '.', '-x', '*.DS_Store'], { cwd: join(root, 'theme') });
 
 const listing = execFileSync('unzip', ['-Z1', out], { encoding: 'utf8' }).trim().split('\n');
+for (const need of ['layout/theme.liquid', 'config/settings_schema.json', 'templates/index.json', 'locales/es.default.json']) {
+  if (!listing.includes(need)) {
+    console.error('Falta en el ZIP:', need);
+    process.exit(1);
+  }
+}
 const tops = [...new Set(listing.map((p) => p.split('/')[0]))].sort();
 const allowed = ['assets', 'config', 'layout', 'locales', 'sections', 'snippets', 'templates'];
 const extra = tops.filter((t) => !allowed.includes(t));
