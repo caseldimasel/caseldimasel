@@ -49,6 +49,7 @@ const PAGES = [
   { handle: 'favoritos', title: 'Favoritos', template: 'favorites' },
   { handle: 'contacto', title: 'Contacto', template: 'contact' },
   { handle: 'busco', title: 'Busco algo', template: 'wanted' },
+  { handle: 'marcas', title: 'Marcas', template: 'brands' },
   { handle: 'privacidad', title: 'Aviso de privacidad', template: 'legal', content: '<p>Texto legal de prueba.</p>' }
 ];
 
@@ -116,6 +117,7 @@ export function createStore(profileName = 'full', port = 4173) {
         page_contact: { url: '/pages/contacto' },
         page_archive: { url: '/collections/archivo' },
         page_wanted: { url: '/pages/busco' },
+        page_brands: { url: '/pages/marcas' },
         legal_menu: menus.footer,
         privacy_url: '/pages/privacidad',
         analytics_enabled: true,
@@ -460,7 +462,7 @@ export function startServer({ port = 4173, profile = 'full' } = {}) {
         if (!info) return send(404, 'no img');
         const w = Math.min(parseInt(query.width?.[0] || info.w, 10), info.w);
         const h = Math.round((w * info.h) / info.w);
-        const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}"><rect width="100%" height="100%" fill="${info.color}"/><circle cx="${w * 0.5}" cy="${h * 0.38}" r="${w * 0.12}" fill="rgba(255,255,255,.35)"/><text x="50%" y="${h * 0.72}" font-family="sans-serif" font-size="${Math.max(12, w * 0.045)}" fill="#fff" text-anchor="middle">${info.label.replace(/&/g, '&amp;')}</text></svg>`;
+        const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}"><defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#d9dde2"/><stop offset=".55" stop-color="${info.color}"/><stop offset="1" stop-color="#1c1c1c"/></linearGradient></defs><rect width="100%" height="100%" fill="url(#g)"/><rect y="${h * 0.62}" width="100%" height="${h * 0.38}" fill="rgba(0,0,0,.35)"/><path d="M${w * 0.14} ${h * 0.66} q${w * 0.04} ${-h * 0.14} ${w * 0.2} ${-h * 0.14} h${w * 0.18} q${w * 0.14} 0 ${w * 0.2} ${h * 0.14} z" fill="rgba(255,255,255,.18)"/><circle cx="${w * 0.3}" cy="${h * 0.68}" r="${w * 0.05}" fill="rgba(0,0,0,.55)"/><circle cx="${w * 0.68}" cy="${h * 0.68}" r="${w * 0.05}" fill="rgba(0,0,0,.55)"/><text x="50%" y="${h * 0.88}" font-family="sans-serif" font-size="${Math.max(12, w * 0.04)}" fill="#fff" text-anchor="middle">${info.label.replace(/&/g, '&amp;')}</text></svg>`;
         return send(200, svg, 'image/svg+xml', { 'cache-control': 'max-age=3600' });
       }
       if (path === '/favicon.ico') return send(204, '');

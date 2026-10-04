@@ -32,6 +32,10 @@ Mientras falten estos datos, el tema **no inventa nada**: oculta el bloque o mue
 - [ ] Respuestas de FAQ sobre tarifas, exclusividad y plazos **solo cuando estén decididas**.
 - [ ] Alcance real de la intermediación y proceso después del contacto (para afirmar o no inspecciones, valoración, gestión documental).
 
+## Imágenes
+- [ ] Fotografías reales de cada pieza y, si se quiere, de cada división (portada en *Ajustes del tema → Divisiones*). El tema no incluye fotos de stock.
+- [ ] Revisar la lista de marcas (`tools/brands.json`) y añadir las que falten; los valores de `sidonia.brand` / `sidonia.builder` deben coincidir exactamente.
+
 ## Legal
 - [ ] Aviso de privacidad, condiciones del servicio, aviso legal y política de cookies (los redacta Sidonia con asesoría; el tema solo los enlaza).
 - [ ] Texto de consentimiento para newsletter (si se activa) y para formularios.

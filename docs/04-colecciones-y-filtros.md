@@ -53,6 +53,13 @@ Un filtro solo aparece en una colección si hay piezas con valores en esa colecc
 
 Opcional: marca «Orden de valores» manual en cada filtro de bandas para que salgan en el orden lógico (de menor a mayor).
 
+## 3b. Marcas (lista completa y píldoras del listado)
+
+- **Página «Marcas»** (`page.brands`) y sección compacta del inicio: listan **todas** las marcas de coches y de barcos de `tools/brands.json` (150 de coches y 130 de barcos), con o sin piezas. Es una lista de navegación, no inventario: cada enlace lleva a `…/collections/garage?filter.p.m.sidonia.brand=<Marca>` (o `…builder=` en Harbor).
+- Los números junto a cada marca los lee `sd-brands.js` de los filtros reales de la colección (`sidonia.brand` / `sidonia.builder`); sin JavaScript se ven todas las marcas, sin números.
+- Para que una marca funcione, el valor del metacampo debe escribirse **igual** que en la lista (p. ej. `Mercedes-Benz`). Añadir o quitar marcas: edita `tools/brands.json` y ejecuta `node tools/generate-brands.mjs` (regenera `theme/snippets/brand-list.liquid`).
+- En cada listado, la fila de píldoras muestra solo las marcas **con piezas** (viene del filtro de Search & Discovery) y un enlace a «Todas las marcas». Requiere que los filtros `sidonia.brand` y `sidonia.builder` estén activados en Search & Discovery.
+
 ## 4. Rangos: por qué bandas
 
 Un metacampo numérico **no** implica que Shopify ofrezca un rango arbitrario (deslizador o mínimo/máximo). Para no construir una interfaz que no consulta valores reales, el tema usa **bandas de texto coherentes** como filtro. Las etiquetas están en `tools/bands.config.json`.

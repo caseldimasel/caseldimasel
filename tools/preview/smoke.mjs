@@ -10,7 +10,7 @@ const routes = [
   '/products/prueba-coche-a', '/products/prueba-coche-b-a-consultar', '/products/prueba-coche-c-minimo', '/products/prueba-barco-a', '/products/prueba-barco-b-reservado',
   '/products/prueba-casa-a', '/products/prueba-casa-b-vendida', '/products/prueba-coche-d-vendido', '/products/prueba-coche-e-youtube', '/products/prueba-coche-f-sin-portada',
   '/products/prueba-coche-a?view=card',
-  '/pages/vender', '/pages/como-vendemos', '/pages/sobre-sidonia', '/pages/favoritos', '/pages/contacto', '/pages/busco', '/pages/privacidad',
+  '/pages/vender', '/pages/como-vendemos', '/pages/sobre-sidonia', '/pages/favoritos', '/pages/contacto', '/pages/busco', '/pages/marcas', '/pages/privacidad',
   '/search', '/search?q=Marca&type=product', '/search?q=nada-que-encontrar', '/search/suggest?q=coche&section_id=predictive-search', '/cart', '/nope'
 ];
 

@@ -1,6 +1,6 @@
 {%- comment -%}
   Logo de marca. Parámetros: variant ('dark' = para fondos claros, 'light' = para fondos oscuros), class.
-  Si no hay imagen subida se muestra el nombre de la marca como texto.
+  Orden: logo subido en los ajustes → logotipo incluido en el tema (sidonia-logo-*.png) → nombre de marca en texto.
 {%- endcomment -%}
 {%- liquid
   if variant == 'light'
@@ -9,14 +9,26 @@
     assign img = settings.logo_dark | default: settings.logo
   endif
   assign mark = settings.isotype
-  assign w = settings.logo_width | default: 160
+  assign w = settings.logo_width | default: 150
   assign brand = settings.brand_name | default: shop.name
+  assign bundled = false
+  if img == blank and settings.use_bundled_logo
+    assign bundled = true
+  endif
 -%}
 {%- if img != blank -%}
   <span class="sd-logo {{ class }}{% if mark != blank %} sd-logo--has-mark{% endif %}" style="--sd-logo-w: {{ w }}px">
     <img class="sd-logo__img sd-logo__full" src="{{ img | image_url: width: 640 }}" alt="{{ brand | escape }}"{% if img.aspect_ratio %} width="{{ w }}" height="{{ w | divided_by: img.aspect_ratio | round }}"{% endif %}>
     {%- if mark != blank -%}
       <img class="sd-logo__img sd-logo__mark" src="{{ mark | image_url: width: 160 }}" alt="{{ brand | escape }}" width="40" height="40">
+    {%- endif -%}
+  </span>
+{%- elsif bundled -%}
+  <span class="sd-logo {{ class }}" style="--sd-logo-w: {{ w }}px">
+    {%- if variant == 'light' -%}
+      <img class="sd-logo__img sd-logo__full" src="{{ 'sidonia-logo-light.png' | asset_url }}" alt="{{ brand | escape }}" width="{{ w }}" height="{{ w | divided_by: 4.8 | round }}">
+    {%- else -%}
+      <img class="sd-logo__img sd-logo__full" src="{{ 'sidonia-logo-dark.png' | asset_url }}" alt="{{ brand | escape }}" width="{{ w }}" height="{{ w | divided_by: 4.8 | round }}">
     {%- endif -%}
   </span>
 {%- else -%}

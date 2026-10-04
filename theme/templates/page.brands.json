@@ -1,0 +1,31 @@
+{
+  "sections": {
+    "header": {
+      "type": "page-header",
+      "settings": {
+        "eyebrow": "Explorar",
+        "heading": "Marcas de coches y barcos",
+        "text": "Todas las marcas, tengan o no piezas ahora mismo. Entra en una marca para ver lo que hay disponible.",
+        "show_breadcrumbs": true
+      }
+    },
+    "brands": {
+      "type": "brand-directory",
+      "settings": {
+        "compact": false,
+        "eyebrow": "",
+        "heading": "",
+        "text": ""
+      }
+    },
+    "cta": {
+      "type": "owner-cta",
+      "settings": {}
+    }
+  },
+  "order": [
+    "header",
+    "brands",
+    "cta"
+  ]
+}

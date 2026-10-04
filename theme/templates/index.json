@@ -12,6 +12,12 @@
       "type": "featured-listings",
       "settings": {}
     },
+    "brands": {
+      "type": "brand-directory",
+      "settings": {
+        "compact": true
+      }
+    },
     "how": {
       "type": "how-we-sell",
       "settings": {},
@@ -179,6 +185,7 @@
     "hero",
     "divisions",
     "selection",
+    "brands",
     "how",
     "story",
     "community",

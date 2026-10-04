@@ -1,6 +1,6 @@
 {%- comment -%}
   URL de una página clave del tema.
-  Parámetro: key = sell | how | about | favorites | contact | archive | wanted | explore | search
+  Parámetro: key = sell | how | about | favorites | contact | archive | wanted | brands | explore | search
   Se usa la página elegida en Ajustes del tema > Páginas clave; si no hay, la ruta /pages/<handle> de reserva.
 {%- endcomment -%}
 {%- liquid
@@ -26,6 +26,9 @@
     when 'wanted'
       assign p = settings.page_wanted
       assign fallback = '/pages/busco'
+    when 'brands'
+      assign p = settings.page_brands
+      assign fallback = '/pages/marcas'
     when 'explore'
       assign p = settings.explore_collection
       assign fallback = routes.all_products_collection_url

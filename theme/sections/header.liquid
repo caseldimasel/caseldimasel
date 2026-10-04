@@ -19,6 +19,9 @@
   capture about_url
     render 'page-url', key: 'about'
   endcapture
+  capture brands_url
+    render 'page-url', key: 'brands'
+  endcapture
   assign sell_label = section.settings.cta_label
   if sell_label == blank
     assign sell_label = settings.label_sell_cta
@@ -41,12 +44,45 @@
 -%}
 
 <sd-header class="sd-header{% if settings.sticky_header %} sd-header--sticky{% endif %}" data-section-id="{{ section.id }}">
-  <div class="sd-header__bar sd-container">
-    <a class="sd-header__brand" href="{{ routes.root_url }}" aria-label="{{ settings.brand_name | default: shop.name | escape }}">
-      {%- render 'logo', variant: 'dark' -%}
-    </a>
+  <div class="sd-header__top">
+    <div class="sd-header__bar sd-container">
+      <a class="sd-header__brand" href="{{ routes.root_url }}" aria-label="{{ settings.brand_name | default: shop.name | escape }}">
+        {%- render 'logo', variant: 'light' -%}
+      </a>
 
-    <nav class="sd-nav" aria-label="{{ 'header.primary_nav' | t }}">
+      {%- if section.settings.show_search -%}
+        <a class="sd-searchbar" href="{{ routes.search_url }}" data-sd-open="search" aria-haspopup="dialog">
+          {%- render 'icon', name: 'search', size: 20 -%}
+          <span class="sd-searchbar__text">{{ 'header.search_hint' | t }}</span>
+          <span class="sd-sr">{{ 'header.search' | t }}</span>
+        </a>
+      {%- endif -%}
+
+      <div class="sd-header__tools">
+        {%- if section.settings.show_search -%}
+          <a class="sd-iconbtn sd-header__searchicon" href="{{ routes.search_url }}" data-sd-open="search" aria-haspopup="dialog">
+            {%- render 'icon', name: 'search', size: 22 -%}
+            <span class="sd-sr">{{ 'header.search' | t }}</span>
+          </a>
+        {%- endif -%}
+        {%- if section.settings.show_favorites -%}
+          <a class="sd-iconbtn sd-header__fav" href="{{ fav_url }}" data-sd-fav-link>
+            {%- render 'icon', name: 'heart', size: 22 -%}
+            <span class="sd-sr" data-sd-fav-label>{{ 'header.favorites' | t }}</span>
+            <sd-fav-count class="sd-badge" hidden></sd-fav-count>
+          </a>
+        {%- endif -%}
+        <a class="sd-btn sd-btn--light sd-btn--sm sd-header__cta" href="{{ sell_url }}">{{ sell_label }}</a>
+        <button type="button" class="sd-iconbtn sd-header__burger" data-sd-open="drawer" aria-haspopup="dialog">
+          {%- render 'icon', name: 'menu', size: 24 -%}
+          <span class="sd-sr">{{ 'header.open_menu' | t }}</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div class="sd-header__sub">
+    <nav class="sd-nav sd-container" aria-label="{{ 'header.primary_nav' | t }}">
       <ul class="sd-nav__list" role="list">
         {%- if menu != blank and menu.links.size > 0 -%}
           {%- for link in menu.links -%}
@@ -79,32 +115,12 @@
             {%- capture c_name -%}{%- render 'division-info', key: c, out: 'name' -%}{%- endcapture -%}
             <li class="sd-nav__item sd-cat sd-cat--{{ c }}"><a class="sd-nav__link" href="{{ url_list[forloop.index0] }}"><span class="sd-nav__dot" aria-hidden="true"></span>{{ c_name | strip }}</a></li>
           {%- endfor -%}
+          <li class="sd-nav__item"><a class="sd-nav__link" href="{{ brands_url | strip }}">{{ 'header.brands' | t }}</a></li>
           <li class="sd-nav__item"><a class="sd-nav__link" href="{{ how_url }}">{{ 'header.how' | t }}</a></li>
           <li class="sd-nav__item"><a class="sd-nav__link" href="{{ about_url }}">{{ 'header.about' | t }}</a></li>
         {%- endif -%}
       </ul>
     </nav>
-
-    <div class="sd-header__tools">
-      {%- if section.settings.show_search -%}
-        <a class="sd-iconbtn" href="{{ routes.search_url }}" data-sd-open="search" aria-haspopup="dialog">
-          {%- render 'icon', name: 'search', size: 22 -%}
-          <span class="sd-sr">{{ 'header.search' | t }}</span>
-        </a>
-      {%- endif -%}
-      {%- if section.settings.show_favorites -%}
-        <a class="sd-iconbtn sd-header__fav" href="{{ fav_url }}" data-sd-fav-link>
-          {%- render 'icon', name: 'heart', size: 22 -%}
-          <span class="sd-sr" data-sd-fav-label>{{ 'header.favorites' | t }}</span>
-          <sd-fav-count class="sd-badge" hidden></sd-fav-count>
-        </a>
-      {%- endif -%}
-      <a class="sd-btn sd-btn--accent sd-btn--sm sd-header__cta" href="{{ sell_url }}">{{ sell_label }}</a>
-      <button type="button" class="sd-iconbtn sd-header__burger" data-sd-open="drawer" aria-haspopup="dialog">
-        {%- render 'icon', name: 'menu', size: 24 -%}
-        <span class="sd-sr">{{ 'header.open_menu' | t }}</span>
-      </button>
-    </div>
   </div>
 
   <dialog class="sd-drawer" aria-label="{{ 'header.menu' | t }}">
@@ -114,7 +130,7 @@
         {%- render 'icon', name: 'close', size: 24 -%}
       </button>
     </div>
-    <a class="sd-btn sd-btn--accent sd-btn--block sd-drawer__cta" href="{{ sell_url }}">
+    <a class="sd-btn sd-btn--primary sd-btn--block sd-drawer__cta" href="{{ sell_url }}">
       <span>{{ sell_label }}</span>{%- render 'icon', name: 'arrow-right', size: 18 -%}
     </a>
     <nav aria-label="{{ 'header.primary_nav' | t }}">
@@ -145,6 +161,7 @@
             {%- capture c_name -%}{%- render 'division-info', key: c, out: 'name' -%}{%- endcapture -%}
             <li class="sd-cat sd-cat--{{ c }}"><a class="sd-drawer__link" href="{{ url_list[forloop.index0] }}"><span class="sd-nav__dot" aria-hidden="true"></span>{{ c_name | strip }}</a></li>
           {%- endfor -%}
+          <li><a class="sd-drawer__link" href="{{ brands_url | strip }}">{{ 'header.brands' | t }}</a></li>
           <li><a class="sd-drawer__link" href="{{ how_url }}">{{ 'header.how' | t }}</a></li>
           <li><a class="sd-drawer__link" href="{{ about_url }}">{{ 'header.about' | t }}</a></li>
         {%- endif -%}
@@ -190,6 +207,7 @@
         <p class="sd-eyebrow">{{ 'search.quick' | t }}</p>
         <ul class="sd-chiprow" role="list">
           {%- render 'division-chips' -%}
+          <li><a class="sd-chip sd-chip--cat" href="{{ brands_url | strip }}">{{ 'header.brands' | t }}</a></li>
         </ul>
       </div>
     </div>
@@ -203,9 +221,9 @@
     {
       "type": "link_list",
       "id": "menu",
-      "label": "Menú principal",
+      "label": "Menú de categorías",
       "default": "main-menu",
-      "info": "Si está vacío se usa un menú de reserva: Explorar, divisiones, Cómo vendemos y Sobre Sidonia."
+      "info": "Segunda fila de la cabecera. Si está vacío se usa un menú de reserva: Explorar, divisiones, Marcas, Cómo vendemos y Sobre Sidonia."
     },
     { "type": "text", "id": "cta_label", "label": "Texto del botón de venta", "info": "Si está vacío se usa el de Ajustes del tema > Textos de botones." },
     { "type": "url", "id": "cta_url", "label": "Enlace del botón de venta", "info": "Si está vacío se usa la página «Vender con Sidonia»." },

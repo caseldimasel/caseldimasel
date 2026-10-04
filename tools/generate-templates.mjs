@@ -69,6 +69,7 @@ out('index', {
   hero: { type: 'hero', settings: {} },
   divisions: { type: 'divisions', settings: {} },
   selection: { type: 'featured-listings', settings: {} },
+  brands: { type: 'brand-directory', settings: { compact: true } },
   how: { type: 'how-we-sell', settings: {}, ...steps },
   story: { type: 'featured-story', settings: {} },
   community: { type: 'community', settings: {} },
@@ -76,7 +77,7 @@ out('index', {
   testimonials: { type: 'testimonials', settings: {} },
   cta: ownerCta(),
   faq: faq(faqHome)
-}, ['hero', 'divisions', 'selection', 'how', 'story', 'community', 'criteria', 'testimonials', 'cta', 'faq']);
+}, ['hero', 'divisions', 'selection', 'brands', 'how', 'story', 'community', 'criteria', 'testimonials', 'cta', 'faq']);
 
 // ---------- Colecciones ----------
 out('collection', {
@@ -159,6 +160,12 @@ out('page.about', {
   community: { type: 'community', settings: {} },
   cta: ownerCta()
 }, ['header', 'text', 'criteria', 'team', 'community', 'cta']);
+
+out('page.brands', {
+  header: { type: 'page-header', settings: { eyebrow: 'Explorar', heading: 'Marcas de coches y barcos', text: 'Todas las marcas, tengan o no piezas ahora mismo. Entra en una marca para ver lo que hay disponible.', show_breadcrumbs: true } },
+  brands: { type: 'brand-directory', settings: { compact: false, eyebrow: '', heading: '', text: '' } },
+  cta: ownerCta()
+}, ['header', 'brands', 'cta']);
 
 out('page.favorites', {
   main: { type: 'main-favorites', settings: {} }

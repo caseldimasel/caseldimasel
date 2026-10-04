@@ -1,11 +1,11 @@
 # 02 · Instalación y previsualización SIN publicar
 
-El tema se entrega en `dist/sidonia-theme-1.0.0.zip` (carpetas del tema en la raíz del ZIP, sin documentación ni herramientas). **Subir el ZIP no lo publica.**
+El tema se entrega en `dist/sidonia-theme-1.1.0.zip` (carpetas del tema en la raíz del ZIP, sin documentación ni herramientas). **Subir el ZIP no lo publica.**
 
 ## Opción A · Subir el ZIP (recomendada)
 
 1. Administrador de Shopify → **Tienda online → Temas**.
-2. **Añadir tema → Subir archivo ZIP** → elige `sidonia-theme-1.0.0.zip`.
+2. **Añadir tema → Subir archivo ZIP** → elige `sidonia-theme-1.1.0.zip`.
 3. El tema aparece en «Biblioteca de temas», **sin publicar**. El tema actual (Impact) sigue activo.
 4. Pulsa **Personalizar** en el tema nuevo para editarlo y **Acciones → Previsualizar** para ver una URL de previsualización. Si la tienda tiene contraseña, funciona igual.
 
@@ -49,6 +49,7 @@ El tema usa las rutas nativas de Shopify. **Una página no puede estar en una UR
 | Favoritos | Página, plantilla `page.favorites` | `favoritos` | — |
 | Contacto | Página, plantilla `page.contact` | `contacto` | — |
 | Cuéntanos qué buscas | Página, plantilla `page.wanted` | `busco` | — |
+| Marcas de coches y barcos | Página, plantilla `page.brands` | `marcas` | Ajustes del tema → Páginas clave → «Marcas». Muestra **todas** las marcas (lista en `tools/brands.json`); los números salen de los filtros reales de la colección |
 | Aviso de privacidad y legales | Página, plantilla `page.legal` (o política de Shopify) | `privacidad` | Políticas de Shopify |
 | Buscar / 404 / carrito | `search` / `404` / `cart` | — | — |
 | Historias (opcional) | Blog de Shopify, plantillas `blog` y `article` | — | — |

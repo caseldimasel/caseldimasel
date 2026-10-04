@@ -65,9 +65,10 @@
     --sd-estate-on: {{ estate_on | strip }};
 
     /* Tipografía */
-    --sd-font-heading: {% if settings.heading_font_mode == 'shopify' %}{{ settings.heading_font.family }}, {{ settings.heading_font.fallback_families }}{% else %}"Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, "Noto Serif", serif{% endif %};
-    --sd-font-body: {% if settings.body_font_mode == 'shopify' %}{{ settings.body_font.family }}, {{ settings.body_font.fallback_families }}{% else %}system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif{% endif %};
-    --sd-heading-weight: {% if settings.heading_font_mode == 'shopify' %}{{ settings.heading_font.weight }}{% else %}400{% endif %};
+    --sd-font-heading: {% if settings.heading_font_mode == 'shopify' %}{{ settings.heading_font.family }}, {{ settings.heading_font.fallback_families }}{% elsif settings.heading_font_mode == 'serif' %}"Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, "Noto Serif", serif{% else %}ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif{% endif %};
+    --sd-font-body: {% if settings.body_font_mode == 'shopify' %}{{ settings.body_font.family }}, {{ settings.body_font.fallback_families }}{% else %}ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif{% endif %};
+    --sd-heading-weight: {% if settings.heading_font_mode == 'shopify' %}{{ settings.heading_font.weight }}{% elsif settings.heading_font_mode == 'serif' %}400{% else %}800{% endif %};
+    --sd-heading-tracking: {% if settings.heading_font_mode == 'sans' or settings.heading_font_mode == blank %}-0.03em{% elsif settings.heading_font_mode == 'serif' %}-0.012em{% else %}-0.015em{% endif %};
     --sd-heading-scale: {{ scale }};
     --sd-text-base: {{ base_px }}px;
 
@@ -76,10 +77,10 @@
     --sd-fs-s: 0.9375rem;
     --sd-fs-m: 1rem;
     --sd-fs-l: 1.1875rem;
-    --sd-fs-h4: calc(1.25rem * var(--sd-heading-scale));
-    --sd-fs-h3: calc(1.5rem * var(--sd-heading-scale));
-    --sd-fs-h2: calc(clamp(1.75rem, 1.2rem + 2.4vw, 2.75rem) * var(--sd-heading-scale));
-    --sd-fs-h1: calc(clamp(2.25rem, 1.4rem + 4.2vw, 4.5rem) * var(--sd-heading-scale));
+    --sd-fs-h4: calc(1.0625rem * var(--sd-heading-scale));
+    --sd-fs-h3: calc(1.25rem * var(--sd-heading-scale));
+    --sd-fs-h2: calc(clamp(1.5rem, 1.1rem + 1.6vw, 2.25rem) * var(--sd-heading-scale));
+    --sd-fs-h1: calc(clamp(2rem, 1.2rem + 3.4vw, 3.75rem) * var(--sd-heading-scale));
 
     /* Espaciado */
     --sd-s1: 0.25rem;
@@ -92,10 +93,10 @@
     --sd-s8: 4.5rem;
     --sd-s9: 7rem;
     --sd-gutter: clamp(1rem, 0.6rem + 1.8vw, 2rem);
-    --sd-section-y: clamp(3rem, 2rem + 4vw, 6rem);
+    --sd-section-y: clamp(2.5rem, 1.5rem + 3.5vw, 4.5rem);
 
     /* Anchos */
-    --sd-page-width: {{ settings.page_width | default: 1320 }}px;
+    --sd-page-width: {{ settings.page_width | default: 1440 }}px;
     --sd-narrow: 46rem;
     --sd-tap: 2.75rem;
 
@@ -105,7 +106,7 @@
     --sd-radius-l: {{ radius_l }}px;
     --sd-radius-pill: 999px;
     --sd-border-w: 1px;
-    --sd-card-ratio: {{ settings.card_ratio | default: '4/5' }};
+    --sd-card-ratio: {{ settings.card_ratio | default: '4/3' }};
 
     /* Sombras discretas */
     --sd-shadow-1: 0 1px 2px rgba(35, 31, 26, 0.08);

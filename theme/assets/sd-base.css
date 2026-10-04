@@ -100,11 +100,11 @@ h4 {
   font-family: var(--sd-font-heading);
   font-weight: var(--sd-heading-weight);
   line-height: 1.1;
-  letter-spacing: -0.012em;
+  letter-spacing: var(--sd-heading-tracking, -0.02em);
   text-wrap: balance;
 }
 
-h1 { font-size: var(--sd-fs-h1); }
+h1 { font-size: var(--sd-fs-h1); line-height: 1.04; }
 h2 { font-size: var(--sd-fs-h2); }
 h3 { font-size: var(--sd-fs-h3); line-height: 1.18; }
 h4 { font-size: var(--sd-fs-h4); line-height: 1.25; }

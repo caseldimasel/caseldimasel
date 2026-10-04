@@ -1,0 +1,21 @@
+{%- comment -%}
+  Pestañas de categoría (Todo · Garage · Harbor · Estate). Parámetro: cat (garage|harbor|estate o vacío).
+  Son enlaces reales a las colecciones de cada división; los nombres salen de Ajustes del tema.
+{%- endcomment -%}
+{%- liquid
+  capture explore_url
+    render 'page-url', key: 'explore'
+  endcapture
+  capture keys
+    render 'division-keys'
+  endcapture
+  assign list = keys | strip | split: ','
+-%}
+<nav class="sd-segment" aria-label="{{ 'listing.segments' | t }}">
+  <a class="sd-pill" href="{{ explore_url | strip }}"{% if cat == blank %} aria-current="page"{% endif %}>{{ 'listing.segment_all' | t }}</a>
+  {%- for c in list -%}
+    {%- capture c_url -%}{%- render 'division-info', key: c, out: 'url' -%}{%- endcapture -%}
+    {%- capture c_name -%}{%- render 'division-info', key: c, out: 'name' -%}{%- endcapture -%}
+    <a class="sd-pill sd-cat sd-cat--{{ c }}" href="{{ c_url | strip }}"{% if cat == c %} aria-current="page"{% endif %}><span class="sd-nav__dot" aria-hidden="true"></span>{{ c_name | strip }}</a>
+  {%- endfor -%}
+</nav>

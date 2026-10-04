@@ -31,9 +31,14 @@ Todo se edita desde **Tienda online → Temas → Personalizar** del tema Sidoni
    - **Logo principal**: se usa si falta alguna de las dos versiones.
    - **Isotipo**: se usa en móvil estrecho (menos de 480 px) cuando la cabecera va justa.
 3. SVG: Shopify lo sirve como imagen. El tema lo carga **siempre con `<img>`**, nunca lo incrusta en la página, así que un SVG no puede ejecutar scripts. Sube SVG con `viewBox` y sin dimensiones fijas absurdas.
-4. Sin logo, la cabecera muestra la palabra del *Nombre de la marca* (por defecto SIDONIA) con el aspecto cuidado del tema.
+4. Sin logo subido, el tema usa el **logotipo de Sidonia incluido** (`theme/assets/sidonia-logo-light.png` para fondos oscuros y `sidonia-logo-dark.png` para claros), mientras *Usar el logotipo incluido* esté activo. Si lo desactivas, la cabecera muestra la palabra del *Nombre de la marca* en texto.
+5. Para cambiar el logotipo de forma permanente basta con subir el tuyo en *Marca y logos*; el incluido deja de usarse.
 
-El tema **no incluye ningún logotipo ni símbolo**. Los pone Sidonia.
+## Marcas y fotos
+
+- **Marcas**: la página `marcas` y la sección «Marcas» del inicio (editable en el personalizador) listan todas las marcas de coches y barcos. La lista está en `tools/brands.json`; tras editarla, `node tools/generate-brands.mjs`. Ver `04`.
+- **Fotos del inicio**: el mosaico del encabezado usa, por división, la *Portada* de *Ajustes del tema → Divisiones*; si no hay, la imagen de la colección; si no hay, la portada de su primera pieza. Para fijar una imagen propia, sube una *Portada del hero* en la sección Hero.
+- **Fotos de las piezas**: la primera imagen de cada producto es la portada de la tarjeta; sube fotos horizontales de buena calidad (el tema recorta a la proporción elegida en *Tarjetas*).
 
 ## Colores y contraste
 

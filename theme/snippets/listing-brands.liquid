@@ -1,0 +1,31 @@
+{%- comment -%}
+  Fila de marcas con piezas ahora mismo, tomada del filtro real de marca (coches) o astillero (barcos) de
+  Search & Discovery. Cada píldora activa/desactiva el filtro. Parámetros: results.
+  Termina con el enlace a la página con todas las marcas.
+{%- endcomment -%}
+{%- liquid
+  capture brands_url
+    render 'page-url', key: 'brands'
+  endcapture
+  assign shown = 0
+-%}
+<ul class="sd-segment sd-segment--brands" role="list" aria-label="{{ 'listing.brands_label' | t }}">
+  {%- for filter in results.filters -%}
+    {%- if filter.param_name contains 'sidonia.brand' or filter.param_name contains 'sidonia.builder' -%}
+      {%- for value in filter.values -%}
+        {%- if value.count > 0 or value.active -%}
+          {%- liquid
+            assign shown = shown | plus: 1
+            if value.active
+              assign v_url = value.url_to_remove
+            else
+              assign v_url = value.url_to_add
+            endif
+          -%}
+          <li><a class="sd-pill" href="{{ v_url }}" data-sd-facet-link{% if value.active %} aria-pressed="true"{% endif %}>{{ value.label | escape }} <span class="sd-count">{{ value.count }}</span></a></li>
+        {%- endif -%}
+      {%- endfor -%}
+    {%- endif -%}
+  {%- endfor -%}
+  <li><a class="sd-pill sd-pill--more" href="{{ brands_url | strip }}">{{ 'listing.all_brands' | t }}</a></li>
+</ul>

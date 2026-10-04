@@ -53,6 +53,7 @@
             <input type="hidden" name="q" value="{{ terms | escape }}">
             <input type="hidden" name="type" value="product">
             <input type="hidden" name="options[prefix]" value="last">
+            <div data-sd-swap="brands">{%- render 'listing-brands', results: search -%}</div>
             <div class="sd-listing__toolbar">
               <button type="button" class="sd-btn sd-btn--secondary sd-filters-toggle" data-sd-open-filters aria-haspopup="dialog">
                 {%- render 'icon', name: 'filter', size: 20 -%}
@@ -80,6 +81,7 @@
               </dialog>
 
               <div class="sd-results" data-sd-results aria-busy="false">
+              <h2 class="sd-sr">{{ 'facets.results_heading' | t }}</h2>
                 <div data-sd-swap="active">{%- render 'facets-active', results: search, clear_url: clear_url -%}</div>
                 <div data-sd-swap="grid">
                   {%- if search.results.size > 0 -%}

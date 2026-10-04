@@ -11,10 +11,13 @@
 7. **Vídeo bajo demanda**: las tarjetas llevan portada y botón; el `<video>` se crea al pulsar, en un modal nativo. Nunca hay audio automático y solo suena uno a la vez.
 8. **Favoritos locales** (sin cuenta) que se revalidan al abrir con `?view=card`, una vista alternativa soportada de Shopify.
 9. **Formularios con el contacto nativo de Shopify**, mejorados con `fetch`; el éxito se decide por la respuesta real. Sin subida de archivos: solo un enlace.
-10. **Tipografía de sistema por defecto** (serif editorial + sans), con opción de la biblioteca de fuentes de Shopify; ningún archivo de fuente externo.
+10. **Tipografía de sistema por defecto** (sans, negrita compacta; opción serif y opción de la biblioteca de fuentes de Shopify); ningún archivo de fuente externo.
 11. **Colores de división editables**; si no alcanzan 4,5:1 como texto, el tema los oscurece solo.
 12. **Divisiones como datos**: añadir una categoría es una lista y unos ajustes, no una reescritura de la navegación.
-13. **Lo que no se puede garantizar sin Shopify se declara**: ver `09-informe-de-pruebas.md`.
+13. **Rediseño tipo escaparate (v1.1)**: por petición expresa de Sidonia, la interfaz sigue el patrón de Bring a Trailer / Cars & Bids / Wallapop (cabecera oscura con buscador, pestañas de categoría, filas de marcas, tarjetas con foto y precio, filtros en cajón). Se mantiene lo no negociable: nada de urgencia, descuentos ni valoraciones inventados, sin carrito ni compra. **Impact no es la base**: es un tema propietario y su código no está en este repositorio; si se quiere partir de él hay que descargarlo (*Temas → Acciones → Descargar archivo del tema*), añadirlo al repositorio y comprobar que su licencia lo permite.
+14. **Marcas completas**: la página y la sección «Marcas» listan todas las marcas de `tools/brands.json` (150 de coches, 130 de barcos), con o sin stock; los números salen de los filtros reales. Una marca que falte se añade al JSON y se regenera el snippet.
+15. **Fotos**: el tema no incluye fotografías de stock (no había acceso a Internet ni licencias). Las imágenes salen de las piezas, de las colecciones y de los ajustes; el logo de Sidonia sí va incluido (`theme/assets/sidonia-logo-*.png`).
+16. **Lo que no se puede garantizar sin Shopify se declara**: ver `09-informe-de-pruebas.md`.
 
 ## Supuestos declarados
 

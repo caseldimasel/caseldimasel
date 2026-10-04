@@ -14,7 +14,7 @@
   if (!S || S.__facets) return;
   S.__facets = true;
 
-  var SWAPS = ['toggle', 'count', 'filters', 'apply', 'active', 'grid', 'pagination'];
+  var SWAPS = ['toggle', 'count', 'filters', 'apply', 'active', 'brands', 'grid', 'pagination'];
 
   class SdFacets extends HTMLElement {
     connectedCallback() {
@@ -43,18 +43,15 @@
       }.bind(this);
       window.addEventListener('popstate', this._onPop);
 
-      // Panel: lateral en escritorio, modal en móvil
-      this._mq = window.matchMedia('(min-width: 1024px)');
-      this._onMq = this._layout.bind(this);
-      if (this._mq.addEventListener) this._mq.addEventListener('change', this._onMq);
+      // Panel de filtros: cajón modal en todos los anchos (sin JavaScript queda en línea, abierto)
       if (this.dialog) {
         this._onDialogClose = function () {
           this._modal = false;
         }.bind(this);
         this.dialog.addEventListener('close', this._onDialogClose);
         S.closeOnBackdrop(this.dialog);
+        if (this.dialog.open) this.dialog.close();
       }
-      this._layout();
 
       this._remember();
       this._restore();
@@ -69,7 +66,6 @@
       }
       this.removeEventListener('click', this._onClick);
       window.removeEventListener('popstate', this._onPop);
-      if (this._mq && this._mq.removeEventListener) this._mq.removeEventListener('change', this._onMq);
       if (this.dialog && this._onDialogClose) this.dialog.removeEventListener('close', this._onDialogClose);
       if (this._saveHandler) {
         this.removeEventListener('click', this._saveHandler);
@@ -80,24 +76,8 @@
     }
 
     /* ---------- panel de filtros ---------- */
-    _layout() {
-      if (!this.dialog) return;
-      var desktop = this._mq.matches;
-      if (desktop) {
-        if (this._modal) {
-          this.dialog.close();
-          this._modal = false;
-        }
-        if (!this.dialog.open) this.dialog.show();
-      } else if (!this._modal && this.dialog.open) {
-        // En móvil el panel empieza cerrado; se abre con el botón «Filtros».
-        this.dialog.close();
-      }
-    }
-
     _openFilters() {
       if (!this.dialog) return;
-      if (this._mq.matches) return;
       if (this.dialog.open) this.dialog.close();
       this._modal = true;
       S.openDialog(this.dialog);
@@ -105,7 +85,6 @@
 
     _closeFilters() {
       if (!this.dialog) return;
-      if (this._mq.matches) return;
       S.closeDialog(this.dialog);
       this._modal = false;
       var toggle = this.querySelector('[data-sd-open-filters]');

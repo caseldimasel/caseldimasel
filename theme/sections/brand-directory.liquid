@@ -1,0 +1,148 @@
+{%- liquid
+  assign s = section.settings
+  assign compact = s.compact
+  capture brands_url
+    render 'page-url', key: 'brands'
+  endcapture
+  capture garage_url
+    render 'division-info', key: 'garage', out: 'url'
+  endcapture
+  capture harbor_url
+    render 'division-info', key: 'harbor', out: 'url'
+  endcapture
+  capture garage_name
+    render 'division-info', key: 'garage', out: 'name'
+  endcapture
+  capture harbor_name
+    render 'division-info', key: 'harbor', out: 'name'
+  endcapture
+  if compact
+    capture cars_raw
+      render 'brand-list', kind: 'cars_popular'
+    endcapture
+    capture boats_raw
+      render 'brand-list', kind: 'boats_popular'
+    endcapture
+  else
+    capture cars_raw
+      render 'brand-list', kind: 'cars'
+    endcapture
+    capture boats_raw
+      render 'brand-list', kind: 'boats'
+    endcapture
+  endif
+  assign cars = cars_raw | strip | split: '|'
+  assign boats = boats_raw | strip | split: '|'
+  capture cars_all
+    render 'brand-list', kind: 'cars'
+  endcapture
+  capture boats_all
+    render 'brand-list', kind: 'boats'
+  endcapture
+  assign cars_total = cars_all | strip | split: '|' | size
+  assign boats_total = boats_all | strip | split: '|' | size
+  assign garage_url = garage_url | strip
+  assign harbor_url = harbor_url | strip
+  assign kinds = 'cars,boats' | split: ','
+-%}
+<section class="sd-section sd-brands{% if compact %} sd-brands--compact{% endif %}" data-section-id="{{ section.id }}">
+  <div class="sd-container">
+    {%- if s.heading != blank or s.eyebrow != blank or s.text != blank -%}
+      <div class="sd-section-head sd-section-head--split">
+        <div>
+          {%- if s.eyebrow != blank -%}<p class="sd-eyebrow">{{ s.eyebrow }}</p>{%- endif -%}
+          {%- if s.heading != blank -%}<h2>{{ s.heading }}</h2>{%- endif -%}
+        </div>
+        {%- if s.text != blank -%}<p class="sd-lead">{{ s.text }}</p>{%- endif -%}
+      </div>
+    {%- endif -%}
+
+    <sd-brands class="sd-brandsapp" data-garage-url="{{ garage_url }}" data-harbor-url="{{ harbor_url }}" data-compact="{{ compact }}">
+      <div class="sd-brands__bar">
+        <div class="sd-tabs" role="tablist" aria-label="{{ 'brands.tabs' | t }}" data-sd-brand-tabs hidden>
+          <button type="button" class="sd-tab sd-cat sd-cat--garage" role="tab" id="tab-cars-{{ section.id }}" aria-selected="true" aria-controls="panel-cars-{{ section.id }}" data-sd-brand-tab="cars">
+            <span class="sd-nav__dot" aria-hidden="true"></span>{{ 'brands.cars' | t }}
+          </button>
+          <button type="button" class="sd-tab sd-cat sd-cat--harbor" role="tab" id="tab-boats-{{ section.id }}" aria-selected="false" aria-controls="panel-boats-{{ section.id }}" data-sd-brand-tab="boats" tabindex="-1">
+            <span class="sd-nav__dot" aria-hidden="true"></span>{{ 'brands.boats' | t }}
+          </button>
+        </div>
+        {%- unless compact -%}
+          <div class="sd-brands__tools">
+            <div class="sd-field sd-brands__search">
+              <label class="sd-sr" for="brand-q-{{ section.id }}">{{ 'brands.search_label' | t }}</label>
+              <input id="brand-q-{{ section.id }}" class="sd-input" type="search" placeholder="{{ 'brands.search_placeholder' | t }}" autocomplete="off" data-sd-brand-search hidden>
+            </div>
+            <label class="sd-choice sd-brands__stock" data-sd-brand-stock-wrap hidden>
+              <input type="checkbox" data-sd-brand-stock>
+              <span>{{ 'brands.only_stock' | t }}</span>
+            </label>
+          </div>
+        {%- endunless -%}
+      </div>
+      <p class="sd-note" data-sd-brand-status role="status" aria-live="polite"></p>
+
+      {%- for kind in kinds -%}
+        {%- if kind == 'cars' -%}
+          {%- assign list = cars -%}
+          {%- assign param = 'brand' -%}
+          {%- assign base = garage_url -%}
+          {%- assign cat = 'garage' -%}
+          {%- assign kind_name = garage_name | strip -%}
+          {%- assign total = cars_total -%}
+        {%- else -%}
+          {%- assign list = boats -%}
+          {%- assign param = 'builder' -%}
+          {%- assign base = harbor_url -%}
+          {%- assign cat = 'harbor' -%}
+          {%- assign kind_name = harbor_name | strip -%}
+          {%- assign total = boats_total -%}
+        {%- endif -%}
+        <div class="sd-brandpanel sd-cat sd-cat--{{ cat }}" id="panel-{{ kind }}-{{ section.id }}" data-sd-brand-panel="{{ kind }}" data-param="filter.p.m.sidonia.{{ param }}" role="tabpanel" aria-labelledby="tab-{{ kind }}-{{ section.id }}">
+          <h3 class="sd-brandpanel__title"><span class="sd-nav__dot" aria-hidden="true"></span>{{ 'brands.title_for' | t: division: kind_name }}</h3>
+          <div class="sd-brandgroups">
+            {%- assign last_letter = '' -%}
+            {%- for brand in list -%}
+              {%- assign letter = brand | slice: 0, 1 | upcase -%}
+              {%- if compact -%}
+                {%- if forloop.first -%}<ul class="sd-brandlist sd-brandlist--flat" role="list">{%- endif -%}
+                <li><a class="sd-brand" href="{{ base }}?filter.p.m.sidonia.{{ param }}={{ brand | url_encode }}" data-brand="{{ brand | escape }}"><span class="sd-brand__name">{{ brand }}</span><span class="sd-brand__count" hidden></span></a></li>
+                {%- if forloop.last -%}</ul>{%- endif -%}
+              {%- else -%}
+                {%- if letter != last_letter -%}
+                  {%- unless forloop.first -%}</ul></div>{%- endunless -%}
+                  <div class="sd-brandgroup" data-letter="{{ letter }}"><h4 class="sd-brandgroup__letter" aria-label="{{ 'brands.letter' | t: letter: letter }}">{{ letter }}</h4><ul class="sd-brandlist" role="list">
+                  {%- assign last_letter = letter -%}
+                {%- endif -%}
+                <li><a class="sd-brand" href="{{ base }}?filter.p.m.sidonia.{{ param }}={{ brand | url_encode }}" data-brand="{{ brand | escape }}"><span class="sd-brand__name">{{ brand }}</span><span class="sd-brand__count" hidden></span></a></li>
+                {%- if forloop.last -%}</ul></div>{%- endif -%}
+              {%- endif -%}
+            {%- endfor -%}
+          </div>
+          {%- if compact -%}
+            <p class="sd-brandpanel__more"><a class="sd-btn sd-btn--secondary sd-btn--sm" href="{{ brands_url | strip }}#{{ kind }}"><span>{{ 'brands.see_all' | t: count: total }}</span>{%- render 'icon', name: 'arrow-right', size: 16 -%}</a></p>
+          {%- endif -%}
+        </div>
+      {%- endfor -%}
+      <p class="sd-note sd-brands__empty" data-sd-brand-none hidden>{{ 'brands.none' | t }}</p>
+      <p class="sd-note">{{ 'brands.note' | t }}</p>
+    </sd-brands>
+  </div>
+</section>
+
+{% schema %}
+{
+  "name": "Marcas",
+  "tag": "section",
+  "settings": [
+    { "type": "text", "id": "eyebrow", "label": "Antetítulo", "default": "Explorar por marca" },
+    { "type": "text", "id": "heading", "label": "Título", "default": "Todas las marcas" },
+    { "type": "textarea", "id": "text", "label": "Texto", "default": "Elige una marca de coches o de barcos. Las marcas con piezas disponibles se resaltan; en las demás puedes contarnos qué buscas." },
+    { "type": "checkbox", "id": "compact", "label": "Versión compacta (solo las marcas más habituales y enlace al listado completo)", "default": true },
+    { "type": "paragraph", "content": "El listado completo sale de tools/brands.json. Los nombres deben coincidir con los valores de sidonia.brand (coches) y sidonia.builder (barcos)." }
+  ],
+  "presets": [
+    { "name": "Marcas" }
+  ]
+}
+{% endschema %}

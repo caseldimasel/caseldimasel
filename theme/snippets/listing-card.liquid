@@ -77,9 +77,11 @@
   </div>
 
   <div class="sd-card__body">
-    <p class="sd-card__meta">
-      {%- if cat != blank -%}<span class="sd-card__cat">{{ cat_name }}</span>{%- endif -%}
-      {%- if place != blank -%}<span class="sd-card__place">{%- render 'icon', name: 'pin', size: 14 -%}{{ place | escape }}</span>{%- endif -%}
+    <p class="sd-card__foot">
+      <span class="sd-price sd-price--{{ price_kind }}">{{ price_text }}</span>
+      {%- if status == 'available' -%}
+        {%- render 'status-chip', status: status -%}
+      {%- endif -%}
     </p>
     <h3 class="sd-card__title"><a class="sd-card__link" href="{{ product.url }}">{{ product.title | escape }}</a></h3>
     {%- if hook != blank and show_hook_line -%}
@@ -90,11 +92,9 @@
     {%- if specs != blank -%}
       <ul class="sd-card__facts" role="list">{{ specs }}</ul>
     {%- endif -%}
-    <p class="sd-card__foot">
-      <span class="sd-price sd-price--{{ price_kind }}">{{ price_text }}</span>
-      {%- if status == 'available' -%}
-        {%- render 'status-chip', status: status -%}
-      {%- endif -%}
+    <p class="sd-card__meta">
+      {%- if cat != blank -%}<span class="sd-card__cat">{{ cat_name }}</span>{%- endif -%}
+      {%- if place != blank -%}<span class="sd-card__place">{%- render 'icon', name: 'pin', size: 14 -%}{{ place | escape }}</span>{%- endif -%}
     </p>
   </div>
 </article>

@@ -62,7 +62,12 @@
         {%- endif -%}
       </header>
 
+      {%- unless s.archive -%}
+        {%- render 'listing-segments', cat: cat -%}
+      {%- endunless -%}
+
       <sd-facets class="sd-facets" data-section-id="{{ section.id }}" data-load-more="{{ load_more }}">
+        <div data-sd-swap="brands">{%- render 'listing-brands', results: collection -%}</div>
         <form class="sd-facets-form" action="{{ collection.url }}" method="get" data-sd-facets-form>
           <div class="sd-listing__toolbar">
             <button type="button" class="sd-btn sd-btn--secondary sd-filters-toggle" data-sd-open-filters aria-haspopup="dialog">
@@ -91,6 +96,7 @@
             </dialog>
 
             <div class="sd-results" data-sd-results aria-busy="false">
+            <h2 class="sd-sr">{{ 'facets.results_heading' | t }}</h2>
               <div data-sd-swap="active">{%- render 'facets-active', results: collection, clear_url: collection.url -%}</div>
               <div data-sd-swap="grid">
                 {%- if collection.products.size > 0 -%}

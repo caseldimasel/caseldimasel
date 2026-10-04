@@ -1,5 +1,7 @@
 # SIDONIA · tema de Shopify
 
+**Diseño:** tipo escaparate/marketplace (referencias: Bring a Trailer, Cars & Bids, Wallapop), con cabecera oscura con buscador, pestañas por categoría, filas de marcas, tarjetas con foto y precio y filtros en cajón. Logo de Sidonia incluido en `theme/assets` (se puede sustituir desde los ajustes).
+
 Plataforma de catálogo y contactos para **coches (Garage), barcos (Harbor) y casas (Estate)** con carácter, historia y personalidad. Tema independiente para Online Store (Liquid + plantillas JSON + CSS y JavaScript sin build). **No es una app ni un proyecto headless.**
 
 > **Estado:** entrega completa del tema, la documentación y las pruebas locales. **El tema aún no se ha subido a una tienda de Shopify ni se ha pasado Shopify Theme Check** (el entorno de desarrollo no tenía acceso a Internet). Lee `docs/09-informe-de-pruebas.md` antes de publicar. **No se ha publicado nada ni se ha tocado el tema actual (Impact).**
@@ -9,13 +11,13 @@ Plataforma de catálogo y contactos para **coches (Garage), barcos (Harbor) y ca
 | Carpeta | Contenido |
 |---|---|
 | `theme/` | El tema (se sube a Shopify) |
-| `dist/` | `sidonia-theme-1.0.0.zip` (+ SHA-256): contenido de `theme/` con las carpetas en la raíz |
+| `dist/` | `sidonia-theme-1.1.0.zip` (+ SHA-256): contenido de `theme/` con las carpetas en la raíz |
 | `docs/` | Documentación en español (índice abajo) |
 | `tools/` | Validador, generadores, previsualización local y pruebas (no van en el ZIP) |
 
 ## Empezar
 
-1. Sube `dist/sidonia-theme-1.0.0.zip` en *Tienda online → Temas → Añadir tema → Subir archivo ZIP*. Queda **sin publicar**.
+1. Sube `dist/sidonia-theme-1.1.0.zip` en *Tienda online → Temas → Añadir tema → Subir archivo ZIP*. Queda **sin publicar**.
 2. Sigue `docs/02-instalacion-y-previsualizacion.md` (metacampos, colecciones, páginas, menús).
 3. Rellena los *Ajustes del tema* (`docs/01-guia-de-edicion.md`).
 4. Antes de publicar, repasa el checklist de `docs/09-informe-de-pruebas.md` (§6).
@@ -56,4 +58,4 @@ La previsualización local usa un **intérprete de Liquid propio** y piezas rotu
 
 ## Origen del código
 
-Todo el código es original de este proyecto: no se ha usado ninguna base abierta ni código de Impact, y el tema no depende de ningún archivo ajeno. Los iconos son trazos funcionales de interfaz, no un logotipo. La licencia del tema la decide Sidonia.
+Todo el código es original de este proyecto: no se ha usado ninguna base abierta ni código de Impact (es un tema propietario y su código no está en este repositorio; si se quiere partir de él, hay que descargarlo desde *Temas → Acciones → Descargar archivo del tema* y comprobar que su licencia lo permite). El tema no depende de ningún archivo ajeno. Los iconos son trazos funcionales de interfaz, no un logotipo. La licencia del tema la decide Sidonia.

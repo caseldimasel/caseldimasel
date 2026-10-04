@@ -22,7 +22,9 @@
     "about": "Sobre Sidonia",
     "sell": "Vender con Sidonia",
     "search": "Buscar",
-    "favorites": "Favoritos"
+    "favorites": "Favoritos",
+    "brands": "Marcas",
+    "search_hint": "Busca marca, modelo, puerto o zona"
   },
   "hero": {
     "cta_explore": "Explorar la selección",
@@ -85,7 +87,8 @@
     "empty_filtered_text": "Prueba a quitar alguno o amplía la búsqueda. Si no la encuentras, cuéntanos qué buscas.",
     "explore_all": "Explorar toda la selección",
     "wanted_cta": "Cuéntanos qué buscas",
-    "editor_hint": "Aviso para el editor: esta colección no tiene productos publicados todavía."
+    "editor_hint": "Aviso para el editor: esta colección no tiene productos publicados todavía.",
+    "results_heading": "Resultados"
   },
   "listing": {
     "watch": "Ver vídeo",
@@ -95,6 +98,10 @@
     "status_available": "Disponible",
     "status_reserved": "Reservado",
     "status_sold": "Vendido",
+    "segments": "Categorías",
+    "segment_all": "Todo",
+    "brands_label": "Marcas",
+    "all_brands": "Todas las marcas",
     "archive_eyebrow": "Archivo",
     "archive_note": "Piezas que ya han encontrado nuevo propietario. Las conservamos para que veas cómo contamos cada historia.",
     "archive_cta_title": "¿Buscas algo parecido?",
@@ -433,5 +440,23 @@
   "password": {
     "label": "Contraseña",
     "submit": "Entrar"
+  },
+  "brands": {
+    "tabs": "Tipo de marca",
+    "cars": "Coches",
+    "boats": "Barcos",
+    "search_label": "Buscar una marca",
+    "search_placeholder": "Buscar marca",
+    "only_stock": "Solo marcas con piezas",
+    "title_for": "Marcas de {{ division }}",
+    "letter": "Marcas que empiezan por {{ letter }}",
+    "see_all": {
+      "one": "Ver la marca",
+      "other": "Ver las {{ count }} marcas"
+    },
+    "none": "No hay marcas que coincidan. Puedes contarnos qué buscas.",
+    "note": "Las marcas con un número tienen piezas ahora mismo. Si no ves la tuya, cuéntanos qué buscas.",
+    "found": "Marcas encontradas: {count}",
+    "with_count": "{brand}: {count} piezas"
   }
 }

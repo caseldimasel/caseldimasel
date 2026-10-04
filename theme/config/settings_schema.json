@@ -2,7 +2,7 @@
   {
     "name": "theme_info",
     "theme_name": "Sidonia",
-    "theme_version": "1.0.0",
+    "theme_version": "1.1.0",
     "theme_author": "Sidonia",
     "theme_documentation_url": "https://github.com/caseldimasel/caseldimasel",
     "theme_support_url": "https://github.com/caseldimasel/caseldimasel/issues"
@@ -12,13 +12,20 @@
     "settings": [
       {
         "type": "paragraph",
-        "content": "Sidonia usa un único logo para la marca madre y para sus divisiones. Si no subes ninguno, el tema muestra la palabra del nombre de marca en texto. Se admiten PNG, JPG, WebP y SVG (súbelos primero en Contenido > Archivos o desde el propio selector)."
+        "content": "Sidonia usa un único logo para la marca madre y para sus divisiones. El tema incluye el logotipo de Sidonia en versión oscura y clara y lo usa mientras no subas otro. Se admiten PNG, JPG, WebP y SVG (súbelos en Contenido > Archivos o desde el propio selector)."
       },
       {
         "type": "text",
         "id": "brand_name",
         "label": "Nombre de la marca",
         "default": "SIDONIA"
+      },
+      {
+        "type": "checkbox",
+        "id": "use_bundled_logo",
+        "label": "Usar el logotipo incluido en el tema",
+        "info": "Se usa cuando no hay logo subido. Desmárcalo para mostrar el nombre de marca como texto.",
+        "default": true
       },
       {
         "type": "image_picker",
@@ -58,7 +65,7 @@
         "max": 320,
         "step": 4,
         "unit": "px",
-        "default": 160
+        "default": 152
       },
       {
         "type": "image_picker",
@@ -79,55 +86,55 @@
         "type": "color",
         "id": "color_bg",
         "label": "Fondo de página",
-        "default": "#F5F0E6"
+        "default": "#FFFFFF"
       },
       {
         "type": "color",
         "id": "color_surface",
         "label": "Superficies (tarjetas, campos)",
-        "default": "#FBF8F2"
+        "default": "#FFFFFF"
       },
       {
         "type": "color",
         "id": "color_surface_alt",
         "label": "Superficie alternativa",
-        "default": "#EBE3D3"
+        "default": "#F3F3F0"
       },
       {
         "type": "color",
         "id": "color_text",
         "label": "Texto",
-        "default": "#231F1A"
+        "default": "#0E0E0E"
       },
       {
         "type": "color",
         "id": "color_muted",
         "label": "Texto secundario",
-        "default": "#5C5549"
+        "default": "#595954"
       },
       {
         "type": "color",
         "id": "color_border",
         "label": "Bordes y separadores",
-        "default": "#D8CFBD"
+        "default": "#E1E1DC"
       },
       {
         "type": "color",
         "id": "color_button",
         "label": "Botón principal",
-        "default": "#231F1A"
+        "default": "#0E0E0E"
       },
       {
         "type": "color",
         "id": "color_button_text",
         "label": "Texto del botón principal",
-        "default": "#FBF8F2"
+        "default": "#FFFFFF"
       },
       {
         "type": "color",
         "id": "color_dark",
         "label": "Fondo oscuro (pie y reproductor)",
-        "default": "#26211B"
+        "default": "#0B0B0B"
       },
       {
         "type": "header",
@@ -141,25 +148,25 @@
         "type": "color",
         "id": "color_garage",
         "label": "Garage (coches)",
-        "default": "#A3261C"
+        "default": "#C8201B"
       },
       {
         "type": "color",
         "id": "color_harbor",
         "label": "Harbor (barcos)",
-        "default": "#1D4F7C"
+        "default": "#1B5E9E"
       },
       {
         "type": "color",
         "id": "color_estate",
         "label": "Estate (casas)",
-        "default": "#2D6A4A"
+        "default": "#2B7A4B"
       },
       {
         "type": "color",
         "id": "color_focus",
         "label": "Anillo de foco",
-        "default": "#1D4F7C"
+        "default": "#1B5E9E"
       }
     ]
   },
@@ -176,7 +183,11 @@
         "label": "Fuente de títulos",
         "options": [
           {
-            "value": "system",
+            "value": "sans",
+            "label": "Sans moderna del sistema (por defecto)"
+          },
+          {
+            "value": "serif",
             "label": "Serif editorial del sistema"
           },
           {
@@ -184,7 +195,7 @@
             "label": "Biblioteca de Shopify (elige abajo)"
           }
         ],
-        "default": "system"
+        "default": "sans"
       },
       {
         "type": "font_picker",
@@ -242,7 +253,7 @@
             "label": "18 px"
           }
         ],
-        "default": "17"
+        "default": "16"
       }
     ]
   },
@@ -257,7 +268,7 @@
         "max": 1600,
         "step": 20,
         "unit": "px",
-        "default": 1320
+        "default": 1440
       },
       {
         "type": "range",
@@ -267,7 +278,7 @@
         "max": 24,
         "step": 2,
         "unit": "px",
-        "default": 10
+        "default": 6
       },
       {
         "type": "select",
@@ -275,23 +286,27 @@
         "label": "Proporción de la portada en tarjetas",
         "options": [
           {
-            "value": "4/5",
-            "label": "4:5 (vertical suave)"
+            "value": "4/3",
+            "label": "4:3 (horizontal, estilo anuncio)"
           },
           {
-            "value": "3/4",
-            "label": "3:4"
+            "value": "3/2",
+            "label": "3:2"
           },
           {
             "value": "1/1",
             "label": "1:1"
           },
           {
+            "value": "4/5",
+            "label": "4:5 (vertical suave)"
+          },
+          {
             "value": "9/16",
             "label": "9:16 (como el vídeo vertical)"
           }
         ],
-        "default": "4/5"
+        "default": "4/3"
       },
       {
         "type": "select",
@@ -323,7 +338,7 @@
             "label": "Dos columnas (tarjeta compacta)"
           }
         ],
-        "default": "1"
+        "default": "2"
       },
       {
         "type": "checkbox",
@@ -511,6 +526,12 @@
         "id": "page_archive",
         "label": "Archivo de piezas vendidas",
         "info": "Handle de reserva: archivo"
+      },
+      {
+        "type": "page",
+        "id": "page_brands",
+        "label": "Marcas",
+        "info": "Handle de reserva: marcas"
       },
       {
         "type": "page",

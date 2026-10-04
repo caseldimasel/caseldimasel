@@ -8,7 +8,24 @@ const fetch = (u) => httpGet(u);
 
 const filter = process.argv[2] || '';
 const { full, empty, browser, URL: site } = await setup();
+// El panel de filtros es un cajón modal en todos los anchos (con JS): hay que abrirlo antes de tocar casillas.
+const ensureFilters = async (page) => {
+  const open = await page.evaluate(() => !!document.querySelector('.sd-filters[open]'));
+  if (open) return;
+  const toggle = page.locator('[data-sd-open-filters]');
+  if (await toggle.isVisible()) {
+    await toggle.click();
+    await page.waitForSelector('.sd-filters[open]');
+  }
+};
+const closeFilters = async (page) => {
+  if (await page.evaluate(() => !!document.querySelector('dialog.sd-filters[open]:modal'))) {
+    await page.keyboard.press('Escape');
+    await page.waitForSelector('.sd-filters:not([open])', { state: 'attached' });
+  }
+};
 const checkFilter = async (page, key, label) => {
+  await ensureFilters(page);
   const g = page.locator(`.sd-fgroup[data-group="filter.p.m.sidonia.${key}"]`);
   await g.evaluate((el) => (el.open = true));
   await g.locator('label', { hasText: label }).locator('input').check();
@@ -19,7 +36,7 @@ const run = (name, fn) => (!filter || name.toLowerCase().includes(filter.toLower
 
 /* =========================== 1. Responsive y consola =========================== */
 console.log('\n1. Responsive, desbordes y errores');
-const ROUTES = ['/', '/collections/explorar', '/collections/garage', '/collections/archivo', '/products/prueba-coche-a', '/products/prueba-barco-a', '/products/prueba-casa-a', '/products/prueba-casa-b-vendida', '/pages/vender', '/pages/como-vendemos', '/pages/sobre-sidonia', '/pages/favoritos', '/pages/contacto', '/pages/busco', '/pages/privacidad', '/search?q=Marca&type=product', '/nope'];
+const ROUTES = ['/', '/collections/explorar', '/collections/garage', '/collections/archivo', '/products/prueba-coche-a', '/products/prueba-barco-a', '/products/prueba-casa-a', '/products/prueba-casa-b-vendida', '/pages/vender', '/pages/como-vendemos', '/pages/sobre-sidonia', '/pages/favoritos', '/pages/contacto', '/pages/busco', '/pages/marcas', '/pages/privacidad', '/search?q=Marca&type=product', '/nope'];
 for (const w of WIDTHS) {
   await run(`Sin desbordes ni errores a ${w}px (perfil completo, ${ROUTES.length} páginas)`, async () => {
     const { ctx, page } = await open(browser, { viewport: { width: w, height: 800 } });
@@ -85,12 +102,15 @@ await run('Instalación vacía: logo en texto accesible, menú de reserva, secci
   await page.goto(site('/', 'empty'), { waitUntil: 'networkidle' });
   const brand = await page.locator('.sd-header__brand').getAttribute('aria-label');
   eq(brand, 'SIDONIA', 'nombre accesible del logo');
-  assert((await page.locator('.sd-logo--text .sd-logo__word').first().innerText()) === 'SIDONIA', 'logo de texto');
+  const logoSrc = await page.locator('.sd-header__brand img').first().getAttribute('src');
+  assert(/sidonia-logo-light\.png/.test(logoSrc), 'logo incluido en el tema (variante clara sobre cabecera oscura): ' + logoSrc);
+  const logoFoot = await page.locator('.sd-footer img[src*="sidonia-logo"]').count();
+  assert(logoFoot >= 1, 'logo en el pie');
   assert((await page.locator('.sd-nav__list a').count()) >= 6, 'menú de reserva incompleto');
   assert((await page.locator('.sd-selection').count()) === 0, 'la selección vacía debe ocultarse fuera del editor');
   assert((await page.locator('.sd-story').count()) === 0, 'la historia sin pieza debe ocultarse');
   assert((await page.locator('.sd-testimonials').count()) === 0, 'testimonios vacíos deben ocultarse');
-  assert((await page.locator('.sd-hero__panels').count()) === 1, 'composición de reserva del hero');
+  assert((await page.locator('.sd-hero__mosaic .sd-hero__tile').count()) === 3, 'mosaico de reserva del hero (una tarjeta por división)');
   assert((await page.locator('.sd-hero__play').count()) === 0, 'no debe haber control de vídeo sin vídeo');
   const community = await page.locator('.sd-community').innerText();
   assert(community.includes('Más de 200'), 'dato del fundador');
@@ -529,6 +549,7 @@ await run('Filtros: consultan todo el catálogo (no solo la página visible), co
   eq(parseInt((await page.locator('[data-sd-swap="count"]').innerText()).replace(/\D/g, ''), 10), filtered, 'recuento tras recargar (render del servidor)');
   assert(await page.locator('.sd-fgroup[data-group="filter.p.m.sidonia.brand"] input:checked').count() === 1, 'casilla marcada tras recargar');
   // atrás / adelante
+  await ensureFilters(page);
   await page.locator('.sd-fgroup[data-group="filter.p.m.sidonia.year_band"]').evaluate((el) => (el.open = true));
   await page.locator('.sd-fgroup[data-group="filter.p.m.sidonia.year_band"] label').first().locator('input').check();
   await page.waitForFunction((u) => location.href !== u, url1);
@@ -542,6 +563,7 @@ await run('Filtros: consultan todo el catálogo (no solo la página visible), co
   await page.waitForTimeout(400);
   assert((await page.locator('.sd-fgroup[data-group="filter.p.m.sidonia.year_band"] input:checked').count()) === 1, 'adelante restaura el filtro');
   // limpiar todo
+  await closeFilters(page);
   await page.locator('.sd-activebar a', { hasText: 'Limpiar todo' }).click();
   await page.waitForFunction(() => !/filter\./.test(location.search));
   eq(parseInt((await page.locator('[data-sd-swap="count"]').innerText()).replace(/\D/g, ''), 10), total, 'recuento tras limpiar');
@@ -618,6 +640,84 @@ await run('Filtros: sin JavaScript el formulario funciona (GET) y se muestra «A
   await checkFilter(page, 'brand', 'Marca B');
   await page.locator('.sd-nojs-only').click();
   assert(/filter\.p\.m\.sidonia\.brand=Marca\+B/.test(page.url()), 'URL con filtro: ' + page.url());
+  await ctx.close();
+});
+/* =========================== 6b. Marcas, pestañas y cajón de filtros =========================== */
+console.log('\n6b. Marcas, pestañas de categoría y cajón de filtros');
+await run('Marcas: la página lista TODAS las marcas de coches y barcos, con búsqueda local y enlaces al filtro real', async () => {
+  const { ctx, page } = await open(browser, { viewport: { width: 1440, height: 900 } });
+  await page.goto(site('/pages/marcas'), { waitUntil: 'networkidle' });
+  const cars = await page.locator('[data-sd-brand-panel="cars"] .sd-brand').count();
+  const boats = await page.locator('[data-sd-brand-panel="boats"] .sd-brand').count();
+  assert(cars >= 150, 'marcas de coches: ' + cars);
+  assert(boats >= 130, 'marcas de barcos: ' + boats);
+  for (const b of ['Porsche', 'Ferrari', 'Mercedes-Benz', 'Seat', 'Volkswagen', 'Alfa Romeo']) {
+    assert((await page.locator('[data-sd-brand-panel="cars"] .sd-brand[data-brand="' + b + '"]').count()) === 1, 'falta la marca de coches ' + b);
+  }
+  for (const b of ['Riva', 'Sunseeker', 'Beneteau', 'Jeanneau', 'Princess', 'Sea Ray']) {
+    assert((await page.locator('[data-sd-brand-panel="boats"] .sd-brand[data-brand="' + b + '"]').count()) === 1, 'falta la marca de barcos ' + b);
+  }
+  const href = await page.locator('[data-sd-brand-panel="cars"] .sd-brand[data-brand="Porsche"]').getAttribute('href');
+  assert(/\/collections\/garage\?filter\.p\.m\.sidonia\.brand=Porsche$/.test(href), 'enlace de Porsche: ' + href);
+  const hrefBoat = await page.locator('[data-sd-brand-panel="boats"] .sd-brand[data-brand="Riva"]').getAttribute('href');
+  assert(/\/collections\/harbor\?filter\.p\.m\.sidonia\.builder=Riva$/.test(hrefBoat), 'enlace de Riva: ' + hrefBoat);
+  // pestañas
+  assert(await page.locator('[data-sd-brand-panel="boats"]').isHidden(), 'barcos oculto al inicio');
+  await page.locator('[data-sd-brand-tab="boats"]').click();
+  assert(await page.locator('[data-sd-brand-panel="cars"]').isHidden() && (await page.locator('[data-sd-brand-panel="boats"]').isVisible()), 'pestaña de barcos');
+  await page.locator('[data-sd-brand-tab="cars"]').click();
+  // búsqueda local
+  await page.fill('[data-sd-brand-search]', 'porsc');
+  await page.waitForFunction(() => document.querySelectorAll('[data-sd-brand-panel="cars"] .sd-brand').length > 0 && [...document.querySelectorAll('[data-sd-brand-panel="cars"] li')].filter((li) => !li.hidden).length === 1);
+  eq(await page.locator('[data-sd-brand-panel="cars"] .sd-brand:visible').count(), 1, 'resultados de la búsqueda local');
+  await page.fill('[data-sd-brand-search]', 'zzzz');
+  await page.waitForFunction(() => !document.querySelector('[data-sd-brand-none]').hidden);
+  assert(await page.locator('[data-sd-brand-none]').isVisible(), 'mensaje sin resultados');
+  await ctx.close();
+});
+await run('Marcas: sin JavaScript se ven todas las marcas de ambos tipos', async () => {
+  const { ctx, page } = await open(browser, { js: false });
+  await page.goto(site('/pages/marcas'), { waitUntil: 'load' });
+  assert(await page.locator('[data-sd-brand-panel="cars"]').isVisible() && (await page.locator('[data-sd-brand-panel="boats"]').isVisible()), 'ambos paneles visibles sin JS');
+  await ctx.close();
+});
+await run('Inicio: sección compacta de marcas con enlace al listado completo', async () => {
+  const { ctx, page } = await open(browser, { viewport: { width: 1440, height: 900 } });
+  await page.goto(site('/'), { waitUntil: 'networkidle' });
+  const n = await page.locator('.sd-brands--compact [data-sd-brand-panel="cars"] .sd-brand').count();
+  assert(n >= 20 && n < 150, 'marcas habituales de coches: ' + n);
+  const more = await page.locator('.sd-brands--compact .sd-brandpanel__more a').first().getAttribute('href');
+  assert(/\/pages\/marcas#cars$/.test(more), 'enlace al listado completo: ' + more);
+  await ctx.close();
+});
+await run('Listado: pestañas Todo/Garage/Harbor/Estate y fila de marcas con piezas filtran de verdad', async () => {
+  const { ctx, page } = await open(browser, { viewport: { width: 1440, height: 900 } });
+  await page.goto(site('/collections/garage'), { waitUntil: 'networkidle' });
+  const tabs = await page.locator('.sd-segment:not(.sd-segment--brands) .sd-pill').allInnerTexts();
+  eq(tabs.map((t) => t.trim()).join('|'), 'Todo|Garage|Harbor|Estate', 'pestañas');
+  eq(await page.locator('.sd-segment:not(.sd-segment--brands) .sd-pill[aria-current="page"]').innerText(), 'Garage', 'pestaña activa');
+  const pill = page.locator('.sd-segment--brands .sd-pill', { hasText: 'Marca B' });
+  assert((await pill.count()) === 1, 'píldora de marca con piezas');
+  assert(!(await page.locator('.sd-segment--brands .sd-pill', { hasText: 'Zzz' }).count()), 'solo marcas con piezas');
+  await pill.click();
+  await page.waitForFunction(() => /brand=Marca/.test(location.search));
+  assert((await page.locator('.sd-segment--brands .sd-pill[aria-pressed="true"]').count()) === 1, 'píldora activa tras filtrar');
+  assert((await page.locator('.sd-activebar .sd-chip--filter').count()) === 1, 'chip de filtro activo');
+  const all = await page.locator('.sd-pill--more').getAttribute('href');
+  assert(/\/pages\/marcas$/.test(all), 'enlace «Todas las marcas»: ' + all);
+  await ctx.close();
+});
+await run('Filtros en escritorio: cajón lateral modal (cerrado al inicio), Escape lo cierra y devuelve el foco', async () => {
+  const { ctx, page } = await open(browser, { viewport: { width: 1440, height: 900 } });
+  await page.goto(site('/collections/garage'), { waitUntil: 'networkidle' });
+  assert(!(await page.locator('.sd-filters').isVisible()), 'el cajón empieza cerrado también en escritorio');
+  await page.locator('[data-sd-open-filters]').click();
+  await page.waitForSelector('.sd-filters[open]');
+  assert(await page.evaluate(() => document.querySelector('.sd-filters').matches(':modal')), 'cajón modal');
+  const box = await page.locator('.sd-filters').boundingBox();
+  assert(box.width <= 420 && box.x === 0, 'cajón lateral: ' + JSON.stringify(box));
+  await page.keyboard.press('Escape');
+  await page.waitForSelector('.sd-filters:not([open])', { state: 'attached' });
   await ctx.close();
 });
 await run('Buscador: diálogo accesible, sugerencias reales (API), resultados con filtros y estado vacío', async () => {

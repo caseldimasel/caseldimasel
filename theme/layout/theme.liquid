@@ -57,6 +57,9 @@
     <script src="{{ 'sd-video.js' | asset_url }}" defer></script>
     <script src="{{ 'sd-header.js' | asset_url }}" defer></script>
     <script src="{{ 'sd-forms.js' | asset_url }}" defer></script>
+    {%- if template.name == 'index' or template.name == 'page' -%}
+      <script src="{{ 'sd-brands.js' | asset_url }}" defer></script>
+    {%- endif -%}
     {%- if template.name == 'product' -%}
       <script src="{{ 'sd-product.js' | asset_url }}" defer></script>
     {%- endif -%}
