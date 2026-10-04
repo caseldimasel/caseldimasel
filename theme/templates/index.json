@@ -1,5 +1,9 @@
 {
   "sections": {
+    "setup": {
+      "type": "setup-guide",
+      "settings": {}
+    },
     "hero": {
       "type": "hero",
       "settings": {}
@@ -37,14 +41,14 @@
           "type": "link",
           "settings": {
             "label": "Clásicos de los años 60",
-            "url": "/collections/coches?filter.p.m.sidonia.year_band=1960-1969"
+            "url": "/collections/all?filter.p.m.sidonia.year_band=1960-1969"
           }
         },
         "link-2": {
           "type": "link",
           "settings": {
             "label": "Clásicos de los años 70",
-            "url": "/collections/coches?filter.p.m.sidonia.year_band=1970-1979"
+            "url": "/collections/all?filter.p.m.sidonia.year_band=1970-1979"
           }
         },
         "link-3": {
@@ -79,7 +83,7 @@
           "type": "link",
           "settings": {
             "label": "Todas las marcas",
-            "url": "/pages/marcas"
+            "kind": "brands"
           }
         }
       },
@@ -288,6 +292,13 @@
       "type": "owner-cta",
       "settings": {}
     },
+    "sell": {
+      "type": "sell-form",
+      "settings": {
+        "heading": "Vender con Sidonia",
+        "intro": "Cuéntanos qué tienes. Cuanto más personal sea la historia, mejor."
+      }
+    },
     "newsletter": {
       "type": "newsletter",
       "settings": {}
@@ -344,6 +355,7 @@
     }
   },
   "order": [
+    "setup",
     "hero",
     "divisions",
     "car-garage",
@@ -360,6 +372,7 @@
     "criteria",
     "testimonials",
     "cta",
+    "sell",
     "newsletter",
     "faq"
   ]

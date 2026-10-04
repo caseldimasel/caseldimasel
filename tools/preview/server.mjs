@@ -55,7 +55,9 @@ const PAGES = [
 ];
 
 export function createStore(profileName = 'full', port = 4173) {
-  const full = profileName === 'full';
+  const bare = profileName === 'bare'; // tienda recién instalada: hay piezas, pero ni páginas, ni colecciones, ni menús, ni ajustes
+  const full = profileName === 'full' || bare;
+  const configured = profileName === 'full';
   const products = full ? buildProducts() : [];
   const byHandle = Object.fromEntries(products.map((p) => [p.handle, p]));
   const inCat = (cat, includeSold) => products.filter((p) => p.__data.category === cat && (includeSold || p.__data.status !== 'Vendido'));
@@ -63,7 +65,7 @@ export function createStore(profileName = 'full', port = 4173) {
     handle, title, url: `/collections/${handle}`, description: '', image: null,
     products: list, products_count: list.length, all_products_count: list.length, template_suffix: suffix, filters: []
   });
-  const collections = full
+  const collections = configured
     ? {
         explorar: col('explorar', 'Explorar', products.filter((p) => p.__data.status !== 'Vendido')),
         garage: col('coches', 'Coches', inCat('Coche'), 'coches'),
@@ -72,14 +74,16 @@ export function createStore(profileName = 'full', port = 4173) {
         archivo: col('archivo', 'Archivo', products.filter((p) => p.__data.status === 'Vendido'), 'archive'),
         all: col('all', 'Productos', products)
       }
-    : { all: col('all', 'Productos', []) };
-  collections.garage = collections.garage || col('coches', 'Coches', [], 'coches');
-  collections.harbor = collections.harbor || col('barcos', 'Barcos', [], 'barcos');
-  collections.estate = collections.estate || col('casas', 'Casas', [], 'casas');
-  collections.explorar = collections.explorar || col('explorar', 'Explorar', []);
-  collections.archivo = collections.archivo || col('archivo', 'Archivo', [], 'archive');
+    : { all: col('all', 'Productos', bare ? products : []) };
+  if (!bare) {
+    collections.garage = collections.garage || col('coches', 'Coches', [], 'coches');
+    collections.harbor = collections.harbor || col('barcos', 'Barcos', [], 'barcos');
+    collections.estate = collections.estate || col('casas', 'Casas', [], 'casas');
+    collections.explorar = collections.explorar || col('explorar', 'Explorar', []);
+    collections.archivo = collections.archivo || col('archivo', 'Archivo', [], 'archive');
+  }
 
-  const menus = full
+  const menus = configured
     ? {
         'main-menu': { links: [
           { title: 'Explorar', url: '/collections/explorar', current: false, links: [] },
@@ -93,10 +97,10 @@ export function createStore(profileName = 'full', port = 4173) {
       }
     : {};
 
-  const pageObjs = Object.fromEntries(PAGES.map((p) => [p.handle, { ...p, url: `/pages/${p.handle}`, template_suffix: p.template, content: p.content || '', object_type: 'page' }]));
+  const pageObjs = bare ? {} : Object.fromEntries(PAGES.map((p) => [p.handle, { ...p, url: `/pages/${p.handle}`, template_suffix: p.template, content: p.content || '', object_type: 'page' }]));
 
   // ajustes del tema según perfil
-  const themeOverrides = full
+  const themeOverrides = configured
     ? {
         contact_email: 'pruebas@sidonia.test',
         contact_whatsapp: '+34 600 000 000',
@@ -132,7 +136,7 @@ export function createStore(profileName = 'full', port = 4173) {
     themeOverrides,
     { menus }
   );
-  const sectionOverrides = full
+  const sectionOverrides = configured
     ? {
         hero: { product: byHandle['prueba-coche-a'] },
         'featured-story': { product: byHandle['prueba-coche-a'] },
@@ -204,11 +208,12 @@ function makeGlobals(store, req) {
   };
   return {
     settings,
-    shop: { name: 'Tienda de prueba', url: `http://localhost:${store.port}`, description: 'Descripción de la tienda de prueba.', currency: 'EUR', password_message: 'Mensaje de contraseña de prueba.' },
+    shop: { name: 'Tienda de prueba', permanent_domain: 'prueba.myshopify.com', url: `http://localhost:${store.port}`, description: 'Descripción de la tienda de prueba.', currency: 'EUR', password_message: 'Mensaje de contraseña de prueba.' },
     request: { design_mode: req.query.design_mode?.[0] === '1', locale: { iso_code: 'es' }, host: 'localhost' },
     routes: { root_url: '/', search_url: '/search', predictive_search_url: '/search/suggest', collections_url: '/collections', all_products_collection_url: '/collections/all', cart_url: '/cart' },
-    policies: store.profileName === 'full' ? { privacy_policy: { url: '/policies/privacy-policy' }, terms_of_service: null } : {},
-    collections: store.collections,
+    policies: store.profileName !== 'empty' && store.profileName !== 'bare' ? { privacy_policy: { url: '/policies/privacy-policy' }, terms_of_service: null } : {},
+    collections: Object.fromEntries(Object.values(store.collections).map((c) => [c.handle, c])),
+    pages: store.pages,
     linklists: store.menus,
     content_for_header: `<script>window.__events=[];window.Shopify=window.Shopify||{};Shopify.analytics={publish:function(n,p){window.__events.push([n,p])}};Shopify.customerPrivacy={analyticsProcessingAllowed:function(){return window.__consent!==false}};</script>`,
     canonical_url: `http://localhost:${store.port}${req.path}`,

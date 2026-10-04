@@ -338,13 +338,23 @@
       this.$grid.addEventListener('click', this._onGridClick);
 
       this._showWarnings();
-      this.render();
+      if (this.hasAttribute('data-defer')) {
+        // Dentro del cajón de la cabecera: no se consulta nada hasta que se abre
+        this._onOpen = function () {
+          this._showWarnings();
+          this.render();
+        }.bind(this);
+        document.addEventListener('sd:favdrawer:open', this._onOpen);
+      } else {
+        this.render();
+      }
     }
 
     disconnectedCallback() {
       if (!this._bound) return;
       this._bound = false;
       document.removeEventListener('sd:favorites:change', this._onChange);
+      if (this._onOpen) document.removeEventListener('sd:favdrawer:open', this._onOpen);
       if (this._clearBtn) this._clearBtn.removeEventListener('click', this._onClear);
       if (this.$confirm && this._onConfirmClose) this.$confirm.removeEventListener('close', this._onConfirmClose);
       if (this.$grid) this.$grid.removeEventListener('click', this._onGridClick);
@@ -379,6 +389,10 @@
     }
 
     _onStoreChange() {
+      if (this.hasAttribute('data-defer')) {
+        var dlg = this.closest('dialog');
+        if (dlg && !dlg.open) return;
+      }
       // Quita lo que ya no está guardado; no vuelve a pedir lo que ya se muestra.
       var ids = store.items.map(function (i) {
         return i.id;

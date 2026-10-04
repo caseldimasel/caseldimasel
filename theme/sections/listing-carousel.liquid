@@ -11,6 +11,16 @@
     endcapture
     assign col_key = col_key | strip
     assign col = settings[col_key]
+    if col == blank
+      case cat
+        when 'garage'
+          assign col = collections['coches']
+        when 'harbor'
+          assign col = collections['barcos']
+        when 'estate'
+          assign col = collections['casas']
+      endcase
+    endif
   endif
   assign max_items = s.limit | default: 10
   assign shown = 0

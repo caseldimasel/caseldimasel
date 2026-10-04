@@ -14,6 +14,7 @@
       if (this._bound) return;
       this._bound = true;
       this.$drawer = this.querySelector('.sd-drawer');
+      this.$favs = this.querySelector('.sd-favdrawer');
       this.$search = this.querySelector('.sd-searchdlg');
       this.$input = this.querySelector('[data-sd-suggest-input]');
       this.$results = this.querySelector('[data-sd-suggest-results]');
@@ -22,7 +23,7 @@
       this._onClick = this._click.bind(this);
       this.addEventListener('click', this._onClick);
 
-      [this.$drawer, this.$search].forEach(function (d) {
+      [this.$drawer, this.$search, this.$favs].forEach(function (d) {
         if (d) S.closeOnBackdrop(d);
       });
 
@@ -52,6 +53,7 @@
         if (e.persisted) {
           S.closeDialog(this.$drawer);
           S.closeDialog(this.$search);
+          S.closeDialog(this.$favs);
         }
       }.bind(this);
       window.addEventListener('pageshow', this._onPageShow);
@@ -73,11 +75,12 @@
       var opener = e.target.closest('[data-sd-open]');
       if (opener) {
         var which = opener.getAttribute('data-sd-open');
-        var target = which === 'search' ? this.$search : this.$drawer;
+        var target = which === 'search' ? this.$search : which === 'favorites' ? this.$favs : this.$drawer;
         if (target) {
           e.preventDefault();
-          if (which === 'search') S.closeDialog(this.$drawer);
+          if (which === 'search' || which === 'favorites') S.closeDialog(this.$drawer);
           S.openDialog(target);
+          if (which === 'favorites') document.dispatchEvent(new CustomEvent('sd:favdrawer:open'));
           if (which === 'search' && this.$input) {
             this.$input.focus();
             this.$input.select();

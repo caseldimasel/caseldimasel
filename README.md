@@ -24,6 +24,8 @@ Plataforma de catálogo y contactos para **coches (punto rojo), barcos (punto az
 
 ## Documentación
 
+**Empieza por `docs/00-puesta-en-marcha.md`** (qué crear en Shopify y cómo, incluido un script de creación automática).
+
 | Doc | Contenido |
 |---|---|
 | `00-decisiones-y-supuestos.md` | Decisiones, supuestos, trazabilidad del briefing y estado para continuar |

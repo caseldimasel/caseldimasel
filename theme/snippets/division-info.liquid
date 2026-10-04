@@ -1,12 +1,24 @@
 {%- comment -%}
   Datos de una división desde los ajustes del tema.
-  Parámetros: key (garage|harbor|estate|…), out = name | tagline | url | email | whatsapp | image | count
+  Parámetros: key (garage|harbor|estate|…), out = name | tagline | url | exists | email | whatsapp | image | count
   Para añadir una división nueva: ver docs/01-guia-de-edicion.md.
 {%- endcomment -%}
 {%- liquid
   assign k = key | downcase
   assign col_key = 'division_' | append: k | append: '_collection'
   assign col = settings[col_key]
+  assign handle = k
+  case k
+    when 'garage'
+      assign handle = 'coches'
+    when 'harbor'
+      assign handle = 'barcos'
+    when 'estate'
+      assign handle = 'casas'
+  endcase
+  if col == blank
+    assign col = collections[handle]
+  endif
   case out
     when 'name'
       assign nk = 'division_' | append: k | append: '_name'
@@ -15,20 +27,17 @@
     when 'tagline'
       assign tk = 'division_' | append: k | append: '_tagline'
       echo settings[tk]
+    when 'exists'
+      if col != blank
+        echo 'true'
+      else
+        echo 'false'
+      endif
     when 'url'
       if col != blank
         echo col.url
       else
-        case k
-        when 'garage'
-          echo routes.collections_url | append: '/coches'
-        when 'harbor'
-          echo routes.collections_url | append: '/barcos'
-        when 'estate'
-          echo routes.collections_url | append: '/casas'
-        else
-          echo routes.collections_url | append: '/' | append: k
-      endcase
+        echo routes.all_products_collection_url
       endif
     when 'email'
       assign ek = 'division_' | append: k | append: '_email'

@@ -1,0 +1,57 @@
+{%- comment -%}
+  Lista de puesta en marcha. SOLO se muestra en el editor del tema (nunca a los visitantes): indica qué páginas y colecciones
+  faltan en la tienda y enlaza al administrador de Shopify para crearlas. El tema no puede crearlas por sí solo.
+{%- endcomment -%}
+{%- if request.design_mode -%}
+  {%- liquid
+    assign missing = ''
+    assign admin = 'https://' | append: shop.permanent_domain | append: '/admin'
+    assign page_keys = 'sell,how,about,favorites,contact,wanted,brands' | split: ','
+    assign page_names = 'Vender con Sidonia (vender),Cómo vendemos (como-vendemos),Sobre Sidonia (sobre-sidonia),Favoritos (favoritos),Contacto (contacto),Cuéntanos qué buscas (busco),Marcas (marcas)' | split: ','
+    assign col_keys = 'garage,harbor,estate' | split: ','
+    assign col_names = 'Coches (coches),Barcos (barcos),Casas (casas)' | split: ','
+    assign n_missing = 0
+  -%}
+  <section class="sd-section sd-section--tight sd-setup" data-section-id="{{ section.id }}">
+    <div class="sd-container">
+      <div class="sd-notice">
+        {%- render 'icon', name: 'info', size: 22 -%}
+        <div>
+          <p class="sd-notice__title">{{ 'setup.title' | t }}</p>
+          <p>{{ 'setup.intro' | t }}</p>
+          <ul class="sd-setup__list">
+            {%- for k in page_keys -%}
+              {%- capture ok -%}{%- render 'page-url', key: k, out: 'exists' -%}{%- endcapture -%}
+              {%- if ok != 'true' -%}
+                {%- assign n_missing = n_missing | plus: 1 -%}
+                <li>{{ 'setup.missing_page' | t: name: page_names[forloop.index0] }} · <a href="{{ admin }}/pages/new" target="_blank" rel="noopener">{{ 'setup.create_page' | t }}</a></li>
+              {%- endif -%}
+            {%- endfor -%}
+            {%- for k in col_keys -%}
+              {%- capture ok -%}{%- render 'division-info', key: k, out: 'exists' -%}{%- endcapture -%}
+              {%- if ok != 'true' -%}
+                {%- assign n_missing = n_missing | plus: 1 -%}
+                <li>{{ 'setup.missing_collection' | t: name: col_names[forloop.index0] }} · <a href="{{ admin }}/collections/new" target="_blank" rel="noopener">{{ 'setup.create_collection' | t }}</a></li>
+              {%- endif -%}
+            {%- endfor -%}
+          </ul>
+          {%- if n_missing == 0 -%}<p>{{ 'setup.all_ok' | t }}</p>{%- endif -%}
+          <p class="sd-note">{{ 'setup.docs_note' | t }}</p>
+        </div>
+      </div>
+    </div>
+  </section>
+{%- endif -%}
+
+{% schema %}
+{
+  "name": "Puesta en marcha",
+  "tag": "section",
+  "settings": [
+    { "type": "paragraph", "content": "Solo se ve en el editor. Quita esta sección cuando termines la configuración." }
+  ],
+  "presets": [
+    { "name": "Puesta en marcha" }
+  ]
+}
+{% endschema %}

@@ -27,11 +27,12 @@ export async function test(name, fn) {
 export async function setup() {
   const full = await startServer({ port: 4190, profile: 'full' });
   const empty = await startServer({ port: 4191, profile: 'empty' });
+  const bare = await startServer({ port: 4192, profile: 'bare' });
   const browser = await chromium.launch({
     executablePath: CHROMIUM_PATH,
     args: ['--no-sandbox', '--autoplay-policy=no-user-gesture-required']
   });
-  return { full, empty, browser, URL: (p, profile = 'full') => `http://localhost:${profile === 'full' ? 4190 : 4191}${p}` };
+  return { full, empty, bare, browser, URL: (p, profile = 'full') => `http://localhost:${{ full: 4190, empty: 4191, bare: 4192 }[profile]}${p}` };
 }
 
 /** Abre una página con colector de errores de consola/página y de peticiones fallidas. */

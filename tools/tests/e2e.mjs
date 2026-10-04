@@ -7,7 +7,7 @@ import { setup, open, test, assert, eq, results, httpGet } from './harness.mjs';
 const fetch = (u) => httpGet(u);
 
 const filter = process.argv[2] || '';
-const { full, empty, browser, URL: site } = await setup();
+const { full, empty, bare, browser, URL: site } = await setup();
 // El panel de filtros es un cajón modal en todos los anchos (con JS): hay que abrirlo antes de tocar casillas.
 const ensureFilters = async (page) => {
   const open = await page.evaluate(() => !!document.querySelector('.sd-filters[open]'));
@@ -748,6 +748,14 @@ console.log('\n6c. Galería, megamenú, carruseles y vista en lista');
 await run('Ficha: galería en mosaico, visor modal con teclado, contador y foco devuelto', async () => {
   const { ctx, page } = await open(browser, { viewport: { width: 1440, height: 900 } });
   await page.goto(site('/products/prueba-coche-a'), { waitUntil: 'networkidle' });
+  // Con vídeo: el vídeo es el protagonista y las fotos van en una tira debajo
+  eq(await page.locator('.sd-gallery--strip').count(), 1, 'galería en tira bajo el vídeo');
+  assert((await page.locator('.sd-vplayer').count()) === 1, 'reproductor presente');
+  const order = await page.evaluate(() => { const v = document.querySelector('.sd-vplayer').getBoundingClientRect().top; const g = document.querySelector('.sd-gallery--strip').getBoundingClientRect().top; return g > v; });
+  assert(order, 'las fotos van después del vídeo');
+  // Sin vídeo: mosaico a todo el ancho
+  await page.goto(site('/products/prueba-coche-b-a-consultar'), { waitUntil: 'networkidle' });
+  eq(await page.locator('.sd-gallery--mosaic').count(), 1, 'mosaico sin vídeo');
   eq(await page.locator('.sd-gallery__item').count(), 5, 'fotos del mosaico');
   const first = page.locator('.sd-gallery__btn').first();
   assert(/foto-|\/img\//.test(await first.getAttribute('href')), 'sin JS cada foto es un enlace a la imagen grande');
@@ -766,7 +774,7 @@ await run('Ficha: galería en mosaico, visor modal con teclado, contador y foco 
   assert(imgs.every(Boolean), 'todas las fotos tienen descripción');
   await ctx.close();
   const m = await open(browser, { viewport: { width: 390, height: 800 } });
-  await m.page.goto(site('/products/prueba-coche-a'), { waitUntil: 'networkidle' });
+  await m.page.goto(site('/products/prueba-coche-b-a-consultar'), { waitUntil: 'networkidle' });
   const sc = await m.page.evaluate(() => { const g = document.querySelector('.sd-gallery__grid'); return { sw: g.scrollWidth, cw: g.clientWidth, snap: getComputedStyle(g).scrollSnapType }; });
   assert(sc.sw > sc.cw * 3 && /x/.test(sc.snap), 'en móvil la galería es un carrusel con deslizamiento: ' + JSON.stringify(sc));
   await m.ctx.close();
@@ -830,6 +838,77 @@ await run('Listado: vista en lista recordada, barra de herramientas fija y pie c
   assert(Math.abs(top - hh) <= 3, `la barra queda pegada bajo la cabecera (top ${top}, cabecera ${hh})`);
   const foot = await page.locator('.sd-footer .sd-footer__list--brands').count();
   eq(foot, 2, 'columnas de marcas y constructores en el pie');
+  await ctx.close();
+});
+/* =========================== 6d. Primera instalación (tienda sin páginas, colecciones ni menús) =========================== */
+console.log('\n6d. Primera instalación sin configurar');
+await run('Tienda recién instalada: ningún enlace interno de portada, listado y ficha lleva a un 404', async () => {
+  const { ctx, page } = await open(browser);
+  const seen = new Map();
+  for (const start of ['/', '/collections/all', '/products/prueba-coche-a', '/search?q=Marca&type=product']) {
+    await page.goto(site(start, 'bare'), { waitUntil: 'networkidle' });
+    const hrefs = await page.evaluate(() => [...document.querySelectorAll('a[href]')].map((a) => a.getAttribute('href')));
+    for (const h of hrefs) {
+      if (!h || h.startsWith('#') || /^(mailto:|tel:|https?:|javascript:)/.test(h) || !h.startsWith('/')) continue;
+      const path = h.split('#')[0];
+      if (path === '/' || /^\/(assets|cdn|fixtures|img)\//.test(path)) continue;
+      if (!seen.has(path)) seen.set(path, start);
+    }
+  }
+  const bad = [];
+  for (const [path, from] of seen) {
+    const r = await fetch(site(path, 'bare'));
+    if (r.status >= 400) bad.push(`${path} (${r.status}, desde ${from})`);
+  }
+  assert(seen.size > 15, 'enlaces comprobados: ' + seen.size);
+  assert(!bad.length, 'enlaces rotos: ' + bad.slice(0, 8).join(' | '));
+  await ctx.close();
+});
+await run('Tienda recién instalada: Favoritos abre un cajón, y Vender, Cómo vendemos y Contacto llevan a bloques de la portada', async () => {
+  const { ctx, page } = await open(browser, { viewport: { width: 1440, height: 900 } });
+  await page.goto(site('/', 'bare'), { waitUntil: 'networkidle' });
+  const hrefs = await page.evaluate(() => ({
+    sell: document.querySelector('.sd-header__cta').getAttribute('href'),
+    fav: document.querySelector('.sd-header__fav').getAttribute('data-sd-open')
+  }));
+  eq(hrefs.sell, '/#solicitud', 'Vender con Sidonia lleva al formulario de la portada');
+  eq(hrefs.fav, 'favorites', 'Favoritos abre el cajón');
+  assert((await page.locator('#solicitud').count()) === 1 && (await page.locator('#como').count()) === 1 && (await page.locator('#contacto').count()) === 1, 'anclas de la portada');
+  await page.locator('.sd-header__fav').click();
+  await page.waitForSelector('.sd-favdrawer[open]');
+  assert(await page.locator('.sd-favdrawer [data-sd-fav-empty]').isVisible(), 'estado vacío de favoritos dentro del cajón');
+  await page.keyboard.press('Escape');
+  await page.waitForSelector('.sd-favdrawer:not([open])', { state: 'attached' });
+  // guardar una pieza y verla en el cajón
+  await page.goto(site('/products/prueba-coche-a', 'bare'), { waitUntil: 'networkidle' });
+  await page.locator('.sd-pdp__secondary [data-sd-save-btn]').first().click();
+  await page.locator('.sd-header__fav').click();
+  await page.waitForSelector('.sd-favdrawer[open] [data-sd-fav-grid] li');
+  await ctx.close();
+});
+await run('Tienda recién instalada: el formulario de propietarios de la portada envía y confirma con el resultado real', async () => {
+  await fetch(site('/__test/reset', 'bare'));
+  const { ctx, page } = await open(browser, { viewport: { width: 1024, height: 900 } });
+  await page.goto(site('/', 'bare'), { waitUntil: 'networkidle' });
+  const uid = await page.evaluate(() => document.querySelector('sd-sell-form form').id);
+  await page.locator('.sd-optioncard', { hasText: 'Un coche' }).click();
+  await page.locator('#solicitud [data-sd-next]').click();
+  await page.fill(`#${uid}-g-make`, 'Marca de prueba');
+  await page.fill(`#${uid}-g-model`, 'Modelo de prueba');
+  await page.fill(`#${uid}-g-year`, '1972');
+  await page.fill(`#${uid}-g-loc`, 'Ciudad de prueba');
+  await page.fill(`#${uid}-special`, 'Algo especial de prueba');
+  await page.selectOption(`#${uid}-rel`, 'Soy propietario o propietaria');
+  await page.locator('#solicitud [data-sd-next]').click();
+  await page.fill(`#${uid}-name`, 'Persona de Prueba');
+  await page.fill(`#${uid}-email`, 'persona@sidonia.test');
+  await page.fill(`#${uid}-phone`, '+34 600 000 002');
+  await page.check(`#${uid}-privacy`);
+  await page.locator('#solicitud [data-sd-submit]').click();
+  await page.waitForSelector('#solicitud [data-sd-form-success]');
+  const subs = await fetch(site('/__test/submissions', 'bare')).then((r) => r.json());
+  eq(subs.length, 1, 'envío recibido por el servidor');
+  eq(subs[0].fields['contact[Tipo de consulta]'][0], 'Solicitud de propietario', 'tipo de consulta');
   await ctx.close();
 });
 await run('Buscador: diálogo accesible, sugerencias reales (API), resultados con filtros y estado vacío', async () => {
@@ -1051,7 +1130,7 @@ await run('Propietarios: tres pasos, campos condicionales, la categoría viaja e
   assert((await page.locator('[data-sd-form-success]').innerText()).includes('no implica aceptación'), 'aviso: valoración de encaje, sin compromiso');
   const f = (await fetch(site('/__test/submissions')).then((r) => r.json()))[0].fields;
   assert(f['contact[Categoría]'][0].startsWith('Barco'), 'categoría enviada');
-  assert('contact[Constructor y modelo]' in f && !('contact[Marca]' in f) && !('contact[Superficie (m²)]' in f), 'solo campos de la categoría elegida');
+  assert('contact[Constructor y modelo]' in f && !('contact[Marca]' in f) && !('contact[Superficie en m2]' in f), 'solo campos de la categoría elegida');
   eq(f['contact[Tipo de consulta]'][0], 'Solicitud de propietario', 'tipo');
   assert(!Object.keys(f).some((k) => /archivo|file/i.test(k)), 'sin subida de archivos');
   await ctx.close();

@@ -339,8 +339,8 @@ function cmpEq(a, b) {
 }
 function cmpOrder(a, b, op) {
   if (isNil(a) || isNil(b)) return false;
-  if (typeof a === 'string' && typeof b === 'number') return false;
-  if (typeof a === 'number' && typeof b === 'string') return false;
+  // Shopify (Ruby) lanza «comparison of String with Integer failed» al ordenar texto y número: aquí también falla
+  if ((typeof a === 'string' && typeof b === 'number') || (typeof a === 'number' && typeof b === 'string')) throw new Error(`Liquid error: comparación inválida de ${typeof a} con ${typeof b} (${JSON.stringify(a)} ${op} ${JSON.stringify(b)})`);
   if (typeof a === 'object' || typeof b === 'object') return false;
   switch (op) {
     case '>': return a > b;

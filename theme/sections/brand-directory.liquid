@@ -45,7 +45,7 @@
   assign harbor_url = harbor_url | strip
   assign kinds = 'cars,boats' | split: ','
 -%}
-<section class="sd-section sd-brands{% if compact %} sd-brands--compact{% endif %}" data-section-id="{{ section.id }}">
+<section class="sd-section sd-brands{% if compact %} sd-brands--compact{% endif %}" id="marcas" data-section-id="{{ section.id }}">
   <div class="sd-container">
     {%- if s.heading != blank or s.eyebrow != blank or s.text != blank -%}
       <div class="sd-section-head sd-section-head--split">

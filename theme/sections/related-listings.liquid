@@ -19,6 +19,16 @@
     assign cat_name = cat_name | strip
     assign col_key = 'division_' | append: cat | append: '_collection'
     assign cat_col = settings[col_key]
+    if cat_col == blank
+      case cat
+        when 'garage'
+          assign cat_col = collections['coches']
+        when 'harbor'
+          assign cat_col = collections['barcos']
+        when 'estate'
+          assign cat_col = collections['casas']
+      endcase
+    endif
     capture cat_url
       render 'division-info', key: cat, out: 'url'
     endcapture

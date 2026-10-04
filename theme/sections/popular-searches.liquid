@@ -7,8 +7,13 @@
     <h2 class="sd-popular__title">{{ s.heading }}</h2>
     <ul class="sd-popular__list" role="list">
       {%- for block in section.blocks -%}
-        {%- if block.settings.label != blank and block.settings.url != blank -%}
-          <li {{ block.shopify_attributes }}><a class="sd-pill" href="{{ block.settings.url }}">{{ block.settings.label | escape }}</a></li>
+        {%- assign href = block.settings.url -%}
+        {%- if block.settings.kind == 'brands' -%}
+          {%- capture href -%}{%- render 'page-url', key: 'brands' -%}{%- endcapture -%}
+          {%- assign href = href | strip -%}
+        {%- endif -%}
+        {%- if block.settings.label != blank and href != blank -%}
+          <li {{ block.shopify_attributes }}><a class="sd-pill" href="{{ href }}">{{ block.settings.label | escape }}</a></li>
         {%- endif -%}
       {%- endfor -%}
     </ul>
@@ -30,7 +35,17 @@
       "name": "Enlace",
       "settings": [
         { "type": "text", "id": "label", "label": "Texto" },
-        { "type": "url", "id": "url", "label": "Enlace" }
+        {
+          "type": "select",
+          "id": "kind",
+          "label": "Destino",
+          "options": [
+            { "value": "custom", "label": "El enlace de abajo" },
+            { "value": "brands", "label": "Página de todas las marcas" }
+          ],
+          "default": "custom"
+        },
+        { "type": "url", "id": "url", "label": "Enlace (si el destino es «El enlace de abajo»)" }
       ]
     }
   ],

@@ -9,6 +9,17 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
+
+// No se empaqueta un tema con errores conocidos de Liquid o de schemas: es lo que produce «Liquid error» en Shopify.
+for (const lint of ['validate-theme.mjs', 'lint-liquid.mjs', 'lint-schema.mjs']) {
+  try {
+    execFileSync('node', [join(root, 'tools', lint)], { stdio: 'pipe' });
+  } catch (e) {
+    console.error(`\n${lint} encontró errores; el ZIP NO se ha creado:\n`);
+    console.error(String(e.stdout || '').split('\n').filter((l) => /^\s{2}\S/.test(l) || /ERRORES|Errores/.test(l)).slice(0, 40).join('\n'));
+    process.exit(1);
+  }
+}
 const schema = JSON.parse(readFileSync(join(root, 'theme/config/settings_schema.json'), 'utf8'));
 const version = schema[0].theme_version;
 const dist = join(root, 'dist');

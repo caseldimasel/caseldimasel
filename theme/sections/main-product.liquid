@@ -57,7 +57,7 @@
     assign has_gallery = true
   endif
   assign cover_priority = true
-  if has_gallery
+  if has_gallery and vattrs == blank
     assign cover_priority = false
   endif
   assign hook = mf.hook.value
@@ -87,9 +87,12 @@
   <div class="sd-container">
     {%- render 'breadcrumbs', crumb_url: cat_url, crumb_title: cat_name -%}
 
-    {%- render 'product-gallery', product: product -%}
+    {%- comment -%} Con vídeo, el vídeo es el protagonista y las fotos van en una tira debajo; sin vídeo, mosaico de fotos a todo el ancho. {%- endcomment -%}
+    {%- if has_gallery and vattrs == blank -%}
+      {%- render 'product-gallery', product: product, variant: 'mosaic' -%}
+    {%- endif -%}
 
-    <div class="sd-pdp__grid{% if has_gallery %} sd-pdp__grid--gallery{% endif %}">
+    <div class="sd-pdp__grid{% if has_gallery and vattrs == blank %} sd-pdp__grid--gallery{% endif %}">
       <header class="sd-pdp__head">
         <p class="sd-eyebrow">
           {%- if cat != blank -%}<span class="sd-nav__dot" aria-hidden="true"></span>{{ settings.brand_name | default: shop.name }} {{ cat_name | upcase }}{%- endif -%}
@@ -108,7 +111,7 @@
           <sd-video-stage class="sd-vplayer" {{ vattrs }} data-preview-enabled="{{ settings.video_preview_enabled }}" data-preview-mobile="{{ settings.video_preview_mobile }}" data-consent-required="{{ settings.video_external_consent }}">
             <div class="sd-vplayer__stage" style="--sd-vratio: {{ ratio_style }}" data-sd-stage>
               {%- if cover != blank -%}
-                {%- render 'sd-image', image: cover, widths: '480,640,800,1000,1200', sizes: '(min-width: 900px) 46vw, 92vw', priority: product.images.size == 0, class: 'sd-vplayer__poster', alt: poster_alt, cover: true -%}
+                {%- render 'sd-image', image: cover, widths: '480,640,800,1000,1200', sizes: '(min-width: 900px) 46vw, 92vw', priority: cover_priority, class: 'sd-vplayer__poster', alt: poster_alt, cover: true -%}
               {%- else -%}
                 <span class="sd-vplayer__poster-fallback" aria-hidden="true">{{ product.title | escape }}</span>
               {%- endif -%}
@@ -134,6 +137,9 @@
               {%- endif -%}
             </div>
           </sd-video-stage>
+          {%- if has_gallery -%}
+            {%- render 'product-gallery', product: product, variant: 'strip' -%}
+          {%- endif -%}
           {%- if transcript != blank -%}
             <details class="sd-transcript">
               <summary><span>{{ 'video.transcript' | t }}</span>{%- render 'icon', name: 'chevron-down', size: 22 -%}</summary>

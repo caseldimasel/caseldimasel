@@ -66,13 +66,13 @@ const ownerCta = () => ({ type: 'owner-cta', settings: {} });
 
 // ---------- Inicio ----------
 const popular = blocks('link', [
-  { type: 'link', settings: { label: 'Clásicos de los años 60', url: '/collections/coches?filter.p.m.sidonia.year_band=1960-1969' } },
-  { type: 'link', settings: { label: 'Clásicos de los años 70', url: '/collections/coches?filter.p.m.sidonia.year_band=1970-1979' } },
+  { type: 'link', settings: { label: 'Clásicos de los años 60', url: '/collections/all?filter.p.m.sidonia.year_band=1960-1969' } },
+  { type: 'link', settings: { label: 'Clásicos de los años 70', url: '/collections/all?filter.p.m.sidonia.year_band=1970-1979' } },
   { type: 'link', settings: { label: 'Descapotables y roadsters', url: '/search?q=descapotable&type=product' } },
   { type: 'link', settings: { label: 'Barcos de vela', url: '/search?q=velero&type=product' } },
   { type: 'link', settings: { label: 'Casas en el campo', url: '/search?q=masía&type=product' } },
   { type: 'link', settings: { label: 'Piezas con vídeo', url: '/search?q=vídeo&type=product' } },
-  { type: 'link', settings: { label: 'Todas las marcas', url: '/pages/marcas' } }
+  { type: 'link', settings: { label: 'Todas las marcas', kind: 'brands' } }
 ]);
 const trust = blocks('item', [
   { type: 'item', settings: { icon: 'check', title: 'Selección con criterio', text: 'No publicamos todo: elegimos piezas con historia, carácter y cuidado.' } },
@@ -80,6 +80,7 @@ const trust = blocks('item', [
   { type: 'item', settings: { icon: 'chat', title: 'Trato directo', text: 'Escríbenos por WhatsApp o correo: te respondemos nosotros, con la referencia de la pieza.' } }
 ]);
 out('index', {
+  setup: { type: 'setup-guide', settings: {} },
   hero: { type: 'hero', settings: {} },
   divisions: { type: 'divisions', settings: {} },
   'car-garage': { type: 'listing-carousel', settings: { division: 'garage', heading: 'Coches destacados' } },
@@ -96,9 +97,10 @@ out('index', {
   criteria: { type: 'selection-criteria', settings: {}, ...criteria },
   testimonials: { type: 'testimonials', settings: {} },
   cta: ownerCta(),
+  sell: { type: 'sell-form', settings: { heading: 'Vender con Sidonia', intro: 'Cuéntanos qué tienes. Cuanto más personal sea la historia, mejor.' } },
   newsletter: { type: 'newsletter', settings: {} },
   faq: faq(faqHome)
-}, ['hero', 'divisions', 'car-garage', 'car-harbor', 'car-estate', 'popular', 'gallery', 'brands', 'trust', 'how', 'story', 'journal', 'community', 'criteria', 'testimonials', 'cta', 'newsletter', 'faq']);
+}, ['setup', 'hero', 'divisions', 'car-garage', 'car-harbor', 'car-estate', 'popular', 'gallery', 'brands', 'trust', 'how', 'story', 'journal', 'community', 'criteria', 'testimonials', 'cta', 'sell', 'newsletter', 'faq']);
 
 // ---------- Colecciones ----------
 out('collection', {

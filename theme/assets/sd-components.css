@@ -2060,3 +2060,34 @@ body[data-density='compact'] .sd-grid {
     background: var(--sd-bg);
   }
 }
+
+
+/* ---------- Cajón de favoritos (cuando no existe la página de Favoritos) ---------- */
+
+.sd-favdrawer {
+  margin: 0 0 0 auto;
+  width: min(34rem, 100%);
+  max-width: 100%;
+  height: 100dvh;
+  max-height: 100dvh;
+  padding: var(--sd-s4) var(--sd-gutter) var(--sd-s5);
+  border: 0;
+  background: var(--sd-bg);
+  color: var(--sd-text);
+  overflow-y: auto;
+}
+
+.sd-favdrawer[open] {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sd-s4);
+  animation: sd-slide-in var(--sd-dur-slow) var(--sd-ease);
+}
+
+.sd-favdrawer::backdrop {
+  background: rgba(17, 17, 17, 0.55);
+}
+
+.sd-favdrawer .sd-grid {
+  grid-template-columns: minmax(0, 1fr);
+}

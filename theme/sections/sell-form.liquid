@@ -87,7 +87,7 @@
                 {%- render 'form-field', uid: uid, name: 'contact[Constructor y modelo]', field: 'h-make', type: 'text', label_key: 'sell.f.h_make_label', required: true, value: '' -%}
                 {%- render 'form-field', uid: uid, name: 'contact[Tipo de embarcación]', field: 'h-type', type: 'text', label_key: 'sell.f.h_type_label', help_key: 'sell.f.h_type_help', value: '' -%}
                 {%- render 'form-field', uid: uid, name: 'contact[Año del barco]', field: 'h-year', type: 'number', label_key: 'sell.f.h_year_label', inputmode: 'numeric', min: 1800, max: 2100, value: '' -%}
-                {%- render 'form-field', uid: uid, name: 'contact[Eslora (m)]', field: 'h-loa', type: 'text', label_key: 'sell.f.h_loa_label', inputmode: 'decimal', help_key: 'sell.f.h_loa_help', value: '' -%}
+                {%- render 'form-field', uid: uid, name: 'contact[Eslora en metros]', field: 'h-loa', type: 'text', label_key: 'sell.f.h_loa_label', inputmode: 'decimal', help_key: 'sell.f.h_loa_help', value: '' -%}
                 {%- render 'form-field', uid: uid, name: 'contact[Ubicación del barco]', field: 'h-loc', type: 'text', label_key: 'sell.f.h_loc_label', required: true, value: '' -%}
                 {%- render 'form-field', uid: uid, name: 'contact[Precio orientativo del barco]', field: 'h-price', type: 'text', label_key: 'sell.f.h_price_label', help_key: 'sell.f.h_price_help', value: '' -%}
               </div>
@@ -98,7 +98,7 @@
               <div class="sd-formgrid">
                 {%- render 'form-field', uid: uid, name: 'contact[Tipo de inmueble]', field: 'e-type', type: 'text', label_key: 'sell.f.e_type_label', required: true, help_key: 'sell.f.e_type_help', value: '' -%}
                 {%- render 'form-field', uid: uid, name: 'contact[Ciudad o región de la casa]', field: 'e-loc', type: 'text', label_key: 'sell.f.e_loc_label', required: true, value: '' -%}
-                {%- render 'form-field', uid: uid, name: 'contact[Superficie (m²)]', field: 'e-area', type: 'number', label_key: 'sell.f.e_area_label', inputmode: 'numeric', min: 0, value: '' -%}
+                {%- render 'form-field', uid: uid, name: 'contact[Superficie en m2]', field: 'e-area', type: 'number', label_key: 'sell.f.e_area_label', inputmode: 'numeric', min: 0, value: '' -%}
                 {%- render 'form-field', uid: uid, name: 'contact[Habitaciones]', field: 'e-beds', type: 'number', label_key: 'sell.f.e_beds_label', inputmode: 'numeric', min: 0, value: '' -%}
                 {%- render 'form-field', uid: uid, name: 'contact[Precio orientativo de la casa]', field: 'e-price', type: 'text', label_key: 'sell.f.e_price_label', help_key: 'sell.f.e_price_help', value: '' -%}
               </div>

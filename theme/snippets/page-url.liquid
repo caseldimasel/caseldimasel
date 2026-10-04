@@ -1,47 +1,74 @@
 {%- comment -%}
-  URL de una página clave del tema.
-  Parámetro: key = sell | how | about | favorites | contact | archive | wanted | brands | explore | search
-  Se usa la página elegida en Ajustes del tema > Páginas clave; si no hay, la ruta /pages/<handle> de reserva.
+  URL de una página clave del tema, sin llegar nunca a un 404 en una tienda recién instalada.
+  Parámetros: key = sell | how | about | favorites | contact | archive | wanted | brands | explore | search
+              out = url (por defecto) | exists (devuelve true si la página/colección existe de verdad)
+  Orden: página elegida en Ajustes del tema > Páginas clave → página de Shopify con el handle de reserva →
+  ancla dentro de la portada (la portada incluye esos bloques) o ruta que siempre existe.
 {%- endcomment -%}
 {%- liquid
+  assign p = nil
+  assign handle = ''
+  assign anchor = ''
+  assign fallback = routes.root_url
   case key
     when 'sell'
       assign p = settings.page_sell
-      assign fallback = '/pages/vender'
+      assign handle = 'vender'
+      assign anchor = '#solicitud'
     when 'how'
       assign p = settings.page_how
-      assign fallback = '/pages/como-vendemos'
+      assign handle = 'como-vendemos'
+      assign anchor = '#como'
     when 'about'
       assign p = settings.page_about
-      assign fallback = '/pages/sobre-sidonia'
+      assign handle = 'sobre-sidonia'
+      assign anchor = '#criterio'
     when 'favorites'
       assign p = settings.page_favorites
-      assign fallback = '/pages/favoritos'
+      assign handle = 'favoritos'
+      assign anchor = '#favoritos'
     when 'contact'
       assign p = settings.page_contact
-      assign fallback = '/pages/contacto'
+      assign handle = 'contacto'
+      assign anchor = '#contacto'
     when 'archive'
       assign p = settings.page_archive
-      assign fallback = '/pages/archivo'
+      assign handle = 'archivo'
+      assign fallback = routes.all_products_collection_url
     when 'wanted'
       assign p = settings.page_wanted
-      assign fallback = '/pages/busco'
+      assign handle = 'busco'
+      assign anchor = '#contacto'
     when 'brands'
       assign p = settings.page_brands
-      assign fallback = '/pages/marcas'
+      assign handle = 'marcas'
+      assign anchor = '#marcas'
     when 'explore'
       assign p = settings.explore_collection
       assign fallback = routes.all_products_collection_url
     when 'search'
-      assign p = nil
       assign fallback = routes.search_url
-    else
-      assign p = nil
-      assign fallback = routes.root_url
   endcase
+  assign found = false
+  assign url = fallback
+  if anchor != blank
+    assign url = routes.root_url | append: anchor
+  endif
   if p != blank
-    echo p.url
+    assign found = true
+    assign url = p.url
+  elsif handle != blank
+    assign alt = pages[handle]
+    if alt != blank
+      assign found = true
+      assign url = alt.url
+    endif
+  elsif key == 'explore' or key == 'search'
+    assign found = true
+  endif
+  if out == 'exists'
+    echo found
   else
-    echo fallback
+    echo url
   endif
 -%}

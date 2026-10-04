@@ -33,6 +33,8 @@ lines.push(`# 09 · Informe de pruebas
 | Capa | Herramienta | Qué demuestra |
 |---|---|---|
 | Estructura, JSON, schemas, Liquid (balance de etiquetas, filtros, referencias), traducciones, contraste de la paleta | \`tools/validate-theme.mjs\` (propio) | El tema es coherente y no tiene referencias rotas |
+| Liquid estricto (sintaxis que Shopify rechaza, filtros inexistentes, filtros en for/if/render, ámbito de render, claves de traducción) | \`tools/lint-liquid.mjs\` (propio) | Encuentra los «Liquid error» que un intérprete permisivo no ve; detectó 2 errores reales en la ficha |
+| Schemas de secciones, plantillas JSON y ajustes (rangos, opciones, tipos, bloques, límites) | \`tools/lint-schema.mjs\` (propio) | Reglas documentadas de Shopify aplicadas a todo el tema |
 | Plantillas Liquid renderizadas | \`tools/preview/liquid.mjs\` (**intérprete propio**, no el de Shopify) + datos de prueba \`tools/preview/store.mjs\` | Que las plantillas producen el HTML esperado con datos de ejemplo |
 | Comportamiento en navegador | Chromium (Playwright) contra la previsualización local, 5 anchos | Layout, JS, vídeo, filtros, favoritos, formularios, accesibilidad básica |
 

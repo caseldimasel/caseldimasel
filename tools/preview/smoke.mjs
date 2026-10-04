@@ -15,7 +15,7 @@ const routes = [
 ];
 
 let failures = 0;
-for (const profile of ['full', 'empty']) {
+for (const profile of ['full', 'empty', 'bare']) {
   const store = createStore(profile);
   const renderer = createRenderer(store);
   console.log(`\n== perfil ${profile}`);

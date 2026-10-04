@@ -50,6 +50,16 @@
   assign col_key = 'division_' | append: key | append: '_collection'
   assign cover = settings[img_key]
   assign col = settings[col_key]
+  if col == blank
+    case key
+      when 'garage'
+        assign col = collections['coches']
+      when 'harbor'
+        assign col = collections['barcos']
+      when 'estate'
+        assign col = collections['casas']
+    endcase
+  endif
   if cover == blank and col != blank
     assign cover = col.image
     if cover == blank and col.products.size > 0

@@ -10,6 +10,10 @@
   capture fav_url
     render 'page-url', key: 'favorites'
   endcapture
+  capture fav_exists
+    render 'page-url', key: 'favorites', out: 'exists'
+  endcapture
+  assign fav_exists = fav_exists | strip
   capture explore_url
     render 'page-url', key: 'explore'
   endcapture
@@ -66,7 +70,7 @@
           </a>
         {%- endif -%}
         {%- if section.settings.show_favorites -%}
-          <a class="sd-iconbtn sd-header__fav" href="{{ fav_url }}" data-sd-fav-link>
+          <a class="sd-iconbtn sd-header__fav" href="{{ fav_url }}" data-sd-fav-link{% if fav_exists != 'true' %} data-sd-open="favorites" aria-haspopup="dialog"{% endif %}>
             {%- render 'icon', name: 'heart', size: 22 -%}
             <span class="sd-sr" data-sd-fav-label>{{ 'header.favorites' | t }}</span>
             <sd-fav-count class="sd-badge" hidden></sd-fav-count>
@@ -213,6 +217,16 @@
       </div>
     </div>
   </dialog>
+  {%- if fav_exists != 'true' -%}
+    <dialog class="sd-favdrawer" aria-label="{{ 'header.favorites' | t }}">
+      <div class="sd-drawer__head">
+        <span class="sd-drawer__title">{{ 'header.favorites' | t }}</span>
+        <button type="button" class="sd-iconbtn" data-sd-close aria-label="{{ 'general.close' | t }}">{%- render 'icon', name: 'close', size: 24 -%}</button>
+      </div>
+      <p class="sd-note">{{ 'favorites.local_note' | t }}</p>
+      {%- render 'favorites-app', uid: 'drawer', defer: true -%}
+    </dialog>
+  {%- endif -%}
 </sd-header>
 
 {% schema %}

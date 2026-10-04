@@ -499,5 +499,15 @@
   "carousel": {
     "prev": "Anteriores",
     "next": "Siguientes"
+  },
+  "setup": {
+    "title": "Puesta en marcha (solo lo ves tú, en el editor)",
+    "intro": "El tema ya funciona sin nada de esto: los enlaces apuntan a la portada o al catálogo completo. Para tener las páginas y colecciones propias, créalas con el handle indicado entre paréntesis.",
+    "missing_page": "Falta la página «{{ name }}»",
+    "create_page": "Crear página",
+    "missing_collection": "Falta la colección «{{ name }}»",
+    "create_collection": "Crear colección",
+    "all_ok": "Todo lo imprescindible está creado.",
+    "docs_note": "Guía completa y script de creación automática: docs/00-puesta-en-marcha.md"
   }
 }
