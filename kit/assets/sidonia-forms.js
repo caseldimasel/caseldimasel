@@ -402,8 +402,10 @@
         legend.setAttribute('tabindex', '-1');
         legend.focus({ preventScroll: true });
       }
+      // La cabecera fija del tema tapa la parte superior: se compara con su altura (scroll-margin-top en el CSS)
+      var sticky = parseFloat(getComputedStyle(this.root).scrollMarginTop) || 0;
       var top = this.root.getBoundingClientRect().top;
-      if (top < 0) this.root.scrollIntoView({ behavior: S.prefersReducedMotion() ? 'auto' : 'smooth', block: 'start' });
+      if (top < sticky) this.root.scrollIntoView({ behavior: S.prefersReducedMotion() ? 'auto' : 'smooth', block: 'start' });
       S.announce(S.t('stepAnnounce', { step: n, total: total }));
     }
   };

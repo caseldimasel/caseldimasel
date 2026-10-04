@@ -1135,6 +1135,13 @@ html.sidonia-lock {
 
 /* ---------------------------------------------------------------- reproductor */
 
+/* Destinos de desplazamiento (pasos del formulario, resultados, anclas #sidonia-…) visibles bajo la cabecera fija */
+[data-sidonia-form],
+[data-sidonia-results],
+.sidonia-scope[id^='sidonia-'] {
+  scroll-margin-top: calc(var(--sidonia-sticky-top, 0px) + var(--sidonia-s4));
+}
+
 /* «hidden» siempre gana a las reglas de display de los componentes Sidonia (y solo a las suyas). */
 [class*='sidonia-'][hidden],
 .sidonia-scope [hidden] {

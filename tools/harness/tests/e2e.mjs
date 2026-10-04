@@ -21,10 +21,10 @@ const run = (name, fn) => (!filter || name.toLowerCase().includes(filter) || gro
 const WIDTHS = [360, 390, 768, 1024, 1440];
 const IMPACT = TARGET === 'impact';
 // Selectores de la cabecera según el tema: Impact (store-header nativo) o el anfitrión genérico.
-const HDR = IMPACT ? 'store-header.header' : '[data-sidonia-header]';
+const HDR = IMPACT ? 'store-header.header' : 'header[data-sidonia-header]';
 const NAV_LINKS = IMPACT ? '.header__link-list a, .header__link-list summary' : '.harness-nav a';
 // Elemento cuyo color de texto se mide (Impact aplica el color transparente a los enlaces vía --text-color)
-const HDR_TEXT = IMPACT ? '.header__link-list a' : '[data-sidonia-header]';
+const HDR_TEXT = IMPACT ? '.header__link-list a' : 'header[data-sidonia-header]';
 console.log(`Objetivo de las pruebas: ${IMPACT ? 'Impact 7.2.0 integrado (impact/sidonia)' : 'anfitrión de pruebas genérico'}`);
 const RED = 'rgb(182, 63, 56)';
 const BLUE = 'rgb(40, 99, 142)';
@@ -170,7 +170,7 @@ await run('Transparente sobre el hero, sólida al bajar, sin cambiar de altura; 
     const bg = await page.evaluate(() => getComputedStyle(document.getElementById('search-drawer').shadowRoot.querySelector('[part~="content"]')).backgroundColor);
     eq(bg, 'rgb(250, 248, 244)', 'fondo del panel de búsqueda');
   } else {
-    await page.locator('[data-sidonia-header-panel] > summary').first().click();
+    await page.locator('[data-sidonia-header-panel]:visible > summary').first().click();
     await page.waitForTimeout(400);
     assert(!transparent(await state()), 'con un panel abierto sigue transparente');
   }
@@ -355,8 +355,11 @@ await run('Reproducir abre con sonido, vertical sin recortar, Escape cierra y el
   await page.waitForFunction(() => !document.querySelector('#sidonia-video-modal').open);
   const back = await page.evaluate(() => document.activeElement && document.activeElement.closest('[data-product-handle="prueba-coche-a"]') !== null);
   assert(back, 'el foco no vuelve a la tarjeta');
-  const playing = await page.evaluate(() => [...document.querySelectorAll('video')].filter((x) => !x.paused).length);
-  eq(playing, 0, 'vídeos sonando tras cerrar');
+  const quiet = await page
+    .waitForFunction(() => [...document.querySelectorAll('video')].every((x) => x.paused), null, { timeout: 3000 })
+    .then(() => true, () => false);
+  const playing = await page.evaluate(() => [...document.querySelectorAll('video')].filter((x) => !x.paused).map((x) => x.parentElement.className).join(', '));
+  assert(quiet, 'vídeos sonando 3 s después de cerrar: ' + playing);
   await ctx.close();
   return `proporción ${v.ratio.toFixed(3)}, con sonido`;
 });

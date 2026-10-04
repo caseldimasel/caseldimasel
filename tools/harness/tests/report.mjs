@@ -96,6 +96,9 @@ ${table(runs.host)}
 | Iconos sobre el logo a 360 px y menú en dos líneas | Logo centrado de Impact + 6 enlaces + «Vender» | Diseño «logo a la izquierda»; corazón al panel móvil; espaciado en < 400 px |
 | «Propietario» con dos puntos sueltos | Etiqueta solo para lectores de pantalla | La regla de «:» ignora etiquetas ocultas |
 | Nombres de sección de más de 25 caracteres | Límite de Shopify | Nombres acortados |
+| Al pasar de paso en el formulario, el paso quedaba bajo la cabecera fija | El cálculo no contaba la cabecera | \`scroll-margin-top\` con la altura real de la cabecera de Impact |
+| \`apply-kit --update\` sobrescribía plantillas editadas y duplicaba las secciones conservadas | Las plantillas se trataban como archivos del kit | En \`--update\` se conservan; reaplicar sobre un tema integrado no cambia nada |
+| Un producto normal no mostraba su información en el arnés | El intérprete de pruebas no exponía \`section\` a los snippets (Shopify sí) | Corregido el intérprete (no el tema) |
 
 ## 8. Peso de los recursos del kit (sin comprimir)
 
