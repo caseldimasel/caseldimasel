@@ -103,7 +103,7 @@ await run('Instalación vacía: logo en texto accesible, menú de reserva, secci
   const brand = await page.locator('.sd-header__brand').getAttribute('aria-label');
   eq(brand, 'SIDONIA', 'nombre accesible del logo');
   const logoSrc = await page.locator('.sd-header__brand img').first().getAttribute('src');
-  assert(/sidonia-logo-light\.png/.test(logoSrc), 'logo incluido en el tema (variante clara sobre cabecera oscura): ' + logoSrc);
+  assert(/sidonia-logo-dark\.png/.test(logoSrc), 'logo incluido en el tema (variante oscura sobre cabecera clara): ' + logoSrc);
   const logoFoot = await page.locator('.sd-footer img[src*="sidonia-logo"]').count();
   assert(logoFoot >= 1, 'logo en el pie');
   assert((await page.locator('.sd-nav__list a').count()) >= 6, 'menú de reserva incompleto');
@@ -658,9 +658,9 @@ await run('Marcas: la página lista TODAS las marcas de coches y barcos, con bú
     assert((await page.locator('[data-sd-brand-panel="boats"] .sd-brand[data-brand="' + b + '"]').count()) === 1, 'falta la marca de barcos ' + b);
   }
   const href = await page.locator('[data-sd-brand-panel="cars"] .sd-brand[data-brand="Porsche"]').getAttribute('href');
-  assert(/\/collections\/garage\?filter\.p\.m\.sidonia\.brand=Porsche$/.test(href), 'enlace de Porsche: ' + href);
+  assert(/\/collections\/coches\?filter\.p\.m\.sidonia\.brand=Porsche$/.test(href), 'enlace de Porsche: ' + href);
   const hrefBoat = await page.locator('[data-sd-brand-panel="boats"] .sd-brand[data-brand="Riva"]').getAttribute('href');
-  assert(/\/collections\/harbor\?filter\.p\.m\.sidonia\.builder=Riva$/.test(hrefBoat), 'enlace de Riva: ' + hrefBoat);
+  assert(/\/collections\/barcos\?filter\.p\.m\.sidonia\.builder=Riva$/.test(hrefBoat), 'enlace de Riva: ' + hrefBoat);
   // pestañas
   assert(await page.locator('[data-sd-brand-panel="boats"]').isHidden(), 'barcos oculto al inicio');
   await page.locator('[data-sd-brand-tab="boats"]').click();

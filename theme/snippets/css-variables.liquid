@@ -129,6 +129,10 @@
     --sd-dur-slow: 420ms;
   }
 </style>
+{%- if settings.heading_font_mode == 'brand' or settings.body_font_mode == 'brand' or settings.heading_font_mode == blank -%}
+  <link rel="preload" as="font" href="{{ 'kmr-apparat-medium.otf' | asset_url }}" type="font/otf" crossorigin>
+  <link rel="preload" as="font" href="{{ 'switzer-light.otf' | asset_url }}" type="font/otf" crossorigin>
+{%- endif -%}
 {%- if settings.body_font_mode == 'shopify' -%}
   <link rel="preload" as="font" href="{{ settings.body_font | font_url }}" type="font/woff2" crossorigin>
 {%- endif -%}
