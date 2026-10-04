@@ -260,7 +260,7 @@ img {
   display: inline-grid;
 }
 
-@media (min-width: 1024px) {
+@media (min-width: 1150px) {
   html {
     --harness-header-h: 4.5rem;
   }
@@ -324,7 +324,7 @@ html:has(#MainContent > .shopify-section:first-child [data-sidonia-header-overla
 }
 
 /* El hero reserva la tira de categorías móvil además de la barra */
-@media (max-width: 1023px) {
+@media (max-width: 1149px) {
   html {
     --sidonia-header-h: calc(var(--harness-header-h) + 2.75rem);
     --sidonia-sticky-top: calc(var(--harness-header-h) + 2.75rem);
