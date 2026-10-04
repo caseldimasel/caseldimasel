@@ -26,8 +26,9 @@ export function apply(dir, ctx) {
     if (!existsSync(outPath) || !existsSync(basePath)) continue;
     const out = readJsonLoose(outPath);
     const base = readJsonLoose(basePath);
-    const isKit = out.data.order.every((k) => /^sidonia|^impact_/.test(out.data.sections[k].type) || k.startsWith('impact_'));
+    const isKit = out.data.order.every((k) => /^sidonia/.test(out.data.sections[k].type) || k.startsWith('impact_'));
     if (!isKit || out.data.order.some((k) => k.startsWith('impact_'))) continue; // plantilla de la tienda o ya fusionada
+    if (Object.values(base.data.sections).some((sec) => /^sidonia/.test(sec.type))) continue; // la base ya estaba integrada
     let added = 0;
     for (const key of base.data.order) {
       const id = `impact_${key}`;

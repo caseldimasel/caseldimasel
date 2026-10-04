@@ -1,32 +1,35 @@
-# Parches específicos de Impact (pendientes)
+# Parches para Impact 7.x
 
-Esta carpeta contendrá los parches que adaptan archivos **propios de Impact** (cabecera, menú, búsqueda predictiva, JSON-LD, colores). **Están vacíos a propósito**: no se pueden escribir sin ver los archivos reales de la versión de Impact de Sidonia, y el briefing prohíbe inventar nombres de snippets, ajustes o eventos.
+Escritos tras auditar la copia real de la tienda (Impact **7.2.0**, exportación del 4/10/2026; `node integration/audit-impact.mjs`).
+`integration/apply-kit.mjs` los aplica en orden sobre la **copia** del tema, nunca sobre el original.
 
-Cuando llegue la copia de Impact:
+## Reglas
 
-1. `node integration/audit-impact.mjs impact/<copia>.zip` → `impact/AUDITORIA.md`.
-2. Para cada punto de `integration/manifest.json › patches_pending`, se escribe aquí un módulo `NN-<id>.mjs`:
+- Cada cambio se localiza con un **ancla exacta** de Impact 7.2.0 y comprueba cuántas veces aparece. Si no coincide (otra
+  versión de Impact), el parche **se detiene** con un mensaje que dice qué ancla falta: nunca se aplica a ciegas.
+- Cada archivo modificado lleva la marca `sidonia:<id>` (idempotente: no se aplica dos veces) y un comentario que dice qué parche lo cambió.
+- Solo actúan sobre las **piezas** (productos con `sidonia.category`); el comercio normal de la tienda no cambia.
+- No tocan `config/settings_data.json`.
+
+| Parche | Archivos de Impact | Qué hace |
+|---|---|---|
+| `10-impact-header.mjs` | `sections/header.liquid`, `snippets/navigation-panel.liquid` | Puntos de categoría en el menú (escritorio y móvil); Favoritos y «Vender con Sidonia» en la cabecera; «Favoritos» en el panel móvil; logo sin `<h1>` en la portada (el hero ya tiene el h1) |
+| `20-impact-commerce.mjs` | `snippets/product-card.liquid`, `price-list.liquid`, `buy-buttons.liquid` | Tarjeta Sidonia, precio editorial y sin botones de compra para piezas |
+| `30-impact-seo.mjs` | `snippets/microdata-schema.liquid`, `social-meta-tags.liquid` | Sin JSON-LD comprable de Impact ni `og:price`/disponibilidad técnica en piezas |
+| `40-impact-bridge.mjs` | `layout/theme.liquid`, `config/settings_schema.json` + nuevo `snippets/sidonia-impact-bridge.liquid` | Altura real de la cabecera para el kit y paleta piedra en todo Impact (casilla «Aplicar la paleta piedra») |
+| `50-impact-templates.mjs` | `templates/index.json`, `search.json`, `404.json`, `sections/footer-group.json`, `header-group.json` | Secciones originales conservadas desactivadas; «Sidonia · Pie»; cabecera fija y logo a la izquierda |
+
+La cabecera transparente **no** se parchea: `sidonia-hero` y `sidonia-page-header` usan el mecanismo de Impact
+(`allow-transparent-header` + margen superior negativo, verificado en `assets/theme.js › StoreHeader`).
+
+## Contrato de un parche
 
 ```js
-// Ejemplo de contrato (no es código de Impact)
-export function appliesTo(themeDir) { /* true si el archivo esperado existe */ }
-export function apply(themeDir) {
-  // Lee el archivo real, inserta el render del kit en el punto localizado por la auditoría
-  // entre marcas {%- comment -%}sidonia:<id>{%- endcomment -%} para que sea idempotente y fácil de revisar,
-  // y devuelve { modified: ['sections/<archivo-real>.liquid'] }.
+export function appliesTo(themeDir) { return isImpact7(themeDir); }
+export function apply(themeDir, { base, root, update }) {
+  // editFile(themeDir, 'snippets/x.liquid', 'id', (src) => replaceExact(src, ANCLA, NUEVO, VECES, 'snippets/x.liquid'))
+  return { modified: ['snippets/x.liquid (motivo)'], created: [], notes: [] };
 }
 ```
 
-3. `node integration/apply-kit.mjs --base impact/original --out impact/sidonia --replace index.json,search.json,404.json` aplica kit + parches y deja el registro y el diff.
-
-| Parche | Qué hará | Dónde se localiza |
-|---|---|---|
-| `header-actions` | Favoritos con contador y «Vender con Sidonia» en la cabecera | Auditoría §3 |
-| `menu-dots` | Punto de color delante de Coches, Barcos y Casas (menú de escritorio y móvil) | Auditoría §3 |
-| `transparent-header` | `sidonia-hero` y `sidonia-page-header` activan la cabecera transparente nativa | Auditoría §3 |
-| `seo-guard` | Sin JSON-LD de oferta ni `og:price` de variante en las fichas Sidonia | Auditoría §5 |
-| `predictive-price` | La búsqueda predictiva muestra el precio editorial, nunca 0 | Auditoría §6 |
-| `card-swap` | Las secciones de Impact que listen piezas usan `sidonia-card` | Auditoría §4 |
-| `color-bridge` | Tokens `--sidonia-*` enlazados con las variables reales y fondo piedra en Impact | Auditoría §7 |
-
-Cada parche debe ir acompañado de una entrada en `docs/14-registro-de-cambios.md` con el archivo de Impact tocado, la línea de anclaje y el motivo, para revisarlo al actualizar Impact.
+Utilidades en `_lib.mjs` (los archivos que empiezan por `_` no se ejecutan como parche).

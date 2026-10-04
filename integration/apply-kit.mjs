@@ -67,10 +67,18 @@ for (const dir of MANIFEST.copy) {
     log.created.push(target);
   }
 }
+// En --update las plantillas que ya existen guardan lo editado en el editor de temas: se conservan tal cual.
+const keepExisting = (target) => {
+  log.kept.push(`${target} (ya integrada: conserva lo editado en el editor)`);
+};
 for (const name of MANIFEST.templates.new) {
   const target = `templates/${name}`;
   if (baseFiles.includes(target)) {
-    if (replace.includes(name) || update) log.replaced.push(target);
+    if (update) {
+      keepExisting(target);
+      continue;
+    }
+    if (replace.includes(name)) log.replaced.push(target);
     else {
       log.conflicts.push(target);
       continue;
@@ -80,6 +88,10 @@ for (const name of MANIFEST.templates.new) {
 }
 for (const name of MANIFEST.templates.replace) {
   const target = `templates/${name}`;
+  if (update && baseFiles.includes(target) && /"type":\s*"sidonia-/.test(readFileSync(join(base, target), 'utf8'))) {
+    keepExisting(target);
+    continue;
+  }
   if (!replace.includes(name)) {
     log.notes.push(`${target}: se conserva la del tema base (pásala en --replace para usar la del kit)`);
     continue;
@@ -199,7 +211,7 @@ ${log.modified.map((f) => '- ' + f).join('\n')}
 
 ## Conservados sin cambios
 ${log.kept.map((f) => '- ' + f).join('\n')}
-- Resto de archivos del tema base: ${baseFiles.length - log.replaced.length - 3} archivos idénticos.
+- Resto de archivos del tema base: sin cambios (ver el diff).
 
 ## Notas
 ${log.notes.map((n) => '- ' + n).join('\n') || '- ninguna'}

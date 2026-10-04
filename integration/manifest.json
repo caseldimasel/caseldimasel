@@ -1,6 +1,10 @@
 {
-  "_comment": "Qué hace apply-kit.mjs con cada parte del kit. «new» = archivos nuevos (si ya existen, conflicto). «replace» = plantillas que sustituyen a las del tema base SOLO si se pasan en --replace (decisión tras la auditoría). Los «patches» se escriben después de auditar Impact: no se inventan rutas.",
-  "copy": ["assets", "sections", "snippets"],
+  "_comment": "Qué hace apply-kit.mjs con cada parte del kit. «new» = archivos nuevos (si ya existen, conflicto; en --update se conservan). «replace» = plantillas que sustituyen a las del tema base SOLO si se pasan en --replace. Los parches de Impact están en integration/patches/ (escritos tras auditar Impact 7.2.0).",
+  "copy": [
+    "assets",
+    "sections",
+    "snippets"
+  ],
   "templates": {
     "new": [
       "collection.sidonia.json",
@@ -19,23 +23,49 @@
       "page.sidonia-contact.json",
       "page.wanted.json"
     ],
-    "replace": ["index.json", "search.json", "404.json"]
+    "replace": [
+      "index.json",
+      "search.json",
+      "404.json"
+    ]
   },
-  "locales": { "source": "locales/es.json", "namespace": "sidonia", "targets": ["default", "es.json"] },
-  "settings": { "source": "config/settings_schema.sidonia.json", "prefix": "sidonia_" },
+  "locales": {
+    "source": "locales/es.json",
+    "namespace": "sidonia",
+    "targets": [
+      "default",
+      "es.json"
+    ]
+  },
+  "settings": {
+    "source": "config/settings_schema.sidonia.json",
+    "prefix": "sidonia_"
+  },
   "layout": {
     "file": "layout/theme.liquid",
-    "head": { "before": "</head>", "snippet": "sidonia-head", "marker": "sidonia:head" },
-    "body": { "before": "</body>", "snippet": "sidonia-body-end", "marker": "sidonia:body" }
+    "head": {
+      "before": "</head>",
+      "snippet": "sidonia-head",
+      "marker": "sidonia:head"
+    },
+    "body": {
+      "before": "</body>",
+      "snippet": "sidonia-body-end",
+      "marker": "sidonia:body"
+    }
   },
-  "never_touch": ["config/settings_data.json"],
-  "patches_pending": [
-    { "id": "header-actions", "what": "Insertar {% render 'sidonia-header-actions' %} junto a los iconos de la cabecera", "find": "Auditoría §3: sección de cabecera y su zona de iconos" },
-    { "id": "menu-dots", "what": "Insertar {% render 'sidonia-menu-dot', link: link %} antes del título de cada enlace del menú principal (escritorio y móvil)", "find": "Auditoría §3: pintado de enlaces del menú" },
-    { "id": "transparent-header", "what": "Hacer que sidonia-hero y sidonia-page-header activen la cabecera transparente nativa (ruta A) o añadir data-sidonia-header y el CSS puente (ruta B)", "find": "Auditoría §3: ajustes y Liquid con «transparent»" },
-    { "id": "seo-guard", "what": "No emitir el JSON-LD de producto ni og:price de Impact en plantillas product.garage/harbor/estate", "find": "Auditoría §5" },
-    { "id": "predictive-price", "what": "Mostrar sidonia-price (nunca el precio de variante) en la búsqueda predictiva para piezas Sidonia", "find": "Auditoría §6: búsqueda predictiva" },
-    { "id": "card-swap", "what": "Si se mantienen secciones de Impact que listan piezas, renderizar sidonia-card cuando el producto tenga sidonia.category", "find": "Auditoría §4: snippets y uso de tarjetas" },
-    { "id": "color-bridge", "what": "Enlazar --sidonia-* con las variables de color/tipografía reales y fijar el fondo piedra en los ajustes de Impact", "find": "Auditoría §7" }
-  ]
+  "never_touch": [
+    "config/settings_data.json"
+  ],
+  "patches": {
+    "dir": "integration/patches",
+    "verified_on": "Impact 7.2.0",
+    "list": [
+      "10-impact-header",
+      "20-impact-commerce",
+      "30-impact-seo",
+      "40-impact-bridge",
+      "50-impact-templates"
+    ]
+  }
 }
