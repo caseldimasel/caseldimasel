@@ -10,7 +10,7 @@
 | Plantillas Liquid renderizadas | `tools/preview/liquid.mjs` (**intérprete propio**, no el de Shopify) + datos de prueba `tools/preview/store.mjs` | Que las plantillas producen el HTML esperado con datos de ejemplo |
 | Comportamiento en navegador | Chromium (Playwright) contra la previsualización local, 5 anchos | Layout, JS, vídeo, filtros, favoritos, formularios, accesibilidad básica |
 
-Resultado de la última ejecución: **72 de 72 pruebas correctas**; validador: **0 errores**, 1 avisos informativos.
+Resultado de la última ejecución: **73 de 73 pruebas correctas**; validador: **0 errores**, 1 avisos informativos.
 
 ## 2. Lo que NO se ha podido hacer en esta entrega
 
@@ -78,8 +78,9 @@ Estas limitaciones son del entorno de desarrollo (sin acceso a Internet salvo el
 | ✔ | Marcas: la página lista TODAS las marcas de coches y barcos, con búsqueda local y enlaces al filtro real |  |
 | ✔ | Marcas: sin JavaScript se ven todas las marcas de ambos tipos |  |
 | ✔ | Inicio: sección compacta de marcas con enlace al listado completo |  |
-| ✔ | Listado: pestañas Todo/Garage/Harbor/Estate y fila de marcas con piezas filtran de verdad |  |
+| ✔ | Listado: pestañas Todo/Coches/Barcos/Casas y fila de marcas con piezas filtran de verdad |  |
 | ✔ | Filtros en escritorio: cajón lateral modal (cerrado al inicio), Escape lo cierra y devuelve el foco |  |
+| ✔ | Marca: tipografías KMR Apparat y Switzer cargadas, logo de marca, galería con fotos y pestañas Coches/Barcos/Casas |  |
 | ✔ | Buscador: diálogo accesible, sugerencias reales (API), resultados con filtros y estado vacío |  |
 | ✔ | Favoritos: guardar en tarjeta y ficha, aria-pressed, contador, persisten tras recargar y sincronizan entre pestañas |  |
 | ✔ | Favoritos: la página consulta el estado ACTUAL (vendida, retirada) y permite quitar y vaciar con confirmación |  |
@@ -97,12 +98,12 @@ Estas limitaciones son del entorno de desarrollo (sin acceso a Internet salvo el
 | ✔ | Teclado: enlace para saltar al contenido, foco visible y orden lógico |  |
 | ✔ | Auditoría automática de accesibilidad (idioma, landmarks, ids únicos, etiquetas, nombres, alt, encabezados) | 9 páginas |
 | ✔ | Reducir movimiento: animaciones y transiciones se anulan |  |
-| ✔ | Contraste real renderizado: texto principal, secundario y botones ≥ 4,5:1 | 5.71:1 mínimo |
+| ✔ | Contraste real renderizado: texto principal, secundario y botones ≥ 4,5:1 | 7.08:1 mínimo |
 | ✔ | Analítica: eventos útiles, una sola vez, sin datos personales y solo con consentimiento |  |
 | ✔ | Analítica: filtros aplicados solo envían nombres de filtro y recuento, no valores ni búsquedas |  |
 | ✔ | Los componentes son idempotentes: quitar y volver a insertar secciones no duplica listeners ni vídeos |  |
 | ✔ | Sección renderizada de forma independiente (Section Rendering API): cada sección devuelve su HTML | 10 secciones |
-| ✔ | Home y ficha: sin terceros, imagen principal con prioridad, resto diferido, CLS bajo | / CLS 0.000 eager 1 · /collections/explorar CLS 0.000 eager 1 · /products/prueba-coche-a CLS 0.000 eager 1 |
+| ✔ | Home y ficha: sin terceros, imagen principal con prioridad, resto diferido, CLS bajo | / CLS 0.002 eager 0 · /collections/explorar CLS 0.007 eager 1 · /products/prueba-coche-a CLS 0.000 eager 1 |
 
 ## 4. Validador estático y contraste
 
@@ -110,36 +111,44 @@ Contraste calculado de la paleta por defecto (WCAG, fórmula de luminancia relat
 
 | Pareja | Ratio | Mínimo | Resultado |
 |---|---|---|---|
-| Texto sobre fondo | 19.30:1 | 4.5:1 | cumple |
-| Texto sobre superficie | 19.30:1 | 4.5:1 | cumple |
-| Texto secundario sobre fondo | 7.04:1 | 4.5:1 | cumple |
-| Texto secundario sobre superficie alternativa | 6.34:1 | 4.5:1 | cumple |
-| Texto del botón sobre botón | 19.30:1 | 4.5:1 | cumple |
+| Texto sobre fondo | 18.88:1 | 4.5:1 | cumple |
+| Texto sobre superficie | 18.88:1 | 4.5:1 | cumple |
+| Texto secundario sobre fondo | 7.08:1 | 4.5:1 | cumple |
+| Texto secundario sobre superficie alternativa | 6.33:1 | 4.5:1 | cumple |
+| Texto del botón sobre botón | 18.88:1 | 4.5:1 | cumple |
 | Texto claro sobre fondo oscuro | 17.33:1 | 4.5:1 | cumple |
-| Anillo de foco sobre fondo | 6.68:1 | 3:1 | cumple |
-| Borde de campo sobre superficie | 4.29:1 | 3:1 | cumple |
-| Garage como texto sobre superficie alternativa | 5.14:1 | 4.5:1 | cumple |
-| Harbor como texto sobre superficie alternativa | 6.01:1 | 4.5:1 | cumple |
-| Estate como texto sobre superficie alternativa | 4.74:1 | 4.5:1 | cumple |
-| Garage como texto sobre fondo | 5.71:1 | 4.5:1 | cumple |
-| Harbor como texto sobre fondo | 6.68:1 | 4.5:1 | cumple |
-| Estate como texto sobre fondo | 5.27:1 | 4.5:1 | cumple |
-| Texto sobre Garage | 5.71:1 | 4.5:1 | cumple |
-| Texto sobre Harbor | 6.68:1 | 4.5:1 | cumple |
-| Texto sobre Estate | 5.27:1 | 4.5:1 | cumple |
+| Anillo de foco sobre fondo | 6.79:1 | 3:1 | cumple |
+| Borde de campo sobre superficie | 4.17:1 | 3:1 | cumple |
+| Garage como texto sobre superficie alternativa | 6.48:1 | 4.5:1 | cumple |
+| Harbor como texto sobre superficie alternativa | 6.07:1 | 4.5:1 | cumple |
+| Estate como texto sobre superficie alternativa | 5.63:1 | 4.5:1 | cumple |
+| Garage como texto sobre fondo | 7.25:1 | 4.5:1 | cumple |
+| Harbor como texto sobre fondo | 6.79:1 | 4.5:1 | cumple |
+| Estate como texto sobre fondo | 6.29:1 | 4.5:1 | cumple |
+| Texto sobre Garage | 7.25:1 | 4.5:1 | cumple |
+| Texto sobre Harbor | 6.79:1 | 4.5:1 | cumple |
+| Texto sobre Estate | 6.29:1 | 4.5:1 | cumple |
 | Error (#9c2018) sobre superficie | 7.97:1 | 4.5:1 | cumple |
 | Éxito (#2d6a4a) sobre superficie | 6.42:1 | 4.5:1 | cumple |
 | Reservado (#8a5a00) sobre superficie | 5.93:1 | 3:1 | cumple |
 
-- Ajustes globales: 106
+- Ajustes globales: 107
 - Cadenas de interfaz: 378
-- CSS total: 75.3 KB · JS total: 89.0 KB (sin comprimir)
-- Archivos del tema: 127 · secciones: 36 · snippets: 43
+- CSS total: 75.5 KB · JS total: 89.0 KB (sin comprimir)
+- Archivos del tema: 147 · secciones: 37 · snippets: 44
 
 Peso de los recursos propios (sin comprimir; el CDN de Shopify los sirve comprimidos):
 
 | Recurso | Tamaño |
 |---|---|
+| foto-alfa-giulia.jpg | 541.1 KB |
+| foto-ford-roadster.jpg | 621.5 KB |
+| foto-jaguar-e-type.jpg | 483.1 KB |
+| foto-maserati-19.jpg | 495.9 KB |
+| foto-maserati-detalle.jpg | 520.5 KB |
+| foto-maserati-lago.jpg | 465.7 KB |
+| foto-porsche-911.jpg | 644.8 KB |
+| kmr-apparat-medium.otf | 117.0 KB |
 | sd-analytics.js | 4.2 KB |
 | sd-base.css | 12.9 KB |
 | sd-brands.js | 7.6 KB |
@@ -150,12 +159,22 @@ Peso de los recursos propios (sin comprimir; el CDN de Shopify los sirve comprim
 | sd-forms.js | 15.4 KB |
 | sd-header.js | 5.9 KB |
 | sd-product.js | 4.6 KB |
-| sd-sections.css | 29.8 KB |
+| sd-sections.css | 29.9 KB |
 | sd-video.js | 17.9 KB |
-| sidonia-logo-dark.png | 23.4 KB |
-| sidonia-logo-light.png | 25.8 KB |
+| sidonia-firma-dark.png | 24.2 KB |
+| sidonia-firma-light.png | 29.5 KB |
+| sidonia-logo-dark.png | 29.0 KB |
+| sidonia-logo-estate-dark.png | 29.3 KB |
+| sidonia-logo-estate-light.png | 32.8 KB |
+| sidonia-logo-garage-dark.png | 29.2 KB |
+| sidonia-logo-garage-light.png | 32.8 KB |
+| sidonia-logo-harbor-dark.png | 29.3 KB |
+| sidonia-logo-harbor-light.png | 32.8 KB |
+| sidonia-logo-light.png | 32.8 KB |
+| sidonia-punto.png | 6.6 KB |
+| switzer-light.otf | 35.8 KB |
 
-Avisos del validador (informativos): Clases usadas en Liquid sin regla en el CSS (63): sd-body (theme/layout/password.liquid), sd-brands (theme/sections/bran.
+Avisos del validador (informativos): Clases usadas en Liquid sin regla en el CSS (64): sd-body (theme/layout/password.liquid), sd-brands (theme/sections/bran.
 
 ## 5. Hechos de Shopify por verificar (no se pudo consultar la documentación)
 

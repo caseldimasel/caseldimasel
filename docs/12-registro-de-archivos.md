@@ -24,7 +24,7 @@ Generado con `node tools/list-files.mjs`. La carpeta `theme/` es lo único que s
 
 ## Plantillas (`templates/`)
 
-`404.json` · `article.json` · `blog.json` · `cart.json` · `collection.archive.json` · `collection.estate.json` · `collection.garage.json` · `collection.harbor.json` · `collection.json` · `index.json` · `list-collections.json` · `page.about.json` · `page.brands.json` · `page.contact.json` · `page.favorites.json` · `page.how-it-works.json` · `page.json` · `page.legal.json` · `page.sell.json` · `page.wanted.json` · `password.json` · `product.card.liquid` · `product.estate.json` · `product.garage.json` · `product.harbor.json` · `product.json` · `search.json`
+`404.json` · `article.json` · `blog.json` · `cart.json` · `collection.archive.json` · `collection.barcos.json` · `collection.casas.json` · `collection.coches.json` · `collection.json` · `index.json` · `list-collections.json` · `page.about.json` · `page.brands.json` · `page.contact.json` · `page.favorites.json` · `page.how-it-works.json` · `page.json` · `page.legal.json` · `page.sell.json` · `page.wanted.json` · `password.json` · `product.barcos.json` · `product.card.liquid` · `product.casas.json` · `product.coches.json` · `product.json` · `search.json`
 
 Las plantillas JSON se generan con `node tools/generate-templates.mjs`. `product.card.liquid` es la vista alternativa que usa Favoritos.
 
@@ -56,6 +56,7 @@ Las plantillas JSON se generan con `node tools/generate-templates.mjs`. `product
 | `main-search.liquid` | Resultados de búsqueda |
 | `owner-cta.liquid` | Llamada a propietarios |
 | `page-header.liquid` | Cabecera de página |
+| `photo-story.liquid` | Galería de fotos |
 | `predictive-search.liquid` | Búsqueda predictiva |
 | `product-inquiry.liquid` | Formulario de consulta |
 | `product-specs.liquid` | Datos técnicos |
@@ -75,6 +76,7 @@ Las plantillas JSON se generan con `node tools/generate-templates.mjs`. `product
 |---|---|
 | `brand-list.liquid` | Listas de marcas (coches y barcos) separadas por «/». GENERADO por tools/generate-brands.mjs desde tools/brands.json: no editar a mano. |
 | `breadcrumbs.liquid` | Migas de pan accesibles. Usa el contexto de plantilla (producto, colección, página). |
+| `bundled-photo.liquid` | Fotografía incluida en el tema (theme/assets/foto-*.jpg). Solo se usa donde no hay imagen propia y |
 | `color-on.liquid` | Devuelve el color de texto (blanco o tinta) con mejor contraste sobre un relleno. |
 | `color-safe.liquid` | Devuelve un color apto como texto sobre el fondo indicado (contraste >= 4,5:1). |
 | `contact-actions.liquid` | Acciones de contacto de una ficha: WhatsApp, email, formulario y Guardar/Compartir. |
@@ -100,7 +102,7 @@ Las plantillas JSON se generan con `node tools/generate-templates.mjs`. `product
 | `listing-facts.liquid` | Datos técnicos de una pieza como filas <div><dt><dd></div> (dentro de un <dl>). Solo se emiten los datos conocidos: |
 | `listing-location.liquid` | Ubicación pública según la precisión elegida (nunca dirección exacta). |
 | `listing-price.liquid` | Precio editorial de una pieza. Nunca usa el precio de la variante de Shopify. |
-| `listing-segments.liquid` | Pestañas de categoría (Todo · Garage · Harbor · Estate). Parámetro: cat (garage/harbor/estate o vacío). |
+| `listing-segments.liquid` | Pestañas de categoría (Todo · Coches · Barcos · Casas). Parámetro: cat (garage/harbor/estate o vacío). |
 | `listing-specs.liquid` | Dos o tres datos técnicos clave por categoría, solo los conocidos. |
 | `listing-status.liquid` | Estado editorial: available, reserved o sold (vacío si no consta). |
 | `logo.liquid` | Logo de marca. Parámetros: variant ('dark' = para fondos claros, 'light' = para fondos oscuros), class. |
@@ -121,6 +123,14 @@ Las plantillas JSON se generan con `node tools/generate-templates.mjs`. `product
 
 | Archivo | Tamaño | Descripción |
 |---|---|---|
+| `foto-alfa-giulia.jpg` | 541.1 KB |  |
+| `foto-ford-roadster.jpg` | 621.5 KB |  |
+| `foto-jaguar-e-type.jpg` | 483.1 KB |  |
+| `foto-maserati-19.jpg` | 495.9 KB |  |
+| `foto-maserati-detalle.jpg` | 520.5 KB |  |
+| `foto-maserati-lago.jpg` | 465.7 KB |  |
+| `foto-porsche-911.jpg` | 644.8 KB |  |
+| `kmr-apparat-medium.otf` | 117.0 KB |  |
 | `sd-analytics.js` | 4.2 KB | Adaptador de analítica opcional (lista blanca, consentimiento, sin datos personales) |
 | `sd-base.css` | 12.9 KB | Reinicio, tipografía, utilidades, botones, chips, formularios, tabla de datos (usa los tokens) |
 | `sd-brands.js` | 7.6 KB |  |
@@ -131,10 +141,20 @@ Las plantillas JSON se generan con `node tools/generate-templates.mjs`. `product
 | `sd-forms.js` | 15.4 KB | Validación y envío mejorado de formularios; formulario de propietarios en 3 pasos |
 | `sd-header.js` | 5.9 KB | Cajón de navegación, buscador y búsqueda predictiva |
 | `sd-product.js` | 4.6 KB | Compartir y barra fija de contacto en móvil |
-| `sd-sections.css` | 29.8 KB | Hero, secciones de la home, ficha, formularios, contacto, favoritos |
+| `sd-sections.css` | 29.9 KB | Hero, secciones de la home, ficha, formularios, contacto, favoritos |
 | `sd-video.js` | 17.9 KB | Reproductor modal, reproductor de ficha, previsualización, proveedores externos, un solo audio |
-| `sidonia-logo-dark.png` | 23.4 KB |  |
-| `sidonia-logo-light.png` | 25.8 KB |  |
+| `sidonia-firma-dark.png` | 24.2 KB |  |
+| `sidonia-firma-light.png` | 29.5 KB |  |
+| `sidonia-logo-dark.png` | 29.0 KB |  |
+| `sidonia-logo-estate-dark.png` | 29.3 KB |  |
+| `sidonia-logo-estate-light.png` | 32.8 KB |  |
+| `sidonia-logo-garage-dark.png` | 29.2 KB |  |
+| `sidonia-logo-garage-light.png` | 32.8 KB |  |
+| `sidonia-logo-harbor-dark.png` | 29.3 KB |  |
+| `sidonia-logo-harbor-light.png` | 32.8 KB |  |
+| `sidonia-logo-light.png` | 32.8 KB |  |
+| `sidonia-punto.png` | 6.6 KB |  |
+| `switzer-light.otf` | 35.8 KB |  |
 
 ## Herramientas (`tools/`, fuera del ZIP)
 
