@@ -198,6 +198,7 @@ await run('Modal: el vídeo se crea al pulsar, suena (no silenciado), Escape lo 
   assert(title.includes('Coche de ejemplo A'), 'título del modal');
   await page.keyboard.press('Escape');
   await page.waitForSelector('.sd-vmodal:not([open])', { state: 'attached' });
+  await page.waitForFunction(() => !document.querySelector('.sd-vmodal video'), null, { timeout: 3000 });
   eq(await page.locator('.sd-vmodal video').count(), 0, 'vídeo tras cerrar');
   const focused = await page.evaluate(() => document.activeElement && document.activeElement.className);
   assert(/sd-play/.test(focused), 'el foco debe volver al botón de reproducir (foco: ' + focused + ')');
