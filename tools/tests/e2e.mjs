@@ -110,7 +110,8 @@ await run('Instalación vacía: logo en texto accesible, menú de reserva, secci
   assert((await page.locator('.sd-selection').count()) === 0, 'la selección vacía debe ocultarse fuera del editor');
   assert((await page.locator('.sd-story').count()) === 0, 'la historia sin pieza debe ocultarse');
   assert((await page.locator('.sd-testimonials').count()) === 0, 'testimonios vacíos deben ocultarse');
-  assert((await page.locator('.sd-hero__mosaic .sd-hero__tile').count()) === 3, 'mosaico de reserva del hero (una tarjeta por división)');
+  assert((await page.locator('.sd-hero__bg img[src*="foto-alfa-giulia"]').count()) === 1, 'fotografía incluida como imagen del hero');
+  assert((await page.locator('.sd-herosearch__tab').count()) === 3, 'pestañas Coches / Barcos / Casas sobre el buscador');
   assert((await page.locator('.sd-hero__play').count()) === 0, 'no debe haber control de vídeo sin vídeo');
   const community = await page.locator('.sd-community').innerText();
   assert(community.includes('Más de 200'), 'dato del fundador');
@@ -718,6 +719,26 @@ await run('Filtros en escritorio: cajón lateral modal (cerrado al inicio), Esca
   assert(box.width <= 420 && box.x === 0, 'cajón lateral: ' + JSON.stringify(box));
   await page.keyboard.press('Escape');
   await page.waitForSelector('.sd-filters:not([open])', { state: 'attached' });
+  await ctx.close();
+});
+await run('Marca: tipografías KMR Apparat y Switzer cargadas, logo de marca, galería con fotos y pestañas Coches/Barcos/Casas', async () => {
+  const { ctx, page } = await open(browser, { viewport: { width: 1440, height: 900 } });
+  await page.goto(site('/'), { waitUntil: 'networkidle' });
+  const fonts = await page.evaluate(async () => {
+    await document.fonts.ready;
+    return [...document.fonts].filter((f) => f.status === 'loaded').map((f) => f.family.replace(/['"]/g, '') + ' ' + f.weight);
+  });
+  assert(fonts.some((f) => /Sidonia Display/.test(f)), 'KMR Apparat cargada: ' + fonts.join(','));
+  assert(fonts.some((f) => /Sidonia Text 100 599/.test(f)), 'Switzer cargada: ' + fonts.join(','));
+  const fam = await page.evaluate(() => getComputedStyle(document.querySelector('h1')).fontFamily + '|' + getComputedStyle(document.body).fontFamily);
+  assert(/Sidonia Display/.test(fam) && /Sidonia Text/.test(fam), 'familias aplicadas: ' + fam);
+  const gal = await page.locator('.sd-photostory__item img').count();
+  eq(gal, 6, 'fotos de la galería');
+  for (const im of await page.locator('.sd-photostory__item img').all()) assert((await im.getAttribute('alt')).length > 10, 'foto sin descripción');
+  const tabs = await page.locator('.sd-header .sd-nav__link').allInnerTexts();
+  assert(['Coches', 'Barcos', 'Casas'].every((t) => tabs.some((x) => x.trim() === t)), 'nav: ' + tabs.join('|'));
+  const dots = await page.evaluate(() => ['garage', 'harbor', 'estate'].map((c) => getComputedStyle(document.querySelector('.sd-header .sd-cat--' + c + ' .sd-nav__dot')).backgroundColor));
+  eq(dots.join('|'), 'rgb(178, 0, 11)|rgb(22, 92, 163)|rgb(1, 109, 90)', 'puntos rojo, azul y verde de la marca');
   await ctx.close();
 });
 await run('Buscador: diálogo accesible, sugerencias reales (API), resultados con filtros y estado vacío', async () => {
