@@ -24,7 +24,7 @@ Generado con `node tools/list-files.mjs`. La carpeta `theme/` es lo único que s
 
 ## Plantillas (`templates/`)
 
-`404.json` · `article.json` · `blog.json` · `cart.json` · `collection.archive.json` · `collection.estate.json` · `collection.garage.json` · `collection.harbor.json` · `collection.json` · `index.json` · `list-collections.json` · `page.about.json` · `page.contact.json` · `page.favorites.json` · `page.how-it-works.json` · `page.json` · `page.legal.json` · `page.sell.json` · `page.wanted.json` · `password.json` · `product.card.liquid` · `product.estate.json` · `product.garage.json` · `product.harbor.json` · `product.json` · `search.json`
+`404.json` · `article.json` · `blog.json` · `cart.json` · `collection.archive.json` · `collection.estate.json` · `collection.garage.json` · `collection.harbor.json` · `collection.json` · `index.json` · `list-collections.json` · `page.about.json` · `page.brands.json` · `page.contact.json` · `page.favorites.json` · `page.how-it-works.json` · `page.json` · `page.legal.json` · `page.sell.json` · `page.wanted.json` · `password.json` · `product.card.liquid` · `product.estate.json` · `product.garage.json` · `product.harbor.json` · `product.json` · `search.json`
 
 Las plantillas JSON se generan con `node tools/generate-templates.mjs`. `product.card.liquid` es la vista alternativa que usa Favoritos.
 
@@ -32,6 +32,7 @@ Las plantillas JSON se generan con `node tools/generate-templates.mjs`. `product
 
 | Archivo | Nombre en el editor |
 |---|---|
+| `brand-directory.liquid` | Marcas |
 | `community.liquid` | Confianza y comunidad |
 | `divisions.liquid` | Tres mundos |
 | `faq.liquid` | Preguntas frecuentes |
@@ -72,6 +73,7 @@ Las plantillas JSON se generan con `node tools/generate-templates.mjs`. `product
 
 | Archivo | Descripción |
 |---|---|
+| `brand-list.liquid` | Listas de marcas (coches y barcos) separadas por «/». GENERADO por tools/generate-brands.mjs desde tools/brands.json: no editar a mano. |
 | `breadcrumbs.liquid` | Migas de pan accesibles. Usa el contexto de plantilla (producto, colección, página). |
 | `color-on.liquid` | Devuelve el color de texto (blanco o tinta) con mejor contraste sobre un relleno. |
 | `color-safe.liquid` | Devuelve un color apto como texto sobre el fondo indicado (contraste >= 4,5:1). |
@@ -92,11 +94,13 @@ Las plantillas JSON se generan con `node tools/generate-templates.mjs`. `product
 | `format-number.liquid` | Formatea un número con separador de miles según el idioma. Parámetros: n, decimals (opcional, máx. 2). |
 | `icon.liquid` | Iconos de interfaz (trazo 24x24). Parámetros: name, size (px, por defecto 20), class. |
 | `js-config.liquid` | Configuración pública para los scripts del tema. No contiene secretos, tokens ni datos personales. |
+| `listing-brands.liquid` | Fila de marcas con piezas ahora mismo, tomada del filtro real de marca (coches) o astillero (barcos) de |
 | `listing-card.liquid` | Tarjeta de pieza. Reutilizable en colecciones, búsqueda, selección, favoritos y relacionadas. |
 | `listing-category.liquid` | Devuelve la categoría de una pieza: garage, harbor o estate (o nada si no consta). |
 | `listing-facts.liquid` | Datos técnicos de una pieza como filas <div><dt><dd></div> (dentro de un <dl>). Solo se emiten los datos conocidos: |
 | `listing-location.liquid` | Ubicación pública según la precisión elegida (nunca dirección exacta). |
 | `listing-price.liquid` | Precio editorial de una pieza. Nunca usa el precio de la variante de Shopify. |
+| `listing-segments.liquid` | Pestañas de categoría (Todo · Garage · Harbor · Estate). Parámetro: cat (garage/harbor/estate o vacío). |
 | `listing-specs.liquid` | Dos o tres datos técnicos clave por categoría, solo los conocidos. |
 | `listing-status.liquid` | Estado editorial: available, reserved o sold (vacío si no consta). |
 | `logo.liquid` | Logo de marca. Parámetros: variant ('dark' = para fondos claros, 'light' = para fondos oscuros), class. |
@@ -119,15 +123,18 @@ Las plantillas JSON se generan con `node tools/generate-templates.mjs`. `product
 |---|---|---|
 | `sd-analytics.js` | 4.2 KB | Adaptador de analítica opcional (lista blanca, consentimiento, sin datos personales) |
 | `sd-base.css` | 12.9 KB | Reinicio, tipografía, utilidades, botones, chips, formularios, tabla de datos (usa los tokens) |
-| `sd-components.css` | 27.1 KB | Cabecera, menús, cajones, pie, tarjetas, vídeo, filtros, paginación, avisos |
+| `sd-brands.js` | 7.6 KB |  |
+| `sd-components.css` | 32.6 KB | Cabecera, menús, cajones, pie, tarjetas, vídeo, filtros, paginación, avisos |
 | `sd-core.js` | 5.0 KB | Espacio de nombres, configuración, utilidades, avisos accesibles, diálogos |
-| `sd-facets.js` | 13.1 KB | Filtros y orden por AJAX con estado en URL; «Cargar más»; restauración de posición |
+| `sd-facets.js` | 12.4 KB | Filtros y orden por AJAX con estado en URL; «Cargar más»; restauración de posición |
 | `sd-favorites.js` | 16.0 KB | Favoritos locales, `<sd-save>`, `<sd-fav-count>`, `<sd-favorites-page>` |
 | `sd-forms.js` | 15.4 KB | Validación y envío mejorado de formularios; formulario de propietarios en 3 pasos |
 | `sd-header.js` | 5.9 KB | Cajón de navegación, buscador y búsqueda predictiva |
 | `sd-product.js` | 4.6 KB | Compartir y barra fija de contacto en móvil |
-| `sd-sections.css` | 27.0 KB | Hero, secciones de la home, ficha, formularios, contacto, favoritos |
+| `sd-sections.css` | 29.8 KB | Hero, secciones de la home, ficha, formularios, contacto, favoritos |
 | `sd-video.js` | 17.9 KB | Reproductor modal, reproductor de ficha, previsualización, proveedores externos, un solo audio |
+| `sidonia-logo-dark.png` | 23.4 KB |  |
+| `sidonia-logo-light.png` | 25.8 KB |  |
 
 ## Herramientas (`tools/`, fuera del ZIP)
 

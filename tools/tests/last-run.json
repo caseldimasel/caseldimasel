@@ -1,18 +1,18 @@
 {
-  "at": "2026-10-04T16:01:53.809Z",
+  "at": "2026-10-04T16:04:52.149Z",
   "total": 2,
   "failed": 0,
   "results": [
     {
-      "name": "Marcas: la página lista TODAS las marcas de coches y barcos, con búsqueda local y enlaces al filtro real",
+      "name": "Los dos botones principales se ven sin desplazarse a 360×640",
       "ok": true,
-      "ms": 1274,
+      "ms": 909,
       "info": ""
     },
     {
-      "name": "Marcas: sin JavaScript se ven todas las marcas de ambos tipos",
+      "name": "Los dos botones principales se ven sin desplazarse a 390×800",
       "ok": true,
-      "ms": 217,
+      "ms": 776,
       "info": ""
     }
   ]
