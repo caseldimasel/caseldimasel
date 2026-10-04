@@ -5,8 +5,8 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const routes = [
-  '/', '/collections/explorar', '/collections/garage', '/collections/harbor', '/collections/estate', '/collections/archivo',
-  '/collections/garage?filter.p.m.sidonia.brand=Marca%20A', '/collections/explorar?page=2', '/collections/explorar?filter.p.m.sidonia.brand=Zzz',
+  '/', '/collections/explorar', '/collections/coches', '/collections/barcos', '/collections/casas', '/collections/archivo',
+  '/collections/coches?filter.p.m.sidonia.brand=Marca%20A', '/collections/explorar?page=2', '/collections/explorar?filter.p.m.sidonia.brand=Zzz',
   '/products/prueba-coche-a', '/products/prueba-coche-b-a-consultar', '/products/prueba-coche-c-minimo', '/products/prueba-barco-a', '/products/prueba-barco-b-reservado',
   '/products/prueba-casa-a', '/products/prueba-casa-b-vendida', '/products/prueba-coche-d-vendido', '/products/prueba-coche-e-youtube', '/products/prueba-coche-f-sin-portada',
   '/products/prueba-coche-a?view=card',

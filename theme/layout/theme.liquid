@@ -11,6 +11,9 @@
     {%- if settings.favicon != blank -%}
       <link rel="icon" type="image/png" href="{{ settings.favicon | image_url: width: 48, height: 48 }}">
       <link rel="apple-touch-icon" href="{{ settings.favicon | image_url: width: 180, height: 180 }}">
+    {%- elsif settings.use_bundled_logo -%}
+      <link rel="icon" type="image/png" href="{{ 'sidonia-punto.png' | asset_url }}">
+      <link rel="apple-touch-icon" href="{{ 'sidonia-punto.png' | asset_url }}">
     {%- endif -%}
 
     {% render 'seo-meta' %}

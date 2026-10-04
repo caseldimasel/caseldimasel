@@ -38,11 +38,11 @@ El tema usa las rutas nativas de Shopify. **Una página no puede estar en una UR
 |---|---|---|---|
 | Inicio | `index` | — | — |
 | Explorar | Colección, plantilla `collection` | `explorar` | `/collections/all` si no hay colección |
-| Garage | Colección, plantilla `collection.garage` | `garage` | — |
-| Harbor | Colección, plantilla `collection.harbor` | `harbor` | — |
-| Estate | Colección, plantilla `collection.estate` | `estate` | — |
+| Coches | Colección, plantilla `collection.coches` | `coches` | — |
+| Barcos | Colección, plantilla `collection.barcos` | `barcos` | — |
+| Casas | Colección, plantilla `collection.casas` | `casas` | — |
 | Archivo de vendidas | Colección, plantilla `collection.archive` | `archivo` | — |
-| Ficha de coche / barco / casa | Producto, plantilla `product.garage` / `product.harbor` / `product.estate` (o `product`) | — | El módulo técnico se elige por `sidonia.category`, aunque la plantilla sea otra |
+| Ficha de coche / barco / casa | Producto, plantilla `product.coches` / `product.barcos` / `product.casas` (o `product`) | — | El módulo técnico se elige por `sidonia.category`, aunque la plantilla sea otra |
 | Vender con Sidonia | Página, plantilla `page.sell` | `vender` | — |
 | Cómo vendemos | Página, plantilla `page.how-it-works` | `como-vendemos` | — |
 | Sobre Sidonia | Página, plantilla `page.about` | `sobre-sidonia` | — |

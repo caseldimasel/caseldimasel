@@ -9,11 +9,19 @@
       assign c = 'garage'
     when 'barco', 'barcos', 'boat'
       assign c = 'harbor'
-    when 'casa', 'casas', 'house'
+    when 'casa', 'casas', 'house', 'home'
       assign c = 'estate'
   endcase
   if c != 'garage' and c != 'harbor' and c != 'estate'
     assign c = product.template_suffix | downcase | strip
+    case c
+      when 'coches'
+        assign c = 'garage'
+      when 'barcos'
+        assign c = 'harbor'
+      when 'casas'
+        assign c = 'estate'
+    endcase
   endif
   if c == 'garage' or c == 'harbor' or c == 'estate'
     echo c

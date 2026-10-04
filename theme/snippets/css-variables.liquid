@@ -31,6 +31,11 @@
   assign radius_l = radius | times: 1.6 | round
 -%}
 <style id="sd-tokens">
+  {%- if settings.heading_font_mode == 'brand' or settings.body_font_mode == 'brand' or settings.heading_font_mode == blank -%}
+    @font-face { font-family: 'Sidonia Display'; font-weight: 100 900; font-style: normal; font-display: swap; src: url('{{ 'kmr-apparat-medium.otf' | asset_url }}') format('opentype'); }
+    @font-face { font-family: 'Sidonia Text'; font-weight: 100 599; font-style: normal; font-display: swap; src: url('{{ 'switzer-light.otf' | asset_url }}') format('opentype'); }
+    @font-face { font-family: 'Sidonia Text'; font-weight: 600 900; font-style: normal; font-display: swap; src: url('{{ 'kmr-apparat-medium.otf' | asset_url }}') format('opentype'); }
+  {%- endif -%}
   {%- if settings.heading_font_mode == 'shopify' -%}
     {{ settings.heading_font | font_face: font_display: 'swap' }}
   {%- endif -%}
@@ -65,10 +70,10 @@
     --sd-estate-on: {{ estate_on | strip }};
 
     /* Tipografía */
-    --sd-font-heading: {% if settings.heading_font_mode == 'shopify' %}{{ settings.heading_font.family }}, {{ settings.heading_font.fallback_families }}{% elsif settings.heading_font_mode == 'serif' %}"Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, "Noto Serif", serif{% else %}ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif{% endif %};
-    --sd-font-body: {% if settings.body_font_mode == 'shopify' %}{{ settings.body_font.family }}, {{ settings.body_font.fallback_families }}{% else %}ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif{% endif %};
-    --sd-heading-weight: {% if settings.heading_font_mode == 'shopify' %}{{ settings.heading_font.weight }}{% elsif settings.heading_font_mode == 'serif' %}400{% else %}800{% endif %};
-    --sd-heading-tracking: {% if settings.heading_font_mode == 'sans' or settings.heading_font_mode == blank %}-0.03em{% elsif settings.heading_font_mode == 'serif' %}-0.012em{% else %}-0.015em{% endif %};
+    --sd-font-heading: {% if settings.heading_font_mode == 'brand' or settings.heading_font_mode == blank %}'Sidonia Display', ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif{% elsif settings.heading_font_mode == 'shopify' %}{{ settings.heading_font.family }}, {{ settings.heading_font.fallback_families }}{% elsif settings.heading_font_mode == 'serif' %}"Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, "Noto Serif", serif{% else %}ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif{% endif %};
+    --sd-font-body: {% if settings.body_font_mode == 'brand' or settings.body_font_mode == blank %}'Sidonia Text', ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif{% elsif settings.body_font_mode == 'shopify' %}{{ settings.body_font.family }}, {{ settings.body_font.fallback_families }}{% else %}ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif{% endif %};
+    --sd-heading-weight: {% if settings.heading_font_mode == 'shopify' %}{{ settings.heading_font.weight }}{% elsif settings.heading_font_mode == 'serif' %}400{% elsif settings.heading_font_mode == 'brand' or settings.heading_font_mode == blank %}500{% else %}800{% endif %};
+    --sd-heading-tracking: {% if settings.heading_font_mode == 'brand' or settings.heading_font_mode == blank %}-0.025em{% elsif settings.heading_font_mode == 'sans' %}-0.03em{% elsif settings.heading_font_mode == 'serif' %}-0.012em{% else %}-0.015em{% endif %};
     --sd-heading-scale: {{ scale }};
     --sd-text-base: {{ base_px }}px;
 

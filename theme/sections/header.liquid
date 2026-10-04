@@ -47,7 +47,7 @@
   <div class="sd-header__top">
     <div class="sd-header__bar sd-container">
       <a class="sd-header__brand" href="{{ routes.root_url }}" aria-label="{{ settings.brand_name | default: shop.name | escape }}">
-        {%- render 'logo', variant: 'light' -%}
+        {%- render 'logo', variant: 'dark' -%}
       </a>
 
       {%- if section.settings.show_search -%}
@@ -72,7 +72,7 @@
             <sd-fav-count class="sd-badge" hidden></sd-fav-count>
           </a>
         {%- endif -%}
-        <a class="sd-btn sd-btn--light sd-btn--sm sd-header__cta" href="{{ sell_url }}">{{ sell_label }}</a>
+        <a class="sd-btn sd-btn--secondary sd-btn--sm sd-header__cta" href="{{ sell_url }}">{{ sell_label }}</a>
         <button type="button" class="sd-iconbtn sd-header__burger" data-sd-open="drawer" aria-haspopup="dialog">
           {%- render 'icon', name: 'menu', size: 24 -%}
           <span class="sd-sr">{{ 'header.open_menu' | t }}</span>

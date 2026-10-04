@@ -13,6 +13,7 @@ const here = dirname(fileURLToPath(import.meta.url));
 export const ROOT = join(here, '..', '..');
 const THEME = join(ROOT, 'theme');
 const FIXTURES = join(here, 'fixtures');
+const THEME_ASSETS = join(here, '..', '..', 'theme', 'assets');
 
 const locale = JSON.parse(readFileSync(join(THEME, 'locales/es.default.json'), 'utf8'));
 const schemaGroups = JSON.parse(readFileSync(join(THEME, 'config/settings_schema.json'), 'utf8'));
@@ -65,16 +66,16 @@ export function createStore(profileName = 'full', port = 4173) {
   const collections = full
     ? {
         explorar: col('explorar', 'Explorar', products.filter((p) => p.__data.status !== 'Vendido')),
-        garage: col('garage', 'Garage', inCat('Garage'), 'garage'),
-        harbor: col('harbor', 'Harbor', inCat('Harbor'), 'harbor'),
-        estate: col('estate', 'Estate', inCat('Estate'), 'estate'),
+        garage: col('coches', 'Coches', inCat('Coche'), 'coches'),
+        harbor: col('barcos', 'Barcos', inCat('Barco'), 'barcos'),
+        estate: col('casas', 'Casas', inCat('Casa'), 'casas'),
         archivo: col('archivo', 'Archivo', products.filter((p) => p.__data.status === 'Vendido'), 'archive'),
         all: col('all', 'Productos', products)
       }
     : { all: col('all', 'Productos', []) };
-  collections.garage = collections.garage || col('garage', 'Garage', [], 'garage');
-  collections.harbor = collections.harbor || col('harbor', 'Harbor', [], 'harbor');
-  collections.estate = collections.estate || col('estate', 'Estate', [], 'estate');
+  collections.garage = collections.garage || col('coches', 'Coches', [], 'coches');
+  collections.harbor = collections.harbor || col('barcos', 'Barcos', [], 'barcos');
+  collections.estate = collections.estate || col('casas', 'Casas', [], 'casas');
   collections.explorar = collections.explorar || col('explorar', 'Explorar', []);
   collections.archivo = collections.archivo || col('archivo', 'Archivo', [], 'archive');
 
@@ -82,9 +83,9 @@ export function createStore(profileName = 'full', port = 4173) {
     ? {
         'main-menu': { links: [
           { title: 'Explorar', url: '/collections/explorar', current: false, links: [] },
-          { title: 'Garage', url: '/collections/garage', current: false, links: [] },
-          { title: 'Harbor', url: '/collections/harbor', current: false, links: [] },
-          { title: 'Estate', url: '/collections/estate', current: false, links: [] },
+          { title: 'Coches', url: '/collections/coches', current: false, links: [] },
+          { title: 'Barcos', url: '/collections/barcos', current: false, links: [] },
+          { title: 'Casas', url: '/collections/casas', current: false, links: [] },
           { title: 'Cómo vendemos', url: '/pages/como-vendemos', current: false, links: [] },
           { title: 'Sobre Sidonia', url: '/pages/sobre-sidonia', current: false, links: [] }
         ] },
@@ -122,7 +123,6 @@ export function createStore(profileName = 'full', port = 4173) {
         privacy_url: '/pages/privacidad',
         analytics_enabled: true,
         analytics_require_consent: true,
-        division_garage_image: image('Portada Garage', 1000, 1250, '#a3261c'),
         og_image: image('OG', 1200, 630, '#555')
       }
     : { enable_load_more: true };
@@ -282,7 +282,7 @@ export function createRenderer(store) {
     let m;
     if (url === '/') templateName = 'index';
     else if ((m = /^\/collections\/([^/]+)$/.exec(url))) {
-      const c = store.collections[m[1]];
+      const c = Object.values(store.collections).find((x) => x.handle === m[1]);
       if (c) {
         templateName = 'collection';
         suffix = c.template_suffix;
@@ -460,9 +460,19 @@ export function startServer({ port = 4173, profile = 'full' } = {}) {
         const id = path.slice(5);
         const info = IMAGE_COLORS[id];
         if (!info) return send(404, 'no img');
+        if (info.photo) {
+          const f = join(THEME_ASSETS, info.photo + '.jpg');
+          if (existsSync(f)) return send(200, readFileSync(f), 'image/jpeg', { 'cache-control': 'max-age=3600' });
+        }
         const w = Math.min(parseInt(query.width?.[0] || info.w, 10), info.w);
         const h = Math.round((w * info.h) / info.w);
-        const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}"><defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#d9dde2"/><stop offset=".55" stop-color="${info.color}"/><stop offset="1" stop-color="#1c1c1c"/></linearGradient></defs><rect width="100%" height="100%" fill="url(#g)"/><rect y="${h * 0.62}" width="100%" height="${h * 0.38}" fill="rgba(0,0,0,.35)"/><path d="M${w * 0.14} ${h * 0.66} q${w * 0.04} ${-h * 0.14} ${w * 0.2} ${-h * 0.14} h${w * 0.18} q${w * 0.14} 0 ${w * 0.2} ${h * 0.14} z" fill="rgba(255,255,255,.18)"/><circle cx="${w * 0.3}" cy="${h * 0.68}" r="${w * 0.05}" fill="rgba(0,0,0,.55)"/><circle cx="${w * 0.68}" cy="${h * 0.68}" r="${w * 0.05}" fill="rgba(0,0,0,.55)"/><text x="50%" y="${h * 0.88}" font-family="sans-serif" font-size="${Math.max(12, w * 0.04)}" fill="#fff" text-anchor="middle">${info.label.replace(/&/g, '&amp;')}</text></svg>`;
+        const kind = /Barco/.test(info.label) ? 'boat' : /Casa/.test(info.label) ? 'house' : 'car';
+        const shape = kind === 'boat'
+          ? `<path d="M${w * 0.18} ${h * 0.6} h${w * 0.64} l${-w * 0.08} ${h * 0.14} h${-w * 0.46} z" fill="rgba(255,255,255,.28)"/><path d="M${w * 0.5} ${h * 0.58} v${-h * 0.34} l${w * 0.16} ${h * 0.34} z" fill="rgba(255,255,255,.22)"/>`
+          : kind === 'house'
+            ? `<path d="M${w * 0.22} ${h * 0.72} v${-h * 0.2} l${w * 0.28} ${-h * 0.16} l${w * 0.28} ${h * 0.16} v${h * 0.2} z" fill="rgba(255,255,255,.24)"/>`
+            : '';
+        const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}"><defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#d9dde2"/><stop offset=".55" stop-color="${info.color}"/><stop offset="1" stop-color="#1c1c1c"/></linearGradient></defs><rect width="100%" height="100%" fill="url(#g)"/><rect y="${h * 0.62}" width="100%" height="${h * 0.38}" fill="rgba(0,0,0,.35)"/>${shape}<text x="50%" y="${h * 0.88}" font-family="sans-serif" font-size="${Math.max(12, w * 0.04)}" fill="#fff" text-anchor="middle">${info.label.replace(/&/g, '&amp;')}</text></svg>`;
         return send(200, svg, 'image/svg+xml', { 'cache-control': 'max-age=3600' });
       }
       if (path === '/favicon.ico') return send(204, '');

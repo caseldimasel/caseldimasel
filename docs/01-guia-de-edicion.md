@@ -42,17 +42,17 @@ Todo se edita desde **Tienda online → Temas → Personalizar** del tema Sidoni
 
 ## Colores y contraste
 
-Los colores de división (rojo, azul, verde) son una hipótesis de diseño editable. Cuando se usan **como texto o icono** sobre fondos claros, el tema comprueba el contraste y **oscurece el color automáticamente** hasta llegar a 4,5:1. Cuando se usan **como relleno**, el texto encima se elige solo (claro u oscuro, el que contraste más). Aun así, revisa visualmente cada cambio.
+Los colores de división (rojo, azul, verde) vienen de los archivos de marca de Sidonia y son editables. Cuando se usan **como texto o icono** sobre fondos claros, el tema comprueba el contraste y **oscurece el color automáticamente** hasta llegar a 4,5:1. Cuando se usan **como relleno**, el texto encima se elige solo (claro u oscuro, el que contraste más). Aun así, revisa visualmente cada cambio.
 
-Paleta inicial (editable): marfil `#F5F0E6`, superficie `#FBF8F2`, tinta `#231F1A`, garage `#A3261C`, harbor `#1D4F7C`, estate `#2D6A4A`. Los contrastes calculados están en `09-informe-de-pruebas.md`.
+Paleta inicial (editable, tomada de los archivos de marca): papel `#F5F2EB`, tinta `#111111`, coches `#B2000B`, barcos `#165CA3`, casas `#016D5A` (la marca Time, `#FFA900`, queda disponible si se añade como división). Los contrastes calculados están en `09-informe-de-pruebas.md`.
 
 ## Tipografía
 
-Máximo dos familias: una para títulos y otra para interfaz y datos.
+Por defecto el tema usa las **tipografías de la marca** que aportó Sidonia: **KMR Apparat Medium** (títulos, precios, botones y negritas) y **Switzer Light** (texto corrido). Los archivos están en `theme/assets/kmr-apparat-medium.otf` y `theme/assets/switzer-light.otf` y se cargan con `@font-face` desde el propio tema (sin servicios externos).
 
-- **Por defecto**: pila de sistema, sin descarga ni licencias. Títulos: serif editorial (`Iowan Old Style`, `Palatino`, `Georgia`…); interfaz: sans del sistema.
-- **Opcional**: «Biblioteca de Shopify». Elige cualquier fuente del selector; Shopify gestiona su licencia y su alojamiento. El tema precarga la fuente de interfaz y no bloquea el renderizado (`font-display: swap`).
-- No se incluyen archivos de fuente en el tema.
+- Switzer solo existe en peso Light y KMR Apparat solo en Medium: el tema asigna Switzer a los pesos normales y KMR a los pesos ≥ 600, de modo que lo que va en negrita se ve en KMR Medium (sin negrita sintética).
+- En *Ajustes del tema → Tipografía* puedes cambiar a fuentes del sistema o a la biblioteca de Shopify.
+- **Licencia:** comprueba que la licencia de ambas fuentes permite su uso web (`@font-face`) antes de publicar. Si no, desmarca la opción de marca y usa otra.
 
 ## Home: secciones
 

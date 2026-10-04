@@ -18,7 +18,7 @@ Leyenda: **T** = funciona solo con el tema · **S** = necesita configuración en
 | Precio publicado / a consultar / no publicado | T + S | Metacampos de precio |
 | Datos estructurados (Car, Product, RealEstateListing, VideoObject) | T | Sin ofertas salvo precio publicado + disponible |
 | Migas, canonical, Open Graph, títulos y metadescripciones editables | T | SEO editable en cada producto/página |
-| Colecciones Garage, Harbor, Estate, Explorar, Archivo | S | Crear colecciones inteligentes |
+| Colecciones Coches, Barcos, Casas, Explorar, Archivo | S | Crear colecciones inteligentes |
 | Filtros por catálogo completo | S | App Search & Discovery configurada |
 | Filtros por bandas (año, km, eslora, superficie, habitaciones, presupuesto) | S | Mantener metacampos de banda (`tools/compute-bands.mjs`) |
 | Filtros con rango numérico libre (deslizador) | N | Requiere filtro nativo de precio o integración de búsqueda |

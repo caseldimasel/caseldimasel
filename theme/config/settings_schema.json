@@ -2,7 +2,7 @@
   {
     "name": "theme_info",
     "theme_name": "Sidonia",
-    "theme_version": "1.1.0",
+    "theme_version": "1.2.0",
     "theme_author": "Sidonia",
     "theme_documentation_url": "https://github.com/caseldimasel/caseldimasel",
     "theme_support_url": "https://github.com/caseldimasel/caseldimasel/issues"
@@ -76,6 +76,21 @@
     ]
   },
   {
+    "name": "Imágenes de ejemplo",
+    "settings": [
+      {
+        "type": "paragraph",
+        "content": "El tema incluye fotografías de clásicos (theme/assets/foto-*.jpg) para que la web no se vea vacía. Se usan solo donde no hay imagen propia. Cuando tengas tus fotos, súbelas en cada sección o colección y desmarca esta casilla."
+      },
+      {
+        "type": "checkbox",
+        "id": "use_bundled_photos",
+        "label": "Usar las fotografías incluidas en el tema",
+        "default": true
+      }
+    ]
+  },
+  {
     "name": "Colores",
     "settings": [
       {
@@ -97,32 +112,32 @@
       {
         "type": "color",
         "id": "color_surface_alt",
-        "label": "Superficie alternativa",
-        "default": "#F3F3F0"
+        "label": "Superficie alternativa (papel)",
+        "default": "#F5F2EB"
       },
       {
         "type": "color",
         "id": "color_text",
         "label": "Texto",
-        "default": "#0E0E0E"
+        "default": "#111111"
       },
       {
         "type": "color",
         "id": "color_muted",
         "label": "Texto secundario",
-        "default": "#595954"
+        "default": "#5C5850"
       },
       {
         "type": "color",
         "id": "color_border",
         "label": "Bordes y separadores",
-        "default": "#E1E1DC"
+        "default": "#E4DFD5"
       },
       {
         "type": "color",
         "id": "color_button",
         "label": "Botón principal",
-        "default": "#0E0E0E"
+        "default": "#111111"
       },
       {
         "type": "color",
@@ -147,26 +162,26 @@
       {
         "type": "color",
         "id": "color_garage",
-        "label": "Garage (coches)",
-        "default": "#C8201B"
+        "label": "Coches (punto rojo)",
+        "default": "#B2000B"
       },
       {
         "type": "color",
         "id": "color_harbor",
-        "label": "Harbor (barcos)",
-        "default": "#1B5E9E"
+        "label": "Barcos (punto azul)",
+        "default": "#165CA3"
       },
       {
         "type": "color",
         "id": "color_estate",
-        "label": "Estate (casas)",
-        "default": "#2B7A4B"
+        "label": "Casas (punto verde)",
+        "default": "#016D5A"
       },
       {
         "type": "color",
         "id": "color_focus",
         "label": "Anillo de foco",
-        "default": "#1B5E9E"
+        "default": "#165CA3"
       }
     ]
   },
@@ -175,7 +190,7 @@
     "settings": [
       {
         "type": "paragraph",
-        "content": "Máximo dos familias: una para títulos y otra para interfaz y datos. Por defecto se usan fuentes del sistema (sin descarga, sin licencias). Puedes cambiar a la biblioteca de fuentes de Shopify, cuyas licencias gestiona Shopify."
+        "content": "Máximo dos familias: una para títulos y otra para interfaz y datos. Por defecto se usan las tipografías de la marca (KMR Apparat para títulos y datos, Switzer Light para texto), que van incluidas en el tema. También puedes usar fuentes del sistema o la biblioteca de Shopify, cuyas licencias gestiona Shopify."
       },
       {
         "type": "select",
@@ -183,8 +198,12 @@
         "label": "Fuente de títulos",
         "options": [
           {
+            "value": "brand",
+            "label": "KMR Apparat (tipografía de marca, incluida)"
+          },
+          {
             "value": "sans",
-            "label": "Sans moderna del sistema (por defecto)"
+            "label": "Sans moderna del sistema"
           },
           {
             "value": "serif",
@@ -195,7 +214,7 @@
             "label": "Biblioteca de Shopify (elige abajo)"
           }
         ],
-        "default": "sans"
+        "default": "brand"
       },
       {
         "type": "font_picker",
@@ -209,6 +228,10 @@
         "label": "Fuente de interfaz y datos",
         "options": [
           {
+            "value": "brand",
+            "label": "Switzer Light (tipografía de marca, incluida)"
+          },
+          {
             "value": "system",
             "label": "Sans del sistema"
           },
@@ -217,7 +240,7 @@
             "label": "Biblioteca de Shopify (elige abajo)"
           }
         ],
-        "default": "system"
+        "default": "brand"
       },
       {
         "type": "font_picker",
@@ -253,7 +276,7 @@
             "label": "18 px"
           }
         ],
-        "default": "16"
+        "default": "17"
       }
     ]
   },
@@ -278,7 +301,7 @@
         "max": 24,
         "step": 2,
         "unit": "px",
-        "default": 6
+        "default": 4
       },
       {
         "type": "select",
@@ -357,19 +380,19 @@
       },
       {
         "type": "header",
-        "content": "Garage (coches)"
+        "content": "Coches (punto rojo)"
       },
       {
         "type": "text",
         "id": "division_garage_name",
         "label": "Nombre",
-        "default": "Garage"
+        "default": "Coches"
       },
       {
         "type": "text",
         "id": "division_garage_tagline",
         "label": "Frase breve",
-        "default": "Coches con historia y carácter"
+        "default": "Clásicos y coches con historia"
       },
       {
         "type": "collection",
@@ -394,13 +417,13 @@
       },
       {
         "type": "header",
-        "content": "Harbor (barcos)"
+        "content": "Barcos (punto azul)"
       },
       {
         "type": "text",
         "id": "division_harbor_name",
         "label": "Nombre",
-        "default": "Harbor"
+        "default": "Barcos"
       },
       {
         "type": "text",
@@ -431,13 +454,13 @@
       },
       {
         "type": "header",
-        "content": "Estate (casas)"
+        "content": "Casas (punto verde)"
       },
       {
         "type": "text",
         "id": "division_estate_name",
         "label": "Nombre",
-        "default": "Estate"
+        "default": "Casas"
       },
       {
         "type": "text",

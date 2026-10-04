@@ -11,16 +11,16 @@ Requisitos previos: definiciones de metacampos creadas (`03`), colecciones (`04`
 5. **Precio**: una sola variante. Ver `05` (precio de variante 0 salvo que uses el orden/filtro nativo de precio).
 6. **Inventario**: seguimiento activado, cantidad 0, «seguir vendiendo» desactivado. **Canales**: solo Tienda online.
 7. **Organización**: etiqueta `pieza`; **Proveedor** = marca / constructor / (agencia en casas); **Tipo** = `Coche`, `Barco` o `Casa`.
-8. **Plantilla de tema**: `product.garage`, `product.harbor` o `product.estate`.
+8. **Plantilla de tema**: `product.coches`, `product.barcos` o `product.casas`.
 9. **Optimización SEO**: título de página y metadescripción propios (se usan tal cual).
 10. **Metacampos**: rellena los comunes (`reference`, `category`, `status`, `price_mode`, ubicación…) y los de la categoría.
 11. Guarda en **Borrador** hasta revisar la vista previa; al publicar, aparecerá en las colecciones inteligentes.
 
-## Ficha de coche (Garage)
+## Ficha de coche (punto rojo)
 
 | Campo | Ejemplo de prueba |
 |---|---|
-| `category` | Garage |
+| `category` | Coche |
 | `reference` | PR-G-001 |
 | `brand` · `model` · `version` · `year` | Marca A · Modelo A · Versión A · 1972 |
 | `mileage_km` | 84000 (vacío si no se conoce) |
@@ -31,11 +31,11 @@ Requisitos previos: definiciones de metacampos creadas (`03`), colecciones (`04`
 
 Resultado: datos esenciales (año, kilometraje, cambio, combustible, potencia, color), grupos Identidad / Mecánica / Aspecto, y ubicación «Región de prueba, España». Un dato vacío **no sale** en la ficha.
 
-## Ficha de barco (Harbor)
+## Ficha de barco (punto azul)
 
 | Campo | Ejemplo de prueba |
 |---|---|
-| `category` | Harbor |
+| `category` | Barco |
 | `builder` · `model` · `boat_type` · `year` | Constructor A · Modelo · Velero · 1988 |
 | `length_m` · `beam_m` | 12.5 · 3.8 (manga solo si se conoce) |
 | `engine` · `engine_hours` · `tax_regime` | Diésel 40 CV · 2100 · solo si está confirmado |
@@ -44,11 +44,11 @@ Resultado: datos esenciales (año, kilometraje, cambio, combustible, potencia, c
 
 Grupos: Identidad / Dimensiones / Motorización / Administrativo. El vídeo horizontal (16:9) conserva su proporción.
 
-## Ficha de casa (Estate)
+## Ficha de casa (punto verde)
 
 | Campo | Ejemplo de prueba |
 |---|---|
-| `category` | Estate |
+| `category` | Casa |
 | `property_type` · `built_period` | Masía · años 60 |
 | `area_value` · `area_unit` · `plot_area` | 320 · m² · 5200 |
 | `bedrooms` · `bathrooms` | 5 · 3 |

@@ -7,9 +7,9 @@ Crea **colecciones inteligentes** (con condiciones automáticas) para que una pi
 | Colección (handle) | Plantilla | Condiciones (todas) |
 |---|---|---|
 | `explorar` | `collection` | Etiqueta es `pieza` **y** `sidonia.status` no es `Vendido` |
-| `garage` | `collection.garage` | `sidonia.category` es `Garage` **y** `sidonia.status` no es `Vendido` |
-| `harbor` | `collection.harbor` | `sidonia.category` es `Harbor` **y** `sidonia.status` no es `Vendido` |
-| `estate` | `collection.estate` | `sidonia.category` es `Estate` **y** `sidonia.status` no es `Vendido` |
+| `coches` | `collection.coches` | `sidonia.category` es `Coche` **y** `sidonia.status` no es `Vendido` |
+| `barcos` | `collection.barcos` | `sidonia.category` es `Barco` **y** `sidonia.status` no es `Vendido` |
+| `casas` | `collection.casas` | `sidonia.category` es `Casa` **y** `sidonia.status` no es `Vendido` |
 | `archivo` | `collection.archive` | Etiqueta es `pieza` **y** `sidonia.status` es `Vendido` |
 | `destacadas` (opcional) | — | `sidonia.featured` es verdadero **y** `sidonia.status` no es `Vendido` |
 
@@ -37,25 +37,25 @@ Los filtros se configuran en la app **Shopify Search & Discovery → Filtros**. 
 | 2 | Estado | `sidonia.status` | Comunes | Lista |
 | 3 | Ubicación | `sidonia.region` | Comunes | Lista |
 | 4 | Presupuesto | `sidonia.price_band` | Comunes | Lista (banda) |
-| 5 | Marca | `sidonia.brand` | Garage | Lista |
-| 6 | Año | `sidonia.year_band` | Garage y Harbor (compartido) | Lista (banda) |
-| 7 | Kilometraje | `sidonia.km_band` | Garage | Lista (banda) |
-| 8 | Cambio | `sidonia.gearbox` | Garage | Lista |
-| 9 | Combustible | `sidonia.fuel` | Garage | Lista |
-| 10 | Tipo de embarcación | `sidonia.boat_type` | Harbor | Lista |
-| 11 | Constructor | `sidonia.builder` | Harbor | Lista |
-| 12 | Eslora | `sidonia.loa_band` | Harbor | Lista (banda) |
-| 13 | Tipo de inmueble | `sidonia.property_type` | Estate | Lista |
-| 14 | Habitaciones | `sidonia.bedrooms_band` | Estate | Lista (banda) |
-| 15 | Superficie | `sidonia.area_band` | Estate | Lista (banda) |
+| 5 | Marca | `sidonia.brand` | Coches | Lista |
+| 6 | Año | `sidonia.year_band` | Coches y barcos (compartido) | Lista (banda) |
+| 7 | Kilometraje | `sidonia.km_band` | Coches | Lista (banda) |
+| 8 | Cambio | `sidonia.gearbox` | Coches | Lista |
+| 9 | Combustible | `sidonia.fuel` | Coches | Lista |
+| 10 | Tipo de embarcación | `sidonia.boat_type` | Barcos | Lista |
+| 11 | Constructor | `sidonia.builder` | Barcos | Lista |
+| 12 | Eslora | `sidonia.loa_band` | Barcos | Lista (banda) |
+| 13 | Tipo de inmueble | `sidonia.property_type` | Casas | Lista |
+| 14 | Habitaciones | `sidonia.bedrooms_band` | Casas | Lista (banda) |
+| 15 | Superficie | `sidonia.area_band` | Casas | Lista (banda) |
 
-Un filtro solo aparece en una colección si hay piezas con valores en esa colección: en `garage` salen los de coches, en `harbor` los de barcos. En `explorar` aparecen los comunes y los de cada categoría con datos; los grupos están **plegados** salvo los tres primeros y los activos.
+Un filtro solo aparece en una colección si hay piezas con valores en esa colección: en `coches` salen los de coches, en `barcos` los de barcos. En `explorar` aparecen los comunes y los de cada categoría con datos; los grupos están **plegados** salvo los tres primeros y los activos.
 
 Opcional: marca «Orden de valores» manual en cada filtro de bandas para que salgan en el orden lógico (de menor a mayor).
 
 ## 3b. Marcas (lista completa y píldoras del listado)
 
-- **Página «Marcas»** (`page.brands`) y sección compacta del inicio: listan **todas** las marcas de coches y de barcos de `tools/brands.json` (150 de coches y 130 de barcos), con o sin piezas. Es una lista de navegación, no inventario: cada enlace lleva a `…/collections/garage?filter.p.m.sidonia.brand=<Marca>` (o `…builder=` en Harbor).
+- **Página «Marcas»** (`page.brands`) y sección compacta del inicio: listan **todas** las marcas de coches y de barcos de `tools/brands.json` (150 de coches y 130 de barcos), con o sin piezas. Es una lista de navegación, no inventario: cada enlace lleva a `…/collections/coches?filter.p.m.sidonia.brand=<Marca>` (o `…builder=` en barcos).
 - Los números junto a cada marca los lee `sd-brands.js` de los filtros reales de la colección (`sidonia.brand` / `sidonia.builder`); sin JavaScript se ven todas las marcas, sin números.
 - Para que una marca funcione, el valor del metacampo debe escribirse **igual** que en la lista (p. ej. `Mercedes-Benz`). Añadir o quitar marcas: edita `tools/brands.json` y ejecuta `node tools/generate-brands.mjs` (regenera `theme/snippets/brand-list.liquid`).
 - En cada listado, la fila de píldoras muestra solo las marcas **con piezas** (viene del filtro de Search & Discovery) y un enlace a «Todas las marcas». Requiere que los filtros `sidonia.brand` y `sidonia.builder` estén activados en Search & Discovery.

@@ -56,7 +56,7 @@ Refuerzo opcional (requiere app o código de servidor, no incluido): una validac
 Si en la misma tienda vendes libros, arte u otros productos sí comprables:
 
 - **No cambies ajustes globales** (inventario, canales, «seguir vendiendo» por defecto).
-- Distingue las piezas por el metacampo `sidonia.category` y por las colecciones de Sidonia (`explorar`, `garage`, `harbor`, `estate`, `archivo`).
+- Distingue las piezas por el metacampo `sidonia.category` y por las colecciones de Sidonia (`explorar`, `coches`, `barcos`, `casas`, `archivo`).
 - Este tema **no tiene interfaz de compra**: los productos normales no se podrían comprar con él. Para convivir hay que usar este tema en una tienda dedicada, o añadir una plantilla `product.<otra>` con compra normal asignada solo a esos productos (trabajo no incluido).
 
 ## 6. Disponible no es «comprable»

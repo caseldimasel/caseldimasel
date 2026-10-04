@@ -32,7 +32,13 @@ Mientras falten estos datos, el tema **no inventa nada**: oculta el bloque o mue
 - [ ] Respuestas de FAQ sobre tarifas, exclusividad y plazos **solo cuando estén decididas**.
 - [ ] Alcance real de la intermediación y proceso después del contacto (para afirmar o no inspecciones, valoración, gestión documental).
 
+## Marca
+- [ ] Confirmar que la licencia de KMR Apparat y Switzer permite su uso web (van incluidas en `theme/assets`).
+- [ ] Decidir si la marca **Time** (amarilla, relojes) entra como cuarta división (hay logos en los archivos de marca; se añade como división nueva, ver `01`).
+- [ ] Subir logo propio si se quiere cambiar el incluido (por defecto se usa el wordmark SIDONIA de los archivos de marca).
+
 ## Imágenes
+- [ ] Fotografías de **barcos y casas**: el tema solo incluye fotos de coches clásicos aportadas por Sidonia; sin foto, las tarjetas de Barcos y Casas se ven con el color de marca y el wordmark.
 - [ ] Fotografías reales de cada pieza y, si se quiere, de cada división (portada en *Ajustes del tema → Divisiones*). El tema no incluye fotos de stock.
 - [ ] Revisar la lista de marcas (`tools/brands.json`) y añadir las que falten; los valores de `sidonia.brand` / `sidonia.builder` deben coincidir exactamente.
 

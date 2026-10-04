@@ -28,15 +28,29 @@
         {%- assign c_count_n = c_count | plus: 0 -%}
         <li class="sd-divcard sd-cat sd-cat--{{ c }}">
           <div class="sd-divcard__media">
-            {%- if c_img != blank -%}
-              {%- render 'sd-image', image: c_img, widths: '400,600,800,1000', sizes: '(min-width: 900px) 30vw, 92vw', class: 'sd-divcard__img', decorative: true, cover: true -%}
+            {%- liquid
+              assign c_cover = c_img
+              if c_cover == blank
+                assign col_key = 'division_' | append: c | append: '_collection'
+                assign c_col = settings[col_key]
+                if c_col != blank
+                  assign c_cover = c_col.image
+                  if c_cover == blank and c_col.products.size > 0
+                    assign c_cover = c_col.products.first.featured_image
+                  endif
+                endif
+              endif
+            -%}
+            {%- if c_cover != blank -%}
+              {%- render 'sd-image', image: c_cover, widths: '400,600,800,1000', sizes: '(min-width: 900px) 30vw, 92vw', class: 'sd-divcard__img', decorative: true, cover: true -%}
+            {%- elsif c == 'garage' and settings.use_bundled_photos -%}
+              {%- render 'bundled-photo', name: 'foto-jaguar-e-type', alt: '', class: 'sd-divcard__img' -%}
             {%- else -%}
-              <span class="sd-divcard__fill" aria-hidden="true">{{ c_name }}</span>
+              <span class="sd-divcard__fill" aria-hidden="true"><img class="sd-divcard__mark" src="{{ 'sidonia-logo-light.png' | asset_url }}" width="600" height="125" alt="" loading="lazy"></span>
             {%- endif -%}
           </div>
           <div class="sd-divcard__body">
-            <p class="sd-eyebrow">{{ settings.brand_name | default: shop.name }}</p>
-            <h3 class="sd-divcard__name"><a class="sd-divcard__link" href="{{ c_url | strip }}">{{ c_name }}</a></h3>
+            <h3 class="sd-divcard__name"><a class="sd-divcard__link" href="{{ c_url | strip }}"><span class="sd-nav__dot" aria-hidden="true"></span>{{ c_name }}</a></h3>
             {%- assign c_tag = c_tag | strip -%}
             {%- if c_tag != blank -%}<p class="sd-divcard__tag">{{ c_tag }}</p>{%- endif -%}
             <p class="sd-divcard__foot">
@@ -57,13 +71,13 @@
   "name": "Tres mundos",
   "tag": "section",
   "settings": [
-    { "type": "text", "id": "eyebrow", "label": "Antetítulo", "default": "Una misma selección" },
-    { "type": "text", "id": "heading", "label": "Título", "default": "Tres mundos, una misma selección" },
+    { "type": "text", "id": "eyebrow", "label": "Antetítulo", "default": "Explorar por tipo" },
+    { "type": "text", "id": "heading", "label": "Título", "default": "Coches, barcos y casas" },
     {
       "type": "textarea",
       "id": "text",
       "label": "Texto",
-      "default": "Cada división tiene su color y su forma de mirar, pero comparten el mismo criterio: piezas con historia, bien contadas."
+      "default": "Tres mundos con un mismo criterio: piezas con historia, de las que se cuentan despacio. Más clásicos que lujo."
     },
     { "type": "paragraph", "content": "Nombres, frases, portadas y colecciones se editan en Ajustes del tema > Divisiones. El número de piezas solo se muestra si la colección está enlazada y tiene contenido." }
   ],

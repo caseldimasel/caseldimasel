@@ -62,6 +62,44 @@
       "type": "featured-story",
       "settings": {}
     },
+    "gallery": {
+      "type": "photo-story",
+      "settings": {},
+      "blocks": {
+        "photo-1": {
+          "type": "photo",
+          "settings": {}
+        },
+        "photo-2": {
+          "type": "photo",
+          "settings": {}
+        },
+        "photo-3": {
+          "type": "photo",
+          "settings": {}
+        },
+        "photo-4": {
+          "type": "photo",
+          "settings": {}
+        },
+        "photo-5": {
+          "type": "photo",
+          "settings": {}
+        },
+        "photo-6": {
+          "type": "photo",
+          "settings": {}
+        }
+      },
+      "block_order": [
+        "photo-1",
+        "photo-2",
+        "photo-3",
+        "photo-4",
+        "photo-5",
+        "photo-6"
+      ]
+    },
     "community": {
       "type": "community",
       "settings": {}
@@ -185,6 +223,7 @@
     "hero",
     "divisions",
     "selection",
+    "gallery",
     "brands",
     "how",
     "story",

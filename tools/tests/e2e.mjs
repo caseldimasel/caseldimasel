@@ -36,7 +36,7 @@ const run = (name, fn) => (!filter || name.toLowerCase().includes(filter.toLower
 
 /* =========================== 1. Responsive y consola =========================== */
 console.log('\n1. Responsive, desbordes y errores');
-const ROUTES = ['/', '/collections/explorar', '/collections/garage', '/collections/archivo', '/products/prueba-coche-a', '/products/prueba-barco-a', '/products/prueba-casa-a', '/products/prueba-casa-b-vendida', '/pages/vender', '/pages/como-vendemos', '/pages/sobre-sidonia', '/pages/favoritos', '/pages/contacto', '/pages/busco', '/pages/marcas', '/pages/privacidad', '/search?q=Marca&type=product', '/nope'];
+const ROUTES = ['/', '/collections/explorar', '/collections/coches', '/collections/archivo', '/products/prueba-coche-a', '/products/prueba-barco-a', '/products/prueba-casa-a', '/products/prueba-casa-b-vendida', '/pages/vender', '/pages/como-vendemos', '/pages/sobre-sidonia', '/pages/favoritos', '/pages/contacto', '/pages/busco', '/pages/marcas', '/pages/privacidad', '/search?q=Marca&type=product', '/nope'];
 for (const w of WIDTHS) {
   await run(`Sin desbordes ni errores a ${w}px (perfil completo, ${ROUTES.length} páginas)`, async () => {
     const { ctx, page } = await open(browser, { viewport: { width: w, height: 800 } });
@@ -59,7 +59,7 @@ await run('Sin desbordes ni errores a 360 y 1440 px (instalación vacía, sin co
   const bad = [];
   for (const w of [360, 1440]) {
     const { ctx, page } = await open(browser, { viewport: { width: w, height: 800 } });
-    for (const r of ['/', '/collections/garage', '/collections/explorar', '/pages/vender', '/pages/contacto', '/pages/favoritos', '/search', '/cart', '/nope']) {
+    for (const r of ['/', '/collections/coches', '/collections/explorar', '/pages/vender', '/pages/contacto', '/pages/favoritos', '/search', '/cart', '/nope']) {
       await page.goto(site(r, 'empty'), { waitUntil: 'networkidle' });
       const ov = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
       if (ov > 0) bad.push(`${w} ${r}: desborde`);
@@ -80,7 +80,7 @@ await run('El hero comunica coches, barcos, casas y vídeo narrativo en el prime
   eq(h1, 'Coches, barcos y casas con alma', 'titular');
   const hero = page.locator('.sd-hero');
   const txt = await hero.innerText();
-  for (const t of ['Garage', 'Harbor', 'Estate', 'Explorar la selección', 'Quiero vender con Sidonia', 'Ver cómo lo contamos']) assert(txt.includes(t), 'falta «' + t + '» en el hero');
+  for (const t of ['Coches', 'Barcos', 'Casas', 'Explorar la selección', 'Quiero vender con Sidonia', 'Ver cómo lo contamos']) assert(txt.includes(t), 'falta «' + t + '» en el hero');
   assert((await hero.locator('input[type=search]').count()) === 1, 'sin buscador en el hero');
   const box = await hero.locator('.sd-hero__play').boundingBox();
   assert(box && box.y < 900, 'control de vídeo fuera del primer pantallazo');
@@ -136,7 +136,7 @@ await run('Tres mundos: el contador procede de la colección y coincide con el l
   const { ctx, page } = await open(browser);
   await page.goto(site('/'), { waitUntil: 'networkidle' });
   const txt = await page.locator('.sd-divcard.sd-cat--garage .sd-divcard__count').innerText();
-  await page.goto(site('/collections/garage'), { waitUntil: 'networkidle' });
+  await page.goto(site('/collections/coches'), { waitUntil: 'networkidle' });
   const count = await page.locator('[data-sd-swap="count"]').innerText();
   eq(txt.replace(/\D/g, ''), count.replace(/\D/g, ''), 'contador de la división vs. listado');
   await ctx.close();
@@ -168,7 +168,7 @@ await run('Tarjetas: sin botones dentro de enlaces, un enlace de ficha, destinos
 });
 await run('Tarjetas: estado, precio real, «Precio a consultar» y «no publicado», sin 0 ni «gratis»', async () => {
   const { ctx, page } = await open(browser);
-  await page.goto(site('/collections/garage'), { waitUntil: 'networkidle' });
+  await page.goto(site('/collections/coches'), { waitUntil: 'networkidle' });
   const grid = await page.locator('[data-sd-grid]').innerText();
   assert(grid.includes('Precio a consultar') && grid.includes('Precio no publicado') && /85\.000\s€/.test(grid), 'textos de precio');
   assert(!/(^|\s)0\s?€|gratis|gratuito/i.test(grid), 'aparece un 0 o «gratis»');
@@ -529,7 +529,7 @@ await run('Piezas relacionadas: de la misma división, explicables, nunca vendid
 console.log('\n6. Catálogo, filtros y búsqueda');
 await run('Filtros: consultan todo el catálogo (no solo la página visible), con estado en URL, atrás/adelante y recarga', async () => {
   const { ctx, page } = await open(browser, { viewport: { width: 1440, height: 900 } });
-  await page.goto(site('/collections/garage'), { waitUntil: 'networkidle' });
+  await page.goto(site('/collections/coches'), { waitUntil: 'networkidle' });
   const total = parseInt((await page.locator('[data-sd-swap="count"]').innerText()).replace(/\D/g, ''), 10);
   const shown = await page.locator('[data-sd-grid] .sd-card').count();
   assert(total > shown, `el catálogo (${total}) debe tener más piezas que la página (${shown})`);
@@ -571,14 +571,14 @@ await run('Filtros: consultan todo el catálogo (no solo la página visible), co
 });
 await run('Filtros: estado vacío invita a ampliar la búsqueda o contactar; mensaje de carga con aria-busy', async () => {
   const { ctx, page } = await open(browser);
-  await page.goto(site('/collections/garage?filter.p.m.sidonia.brand=Marca%20E&filter.p.m.sidonia.year_band=1960-1969'), { waitUntil: 'networkidle' });
+  await page.goto(site('/collections/coches?filter.p.m.sidonia.brand=Marca%20E&filter.p.m.sidonia.year_band=1960-1969'), { waitUntil: 'networkidle' });
   const t = await page.locator('.sd-empty').innerText();
   assert(/Ninguna pieza coincide/.test(t) && /Limpiar todo/.test(t) && /Cuéntanos qué buscas/.test(t), 'estado vacío: ' + t);
   await ctx.close();
 });
 await run('Orden: solo opciones reales (editorial, novedades); sin «más populares»; el precio solo si se activa', async () => {
   const { ctx, page } = await open(browser);
-  await page.goto(site('/collections/garage'), { waitUntil: 'networkidle' });
+  await page.goto(site('/collections/coches'), { waitUntil: 'networkidle' });
   const opts = await page.locator('[data-sd-sort] option').allInnerTexts();
   assert(opts.length === 2 && opts.includes('Selección editorial') && opts.includes('Novedades'), 'opciones: ' + opts.join('|'));
   assert(!opts.some((o) => /popular|vendid|Alfab/i.test(o)), 'opción no real');
@@ -617,7 +617,7 @@ await run('«Cargar más»: al volver desde una ficha se restauran las páginas 
 });
 await run('Filtros en móvil: panel modal accesible, «Ver N piezas», devuelve el foco', async () => {
   const { ctx, page } = await open(browser, { viewport: { width: 390, height: 800 } });
-  await page.goto(site('/collections/garage'), { waitUntil: 'networkidle' });
+  await page.goto(site('/collections/coches'), { waitUntil: 'networkidle' });
   assert(!(await page.locator('.sd-filters').isVisible()), 'el panel empieza cerrado en móvil');
   const toggle = page.locator('[data-sd-open-filters]');
   await toggle.click();
@@ -635,7 +635,7 @@ await run('Filtros en móvil: panel modal accesible, «Ver N piezas», devuelve 
 });
 await run('Filtros: sin JavaScript el formulario funciona (GET) y se muestra «Aplicar filtros»', async () => {
   const { ctx, page } = await open(browser, { js: false });
-  await page.goto(site('/collections/garage'), { waitUntil: 'load' });
+  await page.goto(site('/collections/coches'), { waitUntil: 'load' });
   assert(await page.locator('.sd-filters').isVisible(), 'panel de filtros visible');
   await checkFilter(page, 'brand', 'Marca B');
   await page.locator('.sd-nojs-only').click();
@@ -690,12 +690,12 @@ await run('Inicio: sección compacta de marcas con enlace al listado completo', 
   assert(/\/pages\/marcas#cars$/.test(more), 'enlace al listado completo: ' + more);
   await ctx.close();
 });
-await run('Listado: pestañas Todo/Garage/Harbor/Estate y fila de marcas con piezas filtran de verdad', async () => {
+await run('Listado: pestañas Todo/Coches/Barcos/Casas y fila de marcas con piezas filtran de verdad', async () => {
   const { ctx, page } = await open(browser, { viewport: { width: 1440, height: 900 } });
-  await page.goto(site('/collections/garage'), { waitUntil: 'networkidle' });
+  await page.goto(site('/collections/coches'), { waitUntil: 'networkidle' });
   const tabs = await page.locator('.sd-segment:not(.sd-segment--brands) .sd-pill').allInnerTexts();
-  eq(tabs.map((t) => t.trim()).join('|'), 'Todo|Garage|Harbor|Estate', 'pestañas');
-  eq(await page.locator('.sd-segment:not(.sd-segment--brands) .sd-pill[aria-current="page"]').innerText(), 'Garage', 'pestaña activa');
+  eq(tabs.map((t) => t.trim()).join('|'), 'Todo|Coches|Barcos|Casas', 'pestañas');
+  eq(await page.locator('.sd-segment:not(.sd-segment--brands) .sd-pill[aria-current="page"]').innerText(), 'Coches', 'pestaña activa');
   const pill = page.locator('.sd-segment--brands .sd-pill', { hasText: 'Marca B' });
   assert((await pill.count()) === 1, 'píldora de marca con piezas');
   assert(!(await page.locator('.sd-segment--brands .sd-pill', { hasText: 'Zzz' }).count()), 'solo marcas con piezas');
@@ -709,7 +709,7 @@ await run('Listado: pestañas Todo/Garage/Harbor/Estate y fila de marcas con pie
 });
 await run('Filtros en escritorio: cajón lateral modal (cerrado al inicio), Escape lo cierra y devuelve el foco', async () => {
   const { ctx, page } = await open(browser, { viewport: { width: 1440, height: 900 } });
-  await page.goto(site('/collections/garage'), { waitUntil: 'networkidle' });
+  await page.goto(site('/collections/coches'), { waitUntil: 'networkidle' });
   assert(!(await page.locator('.sd-filters').isVisible()), 'el cajón empieza cerrado también en escritorio');
   await page.locator('[data-sd-open-filters]').click();
   await page.waitForSelector('.sd-filters[open]');
@@ -814,7 +814,7 @@ await run('Favoritos: contenido corrupto, versión futura y almacenamiento bloqu
     Storage.prototype.setItem = function () { throw new DOMException('bloqueado', 'SecurityError'); };
     Storage.prototype.getItem = function () { throw new DOMException('bloqueado', 'SecurityError'); };
   });
-  await page.goto(site('/collections/garage'), { waitUntil: 'networkidle' });
+  await page.goto(site('/collections/coches'), { waitUntil: 'networkidle' });
   await page.locator('.sd-card .sd-save__btn').first().click();
   eq(await page.locator('.sd-card .sd-save__btn').first().getAttribute('aria-pressed'), 'true', 'funciona en memoria');
   await page.waitForSelector('.sd-toast');
@@ -853,7 +853,7 @@ await run('Consulta: el formulario identifica la pieza, valida en cliente y el �
   const f = subs[0].fields;
   eq(f['contact[Pieza]'][0], '[PRUEBA] Coche de ejemplo A', 'campo Pieza');
   eq(f['contact[Referencia]'][0], 'PR-G-001', 'campo Referencia');
-  eq(f['contact[Categoría]'][0], 'Garage', 'campo Categoría');
+  eq(f['contact[Categoría]'][0], 'Coches', 'campo Categoría');
   assert(f['contact[URL del anuncio]'][0].endsWith('/products/prueba-coche-a'), 'URL del anuncio');
   eq(f['contact[Tipo de consulta]'][0], 'Consulta sobre una pieza', 'tipo de consulta');
   eq(f['contact[Preferencia de contacto]'][0], 'Email', 'preferencia');
@@ -996,7 +996,7 @@ await run('Cabecera: «Vender con Sidonia» siempre visible; en móvil, cajón a
   let { ctx, page } = await open(browser, { viewport: { width: 1440, height: 900 } });
   await page.goto(site('/'), { waitUntil: 'networkidle' });
   assert(await page.locator('.sd-header__cta').isVisible(), 'CTA de venta visible en escritorio');
-  for (const t of ['Explorar', 'Garage', 'Harbor', 'Estate', 'Cómo vendemos', 'Sobre Sidonia']) assert(await page.locator('.sd-nav__link', { hasText: t }).first().isVisible(), 'enlace ' + t);
+  for (const t of ['Explorar', 'Coches', 'Barcos', 'Casas', 'Cómo vendemos', 'Sobre Sidonia']) assert(await page.locator('.sd-nav__link', { hasText: t }).first().isVisible(), 'enlace ' + t);
   assert(!/Harbour/i.test(await page.content()), 'HARBOR sin cambiar');
   await ctx.close();
   ({ ctx, page } = await open(browser, { viewport: { width: 390, height: 800 } }));
@@ -1093,7 +1093,7 @@ await run('Reducir movimiento: animaciones y transiciones se anulan', async () =
 });
 await run('Contraste real renderizado: texto principal, secundario y botones ≥ 4,5:1', async () => {
   const { ctx, page } = await open(browser);
-  await page.goto(site('/collections/garage'), { waitUntil: 'networkidle' });
+  await page.goto(site('/collections/coches'), { waitUntil: 'networkidle' });
   const rows = await page.evaluate(() => {
     const parse = (c) => c.match(/[\d.]+/g).slice(0, 3).map(Number);
     const lum = ([r, g, b]) => { const f = (c) => ((c /= 255) <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4)); return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b); };
@@ -1139,7 +1139,7 @@ await run('Analítica: eventos útiles, una sola vez, sin datos personales y sol
 });
 await run('Analítica: filtros aplicados solo envían nombres de filtro y recuento, no valores ni búsquedas', async () => {
   const { ctx, page } = await open(browser, { viewport: { width: 1440, height: 900 } });
-  await page.goto(site('/collections/garage'), { waitUntil: 'networkidle' });
+  await page.goto(site('/collections/coches'), { waitUntil: 'networkidle' });
   await checkFilter(page, 'brand', 'Marca B');
   await page.waitForFunction(() => window.__events.some((e) => e[0] === 'sidonia_filters_applied'));
   const ev = await page.evaluate(() => window.__events.find((e) => e[0] === 'sidonia_filters_applied')[1]);
@@ -1151,7 +1151,7 @@ await run('Analítica: filtros aplicados solo envían nombres de filtro y recuen
 console.log('\n11. Editor: carga, descarga y recarga de secciones');
 await run('Los componentes son idempotentes: quitar y volver a insertar secciones no duplica listeners ni vídeos', async () => {
   const { ctx, page } = await open(browser, { viewport: { width: 1440, height: 900 } });
-  await page.goto(site('/collections/garage'), { waitUntil: 'networkidle' });
+  await page.goto(site('/collections/coches'), { waitUntil: 'networkidle' });
   // simula shopify:section:unload + load: reemplaza el HTML de la sección
   await page.evaluate(async () => {
     const sec = document.querySelector('[id^="shopify-section-template--0__main"]');

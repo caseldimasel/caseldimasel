@@ -2,7 +2,7 @@
 
 **Diseño:** tipo escaparate/marketplace (referencias: Bring a Trailer, Cars & Bids, Wallapop), con cabecera oscura con buscador, pestañas por categoría, filas de marcas, tarjetas con foto y precio y filtros en cajón. Logo de Sidonia incluido en `theme/assets` (se puede sustituir desde los ajustes).
 
-Plataforma de catálogo y contactos para **coches (Garage), barcos (Harbor) y casas (Estate)** con carácter, historia y personalidad. Tema independiente para Online Store (Liquid + plantillas JSON + CSS y JavaScript sin build). **No es una app ni un proyecto headless.**
+Plataforma de catálogo y contactos para **coches (punto rojo), barcos (punto azul) y casas (punto verde)** con carácter, historia y personalidad. Tema independiente para Online Store (Liquid + plantillas JSON + CSS y JavaScript sin build). **No es una app ni un proyecto headless.**
 
 > **Estado:** entrega completa del tema, la documentación y las pruebas locales. **El tema aún no se ha subido a una tienda de Shopify ni se ha pasado Shopify Theme Check** (el entorno de desarrollo no tenía acceso a Internet). Lee `docs/09-informe-de-pruebas.md` antes de publicar. **No se ha publicado nada ni se ha tocado el tema actual (Impact).**
 

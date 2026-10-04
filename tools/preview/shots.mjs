@@ -4,7 +4,7 @@ const profile = process.argv[2] || 'full';
 const port = 4180 + (profile === 'full' ? 0 : 1);
 const { server } = await startServer({ port, profile });
 const browser = await chromium.launch({ executablePath: CHROMIUM_PATH, args: ['--no-sandbox'] });
-const pages = (process.argv[3] || '/,/collections/garage,/products/prueba-coche-a,/pages/vender').split(',');
+const pages = (process.argv[3] || '/,/collections/coches,/products/prueba-coche-a,/pages/vender').split(',');
 const widths = (process.argv[4] || '390,1440').split(',').map(Number);
 for (const w of widths) {
   const ctx = await browser.newContext({ viewport: { width: w, height: w < 600 ? 800 : 900 }, deviceScaleFactor: 1 });

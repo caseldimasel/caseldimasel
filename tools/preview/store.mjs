@@ -6,9 +6,9 @@ const img = (id, w, h, alt = '', focal = '50.0% 50.0%') => ({ id, width: w, heig
 
 export const IMAGE_COLORS = {};
 let imgSeq = 0;
-function image(label, w = 1200, h = 1500, color = '#8a7f6a', alt = '', focal) {
+function image(label, w = 1200, h = 1500, color = '#8a7f6a', alt = '', focal, photo) {
   const id = `i${++imgSeq}`;
-  IMAGE_COLORS[id] = { label, color, w, h };
+  IMAGE_COLORS[id] = { label, color, w, h, photo };
   return img(id, w, h, alt, focal);
 }
 
@@ -43,7 +43,10 @@ function mfProxy(data) {
 let pid = 1000;
 export function makeProduct(o) {
   const id = ++pid;
-  const poster = o.noCover ? null : image(o.title, 1200, 1500, o.color || '#9a8f78', o.alt || o.title);
+  // Los coches de prueba usan las fotografías incluidas en el tema; barcos y casas, marcadores de color (no hay fotos).
+  const CAR_PHOTOS = ['foto-alfa-giulia', 'foto-jaguar-e-type', 'foto-maserati-19', 'foto-ford-roadster', 'foto-maserati-lago'];
+  const photo = o.category === 'Coche' ? CAR_PHOTOS[pid % CAR_PHOTOS.length] : undefined;
+  const poster = o.noCover ? null : photo ? image(o.title, 2000, 1342, o.color || '#9a8f78', o.alt || o.title, undefined, photo) : image(o.title, 1200, 900, o.color || '#9a8f78', o.alt || o.title);
   const mf = {
     reference: o.ref,
     category: o.category,
@@ -137,7 +140,7 @@ export function buildProducts() {
   const list = [];
   const gv = video(0.5625);
   const A = makeProduct({
-    handle: 'prueba-coche-a', title: '[PRUEBA] Coche de ejemplo A', ref: 'PR-G-001', category: 'Garage', status: 'Disponible',
+    handle: 'prueba-coche-a', title: '[PRUEBA] Coche de ejemplo A', ref: 'PR-G-001', category: 'Coche', status: 'Disponible',
     hook: 'Texto de prueba: una línea de historia para la tarjeta.', color: '#a3261c',
     why: 'Resumen de prueba de por qué es especial.', highlights: ['Hecho de prueba uno', 'Hecho de prueba dos'],
     story: 'Párrafo de historia de prueba uno.\n\nPárrafo de historia de prueba dos con más texto para comprobar la lectura.',
@@ -152,59 +155,59 @@ export function buildProducts() {
     ],
     documents: [{ url: 'https://cdn.preview.test/files/ficha-prueba.pdf', alt: 'Ficha de prueba' }],
     brand: 'Marca A', model: 'Modelo A', version: 'Versión A', year: 1972, km: 84000, fuel: 'Gasolina', gearbox: 'Manual', power: 130, mcolor: 'Rojo de prueba',
-    year_band: '1970-1979', km_band: '50.000-99.999 km', price_band: '50.000-99.999 €', suffix: 'garage', type: 'Coche'
+    year_band: '1970-1979', km_band: '50.000-99.999 km', price_band: '50.000-99.999 €', suffix: 'coches', type: 'Coche'
   });
   const B = makeProduct({
-    handle: 'prueba-coche-b-a-consultar', title: '[PRUEBA] Coche B (precio a consultar)', ref: 'PR-G-002', category: 'Garage', status: 'Disponible',
+    handle: 'prueba-coche-b-a-consultar', title: '[PRUEBA] Coche B (precio a consultar)', ref: 'PR-G-002', category: 'Coche', status: 'Disponible',
     price_mode: 'A consultar', price: 120000, region: 'Región B', precision: 'Región', brand: 'Marca B', model: 'Modelo B', year: 2004, km: 0,
-    fuel: 'Diésel', gearbox: 'Automático', year_band: '2000-2009', km_band: 'Hasta 49.999 km', suffix: 'garage', color: '#7a2a22', type: 'Coche'
+    fuel: 'Diésel', gearbox: 'Automático', year_band: '2000-2009', km_band: 'Hasta 49.999 km', suffix: 'coches', color: '#7a2a22', type: 'Coche'
   });
   const C = makeProduct({
-    handle: 'prueba-coche-c-minimo', title: '[PRUEBA] Coche C (datos mínimos)', category: 'Garage', status: 'Reservado',
-    price_mode: 'No publicado', brand: 'Marca A', suffix: 'garage', color: '#5b3b2c', noCover: false, type: 'Coche'
+    handle: 'prueba-coche-c-minimo', title: '[PRUEBA] Coche C (datos mínimos)', category: 'Coche', status: 'Reservado',
+    price_mode: 'No publicado', brand: 'Marca A', suffix: 'coches', color: '#5b3b2c', noCover: false, type: 'Coche'
   });
   const D = makeProduct({
-    handle: 'prueba-barco-a', title: '[PRUEBA] Barco de ejemplo A', ref: 'PR-H-001', category: 'Harbor', status: 'Disponible', color: '#1d4f7c',
+    handle: 'prueba-barco-a', title: '[PRUEBA] Barco de ejemplo A', ref: 'PR-H-001', category: 'Barco', status: 'Disponible', color: '#1d4f7c',
     hook: 'Texto de prueba de un barco.', price_mode: 'Publicado', price: 240000, currency: 'EUR', region: 'Baleares', precision: 'Región',
     video: video(1.7778), duration: 61, builder: 'Constructor A', boat_type: 'Velero', year: 1988, loa: 12.5, beam: 3.8, engine: 'Diésel 40 CV', hours: 2100, tax: 'IVA pagado (declarado)',
-    year_band: '1980-1989', loa_band: '12-14,99 m', suffix: 'harbor', story: 'Historia de prueba de un barco.', type: 'Barco', ratioNote: 'horizontal'
+    year_band: '1980-1989', loa_band: '12-14,99 m', suffix: 'barcos', story: 'Historia de prueba de un barco.', type: 'Barco', ratioNote: 'horizontal'
   });
   const E = makeProduct({
-    handle: 'prueba-barco-b-reservado', title: '[PRUEBA] Barco B (reservado)', ref: 'PR-H-002', category: 'Harbor', status: 'Reservado', color: '#2a6a9c',
+    handle: 'prueba-barco-b-reservado', title: '[PRUEBA] Barco B (reservado)', ref: 'PR-H-002', category: 'Barco', status: 'Reservado', color: '#2a6a9c',
     price_mode: 'A consultar', region: 'Cataluña', precision: 'Región', builder: 'Constructor B', boat_type: 'Motora', year: 2012, loa: 8.2,
-    year_band: '2010-2019', loa_band: '8-11,99 m', suffix: 'harbor', type: 'Barco'
+    year_band: '2010-2019', loa_band: '8-11,99 m', suffix: 'barcos', type: 'Barco'
   });
   const F = makeProduct({
-    handle: 'prueba-casa-a', title: '[PRUEBA] Casa de ejemplo A', ref: 'PR-E-001', category: 'Estate', status: 'Disponible', color: '#2d6a4a',
+    handle: 'prueba-casa-a', title: '[PRUEBA] Casa de ejemplo A', ref: 'PR-E-001', category: 'Casa', status: 'Disponible', color: '#2d6a4a',
     hook: 'Texto de prueba de una casa.', price_mode: 'Publicado', price: 1450000, currency: 'EUR', region: 'Mallorca', city: 'Pueblo de prueba', precision: 'Ciudad',
     video: video(0.5625), duration: 95, ptype: 'Masía', area: 320, area_unit: 'm²', plot: 5200, beds: 5, baths: 3, period: 'Años 60', energy: 'E',
-    area_band: '250-499 m²', beds_band: '5 o más', suffix: 'estate', story: 'Historia de prueba de una casa.', type: 'Casa'
+    area_band: '250-499 m²', beds_band: '5 o más', suffix: 'casas', story: 'Historia de prueba de una casa.', type: 'Casa'
   });
   const G = makeProduct({
-    handle: 'prueba-casa-b-vendida', title: '[PRUEBA] Casa B (vendida)', ref: 'PR-E-002', category: 'Estate', status: 'Vendido', color: '#4d7a5f',
+    handle: 'prueba-casa-b-vendida', title: '[PRUEBA] Casa B (vendida)', ref: 'PR-E-002', category: 'Casa', status: 'Vendido', color: '#4d7a5f',
     price_mode: 'Publicado', price: 600000, region: 'Menorca', precision: 'Región', ptype: 'Casa de pueblo', area: 140, beds: 3, baths: 2,
-    area_band: '100-249 m²', beds_band: '3', suffix: 'estate', type: 'Casa'
+    area_band: '100-249 m²', beds_band: '3', suffix: 'casas', type: 'Casa'
   });
   const H = makeProduct({
-    handle: 'prueba-coche-d-vendido', title: '[PRUEBA] Coche D (vendido)', ref: 'PR-G-004', category: 'Garage', status: 'Vendido', color: '#6b3a33',
+    handle: 'prueba-coche-d-vendido', title: '[PRUEBA] Coche D (vendido)', ref: 'PR-G-004', category: 'Coche', status: 'Vendido', color: '#6b3a33',
     price_mode: 'Publicado', price: 30000, region: 'Región D', precision: 'Región', brand: 'Marca D', model: 'Modelo D', year: 1995, km: 150000, year_band: '1990-1999', km_band: 'Más de 100.000 km',
-    suffix: 'garage', video: gv, type: 'Coche'
+    suffix: 'coches', video: gv, type: 'Coche'
   });
   const I = makeProduct({
-    handle: 'prueba-coche-e-youtube', title: '[PRUEBA] Coche E (vídeo de YouTube)', ref: 'PR-G-005', category: 'Garage', status: 'Disponible', color: '#8a4a3a',
+    handle: 'prueba-coche-e-youtube', title: '[PRUEBA] Coche E (vídeo de YouTube)', ref: 'PR-G-005', category: 'Coche', status: 'Disponible', color: '#8a4a3a',
     price_mode: 'Publicado', price: 45000, region: 'Región E', precision: 'Región', brand: 'Marca E', model: 'Modelo E', year: 2015, km: 60000,
-    year_band: '2010-2019', km_band: '50.000-99.999 km', video_url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ', duration: 30, suffix: 'garage', type: 'Coche'
+    year_band: '2010-2019', km_band: '50.000-99.999 km', video_url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ', duration: 30, suffix: 'coches', type: 'Coche'
   });
   const J = makeProduct({
-    handle: 'prueba-coche-f-sin-portada', title: '[PRUEBA] Coche F (sin portada ni vídeo)', category: 'Garage', status: 'Disponible', noCover: true,
-    price_mode: 'A consultar', brand: 'Marca F', year: 1999, region: 'Región F', precision: 'País', suffix: 'garage', type: 'Coche', year_band: '1990-1999'
+    handle: 'prueba-coche-f-sin-portada', title: '[PRUEBA] Coche F (sin portada ni vídeo)', category: 'Coche', status: 'Disponible', noCover: true,
+    price_mode: 'A consultar', brand: 'Marca F', year: 1999, region: 'Región F', precision: 'País', suffix: 'coches', type: 'Coche', year_band: '1990-1999'
   });
   list.push(A, B, C, D, E, F, G, H, I, J);
   for (let n = 1; n <= 14; n++) {
     list.push(makeProduct({
-      handle: `prueba-relleno-${n}`, title: `[PRUEBA] Relleno ${n}`, ref: `PR-R-${n}`, category: 'Garage', status: 'Disponible', color: ['#8a3a30', '#6a4a3a', '#9a5a40'][n % 3],
+      handle: `prueba-relleno-${n}`, title: `[PRUEBA] Relleno ${n}`, ref: `PR-R-${n}`, category: 'Coche', status: 'Disponible', color: ['#8a3a30', '#6a4a3a', '#9a5a40'][n % 3],
       price_mode: n % 2 ? 'Publicado' : 'A consultar', price: 20000 + n * 1500, region: 'Región R', precision: 'Región', brand: `Marca ${n % 4 ? 'A' : 'B'}`, model: `M${n}`, year: 1960 + n * 3, km: 10000 * n,
-      year_band: n * 3 + 1960 < 1980 ? '1960-1969' : '1980-1989', km_band: n < 5 ? 'Hasta 49.999 km' : '50.000-99.999 km', suffix: 'garage', type: 'Coche', gearbox: n % 2 ? 'Manual' : 'Automático', fuel: 'Gasolina'
+      year_band: n * 3 + 1960 < 1980 ? '1960-1969' : '1980-1989', km_band: n < 5 ? 'Hasta 49.999 km' : '50.000-99.999 km', suffix: 'coches', type: 'Coche', gearbox: n % 2 ? 'Manual' : 'Automático', fuel: 'Gasolina'
     }));
   }
   // enlaces «relacionadas» manuales

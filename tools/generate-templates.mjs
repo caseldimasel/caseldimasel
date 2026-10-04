@@ -72,29 +72,30 @@ out('index', {
   brands: { type: 'brand-directory', settings: { compact: true } },
   how: { type: 'how-we-sell', settings: {}, ...steps },
   story: { type: 'featured-story', settings: {} },
+  gallery: { type: 'photo-story', settings: {}, ...blocks('photo', Array.from({ length: 6 }, () => ({ type: 'photo', settings: {} }))) },
   community: { type: 'community', settings: {} },
   criteria: { type: 'selection-criteria', settings: {}, ...criteria },
   testimonials: { type: 'testimonials', settings: {} },
   cta: ownerCta(),
   faq: faq(faqHome)
-}, ['hero', 'divisions', 'selection', 'brands', 'how', 'story', 'community', 'criteria', 'testimonials', 'cta', 'faq']);
+}, ['hero', 'divisions', 'selection', 'gallery', 'brands', 'how', 'story', 'community', 'criteria', 'testimonials', 'cta', 'faq']);
 
 // ---------- Colecciones ----------
 out('collection', {
   main: { type: 'main-collection', settings: { category: 'none', show_description: true } },
   cta: ownerCta()
 });
-out('collection.garage', {
+out('collection.coches', {
   main: { type: 'main-collection', settings: { category: 'garage', show_description: true } },
   faq: faq(faqGarage),
   cta: ownerCta()
 }, ['main', 'faq', 'cta']);
-out('collection.harbor', {
+out('collection.barcos', {
   main: { type: 'main-collection', settings: { category: 'harbor', show_description: true } },
   faq: faq(faqHarbor),
   cta: ownerCta()
 }, ['main', 'faq', 'cta']);
-out('collection.estate', {
+out('collection.casas', {
   main: { type: 'main-collection', settings: { category: 'estate', show_description: true } },
   faq: faq(faqEstate),
   cta: ownerCta()
@@ -115,9 +116,9 @@ const productSections = (faqBlocks) => ({
 });
 const productOrder = ['main', 'story', 'specs', 'timeline', 'inquiry', 'related', 'faq'];
 out('product', productSections(faqHome), productOrder);
-out('product.garage', productSections(faqGarage), productOrder);
-out('product.harbor', productSections(faqHarbor), productOrder);
-out('product.estate', productSections(faqEstate), productOrder);
+out('product.coches', productSections(faqGarage), productOrder);
+out('product.barcos', productSections(faqHarbor), productOrder);
+out('product.casas', productSections(faqEstate), productOrder);
 
 // ---------- Páginas ----------
 out('page', { main: { type: 'main-page', settings: { show_title: true } } });

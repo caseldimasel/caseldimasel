@@ -50,7 +50,7 @@
             {%- for c in cats -%}
               {%- capture d_name -%}{%- render 'division-info', key: c, out: 'name' -%}{%- endcapture -%}
               {%- capture d_url -%}{%- render 'division-info', key: c, out: 'url' -%}{%- endcapture -%}
-              <li class="sd-cat sd-cat--{{ c }}"><a href="{{ d_url | strip }}"><span class="sd-nav__dot" aria-hidden="true"></span>SIDONIA {{ d_name | strip | upcase }}</a></li>
+              <li class="sd-cat sd-cat--{{ c }}"><a href="{{ d_url | strip }}"><span class="sd-nav__dot" aria-hidden="true"></span>{{ d_name | strip }}</a></li>
             {%- endfor -%}
           </ul>
         </section>

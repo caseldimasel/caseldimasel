@@ -67,7 +67,15 @@
 -%}
 
 <section class="sd-hero" data-section-id="{{ section.id }}">
-  <div class="sd-container sd-hero__grid">
+  <div class="sd-hero__bg">
+    {%- if poster != blank -%}
+      {%- render 'sd-image', image: poster, widths: '800,1200,1600,2000,2400', sizes: '100vw', priority: true, class: 'sd-hero__img', alt: s.poster_alt, cover: true -%}
+    {%- elsif settings.use_bundled_photos -%}
+      {%- render 'bundled-photo', name: 'foto-alfa-giulia', alt: 'Alfa Romeo clásico rojo sobre la hierba, con el conductor saludando', class: 'sd-hero__img', priority: true, sizes: '100vw' -%}
+    {%- endif -%}
+  </div>
+
+  <div class="sd-container sd-hero__inner">
     <div class="sd-hero__copy">
       <p class="sd-eyebrow sd-hero__eyebrow">
         {%- for c in cat_list -%}
@@ -77,75 +85,36 @@
       </p>
       <h1 class="sd-hero__title">{{ s.heading }}</h1>
       {%- if s.text != blank -%}
-        <p class="sd-lead sd-hero__text">{{ s.text }}</p>
+        <p class="sd-hero__text">{{ s.text }}</p>
       {%- endif -%}
 
       {%- if s.show_search -%}
-        <form class="sd-hero__search" action="{{ routes.search_url }}" method="get" role="search">
-          <label class="sd-sr" for="hero-q-{{ section.id }}">{{ 'search.label' | t }}</label>
-          <input type="hidden" name="type" value="product">
-          <input type="hidden" name="options[prefix]" value="last">
-          {%- render 'icon', name: 'search', size: 22 -%}
-          <input id="hero-q-{{ section.id }}" class="sd-input" type="search" name="q" placeholder="{{ 'search.placeholder' | t }}" autocomplete="off" enterkeyhint="search">
-          <button type="submit" class="sd-btn sd-btn--primary"><span>{{ 'search.submit' | t }}</span></button>
-        </form>
-      {%- endif -%}
-
-      {%- if s.show_divisions -%}
-        <ul class="sd-chiprow sd-hero__divisions" role="list">
-          {%- for c in cat_list -%}
-            {%- capture c_name -%}{%- render 'division-info', key: c, out: 'name' -%}{%- endcapture -%}
-            {%- capture c_url -%}{%- render 'division-info', key: c, out: 'url' -%}{%- endcapture -%}
-            <li class="sd-cat sd-cat--{{ c }}"><a class="sd-pill" href="{{ c_url | strip }}"><span class="sd-nav__dot" aria-hidden="true"></span>{{ c_name | strip }}</a></li>
-          {%- endfor -%}
-          {%- capture brands_url -%}{%- render 'page-url', key: 'brands' -%}{%- endcapture -%}
-          <li><a class="sd-pill" href="{{ brands_url | strip }}">{{ 'listing.brands_label' | t }}</a></li>
-        </ul>
+        <div class="sd-herosearch">
+          {%- if s.show_divisions -%}
+            <ul class="sd-herosearch__tabs" role="list">
+              {%- for c in cat_list -%}
+                {%- capture c_name -%}{%- render 'division-info', key: c, out: 'name' -%}{%- endcapture -%}
+                {%- capture c_url -%}{%- render 'division-info', key: c, out: 'url' -%}{%- endcapture -%}
+                <li class="sd-cat sd-cat--{{ c }}"><a class="sd-herosearch__tab" href="{{ c_url | strip }}"><span class="sd-nav__dot" aria-hidden="true"></span>{{ c_name | strip }}</a></li>
+              {%- endfor -%}
+            </ul>
+          {%- endif -%}
+          <form class="sd-herosearch__form" action="{{ routes.search_url }}" method="get" role="search">
+            <label class="sd-sr" for="hero-q-{{ section.id }}">{{ 'search.label' | t }}</label>
+            <input type="hidden" name="type" value="product">
+            <input type="hidden" name="options[prefix]" value="last">
+            {%- render 'icon', name: 'search', size: 22 -%}
+            <input id="hero-q-{{ section.id }}" class="sd-input" type="search" name="q" placeholder="{{ 'search.placeholder' | t }}" autocomplete="off" enterkeyhint="search">
+            <button type="submit" class="sd-btn sd-btn--primary"><span>{{ 'search.submit' | t }}</span></button>
+          </form>
+        </div>
       {%- endif -%}
 
       <div class="sd-hero__ctas">
         <a class="sd-btn sd-btn--primary" href="{{ cta1_url }}">
           <span>{{ cta1_label }}</span>{%- render 'icon', name: 'arrow-right', size: 18 -%}
         </a>
-        <a class="sd-btn sd-btn--ghost sd-hero__cta2" href="{{ cta2_url }}">{{ cta2_label }}</a>
-      </div>
-    </div>
-
-    <div class="sd-hero__media">
-      <div class="sd-hero__frame{% if poster == blank %} sd-hero__frame--mosaic{% endif %}" style="--sd-vratio: {{ ratio }}">
-        {%- if poster != blank -%}
-          {%- render 'sd-image', image: poster, widths: '480,640,800,1000,1200', sizes: '(min-width: 1100px) 40vw, 92vw', priority: true, class: 'sd-hero__img', alt: s.poster_alt, cover: true -%}
-        {%- else -%}
-          <ul class="sd-hero__mosaic" role="list">
-            {%- for c in cat_list -%}
-              {%- liquid
-                capture c_name
-                  render 'division-info', key: c, out: 'name'
-                endcapture
-                capture c_url
-                  render 'division-info', key: c, out: 'url'
-                endcapture
-                assign img_key = 'division_' | append: c | append: '_image'
-                assign col_key = 'division_' | append: c | append: '_collection'
-                assign tile_img = settings[img_key]
-                assign tile_col = settings[col_key]
-                if tile_img == blank and tile_col != blank
-                  assign tile_img = tile_col.image
-                  if tile_img == blank and tile_col.products.size > 0
-                    assign tile_img = tile_col.products.first.featured_image
-                  endif
-                endif
-              -%}
-              <li class="sd-hero__tile sd-cat sd-cat--{{ c }}">
-                {%- if tile_img != blank -%}
-                  {%- render 'sd-image', image: tile_img, widths: '320,480,640,800', sizes: '(min-width: 900px) 20vw, 45vw', class: 'sd-hero__tileimg', decorative: true, cover: true, priority: forloop.first -%}
-                {%- endif -%}
-                <a class="sd-hero__tilename" href="{{ c_url | strip }}"><span class="sd-nav__dot" aria-hidden="true"></span>{{ c_name | strip }}</a>
-              </li>
-            {%- endfor -%}
-          </ul>
-        {%- endif -%}
-
+        <a class="sd-btn sd-hero__cta2" href="{{ cta2_url }}">{{ cta2_label }}</a>
         {%- if has_video -%}
           {%- if story_attrs != blank -%}
             <button type="button" class="sd-vplayer__start sd-hero__play" data-sd-play {{ story_attrs }}>
@@ -169,14 +138,14 @@
           {%- endif -%}
         {%- endif -%}
       </div>
-      {%- if s.caption != blank -%}
-        <p class="sd-hero__caption">{{ s.caption }}</p>
-      {%- endif -%}
       {%- if has_video == false and request.design_mode -%}
         <p class="sd-note sd-hero__hint">{{ 'hero.editor_hint' | t }}</p>
       {%- endif -%}
     </div>
   </div>
+  {%- if s.caption != blank -%}
+    <p class="sd-hero__caption sd-container">{{ s.caption }}</p>
+  {%- endif -%}
 </section>
 
 {% schema %}
@@ -190,7 +159,7 @@
       "type": "textarea",
       "id": "text",
       "label": "Subtítulo",
-      "default": "Seleccionamos piezas con carácter y contamos su historia para encontrar a quien sepa apreciarlas."
+      "default": "Clásicos y piezas con carácter, seleccionados uno a uno y contados con calma para encontrar a quien sepa apreciarlos."
     },
     { "type": "header", "content": "Botones" },
     { "type": "text", "id": "cta1_label", "label": "Botón principal: texto", "info": "Vacío = Ajustes del tema > Textos de botones." },
@@ -206,12 +175,12 @@
     { "type": "video_url", "id": "video_url", "label": "Enlace de YouTube o Vimeo", "accept": ["youtube", "vimeo"] },
     { "type": "product", "id": "product", "label": "O usar el vídeo y la portada de una pieza" },
     { "type": "text", "id": "video_label", "label": "Texto del control de vídeo", "info": "Vacío = «Ver cómo lo contamos»." },
-    { "type": "image_picker", "id": "poster", "label": "Portada", "info": "Se recorta con su punto focal. Sin portada se muestra un mosaico con la imagen de cada división (la portada de Ajustes del tema o la primera pieza de su colección)." },
+    { "type": "image_picker", "id": "poster", "label": "Portada", "info": "Se recorta con su punto focal. Sin portada se usa la fotografía incluida en el tema (si «Usar fotografías incluidas» está activo en Ajustes del tema) o un fondo de color de marca." },
     { "type": "text", "id": "poster_alt", "label": "Descripción de la portada (accesibilidad)" },
     { "type": "text", "id": "caption", "label": "Pie de la portada (opcional)" },
     { "type": "header", "content": "Acceso inmediato" },
     { "type": "checkbox", "id": "show_search", "label": "Mostrar buscador", "default": true },
-    { "type": "checkbox", "id": "show_divisions", "label": "Mostrar accesos a las divisiones", "default": true }
+    { "type": "checkbox", "id": "show_divisions", "label": "Mostrar pestañas de Coches, Barcos y Casas sobre el buscador", "default": true }
   ],
   "presets": [
     { "name": "Hero con vídeo" }

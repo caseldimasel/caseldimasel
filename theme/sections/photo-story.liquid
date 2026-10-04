@@ -1,0 +1,79 @@
+{%- liquid
+  assign s = section.settings
+  assign fallback = 'foto-porsche-911,foto-maserati-19,foto-maserati-detalle,foto-ford-roadster,foto-maserati-lago,foto-alfa-giulia' | split: ','
+  assign fallback_alt = 'Porsche clásico gris aparcado entre pinos, con baca de mimbre y esquís|Maserati rojo de competición con el número 19, sobre la hierba|Detalle del número 19 y del escape de un Maserati rojo|Roadster antiguo crema y negro con el número 53 frente a un edificio de madera|Maserati rojo de competición junto a un estanque|Alfa Romeo clásico rojo sobre la hierba' | split: '|'
+-%}
+<section class="sd-section sd-photostory" data-section-id="{{ section.id }}">
+  <div class="sd-container">
+    <div class="sd-section-head sd-section-head--split">
+      <div>
+        {%- if s.eyebrow != blank -%}<p class="sd-eyebrow">{{ s.eyebrow }}</p>{%- endif -%}
+        <h2>{{ s.heading }}</h2>
+      </div>
+      {%- if s.text != blank -%}<p class="sd-lead">{{ s.text }}</p>{%- endif -%}
+    </div>
+
+    <ul class="sd-photostory__grid" role="list">
+      {%- for block in section.blocks -%}
+        {%- liquid
+          assign idx = forloop.index0
+          assign photo = block.settings.image
+          assign alt = block.settings.alt
+          assign fb = fallback[idx]
+          assign fb_alt = fallback_alt[idx]
+          if alt != blank
+            assign fb_alt = alt
+          endif
+        -%}
+        <li class="sd-photostory__item" {{ block.shopify_attributes }}>
+          <figure>
+            {%- if photo != blank -%}
+              {%- render 'sd-image', image: photo, widths: '480,720,960,1280', sizes: '(min-width: 900px) 30vw, 46vw', alt: alt -%}
+            {%- elsif fb != blank and settings.use_bundled_photos -%}
+              {%- render 'bundled-photo', name: fb, alt: fb_alt, sizes: '(min-width: 900px) 30vw, 46vw' -%}
+            {%- endif -%}
+            {%- if block.settings.caption != blank -%}<figcaption>{{ block.settings.caption }}</figcaption>{%- endif -%}
+          </figure>
+        </li>
+      {%- endfor -%}
+    </ul>
+
+    {%- if s.show_signature -%}
+      <p class="sd-photostory__sign">
+        <img src="{{ 'sidonia-firma-dark.png' | asset_url }}" width="900" height="311" alt="{{ settings.brand_name | default: shop.name | escape }}" loading="lazy">
+      </p>
+    {%- endif -%}
+  </div>
+</section>
+
+{% schema %}
+{
+  "name": "Galería de fotos",
+  "tag": "section",
+  "settings": [
+    { "type": "text", "id": "eyebrow", "label": "Antetítulo", "default": "Con alma" },
+    { "type": "text", "id": "heading", "label": "Título", "default": "Clásicos, vistos de cerca" },
+    { "type": "textarea", "id": "text", "label": "Texto", "default": "Nos importa la historia de cada pieza, pero también cómo se ve y cómo suena. Aquí, algunas imágenes de lo que nos gusta." },
+    { "type": "checkbox", "id": "show_signature", "label": "Mostrar la firma de Sidonia", "default": true },
+    { "type": "paragraph", "content": "Sin foto propia en un bloque se usa una fotografía incluida en el tema (si el ajuste «Usar las fotografías incluidas» está activo)." }
+  ],
+  "blocks": [
+    {
+      "type": "photo",
+      "name": "Foto",
+      "settings": [
+        { "type": "image_picker", "id": "image", "label": "Foto" },
+        { "type": "text", "id": "alt", "label": "Descripción de la foto (accesibilidad)" },
+        { "type": "text", "id": "caption", "label": "Pie (opcional)" }
+      ]
+    }
+  ],
+  "max_blocks": 9,
+  "presets": [
+    {
+      "name": "Galería de fotos",
+      "blocks": [{ "type": "photo" }, { "type": "photo" }, { "type": "photo" }, { "type": "photo" }, { "type": "photo" }, { "type": "photo" }]
+    }
+  ]
+}
+{% endschema %}

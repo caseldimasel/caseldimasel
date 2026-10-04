@@ -52,7 +52,7 @@
   text-transform: uppercase;
 }
 
-/* ---------- Cabecera (oscura, dos filas) ---------- */
+/* ---------- Cabecera (clara, dos filas) ---------- */
 
 /* Los elementos personalizados son bloques; la cabecera fija se aplica al contenedor del grupo de secciones
    (el contenedor de la sección solo mide lo que mide la cabecera y ahí un «sticky» no se mantendría). */
@@ -79,23 +79,20 @@ body[data-sticky-header='true'] .shopify-section-group-header-group {
 
 .sd-header {
   position: relative;
-  background: var(--sd-dark);
-  color: var(--sd-dark-text);
-}
-
-.sd-header :focus-visible {
-  outline-color: #fff;
+  background: var(--sd-bg);
+  color: var(--sd-text);
+  border-bottom: 1px solid var(--sd-border);
 }
 
 .sd-header.is-stuck {
-  box-shadow: 0 6px 18px -10px rgba(0, 0, 0, 0.6);
+  box-shadow: 0 8px 24px -16px rgba(17, 17, 17, 0.45);
 }
 
 .sd-header__bar {
   display: flex;
   align-items: center;
   gap: var(--sd-s3) var(--sd-s4);
-  min-height: 3.75rem;
+  min-height: 4.25rem;
   padding-block: 0.5rem;
 }
 
@@ -117,15 +114,16 @@ body[data-sticky-header='true'] .shopify-section-group-header-group {
   min-height: 2.75rem;
   margin-inline: auto;
   padding: 0 1rem;
-  border-radius: var(--sd-radius-l);
-  background: #fff;
-  color: #595954;
+  border: 1px solid var(--sd-border);
+  border-radius: var(--sd-radius-pill);
+  background: var(--sd-bg);
+  color: var(--sd-muted);
   text-decoration: none;
   transition: box-shadow var(--sd-dur) var(--sd-ease);
 }
 
 .sd-searchbar:hover {
-  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.25);
+  border-color: var(--sd-text);
   text-decoration: none;
 }
 
@@ -143,7 +141,7 @@ body[data-sticky-header='true'] .shopify-section-group-header-group {
 }
 
 .sd-header__tools .sd-iconbtn {
-  color: #fff;
+  color: var(--sd-text);
 }
 
 .sd-header__cta {
@@ -161,8 +159,8 @@ body[data-sticky-header='true'] .shopify-section-group-header-group {
 
 .sd-header__sub {
   display: none;
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
-  background: #151515;
+  border-top: 1px solid var(--sd-border);
+  background: var(--sd-bg);
 }
 
 html:not(.js) .sd-header__sub {
@@ -189,7 +187,8 @@ html:not(.js) .sd-header__sub {
   padding: 0;
   font-size: var(--sd-fs-s);
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.88);
+  letter-spacing: 0.01em;
+  color: var(--sd-text);
   text-decoration: none;
   cursor: pointer;
   list-style: none;
@@ -201,7 +200,7 @@ html:not(.js) .sd-header__sub {
 
 .sd-nav__link:hover,
 .sd-nav__more > summary:hover {
-  color: #fff;
+  color: var(--sd-text);
   text-decoration: underline;
   text-underline-offset: 0.35em;
   text-decoration-color: var(--sd-accent);
@@ -209,24 +208,20 @@ html:not(.js) .sd-header__sub {
 }
 
 .sd-nav__link[aria-current='page'] {
-  color: #fff;
+  color: var(--sd-text);
   text-decoration: underline;
   text-underline-offset: 0.35em;
   text-decoration-color: var(--sd-accent);
   text-decoration-thickness: 2px;
 }
 
-/* El punto de color de la división: relleno + borde claro para verse sobre fondo oscuro */
+/* El punto de color de la división (identidad de marca: rojo coches, azul barcos, verde casas) */
 .sd-nav__dot {
   width: 0.6rem;
   height: 0.6rem;
   border-radius: 50%;
   background: var(--sd-accent);
   flex: none;
-}
-
-.sd-header .sd-nav__dot {
-  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.9);
 }
 
 .sd-nav__sub {
@@ -264,8 +259,8 @@ html:not(.js) .sd-header__sub {
   height: 1.35rem;
   padding: 0 0.3rem;
   border-radius: var(--sd-radius-pill);
-  background: #fff;
-  color: #0e0e0e;
+  background: var(--sd-text);
+  color: var(--sd-bg);
   font-size: 0.8125rem;
   font-weight: 800;
   line-height: 1.35rem;

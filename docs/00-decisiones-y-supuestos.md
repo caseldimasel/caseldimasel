@@ -23,7 +23,7 @@
 
 - Tienda en español de España, una sola moneda para precios editoriales (EUR por defecto), sin selector de idioma.
 - Operación de **catálogo y generación de contactos**: sin carrito, financiación, depósitos, subastas, reservas de pago ni comisiones.
-- Nombre de la marca madre **SIDONIA** y divisiones **SIDONIA GARAGE / HARBOR / ESTATE** (se conserva exactamente HARBOR).
+- Nombre de la marca madre **SIDONIA** y divisiones públicas **Coches (punto rojo), Barcos (punto azul) y Casas (punto verde)**. Internamente las claves siguen siendo `garage`, `harbor` y `estate` (los archivos de marca usan Garage, Harbour y Home, y hay además una marca Time, amarilla, que se puede añadir como división nueva: ver `01`).
 - El tema se publica **solo cuando lo decida Sidonia**; el tema actual (Impact) no se toca.
 - Los logos, el isotipo, los datos de contacto, las cifras de redes, los vídeos y los anuncios reales los aporta Sidonia (`11-datos-pendientes.md`).
 - Las condiciones legales, tarifas, exclusividades, plazos y alcance de la intermediación **no se han redactado**: no se prometen.

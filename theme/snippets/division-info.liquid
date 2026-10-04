@@ -19,7 +19,16 @@
       if col != blank
         echo col.url
       else
-        echo routes.collections_url | append: '/' | append: k
+        case k
+        when 'garage'
+          echo routes.collections_url | append: '/coches'
+        when 'harbor'
+          echo routes.collections_url | append: '/barcos'
+        when 'estate'
+          echo routes.collections_url | append: '/casas'
+        else
+          echo routes.collections_url | append: '/' | append: k
+      endcase
       endif
     when 'email'
       assign ek = 'division_' | append: k | append: '_email'

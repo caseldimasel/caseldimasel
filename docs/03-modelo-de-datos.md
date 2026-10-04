@@ -19,7 +19,7 @@ Convenciones:
 | Nombre visible | Namespace.clave | Tipo en Shopify | Uso | Oblig. | Público |
 |---|---|---|---|---|---|
 | Referencia | `sidonia.reference` | Texto de una línea | Referencia comercial. Va en WhatsApp, email y formulario | Sí | Sí |
-| Categoría | `sidonia.category` | Texto de una línea, con opciones: `Garage`, `Harbor`, `Estate` | Elige módulo técnico, color, división y colección. Filtro | Sí | Sí |
+| Categoría | `sidonia.category` | Texto de una línea, con opciones: `Coche`, `Barco`, `Casa` (también se aceptan `Garage`, `Harbor`, `Estate`) | Elige módulo técnico, color, división y colección. Filtro | Sí | Sí |
 | Estado editorial | `sidonia.status` | Texto de una línea, con opciones: `Disponible`, `Reservado`, `Vendido` | Etiqueta, filtro, archivo, relacionadas, datos estructurados | Sí | Sí |
 | Gancho | `sidonia.hook` | Texto de una línea | Una línea de historia en tarjetas y cabecera de ficha | No | Sí |
 | Por qué es especial | `sidonia.why_special` | Texto de varias líneas | Resumen en el bloque «Qué la hace especial» y en la descripción estructurada | No | Sí |
@@ -55,12 +55,12 @@ Convenciones:
 
 La **fecha de publicación** es la nativa del producto (`published_at`). El **nombre**, el **SEO** (título y metadescripción de la ficha) y la **portada** (primera imagen del producto) también son nativos.
 
-### 1.2 Garage (coches)
+### 1.2 Coches (punto rojo)
 
 | Nombre visible | Namespace.clave | Tipo | Notas |
 |---|---|---|---|
 | Marca | `sidonia.brand` | Texto de una línea | Filtro. Pon la marca también en «Proveedor» del producto para la búsqueda |
-| Modelo | `sidonia.model` | Texto de una línea | Compartido con Harbor |
+| Modelo | `sidonia.model` | Texto de una línea | Compartido con barcos |
 | Versión | `sidonia.version` | Texto de una línea | |
 | Año | `sidonia.year` | Número entero | |
 | Kilometraje | `sidonia.mileage_km` | Número entero | 0 se muestra como 0 km: déjalo vacío si no se conoce |
@@ -70,7 +70,7 @@ La **fecha de publicación** es la nativa del producto (`published_at`). El **no
 | Color | `sidonia.color` | Texto de una línea | |
 | Banda de kilometraje | `sidonia.km_band` | Texto de una línea | Filtro |
 
-### 1.3 Harbor (barcos)
+### 1.3 Barcos (punto azul)
 
 | Nombre visible | Namespace.clave | Tipo | Notas |
 |---|---|---|---|
@@ -85,7 +85,7 @@ La **fecha de publicación** es la nativa del producto (`published_at`). El **no
 | Régimen fiscal declarado | `sidonia.tax_regime` | Texto de una línea | Solo si está confirmado |
 | Banda de eslora | `sidonia.loa_band` | Texto de una línea | Filtro |
 
-### 1.4 Estate (casas)
+### 1.4 Casas (punto verde)
 
 | Nombre visible | Namespace.clave | Tipo | Notas |
 |---|---|---|---|
@@ -141,7 +141,7 @@ Rotula siempre las piezas de prueba con **[PRUEBA]** en el título y **no las pu
 |---|---|---|---|
 | Título | [PRUEBA] Coche de ejemplo A | [PRUEBA] Barco de ejemplo A | [PRUEBA] Casa de ejemplo A |
 | `reference` | PR-G-001 | PR-H-001 | PR-E-001 |
-| `category` | Garage | Harbor | Estate |
+| `category` | Coche | Barco | Casa |
 | `status` | Disponible | Disponible | Disponible |
 | `price_mode` / `price_amount` | Publicado / 85000 | A consultar / (vacío) | Publicado / 1450000 |
 | `region` / `precision` | Región de prueba / Región | Baleares / Región | Mallorca / Ciudad (+ `city`) |

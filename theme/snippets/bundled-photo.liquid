@@ -1,0 +1,18 @@
+{%- comment -%}
+  Fotografía incluida en el tema (theme/assets/foto-*.jpg). Solo se usa donde no hay imagen propia y
+  mientras el ajuste «Usar fotografías incluidas» esté activo. Parámetros: name (sin extensión), alt, class, priority, sizes.
+{%- endcomment -%}
+{%- liquid
+  assign w = 2000
+  assign h = 1342
+  case name
+    when 'foto-porsche-911'
+      assign w = 1400
+      assign h = 1992
+    when 'foto-maserati-detalle'
+      assign w = 1400
+      assign h = 2087
+  endcase
+  assign file = name | append: '.jpg'
+-%}
+<img class="{{ class }}" src="{{ file | asset_url }}" width="{{ w }}" height="{{ h }}" alt="{{ alt | escape }}"{% if priority %} fetchpriority="high"{% else %} loading="lazy" decoding="async"{% endif %}{% if sizes != blank %} sizes="{{ sizes }}"{% endif %}>
