@@ -10,7 +10,7 @@
 | Plantillas Liquid renderizadas | `tools/preview/liquid.mjs` (**intérprete propio**, no el de Shopify) + datos de prueba `tools/preview/store.mjs` | Que las plantillas producen el HTML esperado con datos de ejemplo |
 | Comportamiento en navegador | Chromium (Playwright) contra la previsualización local, 5 anchos | Layout, JS, vídeo, filtros, favoritos, formularios, accesibilidad básica |
 
-Resultado de la última ejecución: **67 de 67 pruebas correctas**; validador: **0 errores**, 1 avisos informativos.
+Resultado de la última ejecución: **72 de 72 pruebas correctas**; validador: **0 errores**, 1 avisos informativos.
 
 ## 2. Lo que NO se ha podido hacer en esta entrega
 
@@ -31,11 +31,11 @@ Estas limitaciones son del entorno de desarrollo (sin acceso a Internet salvo el
 
 | Resultado | Prueba | Detalle |
 |---|---|---|
-| ✔ | Sin desbordes ni errores a 360px (perfil completo, 17 páginas) | 17 páginas |
-| ✔ | Sin desbordes ni errores a 390px (perfil completo, 17 páginas) | 17 páginas |
-| ✔ | Sin desbordes ni errores a 768px (perfil completo, 17 páginas) | 17 páginas |
-| ✔ | Sin desbordes ni errores a 1024px (perfil completo, 17 páginas) | 17 páginas |
-| ✔ | Sin desbordes ni errores a 1440px (perfil completo, 17 páginas) | 17 páginas |
+| ✔ | Sin desbordes ni errores a 360px (perfil completo, 18 páginas) | 18 páginas |
+| ✔ | Sin desbordes ni errores a 390px (perfil completo, 18 páginas) | 18 páginas |
+| ✔ | Sin desbordes ni errores a 768px (perfil completo, 18 páginas) | 18 páginas |
+| ✔ | Sin desbordes ni errores a 1024px (perfil completo, 18 páginas) | 18 páginas |
+| ✔ | Sin desbordes ni errores a 1440px (perfil completo, 18 páginas) | 18 páginas |
 | ✔ | Sin desbordes ni errores a 360 y 1440 px (instalación vacía, sin contenido real) |  |
 | ✔ | El hero comunica coches, barcos, casas y vídeo narrativo en el primer bloque |  |
 | ✔ | Los dos botones principales se ven sin desplazarse a 360×640 |  |
@@ -75,6 +75,11 @@ Estas limitaciones son del entorno de desarrollo (sin acceso a Internet salvo el
 | ✔ | «Cargar más»: al volver desde una ficha se restauran las páginas cargadas |  |
 | ✔ | Filtros en móvil: panel modal accesible, «Ver N piezas», devuelve el foco |  |
 | ✔ | Filtros: sin JavaScript el formulario funciona (GET) y se muestra «Aplicar filtros» |  |
+| ✔ | Marcas: la página lista TODAS las marcas de coches y barcos, con búsqueda local y enlaces al filtro real |  |
+| ✔ | Marcas: sin JavaScript se ven todas las marcas de ambos tipos |  |
+| ✔ | Inicio: sección compacta de marcas con enlace al listado completo |  |
+| ✔ | Listado: pestañas Todo/Garage/Harbor/Estate y fila de marcas con piezas filtran de verdad |  |
+| ✔ | Filtros en escritorio: cajón lateral modal (cerrado al inicio), Escape lo cierra y devuelve el foco |  |
 | ✔ | Buscador: diálogo accesible, sugerencias reales (API), resultados con filtros y estado vacío |  |
 | ✔ | Favoritos: guardar en tarjeta y ficha, aria-pressed, contador, persisten tras recargar y sincronizan entre pestañas |  |
 | ✔ | Favoritos: la página consulta el estado ACTUAL (vendida, retirada) y permite quitar y vaciar con confirmación |  |
@@ -92,7 +97,7 @@ Estas limitaciones son del entorno de desarrollo (sin acceso a Internet salvo el
 | ✔ | Teclado: enlace para saltar al contenido, foco visible y orden lógico |  |
 | ✔ | Auditoría automática de accesibilidad (idioma, landmarks, ids únicos, etiquetas, nombres, alt, encabezados) | 9 páginas |
 | ✔ | Reducir movimiento: animaciones y transiciones se anulan |  |
-| ✔ | Contraste real renderizado: texto principal, secundario y botones ≥ 4,5:1 | 6.48:1 mínimo |
+| ✔ | Contraste real renderizado: texto principal, secundario y botones ≥ 4,5:1 | 5.71:1 mínimo |
 | ✔ | Analítica: eventos útiles, una sola vez, sin datos personales y solo con consentimiento |  |
 | ✔ | Analítica: filtros aplicados solo envían nombres de filtro y recuento, no valores ni búsquedas |  |
 | ✔ | Los componentes son idempotentes: quitar y volver a insertar secciones no duplica listeners ni vídeos |  |
@@ -105,31 +110,31 @@ Contraste calculado de la paleta por defecto (WCAG, fórmula de luminancia relat
 
 | Pareja | Ratio | Mínimo | Resultado |
 |---|---|---|---|
-| Texto sobre fondo | 14.42:1 | 4.5:1 | cumple |
-| Texto sobre superficie | 15.45:1 | 4.5:1 | cumple |
-| Texto secundario sobre fondo | 6.49:1 | 4.5:1 | cumple |
-| Texto secundario sobre superficie alternativa | 5.77:1 | 4.5:1 | cumple |
-| Texto del botón sobre botón | 15.45:1 | 4.5:1 | cumple |
-| Texto claro sobre fondo oscuro | 14.05:1 | 4.5:1 | cumple |
-| Anillo de foco sobre fondo | 7.51:1 | 3:1 | cumple |
-| Borde de campo sobre superficie | 3.66:1 | 3:1 | cumple |
-| Garage como texto sobre superficie alternativa | 5.77:1 | 4.5:1 | cumple |
-| Harbor como texto sobre superficie alternativa | 6.69:1 | 4.5:1 | cumple |
-| Estate como texto sobre superficie alternativa | 5.03:1 | 4.5:1 | cumple |
-| Garage como texto sobre fondo | 6.48:1 | 4.5:1 | cumple |
-| Harbor como texto sobre fondo | 7.51:1 | 4.5:1 | cumple |
-| Estate como texto sobre fondo | 5.65:1 | 4.5:1 | cumple |
-| Texto sobre Garage | 6.95:1 | 4.5:1 | cumple |
-| Texto sobre Harbor | 8.05:1 | 4.5:1 | cumple |
-| Texto sobre Estate | 6.05:1 | 4.5:1 | cumple |
-| Error (#9c2018) sobre superficie | 7.52:1 | 4.5:1 | cumple |
-| Éxito (#2d6a4a) sobre superficie | 6.05:1 | 4.5:1 | cumple |
-| Reservado (#8a5a00) sobre superficie | 5.59:1 | 3:1 | cumple |
+| Texto sobre fondo | 19.30:1 | 4.5:1 | cumple |
+| Texto sobre superficie | 19.30:1 | 4.5:1 | cumple |
+| Texto secundario sobre fondo | 7.04:1 | 4.5:1 | cumple |
+| Texto secundario sobre superficie alternativa | 6.34:1 | 4.5:1 | cumple |
+| Texto del botón sobre botón | 19.30:1 | 4.5:1 | cumple |
+| Texto claro sobre fondo oscuro | 17.33:1 | 4.5:1 | cumple |
+| Anillo de foco sobre fondo | 6.68:1 | 3:1 | cumple |
+| Borde de campo sobre superficie | 4.29:1 | 3:1 | cumple |
+| Garage como texto sobre superficie alternativa | 5.14:1 | 4.5:1 | cumple |
+| Harbor como texto sobre superficie alternativa | 6.01:1 | 4.5:1 | cumple |
+| Estate como texto sobre superficie alternativa | 4.74:1 | 4.5:1 | cumple |
+| Garage como texto sobre fondo | 5.71:1 | 4.5:1 | cumple |
+| Harbor como texto sobre fondo | 6.68:1 | 4.5:1 | cumple |
+| Estate como texto sobre fondo | 5.27:1 | 4.5:1 | cumple |
+| Texto sobre Garage | 5.71:1 | 4.5:1 | cumple |
+| Texto sobre Harbor | 6.68:1 | 4.5:1 | cumple |
+| Texto sobre Estate | 5.27:1 | 4.5:1 | cumple |
+| Error (#9c2018) sobre superficie | 7.97:1 | 4.5:1 | cumple |
+| Éxito (#2d6a4a) sobre superficie | 6.42:1 | 4.5:1 | cumple |
+| Reservado (#8a5a00) sobre superficie | 5.93:1 | 3:1 | cumple |
 
-- Ajustes globales: 104
-- Cadenas de interfaz: 357
-- CSS total: 66.9 KB · JS total: 82.1 KB (sin comprimir)
-- Archivos del tema: 119 · secciones: 35 · snippets: 40
+- Ajustes globales: 106
+- Cadenas de interfaz: 378
+- CSS total: 75.3 KB · JS total: 89.0 KB (sin comprimir)
+- Archivos del tema: 127 · secciones: 36 · snippets: 43
 
 Peso de los recursos propios (sin comprimir; el CDN de Shopify los sirve comprimidos):
 
@@ -137,17 +142,20 @@ Peso de los recursos propios (sin comprimir; el CDN de Shopify los sirve comprim
 |---|---|
 | sd-analytics.js | 4.2 KB |
 | sd-base.css | 12.9 KB |
-| sd-components.css | 27.1 KB |
+| sd-brands.js | 7.6 KB |
+| sd-components.css | 32.6 KB |
 | sd-core.js | 5.0 KB |
-| sd-facets.js | 13.1 KB |
+| sd-facets.js | 12.4 KB |
 | sd-favorites.js | 16.0 KB |
 | sd-forms.js | 15.4 KB |
 | sd-header.js | 5.9 KB |
 | sd-product.js | 4.6 KB |
-| sd-sections.css | 27.0 KB |
+| sd-sections.css | 29.8 KB |
 | sd-video.js | 17.9 KB |
+| sidonia-logo-dark.png | 23.4 KB |
+| sidonia-logo-light.png | 25.8 KB |
 
-Avisos del validador (informativos): Clases usadas en Liquid sin regla en el CSS (56): sd-body (theme/layout/password.liquid), sd-community (theme/sections/c.
+Avisos del validador (informativos): Clases usadas en Liquid sin regla en el CSS (63): sd-body (theme/layout/password.liquid), sd-brands (theme/sections/bran.
 
 ## 5. Hechos de Shopify por verificar (no se pudo consultar la documentación)
 
