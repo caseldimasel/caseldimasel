@@ -51,6 +51,15 @@
   assign vdur = vdur | strip
 
   assign cover = product.featured_image
+  assign seller_name = settings.brand_name | default: shop.name
+  assign has_gallery = false
+  if product.images.size > 0
+    assign has_gallery = true
+  endif
+  assign cover_priority = true
+  if has_gallery
+    assign cover_priority = false
+  endif
   assign hook = mf.hook.value
   assign ref = mf.reference.value | strip
   assign social_url = mf.social_url.value
@@ -78,7 +87,9 @@
   <div class="sd-container">
     {%- render 'breadcrumbs', crumb_url: cat_url, crumb_title: cat_name -%}
 
-    <div class="sd-pdp__grid">
+    {%- render 'product-gallery', product: product -%}
+
+    <div class="sd-pdp__grid{% if has_gallery %} sd-pdp__grid--gallery{% endif %}">
       <header class="sd-pdp__head">
         <p class="sd-eyebrow">
           {%- if cat != blank -%}<span class="sd-nav__dot" aria-hidden="true"></span>{{ settings.brand_name | default: shop.name }} {{ cat_name | upcase }}{%- endif -%}
@@ -97,7 +108,7 @@
           <sd-video-stage class="sd-vplayer" {{ vattrs }} data-preview-enabled="{{ settings.video_preview_enabled }}" data-preview-mobile="{{ settings.video_preview_mobile }}" data-consent-required="{{ settings.video_external_consent }}">
             <div class="sd-vplayer__stage" style="--sd-vratio: {{ ratio_style }}" data-sd-stage>
               {%- if cover != blank -%}
-                {%- render 'sd-image', image: cover, widths: '480,640,800,1000,1200', sizes: '(min-width: 900px) 46vw, 92vw', priority: true, class: 'sd-vplayer__poster', alt: poster_alt, cover: true -%}
+                {%- render 'sd-image', image: cover, widths: '480,640,800,1000,1200', sizes: '(min-width: 900px) 46vw, 92vw', priority: product.images.size == 0, class: 'sd-vplayer__poster', alt: poster_alt, cover: true -%}
               {%- else -%}
                 <span class="sd-vplayer__poster-fallback" aria-hidden="true">{{ product.title | escape }}</span>
               {%- endif -%}
@@ -130,11 +141,11 @@
               <p class="sd-note">{{ 'video.transcript_note' | t }}</p>
             </details>
           {%- endif -%}
-        {%- else -%}
+        {%- elsif has_gallery == false -%}
           <div class="sd-vplayer">
             <div class="sd-vplayer__stage" style="--sd-vratio: 0.8">
               {%- if cover != blank -%}
-                {%- render 'sd-image', image: cover, widths: '480,640,800,1000,1200', sizes: '(min-width: 900px) 46vw, 92vw', priority: true, class: 'sd-vplayer__poster', alt: poster_alt, cover: true -%}
+                {%- render 'sd-image', image: cover, widths: '480,640,800,1000,1200', sizes: '(min-width: 900px) 46vw, 92vw', priority: cover_priority, class: 'sd-vplayer__poster', alt: poster_alt, cover: true -%}
               {%- else -%}
                 <span class="sd-vplayer__poster-fallback" aria-hidden="true">{{ product.title | escape }}</span>
               {%- endif -%}
@@ -176,9 +187,17 @@
           <p class="sd-note">{{ 'favorites.local_note' | t }}</p>
         </div>
 
-        {%- if settings.contact_response_note != blank or settings.contact_hours != blank -%}
-          <p class="sd-note">{{ settings.contact_response_note }} {{ settings.contact_hours }}</p>
-        {%- endif -%}
+        <div class="sd-pdp__seller">
+          {%- if settings.use_bundled_logo -%}
+            <img class="sd-pdp__sign" src="{{ 'sidonia-firma-dark.png' | asset_url }}" width="900" height="311" alt="" loading="lazy">
+          {%- endif -%}
+          <div>
+            <p class="sd-pdp__sellername">{{ 'product.presented_by' | t: name: seller_name }}</p>
+            {%- if settings.contact_response_note != blank or settings.contact_hours != blank -%}
+              <p class="sd-note">{{ settings.contact_response_note }} {{ settings.contact_hours }}</p>
+            {%- endif -%}
+          </div>
+        </div>
       </div>
     </div>
   </div>

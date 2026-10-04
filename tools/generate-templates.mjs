@@ -65,20 +65,40 @@ const faq = (b, heading = 'Preguntas frecuentes') => ({ type: 'faq', settings: {
 const ownerCta = () => ({ type: 'owner-cta', settings: {} });
 
 // ---------- Inicio ----------
+const popular = blocks('link', [
+  { type: 'link', settings: { label: 'Clásicos de los años 60', url: '/collections/coches?filter.p.m.sidonia.year_band=1960-1969' } },
+  { type: 'link', settings: { label: 'Clásicos de los años 70', url: '/collections/coches?filter.p.m.sidonia.year_band=1970-1979' } },
+  { type: 'link', settings: { label: 'Descapotables y roadsters', url: '/search?q=descapotable&type=product' } },
+  { type: 'link', settings: { label: 'Barcos de vela', url: '/search?q=velero&type=product' } },
+  { type: 'link', settings: { label: 'Casas en el campo', url: '/search?q=masía&type=product' } },
+  { type: 'link', settings: { label: 'Piezas con vídeo', url: '/search?q=vídeo&type=product' } },
+  { type: 'link', settings: { label: 'Todas las marcas', url: '/pages/marcas' } }
+]);
+const trust = blocks('item', [
+  { type: 'item', settings: { icon: 'check', title: 'Selección con criterio', text: 'No publicamos todo: elegimos piezas con historia, carácter y cuidado.' } },
+  { type: 'item', settings: { icon: 'camera', title: 'Cada pieza, bien contada', text: 'Fotos, vídeo y una narración que explica por qué merece la pena.' } },
+  { type: 'item', settings: { icon: 'chat', title: 'Trato directo', text: 'Escríbenos por WhatsApp o correo: te respondemos nosotros, con la referencia de la pieza.' } }
+]);
 out('index', {
   hero: { type: 'hero', settings: {} },
   divisions: { type: 'divisions', settings: {} },
-  selection: { type: 'featured-listings', settings: {} },
+  'car-garage': { type: 'listing-carousel', settings: { division: 'garage', heading: 'Coches destacados' } },
+  'car-harbor': { type: 'listing-carousel', settings: { division: 'harbor', heading: 'Barcos destacados' } },
+  'car-estate': { type: 'listing-carousel', settings: { division: 'estate', heading: 'Casas destacadas' } },
+  popular: { type: 'popular-searches', settings: {}, ...popular },
+  gallery: { type: 'photo-story', settings: {}, ...blocks('photo', Array.from({ length: 6 }, () => ({ type: 'photo', settings: {} }))) },
   brands: { type: 'brand-directory', settings: { compact: true } },
+  trust: { type: 'trust-band', settings: {}, ...trust },
   how: { type: 'how-we-sell', settings: {}, ...steps },
   story: { type: 'featured-story', settings: {} },
-  gallery: { type: 'photo-story', settings: {}, ...blocks('photo', Array.from({ length: 6 }, () => ({ type: 'photo', settings: {} }))) },
+  journal: { type: 'journal', settings: {} },
   community: { type: 'community', settings: {} },
   criteria: { type: 'selection-criteria', settings: {}, ...criteria },
   testimonials: { type: 'testimonials', settings: {} },
   cta: ownerCta(),
+  newsletter: { type: 'newsletter', settings: {} },
   faq: faq(faqHome)
-}, ['hero', 'divisions', 'selection', 'gallery', 'brands', 'how', 'story', 'community', 'criteria', 'testimonials', 'cta', 'faq']);
+}, ['hero', 'divisions', 'car-garage', 'car-harbor', 'car-estate', 'popular', 'gallery', 'brands', 'trust', 'how', 'story', 'journal', 'community', 'criteria', 'testimonials', 'cta', 'newsletter', 'faq']);
 
 // ---------- Colecciones ----------
 out('collection', {

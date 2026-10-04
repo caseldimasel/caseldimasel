@@ -1,0 +1,63 @@
+{%- liquid
+  assign s = section.settings
+  assign blog = s.blog
+  assign articles = blank
+  if blog != blank
+    assign articles = blog.articles
+  endif
+  assign shown = 0
+-%}
+{%- if blog != blank and blog.articles_count > 0 or request.design_mode -%}
+<section class="sd-section sd-journal" data-section-id="{{ section.id }}">
+  <div class="sd-container">
+    <div class="sd-section-head sd-section-head--split">
+      <div>
+        {%- if s.eyebrow != blank -%}<p class="sd-eyebrow">{{ s.eyebrow }}</p>{%- endif -%}
+        <h2>{{ s.heading }}</h2>
+      </div>
+      {%- if s.text != blank -%}<p class="sd-lead">{{ s.text }}</p>{%- endif -%}
+    </div>
+    {%- if blog != blank and blog.articles_count > 0 -%}
+      <ul class="sd-journal__grid" role="list">
+        {%- for article in articles limit: s.limit -%}
+          <li class="sd-journal__item">
+            <a class="sd-journal__link" href="{{ article.url }}">
+              <span class="sd-journal__media">
+                {%- if article.image != blank -%}
+                  {%- render 'sd-image', image: article.image, widths: '480,640,800,1000', sizes: '(min-width: 900px) 30vw, 92vw', decorative: true, cover: true, class: 'sd-journal__img' -%}
+                {%- endif -%}
+              </span>
+              <span class="sd-journal__meta">{{ article.published_at | date: '%d/%m/%Y' }}</span>
+              <span class="sd-journal__title">{{ article.title | escape }}</span>
+              {%- if article.excerpt_or_content != blank -%}
+                <span class="sd-journal__excerpt">{{ article.excerpt_or_content | strip_html | truncate: 120 }}</span>
+              {%- endif -%}
+            </a>
+          </li>
+        {%- endfor -%}
+      </ul>
+      <p class="sd-selection__more"><a class="sd-btn sd-btn--secondary" href="{{ blog.url }}"><span>{{ s.cta_label }}</span>{%- render 'icon', name: 'arrow-right', size: 18 -%}</a></p>
+    {%- else -%}
+      <div class="sd-empty"><p>{{ 'journal.editor_hint' | t }}</p></div>
+    {%- endif -%}
+  </div>
+</section>
+{%- endif -%}
+
+{% schema %}
+{
+  "name": "Diario (blog)",
+  "tag": "section",
+  "settings": [
+    { "type": "text", "id": "eyebrow", "label": "Antetítulo", "default": "Diario" },
+    { "type": "text", "id": "heading", "label": "Título", "default": "Historias de Sidonia" },
+    { "type": "textarea", "id": "text", "label": "Texto" },
+    { "type": "blog", "id": "blog", "label": "Blog", "info": "Crea un blog en Tienda online > Blog y elígelo aquí. Sin artículos, la sección no se muestra." },
+    { "type": "range", "id": "limit", "label": "Número de artículos", "min": 3, "max": 6, "step": 1, "default": 3 },
+    { "type": "text", "id": "cta_label", "label": "Texto del botón", "default": "Ver todas las historias" }
+  ],
+  "presets": [
+    { "name": "Diario (blog)" }
+  ]
+}
+{% endschema %}

@@ -1,0 +1,63 @@
+{%- liquid
+  assign s = section.settings
+-%}
+{%- if section.blocks.size > 0 -%}
+<section class="sd-section sd-trust" data-section-id="{{ section.id }}">
+  <div class="sd-container">
+    {%- if s.heading != blank -%}
+      <div class="sd-section-head">
+        {%- if s.eyebrow != blank -%}<p class="sd-eyebrow">{{ s.eyebrow }}</p>{%- endif -%}
+        <h2>{{ s.heading }}</h2>
+      </div>
+    {%- endif -%}
+    <ul class="sd-trust__grid" role="list">
+      {%- for block in section.blocks -%}
+        <li class="sd-trust__item" {{ block.shopify_attributes }}>
+          <span class="sd-trust__icon">{%- render 'icon', name: block.settings.icon, size: 28 -%}</span>
+          <h3>{{ block.settings.title | escape }}</h3>
+          <p>{{ block.settings.text | escape }}</p>
+        </li>
+      {%- endfor -%}
+    </ul>
+  </div>
+</section>
+{%- endif -%}
+
+{% schema %}
+{
+  "name": "Franja de valores",
+  "tag": "section",
+  "settings": [
+    { "type": "text", "id": "eyebrow", "label": "Antetítulo", "default": "Por qué Sidonia" },
+    { "type": "text", "id": "heading", "label": "Título", "default": "Pocas piezas, bien elegidas" }
+  ],
+  "blocks": [
+    {
+      "type": "item",
+      "name": "Valor",
+      "settings": [
+        {
+          "type": "select",
+          "id": "icon",
+          "label": "Icono",
+          "options": [
+            { "value": "shield", "label": "Escudo" },
+            { "value": "camera", "label": "Cámara" },
+            { "value": "chat", "label": "Conversación" },
+            { "value": "key", "label": "Llave" },
+            { "value": "heart", "label": "Corazón" },
+            { "value": "check", "label": "Visto" }
+          ],
+          "default": "check"
+        },
+        { "type": "text", "id": "title", "label": "Título" },
+        { "type": "textarea", "id": "text", "label": "Texto" }
+      ]
+    }
+  ],
+  "max_blocks": 4,
+  "presets": [
+    { "name": "Franja de valores", "blocks": [{ "type": "item" }, { "type": "item" }, { "type": "item" }] }
+  ]
+}
+{% endschema %}

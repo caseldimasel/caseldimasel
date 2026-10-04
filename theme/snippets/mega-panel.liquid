@@ -1,0 +1,110 @@
+{%- comment -%}
+  Panel del megamenú de una división (se muestra al pasar el ratón o al enfocar con el teclado el enlace de su categoría).
+  Todo son enlaces normales a la colección con filtros. Parámetro: key (garage|harbor|estate).
+{%- endcomment -%}
+{%- liquid
+  capture d_name
+    render 'division-info', key: key, out: 'name'
+  endcapture
+  capture d_url
+    render 'division-info', key: key, out: 'url'
+  endcapture
+  assign d_name = d_name | strip
+  assign d_url = d_url | strip
+  capture brands_url
+    render 'page-url', key: 'brands'
+  endcapture
+  capture archive_url
+    render 'page-url', key: 'archive'
+  endcapture
+  capture wanted_url
+    render 'page-url', key: 'wanted'
+  endcapture
+  assign brand_param = ''
+  assign list = ''
+  assign list_title = ''
+  assign era_param = 'year_band'
+  assign era_title = 'mega.era' | t
+  assign era_raw = 'Anterior a 1950|1950-1959|1960-1969|1970-1979|1980-1989|1990-1999|2000-2009|2010-2019'
+  if key == 'garage'
+    capture raw
+      render 'brand-list', kind: 'cars_popular'
+    endcapture
+    assign list = raw | strip | split: '|'
+    assign brand_param = 'brand'
+    assign list_title = 'mega.brands' | t
+  elsif key == 'harbor'
+    capture raw
+      render 'brand-list', kind: 'boats_popular'
+    endcapture
+    assign list = raw | strip | split: '|'
+    assign brand_param = 'builder'
+    assign list_title = 'mega.builders' | t
+  else
+    assign era_param = 'area_band'
+    assign era_title = 'mega.size' | t
+    assign era_raw = 'Hasta 99 m²|100-249 m²|250-499 m²|500-999 m²|1.000 m² o más'
+  endif
+  assign eras = era_raw | split: '|'
+  assign img_key = 'division_' | append: key | append: '_image'
+  assign col_key = 'division_' | append: key | append: '_collection'
+  assign cover = settings[img_key]
+  assign col = settings[col_key]
+  if cover == blank and col != blank
+    assign cover = col.image
+    if cover == blank and col.products.size > 0
+      assign cover = col.products.first.featured_image
+    endif
+  endif
+  assign sep = '?'
+  if d_url contains '?'
+    assign sep = '&'
+  endif
+-%}
+<div class="sd-mega sd-cat sd-cat--{{ key }}" data-sd-mega>
+  <div class="sd-container sd-mega__inner">
+    <div class="sd-mega__col">
+      <h3 class="sd-mega__title">{{ 'mega.explore' | t }}</h3>
+      <ul class="sd-mega__list" role="list">
+        <li><a href="{{ d_url }}">{{ 'mega.all' | t: name: d_name }}</a></li>
+        <li><a href="{{ d_url }}{{ sep }}sort_by=created-descending">{{ 'mega.newest' | t }}</a></li>
+        <li><a href="{{ archive_url | strip }}">{{ 'mega.archive' | t }}</a></li>
+        <li><a href="{{ wanted_url | strip }}">{{ 'mega.wanted' | t }}</a></li>
+      </ul>
+    </div>
+
+    {%- if brand_param != blank -%}
+      <div class="sd-mega__col sd-mega__col--wide">
+        <h3 class="sd-mega__title">{{ list_title }}</h3>
+        <ul class="sd-mega__list sd-mega__list--cols" role="list">
+          {%- for b in list limit: 12 -%}
+            <li><a href="{{ d_url }}{{ sep }}filter.p.m.sidonia.{{ brand_param }}={{ b | url_encode }}">{{ b }}</a></li>
+          {%- endfor -%}
+        </ul>
+        <p class="sd-mega__more"><a href="{{ brands_url | strip }}#{% if key == 'garage' %}cars{% else %}boats{% endif %}">{{ 'listing.all_brands' | t }}{%- render 'icon', name: 'arrow-right', size: 16 -%}</a></p>
+      </div>
+    {%- endif -%}
+
+    <div class="sd-mega__col">
+      <h3 class="sd-mega__title">{{ era_title }}</h3>
+      <ul class="sd-mega__list" role="list">
+        {%- for e in eras -%}
+          <li><a href="{{ d_url }}{{ sep }}filter.p.m.sidonia.{{ era_param }}={{ e | url_encode }}">{{ e }}</a></li>
+        {%- endfor -%}
+      </ul>
+    </div>
+
+    <a class="sd-mega__feature" href="{{ d_url }}">
+      <span class="sd-mega__media">
+        {%- if cover != blank -%}
+          {%- render 'sd-image', image: cover, widths: '320,480,640', sizes: '320px', decorative: true, cover: true, class: 'sd-mega__img' -%}
+        {%- elsif key == 'garage' and settings.use_bundled_photos -%}
+          {%- render 'bundled-photo', name: 'foto-maserati-19', alt: '', class: 'sd-mega__img' -%}
+        {%- else -%}
+          <span class="sd-mega__fill" aria-hidden="true"><img src="{{ 'sidonia-logo-light.png' | asset_url }}" width="600" height="125" alt="" loading="lazy"></span>
+        {%- endif -%}
+      </span>
+      <span class="sd-mega__cta"><span class="sd-nav__dot" aria-hidden="true"></span>{{ 'mega.feature' | t: name: d_name }}{%- render 'icon', name: 'arrow-right', size: 18 -%}</span>
+    </a>
+  </div>
+</div>

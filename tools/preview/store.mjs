@@ -47,6 +47,14 @@ export function makeProduct(o) {
   const CAR_PHOTOS = ['foto-alfa-giulia', 'foto-jaguar-e-type', 'foto-maserati-19', 'foto-ford-roadster', 'foto-maserati-lago'];
   const photo = o.category === 'Coche' ? CAR_PHOTOS[pid % CAR_PHOTOS.length] : undefined;
   const poster = o.noCover ? null : photo ? image(o.title, 2000, 1342, o.color || '#9a8f78', o.alt || o.title, undefined, photo) : image(o.title, 1200, 900, o.color || '#9a8f78', o.alt || o.title);
+  const extra = [];
+  if (!o.noCover) {
+    const n = o.category === 'Coche' ? 5 : 3;
+    for (let k = 1; k < n; k++) {
+      const ph = o.category === 'Coche' ? CAR_PHOTOS[(pid + k) % CAR_PHOTOS.length] : undefined;
+      extra.push(ph ? image(`${o.title} · foto ${k + 1}`, 2000, 1342, o.color || '#9a8f78', '', undefined, ph) : image(`${o.title} · foto ${k + 1}`, 1200, 900, o.color || '#9a8f78'));
+    }
+  }
   const mf = {
     reference: o.ref,
     category: o.category,
@@ -126,6 +134,7 @@ export function makeProduct(o) {
     published_at: '2026-09-01T10:00:00Z',
     template_suffix: o.suffix || '',
     featured_image: poster,
+    images: poster ? [poster, ...extra] : [],
     media,
     available: false,
     selected_or_first_available_variant: { sku: '' },

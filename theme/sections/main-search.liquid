@@ -62,6 +62,7 @@
               </button>
               <p class="sd-listing__count" data-sd-swap="count">{{ 'search.count' | t: count: total, terms: terms }}</p>
               {%- render 'facets-sort', results: search, uid: uid -%}
+              {%- render 'view-toggle' -%}
             </div>
 
             <div class="sd-listing__layout">

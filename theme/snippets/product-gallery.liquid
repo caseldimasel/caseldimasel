@@ -1,0 +1,52 @@
+{%- comment -%}
+  Galería de fotos de la pieza: mosaico en escritorio, carrusel con deslizamiento en móvil y visor a pantalla completa.
+  Sin JavaScript cada foto es un enlace a la imagen grande. Parámetros: product, title.
+{%- endcomment -%}
+{%- liquid
+  assign imgs = product.images
+  assign total = imgs.size
+  assign alt_default = product.title
+-%}
+{%- if total > 0 -%}
+  <sd-gallery class="sd-gallery" data-count="{{ total }}">
+    <ul class="sd-gallery__grid sd-gallery__grid--{% if total >= 5 %}5{% else %}{{ total }}{% endif %}" role="list" data-sd-gallery-track>
+      {%- for image in imgs limit: 12 -%}
+        {%- assign big = forloop.index == 1 -%}
+        {%- assign img_alt = image.alt | default: alt_default -%}
+        <li class="sd-gallery__item{% if forloop.index > 5 %} sd-gallery__item--extra{% endif %}">
+          <a class="sd-gallery__btn" href="{{ image | image_url: width: 2000 }}" data-sd-gallery-open="{{ forloop.index0 }}" aria-haspopup="dialog" aria-label="{{ 'gallery.open_photo' | t: n: forloop.index, total: total }}">
+            {%- if big -%}
+              {%- render 'sd-image', image: image, widths: '640,900,1200,1600,2000', sizes: '(min-width: 900px) 50vw, 100vw', priority: true, class: 'sd-gallery__img', alt: img_alt, cover: true -%}
+            {%- else -%}
+              {%- render 'sd-image', image: image, widths: '320,480,640,900', sizes: '(min-width: 900px) 25vw, 100vw', class: 'sd-gallery__img', alt: img_alt, cover: true -%}
+            {%- endif -%}
+          </a>
+        </li>
+      {%- endfor -%}
+    </ul>
+    <p class="sd-gallery__counter" data-sd-gallery-counter aria-hidden="true"><span data-sd-gallery-pos>1</span> / {{ total }}</p>
+    {%- if total > 1 -%}
+      <button type="button" class="sd-btn sd-btn--light sd-btn--sm sd-gallery__all" data-sd-gallery-open="0" hidden>
+        {%- render 'icon', name: 'grid', size: 18 -%}<span>{{ 'gallery.see_all' | t: count: total }}</span>
+      </button>
+    {%- endif -%}
+
+    <dialog class="sd-lightbox" aria-label="{{ 'gallery.dialog' | t: title: product.title }}">
+      <div class="sd-lightbox__bar">
+        <p class="sd-lightbox__count" aria-live="polite"><span data-sd-lb-pos>1</span> / {{ total }}</p>
+        <button type="button" class="sd-iconbtn sd-lightbox__close" data-sd-lb-close aria-label="{{ 'general.close' | t }}">{%- render 'icon', name: 'close', size: 26 -%}</button>
+      </div>
+      <div class="sd-lightbox__track" data-sd-lb-track tabindex="0" role="group" aria-roledescription="carrusel" aria-label="{{ 'gallery.dialog' | t: title: product.title }}">
+        {%- for image in imgs -%}
+          <figure class="sd-lightbox__slide" data-sd-lb-slide>
+            <img src="{{ image | image_url: width: 1600 }}" width="{{ image.width }}" height="{{ image.height }}" alt="{{ image.alt | default: alt_default | escape }}" loading="lazy" decoding="async">
+          </figure>
+        {%- endfor -%}
+      </div>
+      {%- if total > 1 -%}
+        <button type="button" class="sd-lightbox__nav sd-lightbox__nav--prev" data-sd-lb-prev aria-label="{{ 'gallery.prev' | t }}">{%- render 'icon', name: 'chevron-left', size: 28 -%}</button>
+        <button type="button" class="sd-lightbox__nav sd-lightbox__nav--next" data-sd-lb-next aria-label="{{ 'gallery.next' | t }}">{%- render 'icon', name: 'chevron-right', size: 28 -%}</button>
+      {%- endif -%}
+    </dialog>
+  </sd-gallery>
+{%- endif -%}

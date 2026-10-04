@@ -1,0 +1,109 @@
+{%- liquid
+  assign s = section.settings
+  assign cat = s.division
+  if cat == 'none'
+    assign cat = ''
+  endif
+  assign col = s.collection
+  if col == blank and cat != blank
+    capture col_key
+      echo 'division_' | append: cat | append: '_collection'
+    endcapture
+    assign col_key = col_key | strip
+    assign col = settings[col_key]
+  endif
+  assign max_items = s.limit | default: 10
+  assign shown = 0
+  if cat != blank
+    capture cat_name
+      render 'division-info', key: cat, out: 'name'
+    endcapture
+    assign cat_name = cat_name | strip
+    capture cat_url
+      render 'division-info', key: cat, out: 'url'
+    endcapture
+    assign cat_url = cat_url | strip
+  endif
+  assign cta_url = s.cta_url
+  if cta_url == blank
+    if col != blank
+      assign cta_url = col.url
+    else
+      assign cta_url = cat_url
+    endif
+  endif
+-%}
+{%- capture cells -%}
+  {%- if col != blank -%}
+    {%- for product in col.products limit: 24 -%}
+      {%- capture st -%}{%- render 'listing-status', product: product -%}{%- endcapture -%}
+      {%- assign st = st | strip -%}
+      {%- if st == 'sold' -%}{%- continue -%}{%- endif -%}
+      {%- if shown >= max_items -%}{%- break -%}{%- endif -%}
+      <li class="sd-carousel__item">{%- render 'listing-card', product: product, priority: false, sizes: '(min-width: 1100px) 24vw, (min-width: 700px) 38vw, 78vw' -%}</li>
+      {%- assign shown = shown | plus: 1 -%}
+    {%- endfor -%}
+  {%- endif -%}
+{%- endcapture -%}
+
+{%- if shown > 0 or request.design_mode -%}
+<section class="sd-section sd-carsec{% if cat != blank %} sd-cat sd-cat--{{ cat }}{% endif %}" data-section-id="{{ section.id }}">
+  <div class="sd-container">
+    <sd-carousel class="sd-carousel">
+      <div class="sd-carsec__head">
+        <div>
+          {%- if cat != blank -%}<p class="sd-eyebrow"><span class="sd-nav__dot" aria-hidden="true"></span>{{ cat_name }}</p>{%- elsif s.eyebrow != blank -%}<p class="sd-eyebrow">{{ s.eyebrow }}</p>{%- endif -%}
+          <h2>{{ s.heading }}</h2>
+        </div>
+        <div class="sd-carsec__tools">
+          {%- if cta_url != blank -%}
+            <a class="sd-carsec__all" href="{{ cta_url }}">{{ s.cta_label | default: 'Ver todo' }}{%- render 'icon', name: 'arrow-right', size: 18 -%}</a>
+          {%- endif -%}
+          <div class="sd-carousel__arrows" aria-hidden="true">
+            <button type="button" class="sd-carousel__btn" data-sd-car-prev tabindex="-1">{%- render 'icon', name: 'chevron-left', size: 22 -%}</button>
+            <button type="button" class="sd-carousel__btn" data-sd-car-next tabindex="-1">{%- render 'icon', name: 'chevron-right', size: 22 -%}</button>
+          </div>
+        </div>
+      </div>
+      {%- if shown > 0 -%}
+        <ul class="sd-carousel__track" role="list" data-sd-car-track tabindex="0" aria-label="{{ s.heading | escape }}">{{ cells }}</ul>
+      {%- else -%}
+        <div class="sd-empty">
+          <h3>{{ 'selection.editor_empty_title' | t }}</h3>
+          <p>{{ 'selection.editor_empty_text' | t }}</p>
+        </div>
+      {%- endif -%}
+    </sd-carousel>
+  </div>
+</section>
+{%- endif -%}
+
+{% schema %}
+{
+  "name": "Carrusel de piezas",
+  "tag": "section",
+  "settings": [
+    {
+      "type": "select",
+      "id": "division",
+      "label": "Tipo",
+      "options": [
+        { "value": "none", "label": "Ninguno (general)" },
+        { "value": "garage", "label": "Coches (rojo)" },
+        { "value": "harbor", "label": "Barcos (azul)" },
+        { "value": "estate", "label": "Casas (verde)" }
+      ],
+      "default": "garage"
+    },
+    { "type": "text", "id": "eyebrow", "label": "Antetítulo (si no hay tipo)" },
+    { "type": "text", "id": "heading", "label": "Título", "default": "Coches destacados" },
+    { "type": "collection", "id": "collection", "label": "Colección", "info": "Vacío = la colección del tipo elegido en Ajustes del tema > Divisiones. Las vendidas no se muestran." },
+    { "type": "range", "id": "limit", "label": "Número de piezas", "min": 4, "max": 16, "step": 1, "default": 10 },
+    { "type": "text", "id": "cta_label", "label": "Texto del enlace", "default": "Ver todos" },
+    { "type": "url", "id": "cta_url", "label": "Enlace", "info": "Vacío = la colección." }
+  ],
+  "presets": [
+    { "name": "Carrusel de piezas" }
+  ]
+}
+{% endschema %}

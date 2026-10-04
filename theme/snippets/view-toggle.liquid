@@ -1,0 +1,5 @@
+{%- comment -%}Interruptor cuadrícula / lista del listado. Solo aparece con JavaScript; la preferencia se recuerda en este navegador.{%- endcomment -%}
+<sd-viewtoggle class="sd-viewtoggle" hidden>
+  <button type="button" class="sd-viewtoggle__btn" data-sd-view="grid" aria-pressed="true">{%- render 'icon', name: 'grid', size: 20 -%}<span class="sd-sr">{{ 'facets.view_grid' | t }}</span></button>
+  <button type="button" class="sd-viewtoggle__btn" data-sd-view="list" aria-pressed="false">{%- render 'icon', name: 'list', size: 20 -%}<span class="sd-sr">{{ 'facets.view_list' | t }}</span></button>
+</sd-viewtoggle>

@@ -77,6 +77,7 @@
             </button>
             <p class="sd-listing__count" data-sd-swap="count">{{ 'facets.count' | t: count: total }}</p>
             {%- render 'facets-sort', results: collection, uid: uid -%}
+            {%- render 'view-toggle' -%}
           </div>
 
           <div class="sd-listing__layout">

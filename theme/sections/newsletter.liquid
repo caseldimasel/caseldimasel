@@ -1,0 +1,55 @@
+{%- liquid
+  assign s = section.settings
+  capture privacy_url
+    if settings.privacy_url != blank
+      echo settings.privacy_url
+    elsif policies.privacy_policy != blank
+      echo policies.privacy_policy.url
+    endif
+  endcapture
+  assign privacy_url = privacy_url | strip
+-%}
+<section class="sd-section sd-newsletter" data-section-id="{{ section.id }}">
+  <div class="sd-container sd-newsletter__inner">
+    <div class="sd-newsletter__copy">
+      {%- if s.eyebrow != blank -%}<p class="sd-eyebrow">{{ s.eyebrow }}</p>{%- endif -%}
+      <h2>{{ s.heading }}</h2>
+      {%- if s.text != blank -%}<p class="sd-lead">{{ s.text }}</p>{%- endif -%}
+    </div>
+    {%- form 'customer', id: 'newsletter-form', class: 'sd-newsletter__form' -%}
+      <input type="hidden" name="contact[tags]" value="newsletter">
+      {%- if form.posted_successfully? -%}
+        <p class="sd-newsletter__ok" role="status">{{ 'newsletter.success' | t }}</p>
+      {%- else -%}
+        {%- if form.errors -%}
+          <p class="sd-newsletter__err" role="alert">{{ 'newsletter.error' | t }}</p>
+        {%- endif -%}
+        <div class="sd-newsletter__row">
+          <label class="sd-sr" for="nl-email-{{ section.id }}">{{ 'general.email' | t }}</label>
+          <input id="nl-email-{{ section.id }}" class="sd-input" type="email" name="contact[email]" autocomplete="email" inputmode="email" required placeholder="{{ 'general.email' | t }}">
+          <button type="submit" class="sd-btn sd-btn--primary">{{ 'newsletter.submit' | t }}</button>
+        </div>
+        <label class="sd-choice sd-newsletter__consent">
+          <input type="checkbox" required>
+          <span>{{ 'newsletter.consent' | t }}{% if privacy_url != blank %} <a href="{{ privacy_url }}">{{ 'newsletter.privacy' | t }}</a>{% endif %}</span>
+        </label>
+      {%- endif -%}
+    {%- endform -%}
+  </div>
+</section>
+
+{% schema %}
+{
+  "name": "Boletín",
+  "tag": "section",
+  "settings": [
+    { "type": "text", "id": "eyebrow", "label": "Antetítulo", "default": "Boletín" },
+    { "type": "text", "id": "heading", "label": "Título", "default": "Las nuevas piezas, antes que nadie" },
+    { "type": "textarea", "id": "text", "label": "Texto", "default": "Un correo cuando publiquemos algo que merezca la pena. Sin ruido y con baja en un clic." },
+    { "type": "paragraph", "content": "Crea clientes con la etiqueta «newsletter» y consentimiento. Para enviar los correos necesitas Shopify Email u otra herramienta de marketing (no incluida)." }
+  ],
+  "presets": [
+    { "name": "Boletín" }
+  ]
+}
+{% endschema %}

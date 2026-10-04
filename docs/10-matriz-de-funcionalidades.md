@@ -8,6 +8,14 @@ Leyenda: **T** = funciona solo con el tema · **S** = necesita configuración en
 |---|---|---|
 | Home con hero, divisiones, selección, cómo vendemos, historia, comunidad, criterio, testimonios, CTA y FAQ editables | T | Contenido real: colecciones, vídeo, cifras |
 | Cabecera con favoritos y CTA de venta, menú móvil accesible | T | Menú `main-menu` opcional (hay menú de reserva) |
+| Megamenú por tipo (marcas populares, épocas, foto), accesible por teclado | T + S | Enlaces del menú a las colecciones; filtros de marca/época activos en Search & Discovery |
+| Galería de fotos de la ficha: mosaico, visor a pantalla completa, teclado y deslizamiento | T | Fotos del producto (hasta 12 en mosaico, todas en el visor) |
+| Carruseles de piezas por tipo en la portada | T + S | Colecciones de cada tipo |
+| Vista en cuadrícula o en lista del listado (recordada en el navegador) y barra fija | T | — |
+| Franja de valores, búsquedas populares, galería editorial, diario (blog) | T | Contenido real del blog |
+| Boletín con consentimiento (crea clientes con etiqueta) | T + S | Envío de correos: Shopify Email u otra app (A) |
+| Pie con listas de marcas y constructores | T | Marcas de `tools/brands.json` |
+| Tipografías de marca KMR Apparat y Switzer incluidas | T | Licencia de uso web por confirmar |
 | Logos, isotipo, favicon, ancho, nombre de marca; texto de reserva | T | Los aporta Sidonia |
 | Paleta, tipografías, escala, radios, ancho, columnas móvil | T | — |
 | Contraste automático de colores de división como texto | T | — |

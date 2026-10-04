@@ -90,7 +90,7 @@
             {%- for c in key_list -%}
               {%- if link.url == url_list[forloop.index0] -%}{%- assign cat_key = c -%}{%- endif -%}
             {%- endfor -%}
-            <li class="sd-nav__item{% if cat_key != blank %} sd-cat sd-cat--{{ cat_key }}{% endif %}">
+            <li class="sd-nav__item{% if cat_key != blank %} sd-cat sd-cat--{{ cat_key }} sd-nav__item--mega{% endif %}">
               {%- if link.links.size > 0 -%}
                 <details class="sd-nav__more">
                   <summary class="sd-nav__link">{{ link.title | escape }}{% render 'icon', name: 'chevron-down', size: 16 %}</summary>
@@ -106,6 +106,7 @@
                   {%- if cat_key != blank -%}<span class="sd-nav__dot" aria-hidden="true"></span>{%- endif -%}
                   {{ link.title | escape }}
                 </a>
+                {%- if cat_key != blank -%}{%- render 'mega-panel', key: cat_key -%}{%- endif -%}
               {%- endif -%}
             </li>
           {%- endfor -%}
@@ -113,7 +114,7 @@
           <li class="sd-nav__item"><a class="sd-nav__link" href="{{ explore_url }}">{{ 'header.explore' | t }}</a></li>
           {%- for c in key_list -%}
             {%- capture c_name -%}{%- render 'division-info', key: c, out: 'name' -%}{%- endcapture -%}
-            <li class="sd-nav__item sd-cat sd-cat--{{ c }}"><a class="sd-nav__link" href="{{ url_list[forloop.index0] }}"><span class="sd-nav__dot" aria-hidden="true"></span>{{ c_name | strip }}</a></li>
+            <li class="sd-nav__item sd-nav__item--mega sd-cat sd-cat--{{ c }}"><a class="sd-nav__link" href="{{ url_list[forloop.index0] }}"><span class="sd-nav__dot" aria-hidden="true"></span>{{ c_name | strip }}</a>{%- render 'mega-panel', key: c -%}</li>
           {%- endfor -%}
           <li class="sd-nav__item"><a class="sd-nav__link" href="{{ brands_url | strip }}">{{ 'header.brands' | t }}</a></li>
           <li class="sd-nav__item"><a class="sd-nav__link" href="{{ how_url }}">{{ 'header.how' | t }}</a></li>

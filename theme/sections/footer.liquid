@@ -55,6 +55,47 @@
           </ul>
         </section>
 
+        {%- assign brand_kinds = 'garage,harbor' | split: ',' -%}
+        {%- for kind in brand_kinds -%}
+          {%- liquid
+            if kind == 'garage'
+              capture raw
+                render 'brand-list', kind: 'cars_popular'
+              endcapture
+              assign param = 'brand'
+              assign t_key = 'footer.by_brand'
+            else
+              capture raw
+                render 'brand-list', kind: 'boats_popular'
+              endcapture
+              assign param = 'builder'
+              assign t_key = 'footer.by_builder'
+            endif
+            assign brand_list = raw | strip | split: '|'
+            capture k_url
+              render 'division-info', key: kind, out: 'url'
+            endcapture
+            assign k_url = k_url | strip
+            capture k_name
+              render 'division-info', key: kind, out: 'name'
+            endcapture
+            assign k_name = k_name | strip
+            capture brands_page
+              render 'page-url', key: 'brands'
+            endcapture
+            assign brands_page = brands_page | strip
+          -%}
+          <section class="sd-footer__col sd-cat sd-cat--{{ kind }}" aria-labelledby="ft-{{ kind }}-{{ section.id }}">
+            <h2 class="sd-footer__title" id="ft-{{ kind }}-{{ section.id }}">{{ t_key | t: name: k_name }}</h2>
+            <ul class="sd-footer__list sd-footer__list--brands" role="list">
+              {%- for b in brand_list limit: 8 -%}
+                <li><a href="{{ k_url }}?filter.p.m.sidonia.{{ param }}={{ b | url_encode }}">{{ b }}</a></li>
+              {%- endfor -%}
+              <li><a href="{{ brands_page }}#{% if kind == 'garage' %}cars{% else %}boats{% endif %}">{{ 'listing.all_brands' | t }}</a></li>
+            </ul>
+          </section>
+        {%- endfor -%}
+
         {%- if menu != blank and menu.links.size > 0 -%}
           <section class="sd-footer__col" aria-labelledby="ft-menu-{{ section.id }}">
             <h2 class="sd-footer__title" id="ft-menu-{{ section.id }}">{{ section.settings.menu_title | default: settings.brand_name }}</h2>

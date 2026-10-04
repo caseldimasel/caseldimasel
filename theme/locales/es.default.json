@@ -88,7 +88,9 @@
     "explore_all": "Explorar toda la selección",
     "wanted_cta": "Cuéntanos qué buscas",
     "editor_hint": "Aviso para el editor: esta colección no tiene productos publicados todavía.",
-    "results_heading": "Resultados"
+    "results_heading": "Resultados",
+    "view_grid": "Ver en cuadrícula",
+    "view_list": "Ver en lista"
   },
   "listing": {
     "watch": "Ver vídeo",
@@ -158,7 +160,9 @@
     "privacy": "Aviso de privacidad",
     "terms": "Condiciones del servicio",
     "newsletter_submit": "Suscribirme",
-    "newsletter_ok": "Gracias. Ya estás suscrito."
+    "newsletter_ok": "Gracias. Ya estás suscrito.",
+    "by_brand": "{{ name }} por marca",
+    "by_builder": "{{ name }} por constructor"
   },
   "product": {
     "reference": "Referencia",
@@ -179,7 +183,8 @@
     "specs_empty_text": "Aviso para el editor: completa los metacampos de datos técnicos de la categoría (ver docs/03-modelo-de-datos.md).",
     "timeline_note": "Fechas aportadas por el propietario y revisadas por el equipo.",
     "timeline_empty_title": "Sin cronología",
-    "timeline_empty_text": "Aviso para el editor: añade hitos en el metacampo sidonia.timeline. Si está vacío, la sección se oculta en la tienda."
+    "timeline_empty_text": "Aviso para el editor: añade hitos en el metacampo sidonia.timeline. Si está vacío, la sección se oculta en la tienda.",
+    "presented_by": "Presentado por {{ name }}"
   },
   "video": {
     "watch_with_sound": "Ver y escuchar la historia",
@@ -458,5 +463,37 @@
     "note": "Las marcas con un número tienen piezas ahora mismo. Si no ves la tuya, cuéntanos qué buscas.",
     "found": "Marcas encontradas: {count}",
     "with_count": "{brand}: {count} piezas"
+  },
+  "gallery": {
+    "open_photo": "Ampliar la foto {{ n }} de {{ total }}",
+    "see_all": {
+      "one": "Ver la foto",
+      "other": "Ver las {{ count }} fotos"
+    },
+    "dialog": "Fotos de {{ title }}",
+    "prev": "Foto anterior",
+    "next": "Foto siguiente"
+  },
+  "mega": {
+    "explore": "Explorar",
+    "all": "Ver todos: {{ name }}",
+    "newest": "Novedades",
+    "archive": "Archivo de vendidas",
+    "wanted": "Cuéntanos qué buscas",
+    "brands": "Marcas populares",
+    "builders": "Constructores populares",
+    "era": "Por época",
+    "size": "Por superficie",
+    "feature": "Entrar en {{ name }}"
+  },
+  "journal": {
+    "editor_hint": "Elige un blog con artículos en los ajustes de esta sección para mostrar las últimas historias."
+  },
+  "newsletter": {
+    "submit": "Suscribirme",
+    "success": "Gracias. Te hemos apuntado a la lista.",
+    "error": "No hemos podido apuntarte. Revisa el correo e inténtalo de nuevo.",
+    "consent": "Acepto recibir el boletín de Sidonia por correo electrónico y puedo darme de baja cuando quiera.",
+    "privacy": "Aviso de privacidad"
   }
 }

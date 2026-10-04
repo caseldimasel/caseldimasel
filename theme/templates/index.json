@@ -8,15 +8,169 @@
       "type": "divisions",
       "settings": {}
     },
-    "selection": {
-      "type": "featured-listings",
-      "settings": {}
+    "car-garage": {
+      "type": "listing-carousel",
+      "settings": {
+        "division": "garage",
+        "heading": "Coches destacados"
+      }
+    },
+    "car-harbor": {
+      "type": "listing-carousel",
+      "settings": {
+        "division": "harbor",
+        "heading": "Barcos destacados"
+      }
+    },
+    "car-estate": {
+      "type": "listing-carousel",
+      "settings": {
+        "division": "estate",
+        "heading": "Casas destacadas"
+      }
+    },
+    "popular": {
+      "type": "popular-searches",
+      "settings": {},
+      "blocks": {
+        "link-1": {
+          "type": "link",
+          "settings": {
+            "label": "Clásicos de los años 60",
+            "url": "/collections/coches?filter.p.m.sidonia.year_band=1960-1969"
+          }
+        },
+        "link-2": {
+          "type": "link",
+          "settings": {
+            "label": "Clásicos de los años 70",
+            "url": "/collections/coches?filter.p.m.sidonia.year_band=1970-1979"
+          }
+        },
+        "link-3": {
+          "type": "link",
+          "settings": {
+            "label": "Descapotables y roadsters",
+            "url": "/search?q=descapotable&type=product"
+          }
+        },
+        "link-4": {
+          "type": "link",
+          "settings": {
+            "label": "Barcos de vela",
+            "url": "/search?q=velero&type=product"
+          }
+        },
+        "link-5": {
+          "type": "link",
+          "settings": {
+            "label": "Casas en el campo",
+            "url": "/search?q=masía&type=product"
+          }
+        },
+        "link-6": {
+          "type": "link",
+          "settings": {
+            "label": "Piezas con vídeo",
+            "url": "/search?q=vídeo&type=product"
+          }
+        },
+        "link-7": {
+          "type": "link",
+          "settings": {
+            "label": "Todas las marcas",
+            "url": "/pages/marcas"
+          }
+        }
+      },
+      "block_order": [
+        "link-1",
+        "link-2",
+        "link-3",
+        "link-4",
+        "link-5",
+        "link-6",
+        "link-7"
+      ]
+    },
+    "gallery": {
+      "type": "photo-story",
+      "settings": {},
+      "blocks": {
+        "photo-1": {
+          "type": "photo",
+          "settings": {}
+        },
+        "photo-2": {
+          "type": "photo",
+          "settings": {}
+        },
+        "photo-3": {
+          "type": "photo",
+          "settings": {}
+        },
+        "photo-4": {
+          "type": "photo",
+          "settings": {}
+        },
+        "photo-5": {
+          "type": "photo",
+          "settings": {}
+        },
+        "photo-6": {
+          "type": "photo",
+          "settings": {}
+        }
+      },
+      "block_order": [
+        "photo-1",
+        "photo-2",
+        "photo-3",
+        "photo-4",
+        "photo-5",
+        "photo-6"
+      ]
     },
     "brands": {
       "type": "brand-directory",
       "settings": {
         "compact": true
       }
+    },
+    "trust": {
+      "type": "trust-band",
+      "settings": {},
+      "blocks": {
+        "item-1": {
+          "type": "item",
+          "settings": {
+            "icon": "check",
+            "title": "Selección con criterio",
+            "text": "No publicamos todo: elegimos piezas con historia, carácter y cuidado."
+          }
+        },
+        "item-2": {
+          "type": "item",
+          "settings": {
+            "icon": "camera",
+            "title": "Cada pieza, bien contada",
+            "text": "Fotos, vídeo y una narración que explica por qué merece la pena."
+          }
+        },
+        "item-3": {
+          "type": "item",
+          "settings": {
+            "icon": "chat",
+            "title": "Trato directo",
+            "text": "Escríbenos por WhatsApp o correo: te respondemos nosotros, con la referencia de la pieza."
+          }
+        }
+      },
+      "block_order": [
+        "item-1",
+        "item-2",
+        "item-3"
+      ]
     },
     "how": {
       "type": "how-we-sell",
@@ -62,43 +216,9 @@
       "type": "featured-story",
       "settings": {}
     },
-    "gallery": {
-      "type": "photo-story",
-      "settings": {},
-      "blocks": {
-        "photo-1": {
-          "type": "photo",
-          "settings": {}
-        },
-        "photo-2": {
-          "type": "photo",
-          "settings": {}
-        },
-        "photo-3": {
-          "type": "photo",
-          "settings": {}
-        },
-        "photo-4": {
-          "type": "photo",
-          "settings": {}
-        },
-        "photo-5": {
-          "type": "photo",
-          "settings": {}
-        },
-        "photo-6": {
-          "type": "photo",
-          "settings": {}
-        }
-      },
-      "block_order": [
-        "photo-1",
-        "photo-2",
-        "photo-3",
-        "photo-4",
-        "photo-5",
-        "photo-6"
-      ]
+    "journal": {
+      "type": "journal",
+      "settings": {}
     },
     "community": {
       "type": "community",
@@ -168,6 +288,10 @@
       "type": "owner-cta",
       "settings": {}
     },
+    "newsletter": {
+      "type": "newsletter",
+      "settings": {}
+    },
     "faq": {
       "type": "faq",
       "settings": {
@@ -222,15 +346,21 @@
   "order": [
     "hero",
     "divisions",
-    "selection",
+    "car-garage",
+    "car-harbor",
+    "car-estate",
+    "popular",
     "gallery",
     "brands",
+    "trust",
     "how",
     "story",
+    "journal",
     "community",
     "criteria",
     "testimonials",
     "cta",
+    "newsletter",
     "faq"
   ]
 }
