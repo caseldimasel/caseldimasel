@@ -56,14 +56,14 @@ Por defecto el tema usa las **tipografías de la marca** que aportó Sidonia: **
 
 ## Home: secciones
 
-Cada sección se puede añadir, quitar, reordenar y configurar. Orden de partida: Hero con buscador → Tipos (Coches/Barcos/Casas) → Tres carruseles de piezas destacadas → Búsquedas populares → Galería de fotos → Marcas → Franja de valores → Cómo vendemos → Una historia concreta → Diario → Confianza y comunidad → Criterio → Testimonios → Llamada a propietarios → Boletín → Preguntas frecuentes.
+Cada sección se puede añadir, quitar, reordenar y configurar. Orden de partida: Puesta en marcha (solo editor) → Hero con buscador → Tipos (Coches/Barcos/Casas) → Tres carruseles de piezas destacadas → Búsquedas populares → Galería de fotos → Marcas → Franja de valores → Cómo vendemos → Una historia concreta → Diario → Confianza y comunidad → Criterio → Testimonios → Llamada a propietarios → Formulario de vender → Preguntas frecuentes.
 
 - **Carrusel de piezas** (uno por tipo): toma la colección del tipo (Ajustes del tema → Divisiones) o la que elijas; no muestra las vendidas y se oculta si no hay piezas. Flechas y deslizamiento táctil.
 - **Búsquedas populares**: atajos editables (texto + enlace). Comprueba que cada enlace lleva a resultados reales.
 - **Galería de fotos**: hasta 9 fotos con descripción (accesibilidad) y firma de Sidonia opcional; sin foto propia usa las incluidas.
 - **Franja de valores**: tres razones para confiar; sin cifras ni promesas que no puedas cumplir.
 - **Diario**: últimas historias de un blog de Shopify (se oculta si no hay blog o artículos).
-- **Boletín**: formulario de Shopify (crea clientes con la etiqueta `newsletter`) con consentimiento explícito. Para enviar correos hace falta Shopify Email u otra herramienta.
+- **Boletín** (opcional, **no está en la portada por defecto**): añádelo desde «Añadir sección». Crea clientes con la etiqueta `newsletter` y pide consentimiento explícito. Para enviar correos hace falta Shopify Email u otra herramienta; no lo actives sin esa conexión real.
 - **Megamenú**: aparece solo al pasar el ratón o enfocar con teclado Coches, Barcos o Casas en el menú principal (los enlaces del menú deben apuntar a las colecciones de cada tipo). Muestra marcas populares y épocas con filtros reales.
 - **Hero**: titular, subtítulo, dos botones, buscador y accesos a divisiones. Vídeo protagonista: *vídeo subido a Shopify*, *enlace de YouTube/Vimeo* o *una pieza elegida*. Sin vídeo no aparece el botón «Ver cómo lo contamos» y se muestra la portada o una composición con los colores de las divisiones.
 - **Selección de piezas**: 4–8 piezas desde una colección (recomendado: una colección inteligente «Destacadas» con `sidonia.featured` = verdadero) o a mano. Oculta las vendidas por defecto. Sin piezas, la sección se oculta en la tienda y solo se ve un aviso en el editor.

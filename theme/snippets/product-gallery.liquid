@@ -12,7 +12,7 @@
     <ul class="sd-gallery__grid sd-gallery__grid--{% if total >= 5 %}5{% else %}{{ total }}{% endif %}" role="list" data-sd-gallery-track>
       {%- for image in imgs limit: 12 -%}
         {%- assign big = false -%}
-        {%- if forloop.first -%}{%- assign big = true -%}{%- endif -%}
+        {%- if forloop.first and variant != 'strip' -%}{%- assign big = true -%}{%- endif -%}
         {%- assign img_alt = image.alt | default: alt_default -%}
         <li class="sd-gallery__item{% if forloop.index > 5 %} sd-gallery__item--extra{% endif %}">
           <a class="sd-gallery__btn" href="{{ image | image_url: width: 2000 }}" data-sd-gallery-open="{{ forloop.index0 }}" aria-haspopup="dialog" aria-label="{{ 'gallery.open_photo' | t: n: forloop.index, total: total }}">

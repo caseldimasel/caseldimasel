@@ -98,9 +98,8 @@ out('index', {
   testimonials: { type: 'testimonials', settings: {} },
   cta: ownerCta(),
   sell: { type: 'sell-form', settings: { heading: 'Vender con Sidonia', intro: 'Cuéntanos qué tienes. Cuanto más personal sea la historia, mejor.' } },
-  newsletter: { type: 'newsletter', settings: {} },
   faq: faq(faqHome)
-}, ['setup', 'hero', 'divisions', 'car-garage', 'car-harbor', 'car-estate', 'popular', 'gallery', 'brands', 'trust', 'how', 'story', 'journal', 'community', 'criteria', 'testimonials', 'cta', 'sell', 'newsletter', 'faq']);
+}, ['setup', 'hero', 'divisions', 'car-garage', 'car-harbor', 'car-estate', 'popular', 'gallery', 'brands', 'trust', 'how', 'story', 'journal', 'community', 'criteria', 'testimonials', 'cta', 'sell', 'faq']);
 
 // ---------- Colecciones ----------
 out('collection', {

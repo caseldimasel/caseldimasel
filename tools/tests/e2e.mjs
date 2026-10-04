@@ -816,9 +816,7 @@ await run('Portada: carruseles por tipo con piezas reales, flechas que desplazan
   eq(await page.locator('.sd-popular__list a').count(), 7, 'búsquedas populares');
   eq(await page.locator('.sd-trust__item').count(), 3, 'franja de valores');
   assert((await page.locator('.sd-journal').count()) === 0, 'el diario sin blog se oculta fuera del editor');
-  const nl = page.locator('.sd-newsletter form');
-  eq(await nl.locator('input[type=email][required]').count(), 1, 'campo de correo obligatorio');
-  eq(await nl.locator('input[type=checkbox][required]').count(), 1, 'consentimiento explícito obligatorio');
+  eq(await page.locator('.sd-newsletter').count(), 0, 'sin boletín por defecto: solo existe si hay una conexión real y consentimiento');
   await ctx.close();
 });
 await run('Listado: vista en lista recordada, barra de herramientas fija y pie con marcas', async () => {

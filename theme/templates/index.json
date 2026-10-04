@@ -299,10 +299,6 @@
         "intro": "Cuéntanos qué tienes. Cuanto más personal sea la historia, mejor."
       }
     },
-    "newsletter": {
-      "type": "newsletter",
-      "settings": {}
-    },
     "faq": {
       "type": "faq",
       "settings": {
@@ -373,7 +369,6 @@
     "testimonials",
     "cta",
     "sell",
-    "newsletter",
     "faq"
   ]
 }
