@@ -1,0 +1,58 @@
+{
+  "_nota": "Etiquetas de las bandas de filtro. Deben coincidir EXACTAMENTE con los valores de los metacampos sidonia.*_band. Cambia aquí y vuelve a calcular; no mezcles etiquetas distintas.",
+  "year_band": [
+    { "max": 1949, "label": "Anterior a 1950" },
+    { "max": 1959, "label": "1950-1959" },
+    { "max": 1969, "label": "1960-1969" },
+    { "max": 1979, "label": "1970-1979" },
+    { "max": 1989, "label": "1980-1989" },
+    { "max": 1999, "label": "1990-1999" },
+    { "max": 2009, "label": "2000-2009" },
+    { "max": 2019, "label": "2010-2019" },
+    { "max": null, "label": "2020 o posterior" }
+  ],
+  "km_band": [
+    { "max": 49999, "label": "Hasta 49.999 km" },
+    { "max": 99999, "label": "50.000-99.999 km" },
+    { "max": 199999, "label": "100.000-199.999 km" },
+    { "max": null, "label": "200.000 km o más" }
+  ],
+  "loa_band": [
+    { "max": 7.99, "label": "Hasta 7,99 m" },
+    { "max": 11.99, "label": "8-11,99 m" },
+    { "max": 14.99, "label": "12-14,99 m" },
+    { "max": 19.99, "label": "15-19,99 m" },
+    { "max": null, "label": "20 m o más" }
+  ],
+  "area_band": [
+    { "max": 99, "label": "Hasta 99 m²" },
+    { "max": 249, "label": "100-249 m²" },
+    { "max": 499, "label": "250-499 m²" },
+    { "max": 999, "label": "500-999 m²" },
+    { "max": null, "label": "1.000 m² o más" }
+  ],
+  "bedrooms_band": [
+    { "max": 1, "label": "1" },
+    { "max": 2, "label": "2" },
+    { "max": 3, "label": "3" },
+    { "max": 4, "label": "4" },
+    { "max": null, "label": "5 o más" }
+  ],
+  "price_band": [
+    { "max": 24999, "label": "Hasta 24.999 €" },
+    { "max": 49999, "label": "25.000-49.999 €" },
+    { "max": 99999, "label": "50.000-99.999 €" },
+    { "max": 249999, "label": "100.000-249.999 €" },
+    { "max": 499999, "label": "250.000-499.999 €" },
+    { "max": 999999, "label": "500.000-999.999 €" },
+    { "max": null, "label": "1.000.000 € o más" }
+  ],
+  "_origen": {
+    "year_band": "year",
+    "km_band": "mileage_km",
+    "loa_band": "length_m",
+    "area_band": "area_value",
+    "bedrooms_band": "bedrooms",
+    "price_band": "price_amount"
+  }
+}

@@ -362,6 +362,11 @@ hr {
   animation: sd-spin 0.7s linear infinite;
 }
 
+.sd-btn--primary {
+  /* variante por defecto: tinta sobre marfil */
+  --btn-bg: var(--sd-button);
+}
+
 .sd-btn--secondary {
   --btn-bg: transparent;
   --btn-fg: var(--sd-text);

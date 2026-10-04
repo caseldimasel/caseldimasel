@@ -1,7 +1,7 @@
 <article class="sd-section sd-article" data-section-id="{{ section.id }}">
   <div class="sd-container sd-container--narrow">
     {%- render 'breadcrumbs' -%}
-    <h1>{{ article.title }}</h1>
+    <h1>{{ article.title | escape }}</h1>
     <p class="sd-note">{{ article.published_at | time_tag: '%d/%m/%Y' }}{% if article.author != blank %} · {{ article.author }}{% endif %}</p>
     {%- if article.image != blank -%}
       <div class="sd-article__media">{%- render 'sd-image', image: article.image, widths: '600,900,1200', sizes: '(min-width: 900px) 46rem, 92vw', priority: true, cover: true -%}</div>

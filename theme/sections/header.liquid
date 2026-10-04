@@ -26,27 +26,18 @@
   if sell_label == blank
     assign sell_label = 'header.sell' | t
   endif
-  capture garage_url
-    render 'division-info', key: 'garage', out: 'url'
+  capture keys
+    render 'division-keys'
   endcapture
-  capture harbor_url
-    render 'division-info', key: 'harbor', out: 'url'
-  endcapture
-  capture estate_url
-    render 'division-info', key: 'estate', out: 'url'
-  endcapture
-  capture garage_name
-    render 'division-info', key: 'garage', out: 'name'
-  endcapture
-  capture harbor_name
-    render 'division-info', key: 'harbor', out: 'name'
-  endcapture
-  capture estate_name
-    render 'division-info', key: 'estate', out: 'name'
-  endcapture
-  assign garage_url = garage_url | strip
-  assign harbor_url = harbor_url | strip
-  assign estate_url = estate_url | strip
+  assign key_list = keys | strip | split: ','
+  assign url_str = ''
+  for c in key_list
+    capture c_url
+      render 'division-info', key: c, out: 'url'
+    endcapture
+    assign url_str = url_str | append: c_url | strip | append: '|'
+  endfor
+  assign url_list = url_str | split: '|'
 -%}
 
 <sd-header class="sd-header{% if settings.sticky_header %} sd-header--sticky{% endif %}" data-section-id="{{ section.id }}">
@@ -60,15 +51,15 @@
         {%- if menu != blank and menu.links.size > 0 -%}
           {%- for link in menu.links -%}
             {%- assign cat_key = '' -%}
-            {%- if link.url == garage_url -%}{%- assign cat_key = 'garage' -%}{%- endif -%}
-            {%- if link.url == harbor_url -%}{%- assign cat_key = 'harbor' -%}{%- endif -%}
-            {%- if link.url == estate_url -%}{%- assign cat_key = 'estate' -%}{%- endif -%}
+            {%- for c in key_list -%}
+              {%- if link.url == url_list[forloop.index0] -%}{%- assign cat_key = c -%}{%- endif -%}
+            {%- endfor -%}
             <li class="sd-nav__item{% if cat_key != blank %} sd-cat sd-cat--{{ cat_key }}{% endif %}">
               {%- if link.links.size > 0 -%}
                 <details class="sd-nav__more">
-                  <summary class="sd-nav__link">{{ link.title }}{% render 'icon', name: 'chevron-down', size: 16 %}</summary>
+                  <summary class="sd-nav__link">{{ link.title | escape }}{% render 'icon', name: 'chevron-down', size: 16 %}</summary>
                   <ul class="sd-nav__sub" role="list">
-                    <li><a class="sd-nav__sublink" href="{{ link.url }}">{{ link.title }}</a></li>
+                    <li><a class="sd-nav__sublink" href="{{ link.url }}">{{ link.title | escape }}</a></li>
                     {%- for child in link.links -%}
                       <li><a class="sd-nav__sublink" href="{{ child.url }}"{% if child.current %} aria-current="page"{% endif %}>{{ child.title }}</a></li>
                     {%- endfor -%}
@@ -77,16 +68,17 @@
               {%- else -%}
                 <a class="sd-nav__link" href="{{ link.url }}"{% if link.current %} aria-current="page"{% endif %}>
                   {%- if cat_key != blank -%}<span class="sd-nav__dot" aria-hidden="true"></span>{%- endif -%}
-                  {{ link.title }}
+                  {{ link.title | escape }}
                 </a>
               {%- endif -%}
             </li>
           {%- endfor -%}
         {%- else -%}
           <li class="sd-nav__item"><a class="sd-nav__link" href="{{ explore_url }}">{{ 'header.explore' | t }}</a></li>
-          <li class="sd-nav__item sd-cat sd-cat--garage"><a class="sd-nav__link" href="{{ garage_url }}"><span class="sd-nav__dot" aria-hidden="true"></span>{{ garage_name }}</a></li>
-          <li class="sd-nav__item sd-cat sd-cat--harbor"><a class="sd-nav__link" href="{{ harbor_url }}"><span class="sd-nav__dot" aria-hidden="true"></span>{{ harbor_name }}</a></li>
-          <li class="sd-nav__item sd-cat sd-cat--estate"><a class="sd-nav__link" href="{{ estate_url }}"><span class="sd-nav__dot" aria-hidden="true"></span>{{ estate_name }}</a></li>
+          {%- for c in key_list -%}
+            {%- capture c_name -%}{%- render 'division-info', key: c, out: 'name' -%}{%- endcapture -%}
+            <li class="sd-nav__item sd-cat sd-cat--{{ c }}"><a class="sd-nav__link" href="{{ url_list[forloop.index0] }}"><span class="sd-nav__dot" aria-hidden="true"></span>{{ c_name | strip }}</a></li>
+          {%- endfor -%}
           <li class="sd-nav__item"><a class="sd-nav__link" href="{{ how_url }}">{{ 'header.how' | t }}</a></li>
           <li class="sd-nav__item"><a class="sd-nav__link" href="{{ about_url }}">{{ 'header.about' | t }}</a></li>
         {%- endif -%}
@@ -108,7 +100,7 @@
         </a>
       {%- endif -%}
       <a class="sd-btn sd-btn--accent sd-btn--sm sd-header__cta" href="{{ sell_url }}">{{ sell_label }}</a>
-      <button type="button" class="sd-iconbtn sd-header__burger" data-sd-open="drawer" aria-haspopup="dialog" hidden>
+      <button type="button" class="sd-iconbtn sd-header__burger" data-sd-open="drawer" aria-haspopup="dialog">
         {%- render 'icon', name: 'menu', size: 24 -%}
         <span class="sd-sr">{{ 'header.open_menu' | t }}</span>
       </button>
@@ -130,13 +122,13 @@
         {%- if menu != blank and menu.links.size > 0 -%}
           {%- for link in menu.links -%}
             {%- assign cat_key = '' -%}
-            {%- if link.url == garage_url -%}{%- assign cat_key = 'garage' -%}{%- endif -%}
-            {%- if link.url == harbor_url -%}{%- assign cat_key = 'harbor' -%}{%- endif -%}
-            {%- if link.url == estate_url -%}{%- assign cat_key = 'estate' -%}{%- endif -%}
+            {%- for c in key_list -%}
+              {%- if link.url == url_list[forloop.index0] -%}{%- assign cat_key = c -%}{%- endif -%}
+            {%- endfor -%}
             <li class="{% if cat_key != blank %}sd-cat sd-cat--{{ cat_key }}{% endif %}">
               <a class="sd-drawer__link" href="{{ link.url }}"{% if link.current %} aria-current="page"{% endif %}>
                 {%- if cat_key != blank -%}<span class="sd-nav__dot" aria-hidden="true"></span>{%- endif -%}
-                {{ link.title }}
+                {{ link.title | escape }}
               </a>
               {%- if link.links.size > 0 -%}
                 <ul class="sd-drawer__sub" role="list">
@@ -149,9 +141,10 @@
           {%- endfor -%}
         {%- else -%}
           <li><a class="sd-drawer__link" href="{{ explore_url }}">{{ 'header.explore' | t }}</a></li>
-          <li class="sd-cat sd-cat--garage"><a class="sd-drawer__link" href="{{ garage_url }}"><span class="sd-nav__dot" aria-hidden="true"></span>{{ garage_name }}</a></li>
-          <li class="sd-cat sd-cat--harbor"><a class="sd-drawer__link" href="{{ harbor_url }}"><span class="sd-nav__dot" aria-hidden="true"></span>{{ harbor_name }}</a></li>
-          <li class="sd-cat sd-cat--estate"><a class="sd-drawer__link" href="{{ estate_url }}"><span class="sd-nav__dot" aria-hidden="true"></span>{{ estate_name }}</a></li>
+          {%- for c in key_list -%}
+            {%- capture c_name -%}{%- render 'division-info', key: c, out: 'name' -%}{%- endcapture -%}
+            <li class="sd-cat sd-cat--{{ c }}"><a class="sd-drawer__link" href="{{ url_list[forloop.index0] }}"><span class="sd-nav__dot" aria-hidden="true"></span>{{ c_name | strip }}</a></li>
+          {%- endfor -%}
           <li><a class="sd-drawer__link" href="{{ how_url }}">{{ 'header.how' | t }}</a></li>
           <li><a class="sd-drawer__link" href="{{ about_url }}">{{ 'header.about' | t }}</a></li>
         {%- endif -%}
@@ -196,9 +189,7 @@
       <div class="sd-searchdlg__quick">
         <p class="sd-eyebrow">{{ 'search.quick' | t }}</p>
         <ul class="sd-chiprow" role="list">
-          <li class="sd-cat sd-cat--garage"><a class="sd-chip sd-chip--cat" href="{{ garage_url }}">{{ garage_name }}</a></li>
-          <li class="sd-cat sd-cat--harbor"><a class="sd-chip sd-chip--cat" href="{{ harbor_url }}">{{ harbor_name }}</a></li>
-          <li class="sd-cat sd-cat--estate"><a class="sd-chip sd-chip--cat" href="{{ estate_url }}">{{ estate_name }}</a></li>
+          {%- render 'division-chips' -%}
         </ul>
       </div>
     </div>

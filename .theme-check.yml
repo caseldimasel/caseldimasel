@@ -1,0 +1,4 @@
+# Configuración para ejecutar Shopify Theme Check sobre la carpeta del tema:
+#   shopify theme check --path theme      (con Shopify CLI instalado)
+# Se usan las reglas por defecto de Theme Check: no se desactiva ninguna.
+root: ./theme

@@ -20,7 +20,10 @@
   if privacy_url == blank and policies.privacy_policy != blank
     assign privacy_url = policies.privacy_policy.url
   endif
-  assign cats = 'garage,harbor,estate' | split: ','
+  capture keys
+    render 'division-keys'
+  endcapture
+  assign cats = keys | strip | split: ','
   assign year = 'now' | date: '%Y'
   assign has_social = false
   if settings.social_instagram_url != blank or settings.social_tiktok_url != blank or settings.social_youtube_url != blank or settings.social_facebook_url != blank
@@ -57,7 +60,7 @@
             <h2 class="sd-footer__title" id="ft-menu-{{ section.id }}">{{ section.settings.menu_title | default: settings.brand_name }}</h2>
             <ul class="sd-footer__list" role="list">
               {%- for link in menu.links -%}
-                <li><a href="{{ link.url }}"{% if link.current %} aria-current="page"{% endif %}>{{ link.title }}</a></li>
+                <li><a href="{{ link.url }}"{% if link.current %} aria-current="page"{% endif %}>{{ link.title | escape }}</a></li>
               {%- endfor -%}
             </ul>
           </section>
@@ -144,7 +147,7 @@
       <ul class="sd-footer__legal" role="list">
         {%- if legal != blank and legal.links.size > 0 -%}
           {%- for link in legal.links -%}
-            <li><a href="{{ link.url }}">{{ link.title }}</a></li>
+            <li><a href="{{ link.url }}">{{ link.title | escape }}</a></li>
           {%- endfor -%}
         {%- else -%}
           {%- if privacy_url != blank -%}

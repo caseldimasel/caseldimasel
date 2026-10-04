@@ -3,7 +3,7 @@
     "main": {
       "type": "main-collection",
       "settings": {
-        "category": "",
+        "category": "none",
         "archive": true,
         "show_description": true
       }

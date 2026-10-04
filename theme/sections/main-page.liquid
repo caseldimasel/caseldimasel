@@ -2,7 +2,7 @@
   <div class="sd-container sd-container--narrow">
     {%- if section.settings.show_title -%}
       {%- render 'breadcrumbs' -%}
-      <h1 class="sd-mainpage__title">{{ page.title }}</h1>
+      <h1 class="sd-mainpage__title">{{ page.title | escape }}</h1>
     {%- endif -%}
     <div class="sd-prose">{{ page.content }}</div>
   </div>

@@ -5,7 +5,7 @@
     <ul class="sd-grid" role="list">
       {%- for collection in collections -%}
         <li class="sd-article-card">
-          <h2 class="sd-article-card__title"><a href="{{ collection.url }}">{{ collection.title }}</a></h2>
+          <h2 class="sd-article-card__title"><a href="{{ collection.url }}">{{ collection.title | escape }}</a></h2>
           {%- if collection.description != blank -%}<p>{{ collection.description | strip_html | truncatewords: 24 }}</p>{%- endif -%}
         </li>
       {%- endfor -%}

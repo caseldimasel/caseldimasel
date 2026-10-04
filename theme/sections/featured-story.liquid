@@ -43,7 +43,7 @@
             {%- if cover != blank -%}
               {%- render 'sd-image', image: cover, widths: '480,640,800,1000', sizes: '(min-width: 900px) 40vw, 92vw', class: 'sd-vplayer__poster', decorative: true, cover: true -%}
             {%- else -%}
-              <span class="sd-vplayer__poster-fallback" aria-hidden="true">{{ product.title }}</span>
+              <span class="sd-vplayer__poster-fallback" aria-hidden="true">{{ product.title | escape }}</span>
             {%- endif -%}
             {%- if vattrs != blank -%}
               <button type="button" class="sd-vplayer__start" data-sd-play {{ vattrs }} aria-label="{{ 'listing.play_aria' | t: title: product.title }}">
@@ -61,10 +61,10 @@
           <div class="sd-story__piece">
             <p class="sd-card__meta">
               {%- if cat_name != blank -%}<span class="sd-card__cat">{{ cat_name }}</span>{%- endif -%}
-              {%- if place != blank -%}<span class="sd-card__place">{%- render 'icon', name: 'pin', size: 14 -%}{{ place }}</span>{%- endif -%}
+              {%- if place != blank -%}<span class="sd-card__place">{%- render 'icon', name: 'pin', size: 14 -%}{{ place | escape }}</span>{%- endif -%}
             </p>
-            <h3>{{ product.title }}</h3>
-            {%- if excerpt != blank -%}<blockquote class="sd-story__excerpt">{{ excerpt }}</blockquote>{%- endif -%}
+            <h3>{{ product.title | escape }}</h3>
+            {%- if excerpt != blank -%}<blockquote class="sd-story__excerpt">{{ excerpt | escape }}</blockquote>{%- endif -%}
           </div>
           <a class="sd-btn sd-btn--primary" href="{{ product.url }}"><span>{{ 'video.see_listing' | t }}</span>{%- render 'icon', name: 'arrow-right', size: 18 -%}</a>
         </div>

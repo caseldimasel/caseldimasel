@@ -25,7 +25,7 @@
               <span class="sd-suggest__title">{{ product.title | escape }}</span>
               <span class="sd-suggest__meta">
                 {%- if cat != blank -%}{%- render 'division-info', key: cat, out: 'name' -%}{%- endif -%}
-                {%- if place != blank %} · {{ place }}{% endif -%}
+                {%- if place != blank %} · {{ place | escape }}{% endif -%}
                 {%- if status == 'sold' %} · {{ 'listing.status_sold' | t }}{% elsif status == 'reserved' %} · {{ 'listing.status_reserved' | t }}{% endif -%}
               </span>
             </span>

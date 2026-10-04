@@ -80,7 +80,7 @@ out('index', {
 
 // ---------- Colecciones ----------
 out('collection', {
-  main: { type: 'main-collection', settings: { category: '', show_description: true } },
+  main: { type: 'main-collection', settings: { category: 'none', show_description: true } },
   cta: ownerCta()
 });
 out('collection.garage', {
@@ -99,7 +99,7 @@ out('collection.estate', {
   cta: ownerCta()
 }, ['main', 'faq', 'cta']);
 out('collection.archive', {
-  main: { type: 'main-collection', settings: { category: '', archive: true, show_description: true } }
+  main: { type: 'main-collection', settings: { category: 'none', archive: true, show_description: true } }
 });
 
 // ---------- Fichas ----------

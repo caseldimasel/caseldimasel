@@ -83,12 +83,12 @@
         <p class="sd-eyebrow">
           {%- if cat != blank -%}<span class="sd-nav__dot" aria-hidden="true"></span>{{ settings.brand_name | default: shop.name }} {{ cat_name | upcase }}{%- endif -%}
         </p>
-        <h1 class="sd-pdp__title">{{ product.title }}</h1>
-        {%- if hook != blank -%}<p class="sd-lead sd-pdp__hook">{{ hook }}</p>{%- endif -%}
+        <h1 class="sd-pdp__title">{{ product.title | escape }}</h1>
+        {%- if hook != blank -%}<p class="sd-lead sd-pdp__hook">{{ hook | escape }}</p>{%- endif -%}
         <p class="sd-pdp__line">
-          {%- if place != blank -%}<span class="sd-card__place">{%- render 'icon', name: 'pin', size: 16 -%}{{ place }}</span>{%- endif -%}
+          {%- if place != blank -%}<span class="sd-card__place">{%- render 'icon', name: 'pin', size: 16 -%}{{ place | escape }}</span>{%- endif -%}
           {%- render 'status-chip', status: status -%}
-          {%- if ref != blank -%}<span class="sd-pdp__ref">{{ 'product.reference' | t }}: {{ ref }}</span>{%- endif -%}
+          {%- if ref != blank -%}<span class="sd-pdp__ref">{{ 'product.reference' | t }}: {{ ref | escape }}</span>{%- endif -%}
         </p>
       </header>
 
@@ -99,7 +99,7 @@
               {%- if cover != blank -%}
                 {%- render 'sd-image', image: cover, widths: '480,640,800,1000,1200', sizes: '(min-width: 900px) 46vw, 92vw', priority: true, class: 'sd-vplayer__poster', alt: poster_alt, cover: true -%}
               {%- else -%}
-                <span class="sd-vplayer__poster-fallback" aria-hidden="true">{{ product.title }}</span>
+                <span class="sd-vplayer__poster-fallback" aria-hidden="true">{{ product.title | escape }}</span>
               {%- endif -%}
               <button type="button" class="sd-vplayer__start" data-sd-start>
                 <span class="sd-play__icon">{%- render 'icon', name: 'play', size: 20 -%}</span>
@@ -116,7 +116,7 @@
             </noscript>
             <div class="sd-vplayer__meta">
               {%- if vdur != blank -%}<p>{{ 'video.duration' | t }}: {{ vdur }}</p>{%- endif -%}
-              {%- if vlang != blank -%}<p>{{ 'video.language' | t }}: {{ vlang }}</p>{%- endif -%}
+              {%- if vlang != blank -%}<p>{{ 'video.language' | t }}: {{ vlang | escape }}</p>{%- endif -%}
               {%- if vsubs != blank -%}<p>{{ 'video.subtitles_available' | t }}</p>{%- endif -%}
               {%- if social_url != blank -%}
                 <p><a href="{{ social_url }}" target="_blank" rel="noopener">{{ 'video.original_post' | t }}<span class="sd-sr"> {{ 'general.opens_new_window' | t }}</span></a></p>
@@ -126,7 +126,7 @@
           {%- if transcript != blank -%}
             <details class="sd-transcript">
               <summary><span>{{ 'video.transcript' | t }}</span>{%- render 'icon', name: 'chevron-down', size: 22 -%}</summary>
-              <div class="sd-transcript__body">{{ transcript }}</div>
+              <div class="sd-transcript__body">{{ transcript | escape }}</div>
               <p class="sd-note">{{ 'video.transcript_note' | t }}</p>
             </details>
           {%- endif -%}
@@ -136,7 +136,7 @@
               {%- if cover != blank -%}
                 {%- render 'sd-image', image: cover, widths: '480,640,800,1000,1200', sizes: '(min-width: 900px) 46vw, 92vw', priority: true, class: 'sd-vplayer__poster', alt: poster_alt, cover: true -%}
               {%- else -%}
-                <span class="sd-vplayer__poster-fallback" aria-hidden="true">{{ product.title }}</span>
+                <span class="sd-vplayer__poster-fallback" aria-hidden="true">{{ product.title | escape }}</span>
               {%- endif -%}
             </div>
             <p class="sd-vplayer__meta">{{ 'video.none' | t }}</p>

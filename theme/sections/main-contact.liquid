@@ -17,7 +17,10 @@
     render 'page-url', key: 'sell'
   endcapture
   assign l_submit = 'contact.submit' | t
-  assign cats = 'garage,harbor,estate' | split: ','
+  capture keys
+    render 'division-keys'
+  endcapture
+  assign cats = keys | strip | split: ','
 -%}
 <section class="sd-section sd-contact" data-section-id="{{ section.id }}">
   <div class="sd-container sd-contact__grid">
@@ -99,6 +102,11 @@
           {%- endif -%}
         {%- endform -%}
       </sd-form>
+      {%- for block in section.blocks -%}
+        {%- if block.type == '@app' -%}
+          <div class="sd-contact__app" {{ block.shopify_attributes }}>{% render block %}</div>
+        {%- endif -%}
+      {%- endfor -%}
     </div>
   </div>
 </section>
@@ -112,6 +120,9 @@
     { "type": "text", "id": "form_heading", "label": "Título del formulario", "default": "O déjanos un mensaje" },
     { "type": "checkbox", "id": "show_divisions", "label": "Mostrar contactos por división (si están configurados)", "default": true },
     { "type": "paragraph", "content": "Los canales salen de Ajustes del tema > Contacto y mensajes. Los que estén vacíos no se muestran." }
+  ],
+  "blocks": [
+    { "type": "@app" }
   ],
   "presets": [
     { "name": "Contacto" }

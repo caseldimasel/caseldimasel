@@ -7,16 +7,16 @@
         {%- if crumb_url != blank -%}
           <li><a href="{{ crumb_url }}">{{ crumb_title }}</a></li>
         {%- endif -%}
-        <li><span aria-current="page">{{ product.title }}</span></li>
+        <li><span aria-current="page">{{ product.title | escape }}</span></li>
       {%- when 'collection' -%}
-        <li><span aria-current="page">{{ collection.title }}</span></li>
+        <li><span aria-current="page">{{ collection.title | escape }}</span></li>
       {%- when 'page' -%}
-        <li><span aria-current="page">{{ page.title }}</span></li>
+        <li><span aria-current="page">{{ page.title | escape }}</span></li>
       {%- when 'article' -%}
-        <li><a href="{{ blog.url }}">{{ blog.title }}</a></li>
-        <li><span aria-current="page">{{ article.title }}</span></li>
+        <li><a href="{{ blog.url }}">{{ blog.title | escape }}</a></li>
+        <li><span aria-current="page">{{ article.title | escape }}</span></li>
       {%- when 'blog' -%}
-        <li><span aria-current="page">{{ blog.title }}</span></li>
+        <li><span aria-current="page">{{ blog.title | escape }}</span></li>
       {%- when 'search' -%}
         <li><span aria-current="page">{{ 'search.title' | t }}</span></li>
       {%- else -%}

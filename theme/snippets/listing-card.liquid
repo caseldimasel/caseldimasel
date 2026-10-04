@@ -79,11 +79,11 @@
   <div class="sd-card__body">
     <p class="sd-card__meta">
       {%- if cat != blank -%}<span class="sd-card__cat">{{ cat_name }}</span>{%- endif -%}
-      {%- if place != blank -%}<span class="sd-card__place">{%- render 'icon', name: 'pin', size: 14 -%}{{ place }}</span>{%- endif -%}
+      {%- if place != blank -%}<span class="sd-card__place">{%- render 'icon', name: 'pin', size: 14 -%}{{ place | escape }}</span>{%- endif -%}
     </p>
-    <h3 class="sd-card__title"><a class="sd-card__link" href="{{ product.url }}">{{ product.title }}</a></h3>
+    <h3 class="sd-card__title"><a class="sd-card__link" href="{{ product.url }}">{{ product.title | escape }}</a></h3>
     {%- if hook != blank and show_hook_line -%}
-      <p class="sd-card__hook">{{ hook }}</p>
+      <p class="sd-card__hook">{{ hook | escape }}</p>
     {%- endif -%}
     {%- capture specs -%}{%- render 'listing-specs', product: product, category: cat, limit: 3 -%}{%- endcapture -%}
     {%- assign specs = specs | strip -%}

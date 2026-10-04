@@ -3,28 +3,6 @@
   capture explore_url
     render 'page-url', key: 'explore'
   endcapture
-  capture garage_url
-    render 'division-info', key: 'garage', out: 'url'
-  endcapture
-  capture harbor_url
-    render 'division-info', key: 'harbor', out: 'url'
-  endcapture
-  capture estate_url
-    render 'division-info', key: 'estate', out: 'url'
-  endcapture
-  capture garage_name
-    render 'division-info', key: 'garage', out: 'name'
-  endcapture
-  capture harbor_name
-    render 'division-info', key: 'harbor', out: 'name'
-  endcapture
-  capture estate_name
-    render 'division-info', key: 'estate', out: 'name'
-  endcapture
-  assign grid_class = 'sd-grid'
-  if settings.mobile_columns == '2'
-    assign grid_class = grid_class | append: ' sd-grid--m2'
-  endif
 -%}
 <section class="sd-section sd-favpage" data-section-id="{{ section.id }}">
   <div class="sd-container">
@@ -55,9 +33,7 @@
         <p>{{ 'favorites.empty_text' | t }}</p>
         <ul class="sd-chiprow" role="list">
           <li><a class="sd-chip sd-chip--cat" href="{{ explore_url | strip }}">{{ 'header.explore' | t }}</a></li>
-          <li class="sd-cat sd-cat--garage"><a class="sd-chip sd-chip--cat" href="{{ garage_url | strip }}">{{ garage_name | strip }}</a></li>
-          <li class="sd-cat sd-cat--harbor"><a class="sd-chip sd-chip--cat" href="{{ harbor_url | strip }}">{{ harbor_name | strip }}</a></li>
-          <li class="sd-cat sd-cat--estate"><a class="sd-chip sd-chip--cat" href="{{ estate_url | strip }}">{{ estate_name | strip }}</a></li>
+          {%- render 'division-chips' -%}
         </ul>
       </div>
 

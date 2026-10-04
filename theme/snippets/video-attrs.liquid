@@ -133,7 +133,7 @@
 {%- elsif out == 'poster' -%}{% if cover != blank %}{{ cover | image_url: width: 900 }}{% endif %}
 {%- elsif out == 'duration' -%}{{ dur }}
 {%- elsif out == 'ratio' -%}{{ ratio }}
-{%- elsif out == 'lang' -%}{{ vlang }}
+{%- elsif out == 'lang' -%}{{ vlang | escape }}
 {%- elsif out == 'subs' -%}{% if subs != blank and subs.url != blank %}{{ subs_lang }}{% endif %}
 {%- elsif kind != '' -%}
   data-video-kind="{{ kind }}"

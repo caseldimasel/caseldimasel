@@ -1,6 +1,9 @@
 {%- liquid
   assign s = section.settings
   assign cat = s.category
+  if cat == 'none'
+    assign cat = ''
+  endif
   assign per_page = settings.products_per_page | default: 12
   assign uid = 'col-' | append: section.id
   assign grid_class = 'sd-grid'
@@ -48,7 +51,7 @@
         {%- elsif s.archive -%}
           <p class="sd-eyebrow">{{ 'listing.archive_eyebrow' | t }}</p>
         {%- endif -%}
-        <h1>{{ collection.title }}</h1>
+        <h1>{{ collection.title | escape }}</h1>
         {%- if s.intro != blank -%}
           <p class="sd-lead">{{ s.intro }}</p>
         {%- elsif collection.description != blank and s.show_description -%}
@@ -151,12 +154,12 @@
       "id": "category",
       "label": "Acento de división",
       "options": [
-        { "value": "", "label": "Ninguno (Explorar)" },
+        { "value": "none", "label": "Ninguno (Explorar)" },
         { "value": "garage", "label": "Garage" },
         { "value": "harbor", "label": "Harbor" },
         { "value": "estate", "label": "Estate" }
       ],
-      "default": ""
+      "default": "none"
     },
     { "type": "textarea", "id": "intro", "label": "Introducción", "info": "Si está vacía y activas la descripción, se usa la de la colección." },
     { "type": "checkbox", "id": "show_description", "label": "Mostrar la descripción de la colección", "default": true },

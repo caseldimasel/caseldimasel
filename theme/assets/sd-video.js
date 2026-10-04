@@ -218,6 +218,7 @@
       cleanup();
       var v = buildVideo(data);
       var retriedWithoutCors = false;
+      // Con <source> hijos el evento «error» se dispara en el <source> y no burbujea: se escucha en captura.
       v.addEventListener('error', function onError() {
         if (state.destroyed) return;
         // Si falló por CORS al pedir subtítulos, reintenta sin ellos.
@@ -235,7 +236,7 @@
         destroyVideo(v);
         state.video = null;
         showError();
-      });
+      }, true);
       v.addEventListener('play', function () {
         S.media.claim(v);
         if (typeof opts.onPlay === 'function') opts.onPlay(v);
@@ -347,7 +348,13 @@
       }.bind(this);
       var btn = this.querySelector('[data-sd-close]');
       if (btn) btn.addEventListener('click', this._onCloseBtn);
-      S.closeOnBackdrop(this.$dialog);
+      // El diálogo ocupa toda la pantalla: se cierra al pulsar fuera del vídeo y de los controles.
+      this.$dialog.addEventListener('click', function (e) {
+        var t = e.target;
+        if (t === this.$dialog || t.classList.contains('sd-vmodal__inner') || t.classList.contains('sd-vmodal__stage') || t.classList.contains('sd-vmodal__foot') || t.classList.contains('sd-vmodal__head')) {
+          S.closeDialog(this.$dialog);
+        }
+      }.bind(this));
       // Si el visitante cambia de pestaña, se pausa
       this._onVis = function () {
         if (document.hidden && this._player) this._player.pause();

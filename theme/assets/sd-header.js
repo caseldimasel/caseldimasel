@@ -37,6 +37,14 @@
         this.$input.addEventListener('input', this._onInput);
         this._onKey = this._key.bind(this);
         this.$search.addEventListener('keydown', this._onKey);
+        // En un campo de búsqueda, Escape borra el texto en lugar de cerrar: aquí debe cerrar el diálogo.
+        this._onInputKey = function (e) {
+          if (e.key === 'Escape') {
+            e.preventDefault();
+            S.closeDialog(this.$search);
+          }
+        }.bind(this);
+        this.$input.addEventListener('keydown', this._onInputKey);
       }
 
       // Si se vuelve con atrás (bfcache) no deben quedar cajones abiertos
@@ -55,6 +63,7 @@
       this.removeEventListener('click', this._onClick);
       if (this._onScroll) window.removeEventListener('scroll', this._onScroll);
       if (this.$input && this._onInput) this.$input.removeEventListener('input', this._onInput);
+      if (this.$input && this._onInputKey) this.$input.removeEventListener('keydown', this._onInputKey);
       if (this.$search && this._onKey) this.$search.removeEventListener('keydown', this._onKey);
       window.removeEventListener('pageshow', this._onPageShow);
       if (this._abort) this._abort.abort();

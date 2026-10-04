@@ -1,0 +1,14 @@
+{%- comment -%}
+  Enlaces rápidos a todas las divisiones activas (<li> con chip de color). Las divisiones salen de snippets/division-keys.liquid.
+{%- endcomment -%}
+{%- liquid
+  capture keys
+    render 'division-keys'
+  endcapture
+  assign list = keys | strip | split: ','
+-%}
+{%- for c in list -%}
+  {%- capture c_url -%}{%- render 'division-info', key: c, out: 'url' -%}{%- endcapture -%}
+  {%- capture c_name -%}{%- render 'division-info', key: c, out: 'name' -%}{%- endcapture -%}
+  <li class="sd-cat sd-cat--{{ c }}"><a class="sd-chip sd-chip--cat" href="{{ c_url | strip }}"><span class="sd-nav__dot" aria-hidden="true"></span>{{ c_name | strip }}</a></li>
+{%- endfor -%}
