@@ -1,487 +1,487 @@
 {
-  "at": "2026-10-04T17:48:40.267Z",
+  "at": "2026-10-04T17:52:14.511Z",
   "total": 80,
-  "failed": 1,
+  "failed": 0,
   "results": [
     {
       "name": "Sin desbordes ni errores a 360px (perfil completo, 18 páginas)",
       "ok": true,
-      "ms": 11605,
+      "ms": 11579,
       "info": "18 páginas"
     },
     {
       "name": "Sin desbordes ni errores a 390px (perfil completo, 18 páginas)",
       "ok": true,
-      "ms": 12012,
+      "ms": 11430,
       "info": "18 páginas"
     },
     {
       "name": "Sin desbordes ni errores a 768px (perfil completo, 18 páginas)",
       "ok": true,
-      "ms": 11345,
+      "ms": 11510,
       "info": "18 páginas"
     },
     {
       "name": "Sin desbordes ni errores a 1024px (perfil completo, 18 páginas)",
       "ok": true,
-      "ms": 11368,
+      "ms": 11610,
       "info": "18 páginas"
     },
     {
       "name": "Sin desbordes ni errores a 1440px (perfil completo, 18 páginas)",
       "ok": true,
-      "ms": 11518,
+      "ms": 11475,
       "info": "18 páginas"
     },
     {
       "name": "Sin desbordes ni errores a 360 y 1440 px (instalación vacía, sin contenido real)",
       "ok": true,
-      "ms": 10840,
+      "ms": 10860,
       "info": ""
     },
     {
       "name": "El hero comunica coches, barcos, casas y vídeo narrativo en el primer bloque",
       "ok": true,
-      "ms": 1053,
+      "ms": 862,
       "info": ""
     },
     {
       "name": "Los dos botones principales se ven sin desplazarse a 360×640",
       "ok": true,
-      "ms": 1053,
+      "ms": 840,
       "info": ""
     },
     {
       "name": "Los dos botones principales se ven sin desplazarse a 390×800",
       "ok": true,
-      "ms": 1056,
+      "ms": 855,
       "info": ""
     },
     {
       "name": "Instalación vacía: logo en texto accesible, menú de reserva, secciones vacías ocultas y avisos solo en el editor",
       "ok": true,
-      "ms": 1668,
+      "ms": 1493,
       "info": ""
     },
     {
       "name": "Métricas: solo se publican redes con perfil y cifra; sin cifras inventadas ni sumas",
       "ok": true,
-      "ms": 1033,
+      "ms": 885,
       "info": ""
     },
     {
       "name": "Tres mundos: el contador procede de la colección y coincide con el listado",
       "ok": true,
-      "ms": 1737,
+      "ms": 1516,
       "info": ""
     },
     {
       "name": "Tarjetas: sin botones dentro de enlaces, un enlace de ficha, destinos táctiles ≥ 44 px",
       "ok": true,
-      "ms": 851,
+      "ms": 755,
       "info": ""
     },
     {
       "name": "Tarjetas: estado, precio real, «Precio a consultar» y «no publicado», sin 0 ni «gratis»",
       "ok": true,
-      "ms": 1456,
+      "ms": 1437,
       "info": ""
     },
     {
       "name": "Tarjetas: duración solo si se conoce y sin vídeo no hay botón de reproducir",
       "ok": true,
-      "ms": 819,
+      "ms": 797,
       "info": ""
     },
     {
       "name": "Listados: no se descarga ningún vídeo ni existe <video> al cargar",
       "ok": true,
-      "ms": 2308,
+      "ms": 2256,
       "info": ""
     },
     {
       "name": "Modal: el vídeo se crea al pulsar, suena (no silenciado), Escape lo cierra, lo elimina y devuelve el foco",
       "ok": true,
-      "ms": 1012,
+      "ms": 969,
       "info": ""
     },
     {
       "name": "Modal: botón de cerrar visible y clic en el fondo cierran; el vertical no se estira ni se recorta",
       "ok": true,
-      "ms": 1071,
+      "ms": 1056,
       "info": ""
     },
     {
       "name": "Un solo vídeo con sonido a la vez (ficha + modal)",
       "ok": true,
-      "ms": 1006,
+      "ms": 1001,
       "info": ""
     },
     {
       "name": "Ficha: vídeo vertical con reproductor junto a la información, sin audio automático y con controles tras empezar",
       "ok": true,
-      "ms": 881,
+      "ms": 846,
       "info": ""
     },
     {
       "name": "Ficha horizontal (16:9): se reserva proporción horizontal y no se recorta",
       "ok": true,
-      "ms": 714,
+      "ms": 706,
       "info": ""
     },
     {
       "name": "Previsualización silenciosa: solo en escritorio, en bucle, silenciada; ausente con reducir movimiento y en móvil",
       "ok": true,
-      "ms": 3932,
+      "ms": 3905,
       "info": ""
     },
     {
       "name": "Previsualización: si el navegador rechaza play(), no hay errores visibles y queda la portada",
       "ok": true,
-      "ms": 1543,
+      "ms": 1582,
       "info": ""
     },
     {
       "name": "Vídeo roto: mensaje útil con reintento y la ficha conserva datos y contacto",
       "ok": true,
-      "ms": 850,
+      "ms": 841,
       "info": ""
     },
     {
       "name": "Proveedores externos: no se carga ningún iframe hasta confirmar; se usa youtube-nocookie",
       "ok": true,
-      "ms": 953,
+      "ms": 907,
       "info": ""
     },
     {
       "name": "Datos estructurados válidos; oferta solo con precio publicado y pieza disponible (nunca 0, a consultar, no publicado ni vendida)",
       "ok": true,
-      "ms": 7100,
+      "ms": 7130,
       "info": ""
     },
     {
       "name": "Precio a consultar / no publicado en la ficha: ni 0 ni «gratis» ni nada comprable",
       "ok": true,
-      "ms": 1419,
+      "ms": 1427,
       "info": ""
     },
     {
       "name": "Ninguna ficha ni listado contiene carrito, cantidad, compra rápida ni botones de pago",
       "ok": true,
-      "ms": 3412,
+      "ms": 3406,
       "info": ""
     },
     {
       "name": "Datos correctos por categoría y los desconocidos se ocultan (garage, harbor, estate, mínimo)",
       "ok": true,
-      "ms": 2906,
+      "ms": 2713,
       "info": ""
     },
     {
       "name": "Ubicación pública: respeta la precisión elegida (región, ciudad, país)",
       "ok": true,
-      "ms": 2091,
+      "ms": 2077,
       "info": ""
     },
     {
       "name": "Pieza sin portada ni vídeo: composición de reserva, mensaje útil y contacto",
       "ok": true,
-      "ms": 742,
+      "ms": 763,
       "info": ""
     },
     {
       "name": "Pieza vendida: estado inequívoco, sin precio ni «Me interesa», con «Busco algo parecido»",
       "ok": true,
-      "ms": 739,
+      "ms": 745,
       "info": ""
     },
     {
       "name": "WhatsApp y email: referencia, nombre y URL correctas y bien codificadas",
       "ok": true,
-      "ms": 785,
+      "ms": 799,
       "info": ""
     },
     {
       "name": "Sin canales configurados no hay enlaces de WhatsApp ni email (perfil vacío) y se avisa en el editor",
       "ok": true,
-      "ms": 728,
+      "ms": 696,
       "info": ""
     },
     {
       "name": "Compartir: copiar enlace funciona cuando no hay Web Share",
       "ok": true,
-      "ms": 855,
+      "ms": 845,
       "info": ""
     },
     {
       "name": "Barra fija de contacto en móvil: visible, se oculta con el formulario a la vista y no tapa contenido",
       "ok": true,
-      "ms": 2310,
+      "ms": 2300,
       "info": ""
     },
     {
       "name": "Piezas relacionadas: de la misma división, explicables, nunca vendidas ni la propia",
       "ok": true,
-      "ms": 806,
+      "ms": 794,
       "info": ""
     },
     {
       "name": "Filtros: consultan todo el catálogo (no solo la página visible), con estado en URL, atrás/adelante y recarga",
       "ok": true,
-      "ms": 3368,
+      "ms": 3295,
       "info": ""
     },
     {
       "name": "Filtros: estado vacío invita a ampliar la búsqueda o contactar; mensaje de carga con aria-busy",
       "ok": true,
-      "ms": 722,
+      "ms": 750,
       "info": ""
     },
     {
       "name": "Orden: solo opciones reales (editorial, novedades); sin «más populares»; el precio solo si se activa",
       "ok": true,
-      "ms": 1123,
+      "ms": 1273,
       "info": ""
     },
     {
       "name": "«Cargar más»: añade piezas reales de la página siguiente y la paginación real sigue disponible sin JavaScript",
       "ok": true,
-      "ms": 1284,
+      "ms": 1207,
       "info": ""
     },
     {
       "name": "«Cargar más»: al volver desde una ficha se restauran las páginas cargadas",
       "ok": true,
-      "ms": 2178,
+      "ms": 1982,
       "info": ""
     },
     {
       "name": "Filtros en móvil: panel modal accesible, «Ver N piezas», devuelve el foco",
       "ok": true,
-      "ms": 1335,
+      "ms": 1325,
       "info": ""
     },
     {
       "name": "Filtros: sin JavaScript el formulario funciona (GET) y se muestra «Aplicar filtros»",
       "ok": true,
-      "ms": 361,
+      "ms": 359,
       "info": ""
     },
     {
       "name": "Marcas: la página lista TODAS las marcas de coches y barcos, con búsqueda local y enlaces al filtro real",
       "ok": true,
-      "ms": 1157,
+      "ms": 1164,
       "info": ""
     },
     {
       "name": "Marcas: sin JavaScript se ven todas las marcas de ambos tipos",
       "ok": true,
-      "ms": 201,
+      "ms": 210,
       "info": ""
     },
     {
       "name": "Inicio: sección compacta de marcas con enlace al listado completo",
       "ok": true,
-      "ms": 827,
+      "ms": 834,
       "info": ""
     },
     {
       "name": "Listado: pestañas Todo/Coches/Barcos/Casas y fila de marcas con piezas filtran de verdad",
       "ok": true,
-      "ms": 904,
+      "ms": 888,
       "info": ""
     },
     {
       "name": "Filtros en escritorio: cajón lateral modal (cerrado al inicio), Escape lo cierra y devuelve el foco",
       "ok": true,
-      "ms": 880,
+      "ms": 872,
       "info": ""
     },
     {
       "name": "Marca: tipografías KMR Apparat y Switzer cargadas, logo de marca, galería con fotos y pestañas Coches/Barcos/Casas",
       "ok": true,
-      "ms": 939,
+      "ms": 892,
       "info": ""
     },
     {
       "name": "Ficha: galería en mosaico, visor modal con teclado, contador y foco devuelto",
       "ok": true,
-      "ms": 2804,
+      "ms": 2812,
       "info": ""
     },
     {
       "name": "Megamenú: se abre con ratón y teclado, enlaces reales con filtros, Escape lo cierra",
       "ok": true,
-      "ms": 937,
+      "ms": 990,
       "info": ""
     },
     {
       "name": "Portada: carruseles por tipo con piezas reales, flechas que desplazan y secciones sin datos ocultas",
       "ok": true,
-      "ms": 967,
+      "ms": 944,
       "info": ""
     },
     {
       "name": "Listado: vista en lista recordada, barra de herramientas fija y pie con marcas",
       "ok": true,
-      "ms": 1922,
+      "ms": 1927,
       "info": ""
     },
     {
       "name": "Tienda recién instalada: ningún enlace interno de portada, listado y ficha lleva a un 404",
       "ok": true,
-      "ms": 3277,
+      "ms": 3482,
       "info": ""
     },
     {
       "name": "Tienda recién instalada: Favoritos abre un cajón, y Vender, Cómo vendemos y Contacto llevan a bloques de la portada",
       "ok": true,
-      "ms": 1706,
+      "ms": 1659,
       "info": ""
     },
     {
       "name": "Tienda recién instalada: el formulario de propietarios de la portada envía y confirma con el resultado real",
       "ok": true,
-      "ms": 2936,
+      "ms": 2949,
       "info": ""
     },
     {
       "name": "Buscador: diálogo accesible, sugerencias reales (API), resultados con filtros y estado vacío",
       "ok": true,
-      "ms": 2600,
+      "ms": 2583,
       "info": ""
     },
     {
       "name": "Favoritos: guardar en tarjeta y ficha, aria-pressed, contador, persisten tras recargar y sincronizan entre pestañas",
       "ok": true,
-      "ms": 2934,
+      "ms": 2987,
       "info": ""
     },
     {
       "name": "Favoritos: la página consulta el estado ACTUAL (vendida, retirada) y permite quitar y vaciar con confirmación",
       "ok": true,
-      "ms": 2016,
+      "ms": 1984,
       "info": ""
     },
     {
       "name": "Favoritos: contenido corrupto, versión futura y almacenamiento bloqueado se gestionan con aviso honesto",
       "ok": true,
-      "ms": 1514,
+      "ms": 1561,
       "info": ""
     },
     {
       "name": "Consulta: el formulario identifica la pieza, valida en cliente y el éxito sale de la respuesta real de Shopify",
       "ok": true,
-      "ms": 1343,
+      "ms": 1162,
       "info": ""
     },
     {
       "name": "Consulta: error devuelto por el servidor se muestra con los datos conservados (sin éxito falso)",
       "ok": true,
-      "ms": 4636,
+      "ms": 4557,
       "info": ""
     },
     {
       "name": "Consulta: fallo de red conserva los datos y permite reintentar; la pantalla anti-spam se gestiona con envío nativo",
       "ok": true,
-      "ms": 2869,
+      "ms": 2788,
       "info": ""
     },
     {
       "name": "Consulta sin JavaScript: el formulario nativo envía y Shopify devuelve el éxito",
       "ok": true,
-      "ms": 658,
+      "ms": 609,
       "info": ""
     },
     {
       "name": "Propietarios: tres pasos, campos condicionales, la categoría viaja en el envío y los campos de otras categorías no",
       "ok": true,
-      "ms": 5531,
+      "ms": 5498,
       "info": ""
     },
     {
       "name": "Propietarios: ?cat= preselecciona la categoría; sin JavaScript se ven los tres pasos y todas las opciones",
       "ok": true,
-      "ms": 939,
+      "ms": 953,
       "info": ""
     },
     {
       "name": "Cuéntanos qué buscas y Contacto envían por el formulario nativo y sin promesas de alertas",
       "ok": true,
-      "ms": 1941,
+      "ms": 1997,
       "info": ""
     },
     {
       "name": "Preferencia WhatsApp/teléfono exige teléfono",
       "ok": true,
-      "ms": 2658,
+      "ms": 2702,
       "info": ""
     },
     {
       "name": "Cabecera: «Vender con Sidonia» siempre visible; en móvil, cajón accesible con Escape y foco restaurado",
       "ok": true,
-      "ms": 1889,
+      "ms": 1799,
       "info": ""
     },
     {
       "name": "Cabecera fija: permanece arriba al desplazarse y no ocupa más de 5 rem",
       "ok": true,
-      "ms": 1029,
+      "ms": 1032,
       "info": ""
     },
     {
       "name": "Teclado: enlace para saltar al contenido, foco visible y orden lógico",
       "ok": true,
-      "ms": 824,
+      "ms": 808,
       "info": ""
     },
     {
       "name": "Auditoría automática de accesibilidad (idioma, landmarks, ids únicos, etiquetas, nombres, alt, encabezados)",
       "ok": true,
-      "ms": 5829,
+      "ms": 5827,
       "info": "9 páginas"
     },
     {
       "name": "Reducir movimiento: animaciones y transiciones se anulan",
       "ok": true,
-      "ms": 778,
+      "ms": 782,
       "info": ""
     },
     {
       "name": "Contraste real renderizado: texto principal, secundario y botones ≥ 4,5:1",
       "ok": true,
-      "ms": 751,
+      "ms": 804,
       "info": "7.08:1 mínimo"
     },
     {
       "name": "Analítica: eventos útiles, una sola vez, sin datos personales y solo con consentimiento",
       "ok": true,
-      "ms": 4858,
+      "ms": 4875,
       "info": ""
     },
     {
       "name": "Analítica: filtros aplicados solo envían nombres de filtro y recuento, no valores ni búsquedas",
       "ok": true,
-      "ms": 1196,
+      "ms": 1259,
       "info": ""
     },
     {
       "name": "Los componentes son idempotentes: quitar y volver a insertar secciones no duplica listeners ni vídeos",
       "ok": true,
-      "ms": 2147,
+      "ms": 2201,
       "info": ""
     },
     {
       "name": "Sección renderizada de forma independiente (Section Rendering API): cada sección devuelve su HTML",
       "ok": true,
-      "ms": 19,
+      "ms": 17,
       "info": "13 secciones"
     },
     {
       "name": "Home y ficha: sin terceros, imagen principal con prioridad, resto diferido, CLS bajo",
-      "ok": false,
-      "ms": 3333,
-      "error": "Aserción fallida: /products/prueba-coche-a: más de un recurso con prioridad alta"
+      "ok": true,
+      "ms": 3314,
+      "info": "/ CLS 0.002 eager 0 · /collections/explorar CLS 0.007 eager 1 · /products/prueba-coche-a CLS 0.000 eager 1"
     }
   ]
 }

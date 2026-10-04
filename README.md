@@ -11,13 +11,13 @@ Plataforma de catálogo y contactos para **coches (punto rojo), barcos (punto az
 | Carpeta | Contenido |
 |---|---|
 | `theme/` | El tema (se sube a Shopify) |
-| `dist/` | `sidonia-theme-1.3.0.zip` (+ SHA-256): contenido de `theme/` con las carpetas en la raíz |
+| `dist/` | `sidonia-theme-1.4.0.zip` (+ SHA-256): contenido de `theme/` con las carpetas en la raíz |
 | `docs/` | Documentación en español (índice abajo) |
 | `tools/` | Validador, generadores, previsualización local y pruebas (no van en el ZIP) |
 
 ## Empezar
 
-1. Sube `dist/sidonia-theme-1.3.0.zip` en *Tienda online → Temas → Añadir tema → Subir archivo ZIP*. Queda **sin publicar**.
+1. Sube `dist/sidonia-theme-1.4.0.zip` en *Tienda online → Temas → Añadir tema → Subir archivo ZIP*. Queda **sin publicar**.
 2. Sigue `docs/02-instalacion-y-previsualizacion.md` (metacampos, colecciones, páginas, menús).
 3. Rellena los *Ajustes del tema* (`docs/01-guia-de-edicion.md`).
 4. Antes de publicar, repasa el checklist de `docs/09-informe-de-pruebas.md` (§6).
@@ -49,6 +49,9 @@ Requiere Node 20+ y, para las pruebas de navegador, Playwright con Chromium (en 
 
 ```
 node tools/validate-theme.mjs                 # validador estático
+node tools/lint-liquid.mjs                    # Liquid estricto (lo que Shopify rechaza)
+node tools/lint-schema.mjs                    # schemas, plantillas JSON y ajustes
+node tools/setup/provision.mjs                # simulacro de la puesta en marcha en Shopify (--apply para ejecutar)
 node tools/preview/make-fixtures.mjs          # una vez: genera el vídeo y subtítulos de prueba
 node tools/preview/server.mjs --port 4173     # previsualización local con datos de PRUEBA
 node tools/tests/e2e.mjs                      # pruebas end-to-end en Chromium

@@ -70,6 +70,7 @@ Las plantillas JSON se generan con `node tools/generate-templates.mjs`. `product
 | `rich-text.liquid` | Texto |
 | `selection-criteria.liquid` | Criterio de selección |
 | `sell-form.liquid` | Formulario propietarios |
+| `setup-guide.liquid` | Puesta en marcha |
 | `team.liquid` | Equipo |
 | `testimonials.liquid` | Testimonios y casos |
 | `trust-band.liquid` | Franja de valores |
@@ -94,6 +95,7 @@ Las plantillas JSON se generan con `node tools/generate-templates.mjs`. `product
 | `facets-panel.liquid` | Grupos de filtros de Search & Discovery. Parámetros: results (collection o search), uid. |
 | `facets-sort.liquid` | Selector de orden. Solo ofrece ordenaciones reales de Shopify: selección editorial (manual), novedades, |
 | `fact-row.liquid` | Fila de dato técnico (lista de descripción). Parámetros: label, value. |
+| `favorites-app.liquid` | Aplicación de favoritos (lista, estados, confirmación). La usan la página de Favoritos y, si esa página no existe, |
 | `form-errors.liquid` | Resumen de errores devuelto por Shopify. Parámetros: form, uid. |
 | `form-field.liquid` | Campo de formulario con etiqueta, ayuda y mensaje de error asociados. |
 | `form-person-fields.liquid` | Datos de contacto de la persona + preferencia de contacto + consentimientos. |
@@ -112,7 +114,7 @@ Las plantillas JSON se generan con `node tools/generate-templates.mjs`. `product
 | `listing-status.liquid` | Estado editorial: available, reserved o sold (vacío si no consta). |
 | `logo.liquid` | Logo de marca. Parámetros: variant ('dark' = para fondos claros, 'light' = para fondos oscuros), class. |
 | `mega-panel.liquid` | Panel del megamenú de una división (se muestra al pasar el ratón o al enfocar con el teclado el enlace de su categoría). |
-| `page-url.liquid` | URL de una página clave del tema. |
+| `page-url.liquid` | URL de una página clave del tema, sin llegar nunca a un 404 en una tienda recién instalada. |
 | `pagination-nav.liquid` | Paginación real con enlaces. «Cargar más» es una mejora progresiva (sd-facets.js) que usa la misma URL siguiente. |
 | `product-gallery.liquid` | Galería de fotos de la pieza: mosaico en escritorio, carrusel con deslizamiento en móvil y visor a pantalla completa. |
 | `save-button.liquid` | Botón Guardar (favoritos locales del navegador). Parámetros: product, variant ('card' / 'page'), class. |
@@ -142,14 +144,14 @@ Las plantillas JSON se generan con `node tools/generate-templates.mjs`. `product
 | `sd-analytics.js` | 4.2 KB | Adaptador de analítica opcional (lista blanca, consentimiento, sin datos personales) |
 | `sd-base.css` | 12.9 KB | Reinicio, tipografía, utilidades, botones, chips, formularios, tabla de datos (usa los tokens) |
 | `sd-brands.js` | 7.6 KB |  |
-| `sd-components.css` | 37.3 KB | Cabecera, menús, cajones, pie, tarjetas, vídeo, filtros, paginación, avisos |
+| `sd-components.css` | 37.9 KB | Cabecera, menús, cajones, pie, tarjetas, vídeo, filtros, paginación, avisos |
 | `sd-core.js` | 5.0 KB | Espacio de nombres, configuración, utilidades, avisos accesibles, diálogos |
 | `sd-facets.js` | 12.4 KB | Filtros y orden por AJAX con estado en URL; «Cargar más»; restauración de posición |
-| `sd-favorites.js` | 16.0 KB | Favoritos locales, `<sd-save>`, `<sd-fav-count>`, `<sd-favorites-page>` |
+| `sd-favorites.js` | 16.5 KB | Favoritos locales, `<sd-save>`, `<sd-fav-count>`, `<sd-favorites-page>` |
 | `sd-forms.js` | 15.4 KB | Validación y envío mejorado de formularios; formulario de propietarios en 3 pasos |
-| `sd-header.js` | 5.9 KB | Cajón de navegación, buscador y búsqueda predictiva |
+| `sd-header.js` | 6.2 KB | Cajón de navegación, buscador y búsqueda predictiva |
 | `sd-product.js` | 4.6 KB | Compartir y barra fija de contacto en móvil |
-| `sd-sections.css` | 40.3 KB | Hero, secciones de la home, ficha, formularios, contacto, favoritos |
+| `sd-sections.css` | 41.4 KB | Hero, secciones de la home, ficha, formularios, contacto, favoritos |
 | `sd-ui.js` | 9.4 KB |  |
 | `sd-video.js` | 17.9 KB | Reproductor modal, reproductor de ficha, previsualización, proveedores externos, un solo audio |
 | `sidonia-firma-dark.png` | 24.2 KB |  |
