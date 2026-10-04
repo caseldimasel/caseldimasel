@@ -161,14 +161,14 @@ function buildSection(store, type, id, given = {}, ctxGlobals) {
   return { id, type, settings, blocks, schema, index: 0 };
 }
 
-function renderSectionHtml(engine, store, sec, globals) {
+function renderSectionHtml(engine, store, sec, globals, group) {
   const path = join(THEME, 'sections', sec.type + '.liquid');
   const nodes = engine.parseFile(path);
   const ctx = new Context(globals, { engine, file: 'sections/' + sec.type, overrides: globals.__overrides });
   ctx.set('section', { id: sec.id, settings: sec.settings, blocks: sec.blocks, index: sec.index });
   const out = engine.renderStr(nodes, ctx);
   const tag = sec.schema.tag || 'div';
-  const cls = sec.schema.class ? ' ' + sec.schema.class : '';
+  const cls = (group ? ` shopify-section-group-${group}` : '') + (sec.schema.class ? ' ' + sec.schema.class : '');
   return `<${tag} id="shopify-section-${sec.id}" class="shopify-section${cls}">${out}</${tag}>`;
 }
 
@@ -229,6 +229,31 @@ function formStateHook(req) {
   };
 }
 
+/** Renderiza una sección con los valores de su primer «preset» (lo que hace el editor al pulsar «Añadir sección»). */
+export function renderPreset(store, type, route) {
+  const renderer = createRenderer(store);
+  const schema = extractSchema(join(THEME, 'sections', type + '.liquid'));
+  const preset = (schema.presets || [])[0];
+  if (!preset) return null;
+  const u = new URL(route, 'http://x');
+  const query = {};
+  u.searchParams.forEach((v, k) => (query[k] = query[k] || []).push(v));
+  const req = { path: u.pathname, query };
+  const globals = makeGlobals(store, req);
+  const engine = new Liquid({ themeDir: THEME, locale, globals, hooks: {} });
+  engine.hooks.formState = formStateHook(req);
+  // contexto de plantilla equivalente a la ruta
+  const p = /^\/products\/(.+)$/.exec(u.pathname);
+  if (p) globals.product = store.byHandle[p[1]];
+  globals.template = { name: p ? 'product' : 'index', suffix: '' };
+  const blocks = {};
+  const order = [];
+  (preset.blocks || []).forEach((b, i) => { blocks['b' + i] = b; order.push('b' + i); });
+  const sec = buildSection(store, type, 'preset-' + type, { settings: preset.settings, blocks, block_order: order }, globals);
+  const html = renderSectionHtml(engine, store, sec, globals);
+  return { html, missing: [...engine.missingTranslations] };
+}
+
 export function createRenderer(store) {
   function renderRequest(req) {
     const url = req.path;
@@ -241,7 +266,7 @@ export function createRenderer(store) {
       for (const key of data.order) {
         const sec = buildSection(store, data.sections[key].type, `sections--0__${key}`, data.sections[key], globals);
         if (req.sectionId && req.sectionId !== sec.id) continue;
-        html += renderSectionHtml(eng, store, sec, globals);
+        html += renderSectionHtml(eng, store, sec, globals, name);
       }
       return html;
     };

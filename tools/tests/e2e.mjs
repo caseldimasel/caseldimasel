@@ -912,6 +912,16 @@ await run('Cabecera: «Vender con Sidonia» siempre visible; en móvil, cajón a
   assert(await page.evaluate(() => document.activeElement.classList.contains('sd-header__burger')), 'foco restaurado en el botón del menú');
   await ctx.close();
 });
+await run('Cabecera fija: permanece arriba al desplazarse y no ocupa más de 5 rem', async () => {
+  const { ctx, page } = await open(browser, { viewport: { width: 390, height: 800 } });
+  await page.goto(site('/collections/explorar'), { waitUntil: 'networkidle' });
+  await page.evaluate(() => window.scrollTo(0, 2500));
+  await page.waitForTimeout(300);
+  const r = await page.evaluate(() => { const b = document.querySelector('.sd-header').getBoundingClientRect(); return { top: b.top, h: b.height, stuck: document.querySelector('.sd-header').classList.contains('is-stuck') }; });
+  assert(Math.abs(r.top) < 1 && r.h <= 80, JSON.stringify(r));
+  assert(r.stuck, 'sombra al desplazarse');
+  await ctx.close();
+});
 await run('Teclado: enlace para saltar al contenido, foco visible y orden lógico', async () => {
   const { ctx, page } = await open(browser);
   await page.goto(site('/'), { waitUntil: 'networkidle' });

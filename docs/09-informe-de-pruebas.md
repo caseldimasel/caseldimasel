@@ -10,7 +10,7 @@
 | Plantillas Liquid renderizadas | `tools/preview/liquid.mjs` (**intérprete propio**, no el de Shopify) + datos de prueba `tools/preview/store.mjs` | Que las plantillas producen el HTML esperado con datos de ejemplo |
 | Comportamiento en navegador | Chromium (Playwright) contra la previsualización local, 5 anchos | Layout, JS, vídeo, filtros, favoritos, formularios, accesibilidad básica |
 
-Resultado de la última ejecución: **66 de 66 pruebas correctas**; validador: **0 errores**, 1 avisos informativos.
+Resultado de la última ejecución: **67 de 67 pruebas correctas**; validador: **0 errores**, 1 avisos informativos.
 
 ## 2. Lo que NO se ha podido hacer en esta entrega
 
@@ -88,6 +88,7 @@ Estas limitaciones son del entorno de desarrollo (sin acceso a Internet salvo el
 | ✔ | Cuéntanos qué buscas y Contacto envían por el formulario nativo y sin promesas de alertas |  |
 | ✔ | Preferencia WhatsApp/teléfono exige teléfono |  |
 | ✔ | Cabecera: «Vender con Sidonia» siempre visible; en móvil, cajón accesible con Escape y foco restaurado |  |
+| ✔ | Cabecera fija: permanece arriba al desplazarse y no ocupa más de 5 rem |  |
 | ✔ | Teclado: enlace para saltar al contenido, foco visible y orden lógico |  |
 | ✔ | Auditoría automática de accesibilidad (idioma, landmarks, ids únicos, etiquetas, nombres, alt, encabezados) | 9 páginas |
 | ✔ | Reducir movimiento: animaciones y transiciones se anulan |  |
@@ -127,7 +128,7 @@ Contraste calculado de la paleta por defecto (WCAG, fórmula de luminancia relat
 
 - Ajustes globales: 104
 - Cadenas de interfaz: 357
-- CSS total: 66.5 KB · JS total: 82.1 KB (sin comprimir)
+- CSS total: 66.9 KB · JS total: 82.1 KB (sin comprimir)
 - Archivos del tema: 119 · secciones: 35 · snippets: 40
 
 Peso de los recursos propios (sin comprimir; el CDN de Shopify los sirve comprimidos):
@@ -136,7 +137,7 @@ Peso de los recursos propios (sin comprimir; el CDN de Shopify los sirve comprim
 |---|---|
 | sd-analytics.js | 4.2 KB |
 | sd-base.css | 12.9 KB |
-| sd-components.css | 26.6 KB |
+| sd-components.css | 27.1 KB |
 | sd-core.js | 5.0 KB |
 | sd-facets.js | 13.1 KB |
 | sd-favorites.js | 16.0 KB |
@@ -146,7 +147,7 @@ Peso de los recursos propios (sin comprimir; el CDN de Shopify los sirve comprim
 | sd-sections.css | 27.0 KB |
 | sd-video.js | 17.9 KB |
 
-Avisos del validador (informativos): Clases usadas en Liquid sin regla en el CSS (55): sd-body (theme/layout/password.liquid), sd-community (theme/sections/c.
+Avisos del validador (informativos): Clases usadas en Liquid sin regla en el CSS (56): sd-body (theme/layout/password.liquid), sd-community (theme/sections/c.
 
 ## 5. Hechos de Shopify por verificar (no se pudo consultar la documentación)
 

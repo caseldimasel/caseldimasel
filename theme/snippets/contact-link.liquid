@@ -14,28 +14,28 @@
   assign target = ''
   if kind == 'whatsapp'
     if cat != blank
-      capture raw
+      capture contact_raw
         render 'division-info', key: cat, out: 'whatsapp'
       endcapture
     else
-      assign raw = settings.contact_whatsapp
+      assign contact_raw = settings.contact_whatsapp
     endif
-    assign raw = raw | strip
+    assign contact_raw = contact_raw | strip
   elsif kind == 'email'
     if cat != blank
-      capture raw
+      capture contact_raw
         render 'division-info', key: cat, out: 'email'
       endcapture
     else
-      assign raw = settings.contact_email
+      assign contact_raw = settings.contact_email
     endif
-    assign raw = raw | strip
+    assign contact_raw = contact_raw | strip
   else
-    assign raw = settings.contact_phone | strip
+    assign contact_raw = settings.contact_phone | strip
   endif
 
   if kind == 'whatsapp' or kind == 'tel'
-    assign digits = raw | replace: '+', '' | replace: ' ', '' | replace: '-', '' | replace: '(', '' | replace: ')', '' | replace: '.', ''
+    assign digits = contact_raw | replace: '+', '' | replace: ' ', '' | replace: '-', '' | replace: '(', '' | replace: ')', '' | replace: '.', ''
     if digits.size > 2
       assign first2 = digits | slice: 0, 2
       if first2 == '00'
@@ -57,9 +57,9 @@
     endif
   elsif kind == 'email'
     assign valid = false
-    if raw contains '@' and raw contains '.' and raw.size > 5
+    if contact_raw contains '@' and contact_raw contains '.' and contact_raw.size > 5
       assign has_space = false
-      if raw contains ' '
+      if contact_raw contains ' '
         assign has_space = true
       endif
       unless has_space
@@ -104,9 +104,9 @@
         assign body = settings.email_body | replace: '[nombre]', p_name | replace: '[referencia]', p_ref | replace: '[url]', p_url
         assign subj_enc = subj | url_encode | replace: '+', '%20'
         assign body_enc = body | url_encode | replace: '+', '%20' | replace: '%0A', '%0D%0A'
-        assign target = 'mailto:' | append: raw | append: '?subject=' | append: subj_enc | append: '&body=' | append: body_enc
+        assign target = 'mailto:' | append: contact_raw | append: '?subject=' | append: subj_enc | append: '&body=' | append: body_enc
       else
-        assign target = 'mailto:' | append: raw
+        assign target = 'mailto:' | append: contact_raw
       endif
     else
       assign target = 'tel:+' | append: digits

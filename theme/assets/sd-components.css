@@ -61,9 +61,26 @@
   border-bottom: var(--sd-border-w) solid var(--sd-border);
 }
 
-.sd-header--sticky {
+/* Los elementos personalizados son bloques; la cabecera fija se aplica al contenedor del grupo de secciones
+   (el contenedor de la sección solo mide lo que mide la cabecera y ahí un «sticky» no se mantendría). */
+sd-header,
+sd-facets,
+sd-form,
+sd-sell-form,
+sd-favorites-page,
+sd-video-stage,
+sd-video-modal {
+  display: block;
+}
+
+sd-save {
+  display: inline-block;
+}
+
+body[data-sticky-header='true'] .shopify-section-group-header-group {
   position: sticky;
   top: 0;
+  z-index: var(--sd-z-header);
 }
 
 .sd-header.is-stuck {

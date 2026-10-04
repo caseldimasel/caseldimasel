@@ -119,7 +119,7 @@ Las plantillas JSON se generan con `node tools/generate-templates.mjs`. `product
 |---|---|---|
 | `sd-analytics.js` | 4.2 KB | Adaptador de analítica opcional (lista blanca, consentimiento, sin datos personales) |
 | `sd-base.css` | 12.9 KB | Reinicio, tipografía, utilidades, botones, chips, formularios, tabla de datos (usa los tokens) |
-| `sd-components.css` | 26.6 KB | Cabecera, menús, cajones, pie, tarjetas, vídeo, filtros, paginación, avisos |
+| `sd-components.css` | 27.1 KB | Cabecera, menús, cajones, pie, tarjetas, vídeo, filtros, paginación, avisos |
 | `sd-core.js` | 5.0 KB | Espacio de nombres, configuración, utilidades, avisos accesibles, diálogos |
 | `sd-facets.js` | 13.1 KB | Filtros y orden por AJAX con estado en URL; «Cargar más»; restauración de posición |
 | `sd-favorites.js` | 16.0 KB | Favoritos locales, `<sd-save>`, `<sd-fav-count>`, `<sd-favorites-page>` |

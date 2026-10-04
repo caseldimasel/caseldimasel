@@ -1,5 +1,8 @@
 // Renderiza todas las rutas con el intérprete de pruebas y comunica errores del motor y traducciones ausentes.
-import { createStore, createRenderer } from './server.mjs';
+import { createStore, createRenderer, renderPreset } from './server.mjs';
+import { readdirSync, readFileSync } from 'node:fs';
+import { join, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const routes = [
   '/', '/collections/explorar', '/collections/garage', '/collections/harbor', '/collections/estate', '/collections/archivo',
@@ -32,4 +35,30 @@ for (const profile of ['full', 'empty']) {
     }
   }
 }
+
+// Cada sección con preset debe poder añadirse desde el editor con sus valores por defecto, en tienda con y sin contenido
+const themeDir = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'theme', 'sections');
+console.log('\n== secciones con preset (Añadir sección en el editor)');
+let n = 0;
+for (const profile of ['full', 'empty']) {
+  const store = createStore(profile);
+  for (const f of readdirSync(themeDir).filter((x) => x.endsWith('.liquid'))) {
+    const type = f.replace('.liquid', '');
+    const txt = readFileSync(join(themeDir, f), 'utf8');
+    if (!/"presets"/.test(txt)) continue;
+    const enabled = /"enabled_on":\s*\{\s*"templates":\s*\["product"\]/.test(txt);
+    const route = enabled ? '/products/prueba-coche-a' : '/';
+    if (enabled && profile === 'empty') continue;
+    try {
+      const out = renderPreset(store, type, route);
+      const bad = /Translation missing|\[object Object\]|undefined|NaN/.test(out.html) || out.missing.length;
+      n++;
+      if (bad) { failures++; console.log(`FALLA ${profile} ${type}: ${out.missing.join(',')}`); }
+    } catch (e) {
+      failures++;
+      console.log(`ERR ${profile} ${type}: ${String(e.message).split('\n')[0]}`);
+    }
+  }
+}
+console.log(`${n} secciones renderizadas con su preset`);
 process.exit(failures ? 1 : 0);
