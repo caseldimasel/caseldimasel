@@ -58,7 +58,7 @@
 
 ## Estado para continuar el proyecto
 
-**Terminado:** tema completo (36 secciones y grupos, 40 snippets, 11 assets, 26 plantillas, 357 cadenas), validador, intérprete y servidor de previsualización, 67 pruebas end-to-end, bandas, ZIP y documentación.
+**Terminado:** tema completo (35 secciones, 40 snippets, 11 assets, 26 plantillas, 357 cadenas), validador, intérprete y servidor de previsualización, 67 pruebas end-to-end, bandas, ZIP y documentación.
 
 **Pendiente (requiere Shopify o decisiones de Sidonia):** subir el ZIP y ejecutar Theme Check; crear definiciones, colecciones, filtros, páginas y menús; probar recepción de formularios y bloqueo de compra; verificar los hechos del apartado 5 de `09`; cargar contenido real; accesibilidad con lector de pantalla y Lighthouse; decisiones legales.
 
