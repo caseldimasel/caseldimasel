@@ -406,3 +406,5 @@ facets.view_list=Ver en lista
 footer.by_brand={{ name }} por marca
 footer.by_builder={{ name }} por constructor
 product.presented_by=Presentado por {{ name }}
+carousel.prev=Anteriores
+carousel.next=Siguientes

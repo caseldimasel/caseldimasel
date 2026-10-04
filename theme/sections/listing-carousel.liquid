@@ -60,8 +60,8 @@
             <a class="sd-carsec__all" href="{{ cta_url }}">{{ s.cta_label | default: 'Ver todo' }}{%- render 'icon', name: 'arrow-right', size: 18 -%}</a>
           {%- endif -%}
           <div class="sd-carousel__arrows" aria-hidden="true">
-            <button type="button" class="sd-carousel__btn" data-sd-car-prev tabindex="-1">{%- render 'icon', name: 'chevron-left', size: 22 -%}</button>
-            <button type="button" class="sd-carousel__btn" data-sd-car-next tabindex="-1">{%- render 'icon', name: 'chevron-right', size: 22 -%}</button>
+            <button type="button" class="sd-carousel__btn" data-sd-car-prev tabindex="-1" aria-label="{{ 'carousel.prev' | t }}">{%- render 'icon', name: 'chevron-left', size: 22 -%}</button>
+            <button type="button" class="sd-carousel__btn" data-sd-car-next tabindex="-1" aria-label="{{ 'carousel.next' | t }}">{%- render 'icon', name: 'chevron-right', size: 22 -%}</button>
           </div>
         </div>
       </div>

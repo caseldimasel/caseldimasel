@@ -107,7 +107,7 @@ await run('Instalación vacía: logo en texto accesible, menú de reserva, secci
   const logoFoot = await page.locator('.sd-footer img[src*="sidonia-logo"]').count();
   assert(logoFoot >= 1, 'logo en el pie');
   assert((await page.locator('.sd-nav__list a').count()) >= 6, 'menú de reserva incompleto');
-  assert((await page.locator('.sd-selection').count()) === 0, 'la selección vacía debe ocultarse fuera del editor');
+  assert((await page.locator('.sd-carsec').count()) === 0, 'los carruseles vacíos deben ocultarse fuera del editor');
   assert((await page.locator('.sd-story').count()) === 0, 'la historia sin pieza debe ocultarse');
   assert((await page.locator('.sd-testimonials').count()) === 0, 'testimonios vacíos deben ocultarse');
   assert((await page.locator('.sd-hero__bg img[src*="foto-alfa-giulia"]').count()) === 1, 'fotografía incluida como imagen del hero');
@@ -118,7 +118,7 @@ await run('Instalación vacía: logo en texto accesible, menú de reserva, secci
   assert(!/seguidores|suscriptores/.test(community), 'no deben inventarse cifras de seguidores');
   assert((await page.locator('a[href^="https://wa.me"], a[href^="mailto:"]').count()) === 0, 'enlaces de contacto sin configurar');
   await page.goto(site('/?design_mode=1', 'empty'), { waitUntil: 'networkidle' });
-  assert((await page.locator('.sd-selection').count()) === 1, 'en el editor la selección debe mostrar su aviso');
+  assert((await page.locator('.sd-carsec').count()) === 3, 'en el editor cada carrusel debe mostrar su aviso');
   assert((await page.locator('.sd-story').count()) === 1, 'en el editor la historia debe mostrar su aviso');
   await ctx.close();
 });
@@ -295,6 +295,8 @@ await run('Ficha horizontal (16:9): se reserva proporción horizontal y no se re
 await run('Previsualización silenciosa: solo en escritorio, en bucle, silenciada; ausente con reducir movimiento y en móvil', async () => {
   let { ctx, page } = await open(browser, { viewport: { width: 1440, height: 900 } });
   await page.goto(site('/products/prueba-coche-a'), { waitUntil: 'networkidle' });
+  // El vídeo queda bajo la galería: la previsualización arranca cuando el reproductor entra en pantalla
+  await page.locator('.sd-vplayer').scrollIntoViewIfNeeded();
   await page.waitForSelector('.sd-vplayer__preview', { timeout: 4000 });
   const p = await page.evaluate(() => {
     const v = document.querySelector('.sd-vplayer__preview');
@@ -1294,7 +1296,7 @@ await run('Los componentes son idempotentes: quitar y volver a insertar seccione
   await ctx.close();
 });
 await run('Sección renderizada de forma independiente (Section Rendering API): cada sección devuelve su HTML', async () => {
-  const sections = ['template--0__hero', 'template--0__divisions', 'template--0__selection', 'template--0__how', 'template--0__story', 'template--0__community', 'template--0__criteria', 'template--0__testimonials', 'template--0__cta', 'template--0__faq'];
+  const sections = ['template--0__hero', 'template--0__divisions', 'template--0__car-garage', 'template--0__popular', 'template--0__gallery', 'template--0__trust', 'template--0__how', 'template--0__story', 'template--0__community', 'template--0__criteria', 'template--0__testimonials', 'template--0__cta', 'template--0__faq'];
   for (const id of sections) {
     const html = await fetch(site(`/?section_id=${id}`)).then((r) => r.text());
     assert(html.includes(`id="shopify-section-${id}"`), 'sección ' + id);

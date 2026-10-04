@@ -495,5 +495,9 @@
     "error": "No hemos podido apuntarte. Revisa el correo e inténtalo de nuevo.",
     "consent": "Acepto recibir el boletín de Sidonia por correo electrónico y puedo darme de baja cuando quiera.",
     "privacy": "Aviso de privacidad"
+  },
+  "carousel": {
+    "prev": "Anteriores",
+    "next": "Siguientes"
   }
 }
