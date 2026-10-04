@@ -1,0 +1,146 @@
+{%- comment -%}
+  SIDONIA · se renderiza UNA vez en layout/theme.liquid, justo antes de </head>
+  (lo inserta integration/apply-kit.mjs entre marcas <!-- sidonia:head -->).
+
+  - Convierte los Ajustes del tema > Sidonia en variables CSS --sidonia-*.
+  - Genera la regla de punto de color de cada categoría activa (añadir una categoría no exige CSS).
+  - Carga las hojas del kit y el núcleo JS (diferido). No hay terceros ni secretos.
+{%- endcomment -%}
+{%- liquid
+  capture keys_csv
+    render 'sidonia-division-keys'
+  endcapture
+  assign div_keys = keys_csv | strip | split: ','
+  assign scale = settings.sidonia_heading_scale | default: 100 | divided_by: 100.0
+  assign radius = settings.sidonia_radius | default: 12
+  assign radius_control = radius | times: 0.8 | round
+  if radius_control > 12
+    assign radius_control = 12
+  endif
+  assign system_stack = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif'
+-%}
+<script>document.documentElement.classList.add('sidonia-js');</script>
+<style id="sidonia-tokens">
+  {%- if settings.sidonia_font_mode == 'shopify' -%}
+    {{ settings.sidonia_font_heading | font_face: font_display: 'swap' }}
+    {{ settings.sidonia_font_body | font_face: font_display: 'swap' }}
+    {%- assign body_bold = settings.sidonia_font_body | font_modify: 'weight', 'bold' -%}
+    {{ body_bold | font_face: font_display: 'swap' }}
+  {%- endif -%}
+  :root {
+    --sidonia-bg: {{ settings.sidonia_color_bg | default: '#F5F3EE' }};
+    --sidonia-surface: {{ settings.sidonia_color_surface | default: '#FAF8F4' }};
+    --sidonia-alt: {{ settings.sidonia_color_alt | default: '#EAE6DE' }};
+    --sidonia-text: {{ settings.sidonia_color_text | default: '#252723' }};
+    --sidonia-muted: {{ settings.sidonia_color_muted | default: '#62635C' }};
+    --sidonia-line: {{ settings.sidonia_color_line | default: '#D7D2C8' }};
+    --sidonia-control: {{ settings.sidonia_color_control | default: '#8A857B' }};
+    --sidonia-button: {{ settings.sidonia_color_button | default: '#252723' }};
+    --sidonia-button-text: {{ settings.sidonia_color_button_text | default: '#FAF8F4' }};
+    --sidonia-focus: {{ settings.sidonia_color_text | default: '#252723' }};
+    {%- for k in div_keys -%}
+      {%- assign key_i = k | strip -%}
+      {%- assign color_key = 'sidonia_' | append: key_i | append: '_color' -%}
+      {%- if settings[color_key] != blank %}
+    --sidonia-{{ key_i }}: {{ settings[color_key] }};
+      {%- endif -%}
+    {%- endfor %}
+    --sidonia-radius: {{ radius }}px;
+    --sidonia-radius-control: {{ radius_control }}px;
+    --sidonia-page-width: {{ settings.sidonia_page_width | default: 1440 }}px;
+    --sidonia-card-ratio: {{ settings.sidonia_card_ratio | default: '4 / 3' }};
+    --sidonia-cols-mobile: {{ settings.sidonia_grid_mobile | default: 1 }};
+    --sidonia-cols-desktop: {{ settings.sidonia_grid_desktop | default: 4 }};
+    --sidonia-scale: {{ scale }};
+    {%- case settings.sidonia_font_mode -%}
+      {%- when 'system' %}
+    --sidonia-font-body: {{ system_stack }};
+    --sidonia-font-heading: {{ system_stack }};
+      {%- when 'shopify' %}
+    --sidonia-font-body: {{ settings.sidonia_font_body.family }}, {{ settings.sidonia_font_body.fallback_families }};
+    --sidonia-font-heading: {{ settings.sidonia_font_heading.family }}, {{ settings.sidonia_font_heading.fallback_families }};
+    --sidonia-heading-weight: {{ settings.sidonia_font_heading.weight }};
+    {%- endcase %}
+  }
+  {%- for k in div_keys -%}
+    {%- assign key_i = k | strip -%}
+    .sidonia-cat--{{ key_i }},.sidonia-dot--{{ key_i }}{--sidonia-dot:var(--sidonia-{{ key_i }})}
+  {%- endfor -%}
+  {%- if settings.sidonia_skin_body -%}
+    body{background-color:var(--sidonia-bg)}
+  {%- endif -%}
+</style>
+{{ 'sidonia-base.css' | asset_url | stylesheet_tag }}
+{{ 'sidonia-sections.css' | asset_url | stylesheet_tag }}
+<script type="application/json" id="sidonia-config">
+{
+  "locale": {{ request.locale.iso_code | json }},
+  "designMode": {{ request.design_mode | json }},
+  "routes": {
+    "root": {{ routes.root_url | json }},
+    "search": {{ routes.search_url | json }}
+  },
+  "video": {
+    "externalConsent": {{ settings.sidonia_external_consent | json }},
+    "cardPreview": {{ settings.sidonia_card_hover_preview | json }},
+    "pagePreview": {{ settings.sidonia_page_preview | json }}
+  },
+  "analytics": {
+    "enabled": {{ settings.sidonia_analytics | json }},
+    "requireConsent": {{ settings.sidonia_analytics_consent | json }}
+  },
+  "divisions": {
+    {%- for k in div_keys -%}
+      {%- assign key_i = k | strip -%}
+      {%- capture d_name -%}{%- render 'sidonia-division', key: key_i, out: 'name' -%}{%- endcapture -%}
+      {{ key_i | json }}: {{ d_name | strip | json }}{% unless forloop.last %},{% endunless %}
+    {%- endfor -%}
+  },
+  "strings": {
+    "save": {{ 'sidonia.favorites.save' | t | json }},
+    "saved": {{ 'sidonia.favorites.saved' | t | json }},
+    "added": {{ 'sidonia.favorites.added' | t | json }},
+    "removed": {{ 'sidonia.favorites.removed' | t | json }},
+    "warnSession": {{ 'sidonia.favorites.warn_session' | t | json }},
+    "warnMemory": {{ 'sidonia.favorites.warn_memory' | t | json }},
+    "warnCorrupt": {{ 'sidonia.favorites.warn_corrupt' | t | json }},
+    "warnFetch": {{ 'sidonia.favorites.warn_fetch' | t | json }},
+    "favCountOne": {{ 'sidonia.favorites.count.one' | t | json }},
+    "favCountOther": {{ 'sidonia.favorites.count.other' | t | json }},
+    "favLink": {{ 'sidonia.favorites.link_count' | t | json }},
+    "favLinkEmpty": {{ 'sidonia.favorites.link_empty' | t | json }},
+    "favRetired": {{ 'sidonia.favorites.retired' | t | json }},
+    "favRemove": {{ 'sidonia.favorites.remove' | t | json }},
+    "videoClose": {{ 'sidonia.video.close' | t | json }},
+    "videoError": {{ 'sidonia.video.error' | t | json }},
+    "videoRetry": {{ 'sidonia.video.retry' | t | json }},
+    "videoConsent": {{ 'sidonia.video.consent_text' | t | json }},
+    "videoConsentButton": {{ 'sidonia.video.consent_button' | t | json }},
+    "videoSeeListing": {{ 'sidonia.video.see_listing' | t | json }},
+    "videoOriginal": {{ 'sidonia.video.original_post' | t | json }},
+    "videoSubtitles": {{ 'sidonia.video.subtitles_label' | t | json }},
+    "videoLanguage": {{ 'sidonia.video.language' | t | json }},
+    "copyLink": {{ 'sidonia.share.copy' | t | json }},
+    "linkCopied": {{ 'sidonia.share.copied' | t | json }},
+    "copyFailed": {{ 'sidonia.share.copy_failed' | t | json }},
+    "loading": {{ 'sidonia.catalog.loading' | t | json }},
+    "results": {{ 'sidonia.catalog.results_announce' | t | json }},
+    "loadedMore": {{ 'sidonia.catalog.loaded_more' | t | json }},
+    "loadError": {{ 'sidonia.catalog.load_error' | t | json }},
+    "required": {{ 'sidonia.forms.err_required' | t | json }},
+    "email": {{ 'sidonia.forms.err_email' | t | json }},
+    "url": {{ 'sidonia.forms.err_url' | t | json }},
+    "number": {{ 'sidonia.forms.err_number' | t | json }},
+    "choose": {{ 'sidonia.forms.err_choose' | t | json }},
+    "privacy": {{ 'sidonia.forms.err_privacy' | t | json }},
+    "reviewOne": {{ 'sidonia.forms.review.one' | t | json }},
+    "reviewOther": {{ 'sidonia.forms.review.other' | t | json }},
+    "sending": {{ 'sidonia.forms.sending' | t | json }},
+    "networkError": {{ 'sidonia.forms.network_error' | t | json }},
+    "challenge": {{ 'sidonia.forms.challenge' | t | json }},
+    "stepAnnounce": {{ 'sidonia.sell.step_announce' | t | json }},
+    "chooseCategory": {{ 'sidonia.sell.err_category' | t | json }}
+  }
+}
+</script>
+<script src="{{ 'sidonia-core.js' | asset_url }}" defer></script>

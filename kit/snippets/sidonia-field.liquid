@@ -1,0 +1,67 @@
+{%- comment -%}
+  Campo de formulario accesible: etiqueta real, ayuda y error asociados con aria-describedby.
+  Como Shopify no admite filtros en los parámetros de render, los textos pueden pasarse ya
+  resueltos (label, help, placeholder) o como claves de traducción (label_key, help_key, placeholder_key).
+
+  Parámetros:
+    id (o uid + field para componerlo), name, type (text|email|tel|number|url|textarea|select), value, rows, min, max, step,
+    label | label_key, help | help_key, placeholder | placeholder_key,
+    required (bool: obligatorio siempre), cat_required (bool: obligatorio solo si su categoría está activa),
+    optional_label (bool), autocomplete, inputmode, options | options_key ("valor|Etiqueta;valor|Etiqueta"),
+    wide (bool), class
+{%- endcomment -%}
+{%- liquid
+  assign t = type | default: 'text'
+  assign lab = label
+  if label_key != blank
+    assign lab = label_key | t
+  endif
+  assign hlp = help
+  if help_key != blank
+    assign hlp = help_key | t
+  endif
+  assign ph = placeholder
+  if placeholder_key != blank
+    assign ph = placeholder_key | t
+  endif
+  assign opts_src = options
+  if options_key != blank
+    assign opts_src = options_key | t
+  endif
+  assign fid = id
+  if fid == blank
+    assign fid = uid | append: '-' | append: field
+  endif
+  assign help_id = fid | append: '-help'
+  assign err_id = fid | append: '-error'
+  assign described = err_id
+  if hlp != blank
+    assign described = help_id | append: ' ' | append: err_id
+  endif
+-%}
+<div class="sidonia-field{% if wide %} sidonia-field--wide{% endif %}{% if class != blank %} {{ class }}{% endif %}">
+  <label class="sidonia-field__label" for="{{ fid }}">
+    {{- lab -}}
+    {%- if required -%}<span aria-hidden="true"> *</span>
+    {%- elsif cat_required -%}<span aria-hidden="true" class="sidonia-field__req"> *</span>
+    {%- elsif optional_label -%} <span class="sidonia-field__opt">{{ 'sidonia.forms.optional' | t }}</span>{%- endif -%}
+  </label>
+  {%- case t -%}
+    {%- when 'textarea' -%}
+      <textarea class="sidonia-textarea" id="{{ fid }}" name="{{ name }}" rows="{{ rows | default: 5 }}"{% if required %} required aria-required="true"{% endif %}{% if cat_required %} data-sidonia-cat-required{% endif %}{% if ph != blank %} placeholder="{{ ph | escape }}"{% endif %} aria-describedby="{{ described }}">{{ value | escape }}</textarea>
+    {%- when 'select' -%}
+      {%- assign opts = opts_src | split: ';' -%}
+      <select class="sidonia-select" id="{{ fid }}" name="{{ name }}"{% if required %} required aria-required="true"{% endif %}{% if cat_required %} data-sidonia-cat-required{% endif %} aria-describedby="{{ described }}">
+        <option value="">{{ 'sidonia.forms.choose' | t }}</option>
+        {%- for o in opts -%}
+          {%- assign o_val = o | split: '|' | first | strip -%}
+          {%- assign o_lab = o | split: '|' | last | strip -%}
+          <option value="{{ o_val | escape }}"{% if value == o_val %} selected{% endif %}>{{ o_lab | escape }}</option>
+        {%- endfor -%}
+      </select>
+    {%- else -%}
+      <input class="sidonia-input" id="{{ fid }}" type="{{ t }}" name="{{ name }}"{% if value != blank %} value="{{ value | escape }}"{% endif %}{% if required %} required aria-required="true"{% endif %}{% if cat_required %} data-sidonia-cat-required{% endif %}{% if ph != blank %} placeholder="{{ ph | escape }}"{% endif %}{% if autocomplete != blank %} autocomplete="{{ autocomplete }}"{% endif %}{% if inputmode != blank %} inputmode="{{ inputmode }}"{% endif %}{% if min != blank %} min="{{ min }}"{% endif %}{% if max != blank %} max="{{ max }}"{% endif %}{% if step != blank %} step="{{ step }}"{% endif %} aria-describedby="{{ described }}">
+  {%- endcase -%}
+  {%- if hlp != blank -%}<p class="sidonia-field__help" id="{{ help_id }}">{{ hlp }}</p>{%- endif -%}
+  <p class="sidonia-field__error" id="{{ err_id }}" hidden></p>
+</div>

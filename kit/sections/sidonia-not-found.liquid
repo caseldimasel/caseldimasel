@@ -1,0 +1,60 @@
+{%- comment -%}
+  SIDONIA · Página 404 útil: explica, ofrece búsqueda real y caminos a las categorías y a vender.
+{%- endcomment -%}
+{%- liquid
+  assign s = section.settings
+  capture keys_csv
+    render 'sidonia-division-keys'
+  endcapture
+  assign div_keys = keys_csv | strip | split: ','
+  capture sell_url
+    render 'sidonia-url', key: 'sell'
+  endcapture
+  capture contact_url
+    render 'sidonia-url', key: 'contact'
+  endcapture
+  capture explore_url
+    render 'sidonia-url', key: 'explore'
+  endcapture
+-%}
+<section class="sidonia-scope sidonia-section sidonia-notfound" data-section-id="{{ section.id }}">
+  <div class="sidonia-container sidonia-container--narrow">
+    <p class="sidonia-eyebrow">{{ 'sidonia.notfound.code' | t }}</p>
+    <h1 class="sidonia-h1">{{ s.heading | escape }}</h1>
+    <p class="sidonia-lede">{{ s.text | escape }}</p>
+    <form class="sidonia-search sidonia-search--page" action="{{ routes.search_url }}" method="get" role="search">
+      <div class="sidonia-search__row">
+        <label class="sidonia-sr" for="sidonia-404-q">{{ 'sidonia.search.placeholder' | t }}</label>
+        <span class="sidonia-search__icon" aria-hidden="true">{%- render 'sidonia-icon', name: 'search', size: 20 -%}</span>
+        <input id="sidonia-404-q" class="sidonia-search__input" type="search" name="q" placeholder="{{ 'sidonia.search.placeholder' | t }}" autocomplete="off" enterkeyhint="search">
+        <input type="hidden" name="type" value="product">
+        <input type="hidden" name="options[prefix]" value="last">
+        <button type="submit" class="sidonia-btn sidonia-search__submit">{{ 'sidonia.search.submit' | t }}</button>
+      </div>
+    </form>
+    <ul class="sidonia-tabs sidonia-notfound__links" role="list">
+      <li><a class="sidonia-tab" href="{{ explore_url | strip }}">{{ 'sidonia.search.all' | t }}</a></li>
+      {%- for k in div_keys -%}
+        {%- assign key_i = k | strip -%}
+        {%- capture d_url -%}{%- render 'sidonia-division', key: key_i, out: 'url' -%}{%- endcapture -%}
+        <li><a class="sidonia-tab" href="{{ d_url | strip }}">{%- render 'sidonia-cat-label', key: key_i -%}</a></li>
+      {%- endfor -%}
+    </ul>
+    <p class="sidonia-notfound__more">
+      <a class="sidonia-link" href="{{ sell_url | strip }}">{{ 'sidonia.notfound.sell' | t }}{%- render 'sidonia-icon', name: 'arrow-right', size: 16 -%}</a>
+      <a class="sidonia-link" href="{{ contact_url | strip }}">{{ 'sidonia.notfound.contact' | t }}{%- render 'sidonia-icon', name: 'arrow-right', size: 16 -%}</a>
+    </p>
+  </div>
+</section>
+
+{% schema %}
+{
+  "name": "Sidonia · Página no encontrada",
+  "tag": "div",
+  "settings": [
+    { "type": "text", "id": "heading", "label": "Título", "default": "Esta página no está" },
+    { "type": "textarea", "id": "text", "label": "Texto", "default": "Puede que la pieza ya no esté publicada o que el enlace haya cambiado. Busca en la selección o entra por categoría." }
+  ],
+  "presets": [{ "name": "Sidonia · Página no encontrada" }]
+}
+{% endschema %}

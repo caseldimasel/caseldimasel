@@ -1,0 +1,74 @@
+{%- comment -%}
+  SIDONIA · Ficha técnica agrupada según la categoría. Solo se muestran los datos que constan;
+  un grupo sin datos desaparece. Desconocido nunca se convierte en cero.
+{%- endcomment -%}
+{%- liquid
+  assign s = section.settings
+  capture cat
+    render 'sidonia-category', product: product
+  endcapture
+  assign cat = cat | strip
+  case cat
+    when 'garage'
+      assign groups = 'identity:brand,model,version,year|mechanics:fuel,gearbox,power|use:mileage,color'
+    when 'harbor'
+      assign groups = 'boat:builder,model,boat_type,year|dimensions:length,beam|engine:engine,hours|tax:tax_regime'
+    when 'estate'
+      assign groups = 'property:property_type,built_period|surfaces:area,plot|layout:bedrooms,bathrooms|energy:energy_rating'
+    else
+      assign groups = ''
+  endcase
+  assign group_list = groups | split: '|'
+  capture rendered
+    for g in group_list
+      assign g_name = g | split: ':' | first
+      assign g_ids = g | split: ':' | last | split: ','
+      capture rows
+        for sid in g_ids
+          capture val
+            render 'sidonia-spec', product: product, id: sid
+          endcapture
+          assign val = val | strip
+          if val != blank
+            echo '<div class="sidonia-spec-row"><dt>'
+            render 'sidonia-spec', product: product, id: sid, part: 'label'
+            echo '</dt><dd>' | append: val | append: '</dd></div>'
+          endif
+        endfor
+      endcapture
+      assign rows = rows | strip
+      if rows != blank
+        assign g_key = 'sidonia.specs.group_' | append: g_name
+        echo '<div class="sidonia-spec-group"><h3 class="sidonia-spec-group__title">'
+        echo g_key | t
+        echo '</h3><dl class="sidonia-spec-group__list">' | append: rows | append: '</dl></div>'
+      endif
+    endfor
+  endcapture
+  assign rendered = rendered | strip
+-%}
+{%- if rendered != blank -%}
+<section class="sidonia-scope sidonia-section sidonia-section--surface sidonia-listing-specs" data-section-id="{{ section.id }}">
+  <div class="sidonia-container">
+    <div class="sidonia-head">
+      <div class="sidonia-head__text">
+        <h2 class="sidonia-h2">{{ s.heading | escape }}</h2>
+        {%- if s.note != blank -%}<p class="sidonia-note">{{ s.note | escape }}</p>{%- endif -%}
+      </div>
+    </div>
+    <div class="sidonia-spec-groups">{{ rendered }}</div>
+  </div>
+</section>
+{%- endif -%}
+
+{% schema %}
+{
+  "name": "Sidonia · Ficha técnica",
+  "tag": "div",
+  "enabled_on": { "templates": ["product"] },
+  "settings": [
+    { "type": "text", "id": "heading", "label": "Título", "default": "Ficha técnica" },
+    { "type": "text", "id": "note", "label": "Nota", "default": "Datos aportados por el propietario y el equipo de Sidonia. Si falta un dato, pregúntanos." }
+  ]
+}
+{% endschema %}

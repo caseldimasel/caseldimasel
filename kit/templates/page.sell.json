@@ -1,0 +1,126 @@
+/*
+ * ------------------------------------------------------------
+ * Plantilla del kit Sidonia para Impact. Generada por tools/build-templates.mjs.
+ * Edítala desde el editor de temas; si regeneras, se pierden los cambios hechos aquí a mano.
+ * ------------------------------------------------------------
+ */
+{
+  "sections": {
+    "header": {
+      "type": "sidonia-page-header",
+      "settings": {
+        "eyebrow": "Vender con Sidonia",
+        "heading": "¿Tienes algo que merece ser contado?",
+        "text": "Seleccionamos coches, barcos y casas con alma. Cuéntanos qué tienes y estudiaremos si encaja."
+      }
+    },
+    "form": {
+      "type": "sidonia-sell-form",
+      "settings": {}
+    },
+    "how": {
+      "type": "sidonia-how-we-sell",
+      "settings": {
+        "show_ctas": false,
+        "background": "alt"
+      },
+      "blocks": {
+        "step_1": {
+          "type": "step",
+          "settings": {
+            "title": "Nos cuentas qué tienes",
+            "text": "Qué es, dónde está y, sobre todo, qué lo hace especial para ti."
+          }
+        },
+        "step_2": {
+          "type": "step",
+          "settings": {
+            "title": "Valoramos si encaja",
+            "text": "Lo estudiamos con calma y, si encaja en Sidonia, acordamos el proceso contigo."
+          }
+        },
+        "step_3": {
+          "type": "step",
+          "settings": {
+            "title": "Grabamos su historia",
+            "text": "Vamos a verlo, lo grabamos y contamos su historia con una narración cuidada."
+          }
+        },
+        "step_4": {
+          "type": "step",
+          "settings": {
+            "title": "La presentamos",
+            "text": "La mostramos a nuestra comunidad y atendemos el interés que genera, según el servicio contratado."
+          }
+        }
+      },
+      "block_order": [
+        "step_1",
+        "step_2",
+        "step_3",
+        "step_4"
+      ]
+    },
+    "faq": {
+      "type": "sidonia-faq",
+      "settings": {
+        "scope": "all"
+      },
+      "blocks": {
+        "question_1": {
+          "type": "question",
+          "settings": {
+            "question": "¿Qué tipo de piezas seleccionáis?",
+            "answer": "<p>Coches, barcos y casas con historia, carácter, diseño, cuidado o una procedencia interesante. No depende del precio ni de la antigüedad: valoramos qué hace especial a cada pieza y si podemos contarla bien.</p>",
+            "category": "all"
+          }
+        },
+        "question_2": {
+          "type": "question",
+          "settings": {
+            "question": "¿Qué información necesitáis para estudiar mi pieza?",
+            "answer": "<p>Para empezar basta con lo esencial: qué es, dónde está, qué la hace especial y cómo contactar contigo. Si tienes fotos, vídeos o un anuncio publicado, puedes pegar el enlace. En esta fase no pedimos documentación personal.</p>",
+            "category": "all"
+          }
+        },
+        "question_3": {
+          "type": "question",
+          "settings": {
+            "question": "¿Cómo es la grabación?",
+            "answer": "<p>Si la pieza encaja, acordamos contigo cómo y cuándo grabarla y escuchar su historia. Los detalles concretos se hablan contigo antes.</p>",
+            "category": "all"
+          }
+        },
+        "question_4": {
+          "type": "question",
+          "settings": {
+            "question": "¿Cómo pido información sobre una pieza?",
+            "answer": "<p>Desde cada ficha puedes escribirnos por WhatsApp, por correo o con el formulario. El mensaje incluye la referencia de la pieza para que sepamos de cuál hablas.</p>",
+            "category": "all"
+          }
+        },
+        "question_5": {
+          "type": "question",
+          "settings": {
+            "question": "¿Qué ocurre después de contactar?",
+            "answer": "<p>El equipo de Sidonia revisa tu mensaje y te contesta por el canal que prefieras. Si eres propietario, enviar la solicitud inicia una valoración de encaje: no implica aceptación ni compromiso de venta.</p>",
+            "category": "all"
+          }
+        }
+      },
+      "block_order": [
+        "question_1",
+        "question_2",
+        "question_3",
+        "question_4",
+        "question_5"
+      ]
+    }
+  },
+  "order": [
+    "header",
+    "form",
+    "how",
+    "faq"
+  ]
+}

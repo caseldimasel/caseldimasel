@@ -1,0 +1,4 @@
+{
+  "sections": { "main": { "type": "harness-main-page", "settings": {} } },
+  "order": ["main"]
+}

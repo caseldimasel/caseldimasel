@@ -1,0 +1,140 @@
+{%- comment -%}
+  SIDONIA · Formulario general (formulario de contacto nativo de Shopify) en dos modos:
+    - general: dudas para Sidonia;
+    - wanted:  «Cuéntanos qué buscas» (sin prometer alertas automáticas).
+  El formulario de venta es otro (sidonia-sell-form): «único» se refiere al alta de solicitudes de venta.
+  Muestra además los canales directos configurados (WhatsApp, correo, teléfono, horario).
+{%- endcomment -%}
+{%- liquid
+  assign s = section.settings
+  assign uid = 'sidonia-contacto-' | append: section.id
+  capture keys_csv
+    render 'sidonia-division-keys'
+  endcapture
+  assign div_keys = keys_csv | strip | split: ','
+  capture privacy_url
+    if settings.sidonia_privacy_page != blank
+      echo settings.sidonia_privacy_page.url
+    elsif shop.privacy_policy != blank
+      echo shop.privacy_policy.url
+    endif
+  endcapture
+  assign privacy_url = privacy_url | strip
+  capture wa
+    render 'sidonia-contact-link', kind: 'whatsapp'
+  endcapture
+  assign wa = wa | strip
+  capture mail
+    render 'sidonia-contact-link', kind: 'email'
+  endcapture
+  assign mail = mail | strip
+  capture tel
+    render 'sidonia-contact-link', kind: 'tel'
+  endcapture
+  assign tel = tel | strip
+  if s.mode == 'wanted'
+    assign kind_label = 'sidonia.contact_form.kind_wanted' | t
+  else
+    assign kind_label = 'sidonia.contact_form.kind_general' | t
+  endif
+  assign id_name = uid | append: '-name'
+  assign id_email = uid | append: '-email'
+  assign id_phone = uid | append: '-phone'
+  assign id_body = uid | append: '-body'
+  assign l_name = 'sidonia.forms.name' | t
+  assign l_email = 'sidonia.forms.email' | t
+  assign l_phone = 'sidonia.forms.phone' | t
+  if s.mode == 'wanted'
+    assign l_body = 'sidonia.contact_form.body_wanted' | t
+    assign ph_body = 'sidonia.contact_form.body_wanted_placeholder' | t
+  else
+    assign l_body = 'sidonia.forms.message' | t
+    assign ph_body = ''
+  endif
+-%}
+<section id="{{ s.anchor | default: 'contacto' | handleize }}" class="sidonia-scope sidonia-section sidonia-contact" data-section-id="{{ section.id }}">
+  <div class="sidonia-container sidonia-contact__grid">
+    <div class="sidonia-contact__intro">
+      {%- if s.eyebrow != blank -%}<p class="sidonia-eyebrow">{{ s.eyebrow | escape }}</p>{%- endif -%}
+      <h2 class="sidonia-h2">{{ s.heading | escape }}</h2>
+      {%- if s.text != blank -%}<p class="sidonia-lede">{{ s.text | escape }}</p>{%- endif -%}
+      {%- if s.show_channels -%}
+        {%- if wa != blank or mail != blank or tel != blank -%}
+          <ul class="sidonia-channels" role="list">
+            {%- if wa != blank -%}<li><a class="sidonia-channel" href="{{ wa }}" target="_blank" rel="noopener" data-sidonia-track="contact_whatsapp">{%- render 'sidonia-icon', name: 'whatsapp', size: 20 -%}<span>WhatsApp</span><span class="sidonia-sr"> {{ 'sidonia.general.new_window' | t }}</span></a></li>{%- endif -%}
+            {%- if mail != blank -%}<li><a class="sidonia-channel" href="{{ mail }}" data-sidonia-track="contact_email">{%- render 'sidonia-icon', name: 'mail', size: 20 -%}<span>{{ settings.sidonia_email | escape }}</span></a></li>{%- endif -%}
+            {%- if tel != blank -%}<li><a class="sidonia-channel" href="{{ tel }}">{%- render 'sidonia-icon', name: 'phone', size: 20 -%}<span>{{ settings.sidonia_phone | escape }}</span></a></li>{%- endif -%}
+          </ul>
+        {%- endif -%}
+        {%- if settings.sidonia_hours != blank -%}<p class="sidonia-note">{{ settings.sidonia_hours | escape }}</p>{%- endif -%}
+        {%- if settings.sidonia_response_note != blank -%}<p class="sidonia-note">{{ settings.sidonia_response_note | escape }}</p>{%- endif -%}
+      {%- endif -%}
+    </div>
+    <div class="sidonia-contact__form" data-sidonia-form="{{ s.mode }}">
+      {%- form 'contact', id: uid, class: 'sidonia-form' -%}
+        {%- render 'sidonia-form-status', form: form, uid: uid, success_title: s.success_title, success_text: s.success_text -%}
+        {%- unless form.posted_successfully? -%}
+          <input type="hidden" name="contact[Tipo de consulta]" value="{{ kind_label | escape }}">
+          <div class="sidonia-form-grid sidonia-form-grid--2">
+            {%- render 'sidonia-field', id: id_name, name: 'contact[name]', label: l_name, required: true, autocomplete: 'name', value: form.name -%}
+            {%- render 'sidonia-field', id: id_email, name: 'contact[email]', label: l_email, type: 'email', required: true, autocomplete: 'email', value: form.email -%}
+            {%- render 'sidonia-field', id: id_phone, name: 'contact[phone]', label: l_phone, type: 'tel', optional_label: true, autocomplete: 'tel', inputmode: 'tel', value: form.phone -%}
+            {%- if s.mode == 'wanted' -%}
+              <fieldset class="sidonia-fieldset sidonia-field">
+                <legend>{{ 'sidonia.contact_form.category' | t }}</legend>
+                <div class="sidonia-inline-choices">
+                  {%- for k in div_keys -%}
+                    {%- assign key_i = k | strip -%}
+                    {%- capture d_name -%}{%- render 'sidonia-division', key: key_i, out: 'name' -%}{%- endcapture -%}
+                    <label class="sidonia-choice"><input type="checkbox" name="contact[Busca en]" value="{{ d_name | strip | escape }}"> {% render 'sidonia-cat-label', key: key_i, name: d_name %}</label>
+                  {%- endfor -%}
+                </div>
+              </fieldset>
+            {%- else -%}
+              <fieldset class="sidonia-fieldset sidonia-field">
+                <legend>{{ 'sidonia.forms.preferred' | t }}</legend>
+                <div class="sidonia-inline-choices">
+                  <label class="sidonia-choice"><input type="radio" name="contact[Canal preferido]" value="{{ 'sidonia.forms.pref_email' | t }}" checked> {{ 'sidonia.forms.pref_email' | t }}</label>
+                  <label class="sidonia-choice"><input type="radio" name="contact[Canal preferido]" value="{{ 'sidonia.forms.pref_phone' | t }}"> {{ 'sidonia.forms.pref_phone' | t }}</label>
+                  <label class="sidonia-choice"><input type="radio" name="contact[Canal preferido]" value="WhatsApp"> WhatsApp</label>
+                </div>
+              </fieldset>
+            {%- endif -%}
+            {%- render 'sidonia-field', id: id_body, name: 'contact[body]', label: l_body, placeholder: ph_body, type: 'textarea', required: true, value: form.body, rows: 6, wide: true -%}
+          </div>
+          {%- if s.mode == 'wanted' -%}<p class="sidonia-note">{{ 'sidonia.contact_form.wanted_note' | t }}</p>{%- endif -%}
+          <p class="sidonia-note">
+            {{ 'sidonia.forms.privacy_text' | t }}
+            {%- if privacy_url != blank %} <a href="{{ privacy_url }}">{{ 'sidonia.forms.privacy_link' | t }}</a>.{%- endif -%}
+          </p>
+          <div class="sidonia-form__actions">
+            <button type="submit" class="sidonia-btn" data-sidonia-submit>{{ s.button | escape }}</button>
+          </div>
+        {%- endunless -%}
+      {%- endform -%}
+    </div>
+  </div>
+</section>
+<script src="{{ 'sidonia-forms.js' | asset_url }}" defer></script>
+
+{% schema %}
+{
+  "name": "Sidonia · Formulario de contacto",
+  "tag": "div",
+  "settings": [
+    { "type": "select", "id": "mode", "label": "Uso", "options": [
+      { "value": "general", "label": "Dudas generales" },
+      { "value": "wanted", "label": "Cuéntanos qué buscas" }
+    ], "default": "general" },
+    { "type": "text", "id": "eyebrow", "label": "Antetítulo" },
+    { "type": "text", "id": "heading", "label": "Título", "default": "Hablemos" },
+    { "type": "textarea", "id": "text", "label": "Texto", "default": "Escríbenos con tus dudas. Si buscas o vendes una pieza concreta, cuéntanos cuál." },
+    { "type": "checkbox", "id": "show_channels", "label": "Mostrar WhatsApp, correo, teléfono y horario", "info": "Solo los configurados en Ajustes del tema > Sidonia · Contacto.", "default": true },
+    { "type": "text", "id": "anchor", "label": "Ancla (id)", "default": "contacto" },
+    { "type": "text", "id": "button", "label": "Botón", "default": "Enviar" },
+    { "type": "text", "id": "success_title", "label": "Título de envío correcto", "default": "Mensaje recibido" },
+    { "type": "textarea", "id": "success_text", "label": "Texto de envío correcto", "default": "El equipo de Sidonia lo revisará y te contestará por el canal que has elegido." }
+  ],
+  "presets": [{ "name": "Sidonia · Formulario de contacto" }]
+}
+{% endschema %}

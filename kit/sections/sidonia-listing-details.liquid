@@ -1,0 +1,56 @@
+{%- comment -%}
+  SIDONIA · Estado, trabajos realizados y documentos públicos (si se conocen).
+  No afirma inspecciones, certificaciones ni garantías: es información aportada.
+  Los documentos son archivos PÚBLICOS: nunca documentación personal.
+{%- endcomment -%}
+{%- liquid
+  assign s = section.settings
+  assign mf = product.metafields.sidonia
+  assign condition = mf.condition_notes.value | strip
+  assign work = mf.work_done.value
+  assign docs = mf.documents.value
+-%}
+{%- if condition != blank or work != blank or docs != blank -%}
+<section class="sidonia-scope sidonia-section sidonia-listing-details" data-section-id="{{ section.id }}">
+  <div class="sidonia-container sidonia-listing-details__grid">
+    {%- if condition != blank -%}
+      <div class="sidonia-panel">
+        <h2 class="sidonia-h4">{{ 'sidonia.listing.condition' | t }}</h2>
+        <p>{{ condition | escape | newline_to_br }}</p>
+      </div>
+    {%- endif -%}
+    {%- if work != blank -%}
+      <div class="sidonia-panel">
+        <h2 class="sidonia-h4">{{ 'sidonia.listing.work_done' | t }}</h2>
+        <ul class="sidonia-checklist" role="list">
+          {%- for w in work -%}<li>{%- render 'sidonia-icon', name: 'check', size: 18 -%}<span>{{ w | escape }}</span></li>{%- endfor -%}
+        </ul>
+      </div>
+    {%- endif -%}
+    {%- if docs != blank -%}
+      <div class="sidonia-panel">
+        <h2 class="sidonia-h4">{{ 'sidonia.listing.documents' | t }}</h2>
+        <ul class="sidonia-doclist" role="list">
+          {%- for d in docs -%}
+            {%- assign d_label = d.alt | strip -%}
+            {%- if d_label == blank -%}{%- assign d_label = d.url | split: '/' | last | split: '?' | first -%}{%- endif -%}
+            <li><a href="{{ d.url }}" target="_blank" rel="noopener">{%- render 'sidonia-icon', name: 'document', size: 18 -%}<span>{{ d_label | escape }}</span><span class="sidonia-sr"> {{ 'sidonia.general.new_window' | t }}</span></a></li>
+          {%- endfor -%}
+        </ul>
+      </div>
+    {%- endif -%}
+  </div>
+  <div class="sidonia-container"><p class="sidonia-note sidonia-listing-details__note">{{ s.note | escape }}</p></div>
+</section>
+{%- endif -%}
+
+{% schema %}
+{
+  "name": "Sidonia · Estado y documentos",
+  "tag": "div",
+  "enabled_on": { "templates": ["product"] },
+  "settings": [
+    { "type": "text", "id": "note", "label": "Nota", "default": "Información aportada por el propietario y el equipo. No es una inspección ni una garantía." }
+  ]
+}
+{% endschema %}

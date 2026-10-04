@@ -1,0 +1,189 @@
+{%- comment -%}
+  SIDONIA · Catálogo con filtros (colecciones y búsqueda).
+  Estructura de listado tipo JamesEdition: título y total, pestañas de categoría, barra de filtros,
+  orden, rejilla grande de tarjetas y paginación real.
+
+  - Filtros, orden y página viajan en la URL: recargar, compartir, atrás y adelante funcionan.
+  - Sin JavaScript es un formulario GET con enlaces; con JavaScript se actualiza con la
+    Section Rendering API de Shopify (sidonia-catalog.js) y se anuncia el total.
+  - En búsqueda: solo productos; si llega una categoría sin texto, se ofrece su colección.
+
+  Uso: plantillas collection.*.json y search.json (decisión final tras la auditoría de Impact, ver docs/02).
+{%- endcomment -%}
+{%- liquid
+  assign s = section.settings
+  assign is_search = false
+  if template.name == 'search'
+    assign is_search = true
+  endif
+  assign per_page = settings.sidonia_per_page | default: 24
+  assign uid = 'sidonia-cat-' | append: section.id
+  assign load_more = settings.sidonia_load_more
+  capture keys_csv
+    render 'sidonia-division-keys'
+  endcapture
+  assign div_keys = keys_csv | strip | split: ','
+  capture wanted_url
+    render 'sidonia-url', key: 'wanted'
+  endcapture
+  capture explore_url
+    render 'sidonia-url', key: 'explore'
+  endcapture
+  assign wanted_url = wanted_url | strip
+  assign explore_url = explore_url | strip
+
+  assign current_key = ''
+  if is_search == false
+    for k in div_keys
+      assign key_i = k | strip
+      capture d_handle
+        render 'sidonia-division', key: key_i, out: 'handle'
+      endcapture
+      if d_handle != blank and collection.handle == d_handle
+        assign current_key = key_i
+      endif
+    endfor
+  endif
+-%}
+{%- if is_search -%}
+  {%- paginate search.results by per_page -%}
+    {%- liquid
+      assign results = search
+      assign total = search.results_count
+      assign q_enc = search.terms | url_encode
+      assign clear_url = routes.search_url | append: '?type=product&options%5Bprefix%5D=last&q=' | append: q_enc
+      assign items = search.results
+    -%}
+    {%- capture body -%}{%- render 'sidonia-catalog-body', section_id: section.id, results: results, items: items, total: total, uid: uid, paginate: paginate, load_more: load_more, clear_url: clear_url, wanted_url: wanted_url, explore_url: explore_url, is_search: true, archive: false, div_keys: div_keys, current_key: '' -%}{%- endcapture -%}
+    <section class="sidonia-scope sidonia-catalog sidonia-catalog--search" data-section-id="{{ section.id }}">
+      <div class="sidonia-container">
+        <header class="sidonia-catalog__head">
+          <h1 class="sidonia-h1 sidonia-catalog__title">
+            {%- if search.performed and search.terms != blank -%}
+              {{ 'sidonia.search.results_for' | t: terms: search.terms }}
+            {%- else -%}
+              {{ 'sidonia.search.title' | t }}
+            {%- endif -%}
+          </h1>
+          <form class="sidonia-search sidonia-search--page" action="{{ routes.search_url }}" method="get" role="search">
+            <div class="sidonia-search__row">
+              <label class="sidonia-sr" for="{{ uid }}-q">{{ 'sidonia.search.placeholder' | t }}</label>
+              <span class="sidonia-search__icon" aria-hidden="true">{%- render 'sidonia-icon', name: 'search', size: 20 -%}</span>
+              <input id="{{ uid }}-q" class="sidonia-search__input" type="search" name="q" value="{{ search.terms | escape }}" placeholder="{{ 'sidonia.search.placeholder' | t }}" autocomplete="off" enterkeyhint="search">
+              <input type="hidden" name="type" value="product">
+              <input type="hidden" name="options[prefix]" value="last">
+              <button type="submit" class="sidonia-btn sidonia-search__submit">{{ 'sidonia.search.submit' | t }}</button>
+            </div>
+          </form>
+          <p class="sidonia-note">{{ 'sidonia.search.text_only' | t }}</p>
+        </header>
+        {%- if search.performed == false or search.terms == blank -%}
+          {%- liquid
+            assign cat_param = ''
+            for filter in search.filters
+              if filter.param_name == 'filter.p.m.sidonia.category'
+                for v in filter.active_values
+                  assign cat_param = v.value
+                endfor
+              endif
+            endfor
+          -%}
+          <div class="sidonia-catalog__start">
+            {%- if cat_param != blank -%}
+              {%- capture ck -%}{%- render 'sidonia-category', value: cat_param -%}{%- endcapture -%}
+              {%- assign ck = ck | strip -%}
+              {%- if ck != blank -%}
+                {%- capture ck_url -%}{%- render 'sidonia-division', key: ck, out: 'url' -%}{%- endcapture -%}
+                <a class="sidonia-btn" href="{{ ck_url | strip }}">{{ 'sidonia.search.see_category' | t: name: cat_param }}</a>
+              {%- endif -%}
+            {%- endif -%}
+            <ul class="sidonia-tabs" role="list">
+              {%- for k in div_keys -%}
+                {%- assign key_i = k | strip -%}
+                {%- capture d_url -%}{%- render 'sidonia-division', key: key_i, out: 'url' -%}{%- endcapture -%}
+                <li><a class="sidonia-tab" href="{{ d_url | strip }}">{%- render 'sidonia-cat-label', key: key_i -%}</a></li>
+              {%- endfor -%}
+            </ul>
+          </div>
+        {%- else -%}
+          {{ body }}
+        {%- endif -%}
+      </div>
+    </section>
+  {%- endpaginate -%}
+{%- else -%}
+  {%- paginate collection.products by per_page -%}
+    {%- liquid
+      assign results = collection
+      assign total = collection.products_count
+      assign clear_url = collection.url
+      if collection.sort_by != blank
+        assign clear_url = collection.url | append: '?sort_by=' | append: collection.sort_by
+      endif
+    -%}
+    <section class="sidonia-scope sidonia-catalog{% if current_key != blank %} sidonia-cat--{{ current_key }}{% endif %}" data-section-id="{{ section.id }}">
+      <div class="sidonia-container">
+        {%- render 'sidonia-breadcrumbs', schema: s.breadcrumbs_schema -%}
+        <header class="sidonia-catalog__head">
+          {%- if current_key != blank -%}
+            {%- capture comm -%}{%- render 'sidonia-division', key: current_key, out: 'community' -%}{%- endcapture -%}
+            {%- if comm != blank and s.show_community -%}<p class="sidonia-eyebrow">{%- render 'sidonia-cat-label', key: current_key, name: comm -%}</p>{%- endif -%}
+          {%- elsif s.archive -%}
+            <p class="sidonia-eyebrow">{{ 'sidonia.catalog.archive_eyebrow' | t }}</p>
+          {%- endif -%}
+          <h1 class="sidonia-h1 sidonia-catalog__title">
+            {%- if current_key != blank -%}<span class="sidonia-dot sidonia-dot--{{ current_key }} sidonia-catalog__dot" aria-hidden="true"></span>{%- endif -%}
+            {{ collection.title | escape }}
+          </h1>
+          {%- if s.intro != blank -%}
+            <p class="sidonia-lede">{{ s.intro | escape }}</p>
+          {%- elsif s.show_description and collection.description != blank -%}
+            <div class="sidonia-lede sidonia-rte">{{ collection.description }}</div>
+          {%- endif -%}
+          {%- if s.archive -%}<p class="sidonia-note">{{ 'sidonia.catalog.archive_note' | t }}</p>{%- endif -%}
+        </header>
+
+        {%- if s.show_tabs and s.archive == false -%}
+          <nav class="sidonia-tabs-nav" aria-label="{{ 'sidonia.catalog.categories' | t }}">
+            <ul class="sidonia-tabs" role="list">
+              <li><a class="sidonia-tab" href="{{ explore_url }}"{% if current_key == blank and collection.url == explore_url %} aria-current="page"{% endif %}>{{ 'sidonia.search.all' | t }}</a></li>
+              {%- for k in div_keys -%}
+                {%- assign key_i = k | strip -%}
+                {%- capture d_url -%}{%- render 'sidonia-division', key: key_i, out: 'url' -%}{%- endcapture -%}
+                <li><a class="sidonia-tab" href="{{ d_url | strip }}"{% if current_key == key_i %} aria-current="page"{% endif %}>{%- render 'sidonia-cat-label', key: key_i -%}</a></li>
+              {%- endfor -%}
+            </ul>
+          </nav>
+        {%- endif -%}
+
+        {%- render 'sidonia-catalog-body', section_id: section.id, results: results, items: collection.products, total: total, uid: uid, paginate: paginate, load_more: load_more, clear_url: clear_url, wanted_url: wanted_url, explore_url: explore_url, is_search: false, archive: s.archive, div_keys: div_keys, current_key: current_key -%}
+
+        {%- if s.archive -%}
+          <aside class="sidonia-catalog__similar">
+            <h2 class="sidonia-h3">{{ 'sidonia.catalog.archive_cta_title' | t }}</h2>
+            <p class="sidonia-lede">{{ 'sidonia.catalog.archive_cta_text' | t }}</p>
+            <a class="sidonia-btn" href="{{ wanted_url }}">{{ 'sidonia.catalog.archive_cta_button' | t }}</a>
+          </aside>
+        {%- endif -%}
+      </div>
+    </section>
+  {%- endpaginate -%}
+{%- endif -%}
+
+{% schema %}
+{
+  "name": "Sidonia · Catálogo con filtros",
+  "tag": "div",
+  "class": "sidonia-section-catalog",
+  "enabled_on": { "templates": ["collection", "search"] },
+  "settings": [
+    { "type": "paragraph", "content": "Filtros: activa en la app Search & Discovery los de docs/06-colecciones-y-filtros.md. Piezas por página, «Cargar más» y columnas: Ajustes del tema > Sidonia · Catálogo." },
+    { "type": "textarea", "id": "intro", "label": "Introducción", "info": "Vacía: la descripción de la colección (si se activa abajo)." },
+    { "type": "checkbox", "id": "show_description", "label": "Mostrar la descripción de la colección", "default": true },
+    { "type": "checkbox", "id": "show_tabs", "label": "Mostrar pestañas Todas / Coches / Barcos / Casas", "default": true },
+    { "type": "checkbox", "id": "show_community", "label": "Mostrar el nombre de la comunidad sobre el título", "default": false },
+    { "type": "checkbox", "id": "breadcrumbs_schema", "label": "Datos estructurados de migas de pan", "default": true },
+    { "type": "checkbox", "id": "archive", "label": "Modo archivo de vendidas", "info": "Para la colección «Vendidas»: aviso de archivo e invitación a buscar algo parecido.", "default": false }
+  ]
+}
+{% endschema %}

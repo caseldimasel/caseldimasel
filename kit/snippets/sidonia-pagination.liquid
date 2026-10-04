@@ -1,0 +1,35 @@
+{%- comment -%}
+  Paginación real con enlaces (funciona sin JavaScript y conserva filtros y orden en la URL).
+  «Cargar más» es una mejora progresiva (sidonia-catalog.js) que usa la misma URL de la página siguiente.
+  Parámetros: paginate, load_more (bool)
+{%- endcomment -%}
+{%- if paginate.pages > 1 -%}
+  {%- assign shown_n = paginate.current_page | times: paginate.page_size | at_most: paginate.items -%}
+  <nav class="sidonia-pagination" aria-label="{{ 'sidonia.catalog.pagination' | t }}" data-sidonia-pagination>
+    {%- if load_more and paginate.next -%}
+      <div class="sidonia-loadmore" data-sidonia-loadmore hidden>
+        <p class="sidonia-note" data-sidonia-loadmore-status>{{ 'sidonia.catalog.showing' | t: shown: shown_n, total: paginate.items }}</p>
+        <button type="button" class="sidonia-btn sidonia-btn--secondary" data-sidonia-load-more data-next-url="{{ paginate.next.url }}">{{ 'sidonia.catalog.load_more' | t }}</button>
+      </div>
+    {%- endif -%}
+    <ol role="list" data-sidonia-pages>
+      {%- if paginate.previous -%}
+        <li><a href="{{ paginate.previous.url }}" rel="prev" data-sidonia-facet-link>{%- render 'sidonia-icon', name: 'chevron-left', size: 18 -%}<span class="sidonia-sr">{{ 'sidonia.catalog.previous' | t }}</span></a></li>
+      {%- endif -%}
+      {%- for part in paginate.parts -%}
+        <li>
+          {%- if part.is_link -%}
+            <a href="{{ part.url }}" data-sidonia-facet-link><span class="sidonia-sr">{{ 'sidonia.catalog.page' | t }} </span>{{ part.title }}</a>
+          {%- elsif part.title == paginate.current_page -%}
+            <span aria-current="page"><span class="sidonia-sr">{{ 'sidonia.catalog.page' | t }} </span>{{ part.title }}</span>
+          {%- else -%}
+            <span aria-hidden="true">{{ part.title }}</span>
+          {%- endif -%}
+        </li>
+      {%- endfor -%}
+      {%- if paginate.next -%}
+        <li><a href="{{ paginate.next.url }}" rel="next" data-sidonia-facet-link>{%- render 'sidonia-icon', name: 'chevron-right', size: 18 -%}<span class="sidonia-sr">{{ 'sidonia.catalog.next' | t }}</span></a></li>
+      {%- endif -%}
+    </ol>
+  </nav>
+{%- endif -%}

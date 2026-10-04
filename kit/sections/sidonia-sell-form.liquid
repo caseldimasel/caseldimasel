@@ -1,0 +1,173 @@
+{%- comment -%}
+  SIDONIA · Formulario ÚNICO de solicitud de venta para Coches, Barcos y Casas.
+  Todos los botones «Vender con Sidonia» llevan aquí (página /pages/vender-con-sidonia).
+
+  - Tres pasos con mejora progresiva: 1) categoría, 2) la pieza (campos según categoría + comunes),
+    3) contacto. Anterior/Siguiente no envían nada; el envío solo ocurre en el paso 3.
+  - Preselección opcional con ?categoria=coches|barcos|casas (validada); siempre se puede cambiar.
+  - Los grupos de categorías no elegidas se desactivan: no se validan ni se envían.
+  - Sin JavaScript: todos los grupos visibles y etiquetados, se envía como formulario normal.
+  - Formulario de contacto nativo de Shopify: el destinatario lo fija Shopify (Ajustes > Notificaciones),
+    no el tema. Sin subida de archivos: solo un enlace (ver docs/07-formularios-y-leads.md).
+  - No se guardan datos personales en el navegador.
+{%- endcomment -%}
+{%- liquid
+  assign s = section.settings
+  assign uid = 'sidonia-venta-' | append: section.id
+  capture keys_csv
+    render 'sidonia-division-keys'
+  endcapture
+  assign div_keys = keys_csv | strip | split: ','
+  capture privacy_url
+    if settings.sidonia_privacy_page != blank
+      echo settings.sidonia_privacy_page.url
+    elsif shop.privacy_policy != blank
+      echo shop.privacy_policy.url
+    endif
+  endcapture
+  assign privacy_url = privacy_url | strip
+  assign kind_label = 'sidonia.sell.kind' | t
+  assign id_name = uid | append: '-name'
+  assign id_email = uid | append: '-email'
+  assign id_phone = uid | append: '-phone'
+  assign l_name = 'sidonia.forms.name' | t
+  assign l_email = 'sidonia.forms.email' | t
+  assign l_phone = 'sidonia.forms.phone' | t
+  assign phone_help = 'sidonia.sell.phone_help' | t
+-%}
+<section id="{{ s.anchor | default: 'solicitud' | handleize }}" class="sidonia-scope sidonia-section sidonia-sell" data-section-id="{{ section.id }}">
+  <div class="sidonia-container sidonia-sell__grid">
+    <div class="sidonia-sell__intro">
+      {%- if s.eyebrow != blank -%}<p class="sidonia-eyebrow">{{ s.eyebrow | escape }}</p>{%- endif -%}
+      <h2 class="sidonia-h2">{{ s.heading | escape }}</h2>
+      {%- if s.text != blank -%}<p class="sidonia-lede">{{ s.text | escape }}</p>{%- endif -%}
+      <div class="sidonia-panel sidonia-sell__note">
+        {%- render 'sidonia-icon', name: 'info', size: 20 -%}
+        <p>{{ 'sidonia.sell.evaluation_note' | t }}</p>
+      </div>
+      <p class="sidonia-note">{{ 'sidonia.sell.no_documents' | t }}</p>
+    </div>
+
+    <div class="sidonia-sell__form" data-sidonia-form="sell">
+      {%- form 'contact', id: uid, class: 'sidonia-form sidonia-form--sell' -%}
+        {%- render 'sidonia-form-status', form: form, uid: uid, success_title: s.success_title, success_text: s.success_text -%}
+        {%- unless form.posted_successfully? -%}
+          <input type="hidden" name="contact[Tipo de consulta]" value="{{ kind_label | escape }}">
+
+          <div class="sidonia-progress" data-sidonia-progress hidden>
+            <p class="sidonia-progress__text" data-sidonia-progress-text>{{ 'sidonia.sell.step_of' | t: step: 1, total: 3 }}</p>
+            <ol class="sidonia-progress__bar" role="list" aria-hidden="true">
+              <li data-step="1"></li><li data-step="2"></li><li data-step="3"></li>
+            </ol>
+          </div>
+
+          <fieldset class="sidonia-fieldset sidonia-step" data-sidonia-step="1">
+            <legend class="sidonia-step__legend"><span class="sidonia-step__n" aria-hidden="true">1</span>{{ 'sidonia.sell.step1' | t }}</legend>
+            <div class="sidonia-optioncards">
+              {%- for k in div_keys -%}
+                {%- assign key_i = k | strip -%}
+                {%- capture d_name -%}{%- render 'sidonia-division', key: key_i, out: 'name' -%}{%- endcapture -%}
+                {%- capture d_com -%}{%- render 'sidonia-division', key: key_i, out: 'community' -%}{%- endcapture -%}
+                {%- assign d_name = d_name | strip -%}
+                <label class="sidonia-optioncard">
+                  <input type="radio" name="contact[Categoría]" value="{{ d_name | escape }}" data-sidonia-cat="{{ key_i }}" data-slug="{{ d_name | handleize }}" required>
+                  <span class="sidonia-optioncard__body">
+                    {%- render 'sidonia-cat-label', key: key_i, name: d_name, class: 'sidonia-optioncard__name' -%}
+                    {%- if d_com != blank -%}<span class="sidonia-optioncard__sub">{{ d_com | strip | escape }}</span>{%- endif -%}
+                  </span>
+                </label>
+              {%- endfor -%}
+            </div>
+            <p class="sidonia-field__error" data-sidonia-step-error hidden></p>
+          </fieldset>
+
+          <fieldset class="sidonia-fieldset sidonia-step" data-sidonia-step="2">
+            <legend class="sidonia-step__legend"><span class="sidonia-step__n" aria-hidden="true">2</span>{{ 'sidonia.sell.step2' | t }}</legend>
+            {%- for k in div_keys -%}
+              {%- assign key_i = k | strip -%}
+              {%- capture d_name -%}{%- render 'sidonia-division', key: key_i, out: 'name' -%}{%- endcapture -%}
+              <fieldset class="sidonia-fieldset sidonia-catgroup" data-sidonia-cat-group="{{ key_i }}">
+                <legend class="sidonia-catgroup__title">{{ 'sidonia.sell.if_category' | t }} {% render 'sidonia-cat-label', key: key_i, name: d_name %}</legend>
+                <div class="sidonia-form-grid sidonia-form-grid--2">
+                  {%- render 'sidonia-sell-fields', key: key_i, uid: uid -%}
+                </div>
+              </fieldset>
+            {%- endfor -%}
+            <div class="sidonia-form-grid sidonia-catgroup--common">
+              {%- render 'sidonia-field', uid: uid, field: 'special', name: 'contact[Qué la hace especial]', type: 'textarea', label_key: 'sidonia.sell.f.special', required: true, rows: 4 -%}
+              {%- render 'sidonia-field', uid: uid, field: 'story', name: 'contact[Su historia]', type: 'textarea', label_key: 'sidonia.sell.f.story', help_key: 'sidonia.sell.f.story_help', rows: 5, optional_label: true -%}
+              <div class="sidonia-form-grid sidonia-form-grid--2">
+                {%- render 'sidonia-field', uid: uid, field: 'state', name: 'contact[Estado]', label_key: 'sidonia.sell.f.state', help_key: 'sidonia.sell.f.state_help', optional_label: true -%}
+                {%- render 'sidonia-field', uid: uid, field: 'rel', name: 'contact[Relación con la pieza]', type: 'select', label_key: 'sidonia.sell.f.relation', options_key: 'sidonia.sell.f.relation_options', required: true -%}
+              </div>
+              {%- render 'sidonia-field', uid: uid, field: 'link', name: 'contact[Enlace a vídeo, carpeta o anuncio]', type: 'url', label_key: 'sidonia.sell.f.link', help_key: 'sidonia.sell.f.link_help', placeholder: 'https://', optional_label: true, inputmode: 'url' -%}
+            </div>
+            {%- for block in section.blocks -%}
+              {%- if block.type == '@app' -%}<div class="sidonia-sell__app" {{ block.shopify_attributes }}>{% render block %}</div>{%- endif -%}
+            {%- endfor -%}
+          </fieldset>
+
+          <fieldset class="sidonia-fieldset sidonia-step" data-sidonia-step="3">
+            <legend class="sidonia-step__legend"><span class="sidonia-step__n" aria-hidden="true">3</span>{{ 'sidonia.sell.step3' | t }}</legend>
+            <div class="sidonia-form-grid sidonia-form-grid--2">
+              {%- render 'sidonia-field', id: id_name, name: 'contact[name]', label: l_name, required: true, autocomplete: 'name', value: form.name -%}
+              {%- render 'sidonia-field', id: id_email, name: 'contact[email]', label: l_email, type: 'email', required: true, autocomplete: 'email', value: form.email -%}
+              {%- render 'sidonia-field', id: id_phone, name: 'contact[phone]', label: l_phone, type: 'tel', autocomplete: 'tel', inputmode: 'tel', help: phone_help, optional_label: true, value: form.phone -%}
+              <fieldset class="sidonia-fieldset sidonia-field">
+                <legend>{{ 'sidonia.forms.preferred' | t }}</legend>
+                <div class="sidonia-inline-choices" data-sidonia-preferred>
+                  <label class="sidonia-choice"><input type="radio" name="contact[Canal preferido]" value="{{ 'sidonia.forms.pref_email' | t }}" checked> {{ 'sidonia.forms.pref_email' | t }}</label>
+                  <label class="sidonia-choice"><input type="radio" name="contact[Canal preferido]" value="{{ 'sidonia.forms.pref_phone' | t }}" data-needs-phone> {{ 'sidonia.forms.pref_phone' | t }}</label>
+                  <label class="sidonia-choice"><input type="radio" name="contact[Canal preferido]" value="WhatsApp" data-needs-phone> WhatsApp</label>
+                </div>
+              </fieldset>
+            </div>
+            <div class="sidonia-consent">
+              <label class="sidonia-choice">
+                <input type="checkbox" name="contact[Aviso de privacidad]" value="{{ 'sidonia.forms.privacy_accepted' | t }}" required data-sidonia-privacy>
+                <span>{{ 'sidonia.forms.privacy_check' | t }}{%- if privacy_url != blank %} <a href="{{ privacy_url }}" target="_blank" rel="noopener">{{ 'sidonia.forms.privacy_link' | t }}<span class="sidonia-sr"> {{ 'sidonia.general.new_window' | t }}</span></a>{%- endif -%}</span>
+              </label>
+              {%- if s.marketing -%}
+                <label class="sidonia-choice">
+                  <input type="checkbox" name="contact[Acepta comunicaciones]" value="{{ 'sidonia.forms.marketing_yes' | t }}">
+                  <span>{{ s.marketing_text | escape }}</span>
+                </label>
+              {%- endif -%}
+            </div>
+            <p class="sidonia-note">{{ 'sidonia.sell.evaluation_note' | t }}</p>
+            <div class="sidonia-form__actions sidonia-form__actions--final">
+              <button type="submit" class="sidonia-btn" data-sidonia-submit>{{ s.button | escape }}</button>
+            </div>
+          </fieldset>
+
+          <div class="sidonia-stepnav" data-sidonia-stepnav hidden>
+            <button type="button" class="sidonia-btn sidonia-btn--quiet" data-sidonia-prev>{%- render 'sidonia-icon', name: 'arrow-left', size: 18 -%}<span>{{ 'sidonia.sell.prev' | t }}</span></button>
+            <button type="button" class="sidonia-btn" data-sidonia-next><span>{{ 'sidonia.sell.next' | t }}</span>{%- render 'sidonia-icon', name: 'arrow-right', size: 18 -%}</button>
+          </div>
+        {%- endunless -%}
+      {%- endform -%}
+    </div>
+  </div>
+</section>
+<script src="{{ 'sidonia-forms.js' | asset_url }}" defer></script>
+
+{% schema %}
+{
+  "name": "Sidonia · Formulario de venta",
+  "tag": "div",
+  "settings": [
+    { "type": "paragraph", "content": "Único formulario para Coches, Barcos y Casas. Llega al correo configurado en Shopify (Ajustes > Notificaciones > Contacto del personal). No admite archivos: el propietario pega un enlace. Ver docs/07-formularios-y-leads.md." },
+    { "type": "text", "id": "eyebrow", "label": "Antetítulo", "default": "Vender con Sidonia" },
+    { "type": "text", "id": "heading", "label": "Título", "default": "Cuéntanos qué tienes" },
+    { "type": "textarea", "id": "text", "label": "Texto", "default": "Tres pasos cortos. Cuanto mejor nos cuentes qué la hace especial, mejor podremos estudiar si encaja en Sidonia." },
+    { "type": "text", "id": "anchor", "label": "Ancla (id)", "default": "solicitud" },
+    { "type": "text", "id": "button", "label": "Botón de envío", "default": "Enviar solicitud" },
+    { "type": "text", "id": "success_title", "label": "Título de envío correcto", "default": "Hemos recibido tu solicitud" },
+    { "type": "textarea", "id": "success_text", "label": "Texto de envío correcto", "default": "La estudiaremos con calma y te contestaremos por el canal que has elegido. Enviarla no implica aceptación ni compromiso de venta." },
+    { "type": "checkbox", "id": "marketing", "label": "Ofrecer consentimiento opcional de comunicaciones", "info": "Casilla separada, desmarcada y opcional. Actívala solo si existe un uso real y su texto legal.", "default": false },
+    { "type": "text", "id": "marketing_text", "label": "Texto del consentimiento opcional", "default": "Quiero recibir novedades de Sidonia (opcional)." }
+  ],
+  "blocks": [{ "type": "@app" }],
+  "presets": [{ "name": "Sidonia · Formulario de venta" }]
+}
+{% endschema %}

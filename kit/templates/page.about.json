@@ -1,0 +1,98 @@
+/*
+ * ------------------------------------------------------------
+ * Plantilla del kit Sidonia para Impact. Generada por tools/build-templates.mjs.
+ * Edítala desde el editor de temas; si regeneras, se pierden los cambios hechos aquí a mano.
+ * ------------------------------------------------------------
+ */
+{
+  "sections": {
+    "header": {
+      "type": "sidonia-page-header",
+      "settings": {
+        "eyebrow": "Sobre Sidonia",
+        "show_page_content": true
+      }
+    },
+    "criteria": {
+      "type": "sidonia-criteria",
+      "settings": {
+        "background": "surface"
+      },
+      "blocks": {
+        "criterion_1": {
+          "type": "criterion",
+          "settings": {
+            "title": "Historia",
+            "text": "Una vida vivida que merece ser contada."
+          }
+        },
+        "criterion_2": {
+          "type": "criterion",
+          "settings": {
+            "title": "Carácter",
+            "text": "Algo que la hace reconocible entre muchas."
+          }
+        },
+        "criterion_3": {
+          "type": "criterion",
+          "settings": {
+            "title": "Diseño",
+            "text": "Una forma pensada con intención."
+          }
+        },
+        "criterion_4": {
+          "type": "criterion",
+          "settings": {
+            "title": "Singularidad",
+            "text": "Una pieza que no se encuentra en cualquier esquina."
+          }
+        },
+        "criterion_5": {
+          "type": "criterion",
+          "settings": {
+            "title": "Cuidado",
+            "text": "Alguien la ha mantenido con atención."
+          }
+        },
+        "criterion_6": {
+          "type": "criterion",
+          "settings": {
+            "title": "Procedencia",
+            "text": "Un origen o un recorrido interesante."
+          }
+        }
+      },
+      "block_order": [
+        "criterion_1",
+        "criterion_2",
+        "criterion_3",
+        "criterion_4",
+        "criterion_5",
+        "criterion_6"
+      ]
+    },
+    "community": {
+      "type": "sidonia-community",
+      "settings": {
+        "background": "bg"
+      }
+    },
+    "testimonials": {
+      "type": "sidonia-testimonials",
+      "settings": {}
+    },
+    "owner_cta": {
+      "type": "sidonia-owner-cta",
+      "settings": {
+        "preselect": "none"
+      }
+    }
+  },
+  "order": [
+    "header",
+    "criteria",
+    "community",
+    "testimonials",
+    "owner_cta"
+  ]
+}

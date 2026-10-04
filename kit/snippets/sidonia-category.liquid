@@ -1,0 +1,66 @@
+{%- comment -%}
+  Clave interna de la categoría de una pieza (garage, harbor, estate…) o nada si no consta.
+
+  Fuente: metacampo sidonia.category, cuyo valor público es el nombre en español
+  («Coches», «Barcos», «Casas»), porque es el que aparece en los filtros de Search & Discovery.
+  Se acepta también el singular, la clave interna y el nombre de la comunidad.
+  Si falta, se usa el sufijo de plantilla del producto (product.garage, product.harbor, product.estate).
+
+  Parámetros: product  ·  value (opcional: un valor de filtro en lugar de un producto)
+{%- endcomment -%}
+{%- liquid
+  if value != blank
+    assign raw = value | downcase | strip
+  else
+    assign raw = product.metafields.sidonia.category.value | downcase | strip
+  endif
+  assign found = ''
+  capture keys_csv
+    render 'sidonia-division-keys'
+  endcapture
+  assign keys = keys_csv | strip | split: ','
+
+  if raw != blank
+    for k in keys
+      assign key_i = k | strip
+      assign name_key = 'sidonia_' | append: key_i | append: '_name'
+      assign com_key = 'sidonia_' | append: key_i | append: '_community'
+      assign nm = settings[name_key] | downcase | strip
+      assign cm = settings[com_key] | downcase | strip
+      assign nm_cut = nm.size | minus: 1
+      assign singular = nm | slice: 0, nm_cut
+      if raw == key_i or raw == nm or raw == cm
+        assign found = key_i
+      elsif nm.size > 3 and raw == singular
+        assign found = key_i
+      endif
+      if found != ''
+        break
+      endif
+    endfor
+  endif
+
+  if found == '' and raw != blank
+    case raw
+      when 'coche', 'coches', 'car', 'cars'
+        assign found = 'garage'
+      when 'barco', 'barcos', 'boat', 'boats', 'harbour'
+        assign found = 'harbor'
+      when 'casa', 'casas', 'house', 'home', 'homes'
+        assign found = 'estate'
+    endcase
+  endif
+
+  if found == '' and value == blank and product != blank
+    assign suffix = product.template_suffix | downcase | strip
+    for k in keys
+      assign key_i = k | strip
+      if suffix == key_i
+        assign found = key_i
+        break
+      endif
+    endfor
+  endif
+
+  echo found
+-%}

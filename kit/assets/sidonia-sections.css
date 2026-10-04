@@ -1,0 +1,2501 @@
+/* ==========================================================================
+   SIDONIA · secciones del kit
+   Mobile-first. Todo acotado a clases .sidonia-*. Fondo piedra en todas las superficies.
+   ========================================================================== */
+
+/* ---------------------------------------------------------------- hero */
+
+.sidonia-hero {
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  background: var(--sidonia-bg);
+  color: var(--sidonia-text);
+  overflow: hidden;
+}
+
+.sidonia-hero--media {
+  min-height: min(44rem, 92svh);
+  color: #fff;
+  background: var(--sidonia-media);
+}
+
+.sidonia-hero--media.sidonia-hero--compact {
+  min-height: min(34rem, 78svh);
+}
+
+.sidonia-hero__media {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+}
+
+.sidonia-hero__media picture,
+.sidonia-hero__img {
+  width: 100%;
+  height: 100%;
+}
+
+.sidonia-hero__img {
+  object-fit: cover;
+  object-position: var(--sidonia-focal, 50% 50%);
+}
+
+.sidonia-hero__preview {
+  position: absolute;
+  inset: 0;
+}
+
+.sidonia-hero__preview video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0;
+  transition: opacity var(--sidonia-d3) var(--sidonia-ease);
+}
+
+.sidonia-hero__preview video.is-playing {
+  opacity: 1;
+}
+
+/* Degradados de contraste: arriba (cabecera transparente) y abajo (texto) */
+.sidonia-hero__shade {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(to bottom, rgb(0 0 0 / calc(var(--sidonia-hero-shade, 0.45) * 0.9)) 0, rgb(0 0 0 / 0) 9rem),
+    linear-gradient(to top, rgb(0 0 0 / calc(var(--sidonia-hero-shade, 0.45) + 0.2)) 0%, rgb(0 0 0 / calc(var(--sidonia-hero-shade, 0.45) * 0.55)) 45%, rgb(0 0 0 / 0) 75%);
+}
+
+.sidonia-hero__inner {
+  position: relative;
+  display: grid;
+  gap: var(--sidonia-s6);
+  padding-top: calc(var(--sidonia-header-h) + var(--sidonia-s10));
+  padding-bottom: var(--sidonia-s8);
+}
+
+.sidonia-hero--plain .sidonia-hero__inner {
+  padding-top: var(--sidonia-s12);
+  padding-bottom: var(--sidonia-s12);
+}
+
+.sidonia-hero__copy {
+  display: grid;
+  gap: var(--sidonia-s4);
+  max-width: 46rem;
+}
+
+.sidonia-hero__cats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sidonia-s2) var(--sidonia-s5);
+  margin: 0;
+  font-size: var(--sidonia-fs-sm);
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.sidonia-hero--media .sidonia-hero__cats .sidonia-dot {
+  box-shadow: 0 0 0 1.5px rgb(255 255 255 / 0.9);
+}
+
+.sidonia-hero__title {
+  font-size: var(--sidonia-fs-display);
+  line-height: 1;
+  letter-spacing: -0.035em;
+  font-weight: var(--sidonia-heading-weight);
+}
+
+.sidonia-hero__text {
+  max-width: 34rem;
+  font-size: clamp(1.0625rem, 0.95rem + 0.5vw, 1.3125rem);
+  line-height: 1.45;
+  opacity: 0.94;
+}
+
+.sidonia-hero--media .sidonia-hero__title,
+.sidonia-hero--media .sidonia-hero__text,
+.sidonia-hero--media .sidonia-hero__cats {
+  text-shadow: 0 1px 18px rgb(0 0 0 / 0.28);
+}
+
+.sidonia-hero__ctas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sidonia-s3);
+  align-items: center;
+  margin-top: var(--sidonia-s2);
+}
+
+.sidonia-hero__play {
+  min-height: var(--sidonia-control-h);
+}
+
+.sidonia-hero--plain .sidonia-hero__play {
+  background: var(--sidonia-text);
+}
+
+.sidonia-hero__search {
+  width: 100%;
+  max-width: 56rem;
+}
+
+.sidonia-hero__note {
+  margin-top: var(--sidonia-s2);
+  font-size: var(--sidonia-fs-sm);
+  opacity: 0.85;
+}
+
+.sidonia-hero__pause {
+  position: absolute;
+  right: var(--sidonia-gutter);
+  bottom: var(--sidonia-s4);
+  display: inline-grid;
+  place-items: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  border: 0;
+  border-radius: 50%;
+  background: rgb(20 21 19 / 0.5);
+  color: #fff;
+  cursor: pointer;
+}
+
+.sidonia-hero__pause[aria-pressed='true'] .sidonia-icon--pause {
+  display: none;
+}
+
+.sidonia-hero__pause[aria-pressed='true']::after {
+  content: '';
+  width: 0;
+  height: 0;
+  border-left: 11px solid currentColor;
+  border-top: 7px solid transparent;
+  border-bottom: 7px solid transparent;
+  margin-left: 3px;
+}
+
+@media (min-width: 900px) {
+  .sidonia-hero__inner {
+    padding-bottom: var(--sidonia-s12);
+    gap: var(--sidonia-s8);
+  }
+}
+
+/* ---------------------------------------------------------------- búsqueda (hero, búsqueda, 404) */
+
+.sidonia-search {
+  display: grid;
+  gap: var(--sidonia-s3);
+  padding: var(--sidonia-s3);
+  border-radius: calc(var(--sidonia-radius) + 4px);
+  background: var(--sidonia-surface);
+  color: var(--sidonia-text);
+  box-shadow: var(--sidonia-shadow-2);
+}
+
+.sidonia-search--page {
+  box-shadow: none;
+  border: var(--sidonia-border) solid var(--sidonia-line);
+  padding: var(--sidonia-s2);
+}
+
+.sidonia-search__cats {
+  display: flex;
+  gap: var(--sidonia-s1);
+  margin: 0;
+  padding: 0;
+  border: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.sidonia-search__cats::-webkit-scrollbar {
+  display: none;
+}
+
+.sidonia-seg {
+  position: relative;
+  flex: none;
+}
+
+.sidonia-seg input {
+  position: absolute;
+  opacity: 0;
+  inset: 0;
+  margin: 0;
+  cursor: pointer;
+}
+
+.sidonia-seg__label {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.5rem;
+  padding: 0.35rem 0.9rem;
+  border-radius: var(--sidonia-radius-control);
+  font-size: var(--sidonia-fs-sm);
+  font-weight: 600;
+  color: var(--sidonia-muted);
+  transition: background-color var(--sidonia-d1) var(--sidonia-ease), color var(--sidonia-d1) var(--sidonia-ease);
+}
+
+.sidonia-seg input:hover + .sidonia-seg__label {
+  color: var(--sidonia-text);
+}
+
+.sidonia-seg input:checked + .sidonia-seg__label {
+  background: var(--sidonia-alt);
+  color: var(--sidonia-text);
+}
+
+.sidonia-seg input:focus-visible + .sidonia-seg__label {
+  outline: 2px solid var(--sidonia-focus);
+  outline-offset: 2px;
+}
+
+.sidonia-search__row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--sidonia-s2);
+}
+
+.sidonia-search__icon {
+  position: absolute;
+  left: 0.9rem;
+  color: var(--sidonia-muted);
+  pointer-events: none;
+}
+
+.sidonia-search__input {
+  flex: 1;
+  min-width: 0;
+  min-height: 3.25rem;
+  padding: 0.75rem 0.75rem 0.75rem 2.75rem;
+  border: var(--sidonia-border) solid var(--sidonia-line);
+  border-radius: var(--sidonia-radius-control);
+  background: var(--sidonia-bg);
+  color: var(--sidonia-text);
+  font-size: 1rem;
+  appearance: none;
+}
+
+.sidonia-search__input:hover {
+  border-color: var(--sidonia-control);
+}
+
+.sidonia-search__input:focus-visible {
+  outline: 2px solid var(--sidonia-focus);
+  outline-offset: 1px;
+  border-color: var(--sidonia-text);
+}
+
+.sidonia-search__submit {
+  min-height: 3.25rem;
+  padding-inline: 1.5rem;
+}
+
+@media (max-width: 479px) {
+  .sidonia-search__submit {
+    padding-inline: 1rem;
+  }
+}
+
+/* ---------------------------------------------------------------- pestañas de categoría */
+
+.sidonia-tabs {
+  display: flex;
+  gap: var(--sidonia-s2);
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding-bottom: 2px;
+}
+
+.sidonia-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.sidonia-tab {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.5rem;
+  padding: 0.4rem 1rem;
+  border: var(--sidonia-border) solid var(--sidonia-line);
+  border-radius: var(--sidonia-radius-pill);
+  background: var(--sidonia-surface);
+  font-size: var(--sidonia-fs-sm);
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: border-color var(--sidonia-d1) var(--sidonia-ease), background-color var(--sidonia-d1) var(--sidonia-ease);
+}
+
+.sidonia-tab:hover {
+  border-color: var(--sidonia-text);
+}
+
+.sidonia-tab[aria-current='page'] {
+  border-color: var(--sidonia-text);
+  background: var(--sidonia-text);
+  color: var(--sidonia-surface);
+}
+
+.sidonia-tab[aria-current='page'] .sidonia-dot {
+  box-shadow: 0 0 0 1.5px var(--sidonia-surface);
+}
+
+/* ---------------------------------------------------------------- tres mundos */
+
+.sidonia-divisions__list {
+  display: grid;
+  gap: var(--sidonia-s6);
+}
+
+@media (min-width: 640px) {
+  .sidonia-divisions__list {
+    grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+    gap: var(--sidonia-s5);
+  }
+}
+
+.sidonia-division-card {
+  position: relative;
+  display: grid;
+  gap: var(--sidonia-s4);
+}
+
+.sidonia-division-card__media {
+  position: relative;
+  aspect-ratio: 4 / 3;
+  overflow: hidden;
+  border-radius: var(--sidonia-radius);
+  background: var(--sidonia-alt);
+}
+
+.sidonia-division-card__img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: var(--sidonia-focal, 50% 50%);
+  transition: transform var(--sidonia-d3) var(--sidonia-ease);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .sidonia-division-card:hover .sidonia-division-card__img {
+    transform: scale(1.025);
+  }
+}
+
+.sidonia-division-card__blank {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: radial-gradient(90% 80% at 30% 20%, var(--sidonia-surface), var(--sidonia-alt));
+}
+
+.sidonia-division-card__blank .sidonia-dot {
+  --sidonia-dot-size: 14px;
+}
+
+.sidonia-division-card__body {
+  display: grid;
+  gap: var(--sidonia-s1);
+}
+
+.sidonia-division-card__title {
+  font-size: var(--sidonia-fs-xl);
+}
+
+.sidonia-division-card__link {
+  text-decoration: none;
+}
+
+/* Toda la tarjeta lleva al mismo destino: un único enlace (el título) que se extiende */
+.sidonia-division-card__link::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: var(--sidonia-radius);
+}
+
+.sidonia-division-card__link:focus-visible {
+  outline: none;
+}
+
+.sidonia-division-card__link:focus-visible::after {
+  outline: 2px solid var(--sidonia-focus);
+  outline-offset: 4px;
+}
+
+.sidonia-division-card__link:hover {
+  text-decoration: underline;
+}
+
+.sidonia-division-card__text {
+  color: var(--sidonia-muted);
+}
+
+.sidonia-division-card__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sidonia-s1) var(--sidonia-s4);
+  font-size: var(--sidonia-fs-sm);
+  color: var(--sidonia-muted);
+}
+
+.sidonia-division-card__community {
+  letter-spacing: 0.12em;
+  font-size: var(--sidonia-fs-xs);
+  font-weight: 600;
+}
+
+.sidonia-divisions__hint {
+  margin-top: var(--sidonia-s6);
+}
+
+/* ---------------------------------------------------------------- filas de piezas */
+
+.sidonia-row {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: min(82%, 21rem);
+  gap: var(--sidonia-s4);
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scroll-padding-inline: var(--sidonia-gutter);
+  margin-inline: calc(var(--sidonia-gutter) * -1);
+  padding: 0 var(--sidonia-gutter) var(--sidonia-s2);
+  scrollbar-width: thin;
+}
+
+.sidonia-row__item {
+  scroll-snap-align: start;
+  min-width: 0;
+}
+
+@media (min-width: 1024px) {
+  .sidonia-row {
+    grid-auto-columns: calc((100% - 3 * var(--sidonia-s5)) / 4);
+    gap: var(--sidonia-s5);
+    margin-inline: 0;
+    padding-inline: 0;
+  }
+
+  .sidonia-row--grid {
+    grid-auto-flow: row;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    row-gap: var(--sidonia-s10);
+    overflow: visible;
+  }
+}
+
+/* ---------------------------------------------------------------- cómo vendemos */
+
+.sidonia-steps {
+  display: grid;
+  gap: var(--sidonia-s6);
+  counter-reset: step;
+}
+
+@media (min-width: 720px) {
+  .sidonia-steps {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--sidonia-s8) var(--sidonia-s6);
+  }
+}
+
+@media (min-width: 1100px) {
+  .sidonia-steps {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+.sidonia-step {
+  display: grid;
+  align-content: start;
+  gap: var(--sidonia-s2);
+  padding-top: var(--sidonia-s4);
+  border-top: var(--sidonia-border) solid var(--sidonia-text);
+}
+
+.sidonia-step__num {
+  font-size: var(--sidonia-fs-sm);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--sidonia-muted);
+}
+
+.sidonia-step__title {
+  font-size: var(--sidonia-fs-lg);
+  letter-spacing: -0.015em;
+}
+
+.sidonia-step__text {
+  color: var(--sidonia-muted);
+}
+
+.sidonia-how__ctas {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sidonia-s3) var(--sidonia-s6);
+  margin-top: var(--sidonia-s10);
+}
+
+/* ---------------------------------------------------------------- una historia */
+
+.sidonia-story__grid {
+  display: grid;
+  gap: var(--sidonia-s8);
+  align-items: center;
+}
+
+@media (min-width: 900px) {
+  .sidonia-story__grid {
+    grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
+    gap: var(--sidonia-s16);
+  }
+}
+
+.sidonia-story__media .sidonia-player--portrait {
+  --sidonia-player-max-h: min(80vh, 46rem);
+}
+
+.sidonia-story__body {
+  display: grid;
+  gap: var(--sidonia-s4);
+  max-width: 36rem;
+}
+
+.sidonia-story__body .sidonia-eyebrow {
+  margin: 0;
+}
+
+.sidonia-story__title a {
+  text-decoration: none;
+}
+
+.sidonia-story__title a:hover {
+  text-decoration: underline;
+}
+
+.sidonia-story__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sidonia-s2) var(--sidonia-s4);
+  color: var(--sidonia-muted);
+  font-size: var(--sidonia-fs-sm);
+}
+
+.sidonia-story__meta .sidonia-cat {
+  color: var(--sidonia-text);
+  font-weight: 600;
+}
+
+.sidonia-story__quote {
+  margin: 0;
+  padding-left: var(--sidonia-s4);
+  border-left: 2px solid var(--sidonia-text);
+  font-size: var(--sidonia-fs-lg);
+  line-height: 1.4;
+}
+
+.sidonia-story__excerpt {
+  font-size: var(--sidonia-fs-md);
+  line-height: 1.6;
+}
+
+.sidonia-story__ctas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sidonia-s3);
+  margin-top: var(--sidonia-s2);
+}
+
+/* ---------------------------------------------------------------- comunidad */
+
+.sidonia-community__grid {
+  display: grid;
+  gap: var(--sidonia-s10);
+}
+
+@media (min-width: 900px) {
+  .sidonia-community__grid {
+    grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+    gap: var(--sidonia-s16);
+    align-items: start;
+  }
+}
+
+.sidonia-community__fact,
+.sidonia-community__social {
+  display: grid;
+  gap: var(--sidonia-s2);
+  align-content: start;
+}
+
+.sidonia-community__figure {
+  font-size: var(--sidonia-fs-h1);
+  font-weight: var(--sidonia-heading-weight);
+  letter-spacing: -0.03em;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.sidonia-community__label {
+  font-size: var(--sidonia-fs-lg);
+  max-width: 26rem;
+}
+
+.sidonia-community__phrase {
+  color: var(--sidonia-muted);
+}
+
+.sidonia-community__follow {
+  font-size: var(--sidonia-fs-xl);
+  font-weight: var(--sidonia-heading-weight);
+  letter-spacing: -0.02em;
+}
+
+.sidonia-community__disclaimer {
+  margin-bottom: var(--sidonia-s4);
+}
+
+.sidonia-social {
+  display: grid;
+  gap: var(--sidonia-s2);
+}
+
+@media (min-width: 560px) {
+  .sidonia-social {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.sidonia-social__link {
+  display: flex;
+  align-items: center;
+  gap: var(--sidonia-s3);
+  min-height: 3.5rem;
+  padding: var(--sidonia-s3) var(--sidonia-s4);
+  border: var(--sidonia-border) solid var(--sidonia-line);
+  border-radius: var(--sidonia-radius-control);
+  background: var(--sidonia-surface);
+  text-decoration: none;
+  transition: border-color var(--sidonia-d1) var(--sidonia-ease);
+}
+
+.sidonia-social__link:hover {
+  border-color: var(--sidonia-text);
+}
+
+.sidonia-social__text {
+  display: grid;
+  min-width: 0;
+}
+
+.sidonia-social__name {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sidonia-social__net {
+  font-size: var(--sidonia-fs-sm);
+  color: var(--sidonia-muted);
+}
+
+.sidonia-social--compact {
+  grid-template-columns: 1fr;
+}
+
+.sidonia-social--compact .sidonia-social__link {
+  min-height: 2.75rem;
+  padding: var(--sidonia-s2) 0;
+  border: 0;
+  background: none;
+}
+
+/* ---------------------------------------------------------------- criterio */
+
+.sidonia-criteria__grid {
+  display: grid;
+  gap: var(--sidonia-s10);
+}
+
+@media (min-width: 960px) {
+  .sidonia-criteria__grid {
+    grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+    gap: var(--sidonia-s16);
+  }
+}
+
+.sidonia-criteria__intro {
+  display: grid;
+  gap: var(--sidonia-s4);
+  align-content: start;
+}
+
+.sidonia-criteria__intro .sidonia-eyebrow {
+  margin: 0;
+}
+
+.sidonia-criteria__list {
+  display: grid;
+  gap: 0 var(--sidonia-s6);
+}
+
+@media (min-width: 640px) {
+  .sidonia-criteria__list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.sidonia-criterion {
+  display: grid;
+  gap: var(--sidonia-s1);
+  padding: var(--sidonia-s5) 0;
+  border-top: var(--sidonia-border) solid var(--sidonia-line);
+}
+
+.sidonia-criterion__title {
+  font-size: var(--sidonia-fs-lg);
+}
+
+.sidonia-criterion__text {
+  color: var(--sidonia-muted);
+}
+
+/* ---------------------------------------------------------------- testimonios */
+
+.sidonia-testimonials__list {
+  display: grid;
+  gap: var(--sidonia-s5);
+}
+
+@media (min-width: 800px) {
+  .sidonia-testimonials__list {
+    grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
+  }
+}
+
+.sidonia-testimonial {
+  display: grid;
+  gap: var(--sidonia-s4);
+  align-content: space-between;
+  padding: var(--sidonia-s6);
+  border-radius: var(--sidonia-radius);
+  background: var(--sidonia-surface);
+  border: var(--sidonia-border) solid var(--sidonia-line);
+}
+
+.sidonia-testimonial figure {
+  margin: 0;
+  display: grid;
+  gap: var(--sidonia-s5);
+}
+
+.sidonia-testimonial__quote {
+  margin: 0;
+  font-size: var(--sidonia-fs-md);
+  line-height: 1.55;
+}
+
+.sidonia-testimonial__by {
+  display: flex;
+  gap: var(--sidonia-s3);
+  align-items: center;
+}
+
+.sidonia-testimonial__by > span {
+  display: grid;
+}
+
+.sidonia-testimonial__photo {
+  width: 3.5rem;
+  height: 3.5rem;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.sidonia-testimonial__name {
+  font-weight: 600;
+}
+
+.sidonia-testimonial__context {
+  font-size: var(--sidonia-fs-sm);
+  color: var(--sidonia-muted);
+}
+
+/* ---------------------------------------------------------------- llamada a propietarios */
+
+.sidonia-owner-cta__card {
+  display: grid;
+  overflow: hidden;
+  border-radius: calc(var(--sidonia-radius) + 4px);
+  background: var(--sidonia-alt);
+}
+
+.sidonia-owner-cta--image .sidonia-owner-cta__card {
+  background: var(--sidonia-surface);
+  border: var(--sidonia-border) solid var(--sidonia-line);
+}
+
+@media (min-width: 900px) {
+  .sidonia-owner-cta--image .sidonia-owner-cta__card {
+    grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
+  }
+}
+
+.sidonia-owner-cta__media img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  aspect-ratio: 4 / 3;
+  object-position: var(--sidonia-focal, 50% 50%);
+}
+
+.sidonia-owner-cta__body {
+  display: grid;
+  gap: var(--sidonia-s4);
+  align-content: center;
+  padding: clamp(1.75rem, 1rem + 4vw, 4rem);
+}
+
+.sidonia-owner-cta__body .sidonia-eyebrow {
+  margin: 0;
+}
+
+.sidonia-owner-cta__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sidonia-s3);
+  margin-top: var(--sidonia-s2);
+}
+
+/* ---------------------------------------------------------------- preguntas */
+
+.sidonia-faq__grid {
+  display: grid;
+  gap: var(--sidonia-s8);
+}
+
+@media (min-width: 960px) {
+  .sidonia-faq__grid {
+    grid-template-columns: minmax(0, 4fr) minmax(0, 7fr);
+    gap: var(--sidonia-s16);
+  }
+}
+
+.sidonia-faq__intro {
+  display: grid;
+  gap: var(--sidonia-s4);
+  align-content: start;
+}
+
+.sidonia-faq__intro .sidonia-eyebrow {
+  margin: 0;
+}
+
+.sidonia-faq__item {
+  border-top: var(--sidonia-border) solid var(--sidonia-line);
+}
+
+.sidonia-faq__item:last-of-type {
+  border-bottom: var(--sidonia-border) solid var(--sidonia-line);
+}
+
+.sidonia-faq__q {
+  display: flex;
+  align-items: center;
+  gap: var(--sidonia-s4);
+  min-height: 3.75rem;
+  padding: var(--sidonia-s4) 0;
+  font-size: var(--sidonia-fs-md);
+  font-weight: 600;
+  cursor: pointer;
+  list-style: none;
+}
+
+.sidonia-faq__q::-webkit-details-marker {
+  display: none;
+}
+
+.sidonia-faq__q > span:first-child {
+  flex: 1;
+}
+
+.sidonia-faq__cat {
+  font-size: var(--sidonia-fs-xs);
+  font-weight: 500;
+  color: var(--sidonia-muted);
+}
+
+.sidonia-faq__icon {
+  flex: none;
+  transition: transform var(--sidonia-d2) var(--sidonia-ease);
+}
+
+.sidonia-faq__item[open] .sidonia-faq__icon {
+  transform: rotate(45deg);
+}
+
+.sidonia-faq__a {
+  padding: 0 0 var(--sidonia-s5);
+  color: var(--sidonia-muted);
+  max-width: 44rem;
+}
+
+/* ---------------------------------------------------------------- catálogo */
+
+.sidonia-catalog {
+  background: var(--sidonia-bg);
+  padding-top: var(--sidonia-s6);
+  padding-bottom: var(--sidonia-section-y);
+}
+
+.sidonia-catalog__head {
+  display: grid;
+  gap: var(--sidonia-s3);
+  margin: var(--sidonia-s6) 0 var(--sidonia-s6);
+  max-width: 52rem;
+}
+
+.sidonia-catalog__head .sidonia-eyebrow {
+  margin: 0;
+}
+
+.sidonia-catalog__title {
+  display: flex;
+  align-items: center;
+  gap: 0.35em;
+  font-size: var(--sidonia-fs-h2);
+}
+
+.sidonia-catalog__dot {
+  --sidonia-dot-size: 0.32em;
+}
+
+.sidonia-catalog--search .sidonia-catalog__head {
+  max-width: 48rem;
+}
+
+.sidonia-catalog__start {
+  display: grid;
+  gap: var(--sidonia-s5);
+  justify-items: start;
+}
+
+.sidonia-tabs-nav {
+  margin-bottom: var(--sidonia-s5);
+}
+
+.sidonia-toolbar {
+  position: sticky;
+  top: var(--sidonia-sticky-top, 0px);
+  z-index: var(--sidonia-z-sticky);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sidonia-s3);
+  margin-inline: calc(var(--sidonia-gutter) * -1);
+  padding: var(--sidonia-s3) var(--sidonia-gutter);
+  background: color-mix(in srgb, var(--sidonia-bg) 94%, transparent);
+  -webkit-backdrop-filter: saturate(1.4) blur(14px);
+  backdrop-filter: saturate(1.4) blur(14px);
+  border-bottom: var(--sidonia-border) solid var(--sidonia-line);
+}
+
+.sidonia-toolbar__count {
+  margin: 0;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.sidonia-toolbar__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--sidonia-s2);
+}
+
+.sidonia-badge {
+  display: inline-grid;
+  place-items: center;
+  min-width: 1.25rem;
+  height: 1.25rem;
+  padding-inline: 0.3rem;
+  border-radius: var(--sidonia-radius-pill);
+  background: var(--sidonia-text);
+  color: var(--sidonia-surface);
+  font-size: 0.6875rem;
+  font-weight: 700;
+}
+
+.sidonia-sort {
+  display: flex;
+  align-items: center;
+  gap: var(--sidonia-s2);
+}
+
+.sidonia-sort__label {
+  font-size: var(--sidonia-fs-sm);
+  color: var(--sidonia-muted);
+  white-space: nowrap;
+}
+
+.sidonia-sort__select {
+  min-height: 2.25rem;
+  width: auto;
+  max-width: 13rem;
+  padding: 0.35rem 2.25rem 0.35rem 0.75rem;
+  font-size: var(--sidonia-fs-sm);
+  font-weight: 600;
+}
+
+@media (max-width: 639px) {
+  .sidonia-sort__label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+
+  .sidonia-sort__select {
+    max-width: 9.5rem;
+  }
+}
+
+.sidonia-view {
+  display: none;
+}
+
+@media (min-width: 900px) {
+  .sidonia-view:not([hidden]) {
+    display: inline-flex;
+    gap: 2px;
+  }
+
+  .sidonia-view .sidonia-icon-btn {
+    width: 2.25rem;
+    height: 2.25rem;
+    border-radius: var(--sidonia-radius-s);
+    color: var(--sidonia-muted);
+  }
+
+  .sidonia-view .sidonia-icon-btn[aria-pressed='true'] {
+    background: var(--sidonia-alt);
+    color: var(--sidonia-text);
+  }
+}
+
+/* Panel de filtros: modal a pantalla completa en móvil */
+.sidonia-filters {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: var(--sidonia-surface);
+  color: var(--sidonia-text);
+}
+
+/* Sin JavaScript, el panel queda abierto en línea y se envía como formulario GET */
+html.sidonia-js .sidonia-filters:not(:modal) {
+  display: none;
+}
+
+html:not(.sidonia-js) .sidonia-filters-open {
+  display: none;
+}
+
+.sidonia-filters:modal {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 100%;
+  height: 100%;
+  max-height: 100%;
+  inset: 0;
+}
+
+.sidonia-filters::backdrop {
+  background: rgb(20 21 19 / 0.5);
+}
+
+.sidonia-filters__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--sidonia-s3) var(--sidonia-s3) var(--sidonia-s3) var(--sidonia-gutter);
+  border-bottom: var(--sidonia-border) solid var(--sidonia-line);
+}
+
+.sidonia-filters__title {
+  font-size: var(--sidonia-fs-lg);
+}
+
+.sidonia-filters__body {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--sidonia-s2) var(--sidonia-gutter) var(--sidonia-s6);
+}
+
+.sidonia-filters__foot {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--sidonia-s3);
+  padding: var(--sidonia-s3) var(--sidonia-gutter) calc(var(--sidonia-s3) + var(--sidonia-safe-bottom));
+  border-top: var(--sidonia-border) solid var(--sidonia-line);
+  background: var(--sidonia-surface);
+}
+
+/* Grupo de filtro: acordeón en el panel móvil */
+.sidonia-fgroup {
+  border-bottom: var(--sidonia-border) solid var(--sidonia-line);
+}
+
+.sidonia-fgroup__pill {
+  display: flex;
+  align-items: center;
+  gap: var(--sidonia-s2);
+  min-height: 3.25rem;
+  font-weight: 600;
+  cursor: pointer;
+  list-style: none;
+}
+
+.sidonia-fgroup__pill::-webkit-details-marker {
+  display: none;
+}
+
+.sidonia-fgroup__label {
+  flex: 1;
+}
+
+.sidonia-fgroup__count {
+  display: inline-grid;
+  place-items: center;
+  min-width: 1.25rem;
+  height: 1.25rem;
+  border-radius: var(--sidonia-radius-pill);
+  background: var(--sidonia-text);
+  color: var(--sidonia-surface);
+  font-size: 0.6875rem;
+  font-weight: 700;
+}
+
+.sidonia-fgroup__chev {
+  transition: transform var(--sidonia-d2) var(--sidonia-ease);
+}
+
+.sidonia-fgroup[open] .sidonia-fgroup__chev {
+  transform: rotate(180deg);
+}
+
+.sidonia-fgroup__panel {
+  padding-bottom: var(--sidonia-s4);
+}
+
+.sidonia-fgroup__list {
+  display: grid;
+  gap: 2px;
+}
+
+.sidonia-fvalue {
+  align-items: center;
+  min-height: 2.75rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: var(--sidonia-radius-s);
+}
+
+.sidonia-fvalue:hover {
+  background: var(--sidonia-bg);
+}
+
+.sidonia-fvalue input {
+  margin: 0;
+}
+
+.sidonia-fvalue__text {
+  flex: 1;
+  min-width: 0;
+}
+
+.sidonia-fvalue__count {
+  font-size: var(--sidonia-fs-sm);
+  color: var(--sidonia-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.sidonia-fvalue.is-empty {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.sidonia-fgroup__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sidonia-s3);
+  padding-top: var(--sidonia-s2);
+}
+
+.sidonia-fgroup__foot:not(:has(a)) {
+  justify-content: flex-end;
+}
+
+html.sidonia-js [data-sidonia-nojs] {
+  display: none;
+}
+
+.sidonia-pricefilter {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--sidonia-s3);
+}
+
+/* Escritorio: barra horizontal de píldoras con paneles desplegables (patrón JamesEdition) */
+@media (min-width: 1024px) {
+  .sidonia-filters-open {
+    display: none;
+  }
+
+  .sidonia-facets__form {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      'filters filters'
+      'toolbar toolbar'
+      'results results';
+  }
+
+  .sidonia-toolbar {
+    grid-area: toolbar;
+  }
+
+  .sidonia-results {
+    grid-area: results;
+  }
+
+  .sidonia-filters,
+  html.sidonia-js .sidonia-filters:not(:modal) {
+    grid-area: filters;
+    display: block;
+    position: static;
+    width: auto;
+    height: auto;
+    background: transparent;
+  }
+
+  .sidonia-filters__head,
+  .sidonia-filters__foot {
+    display: none;
+  }
+
+  .sidonia-filters__body {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--sidonia-s2);
+    padding: 0 0 var(--sidonia-s4);
+    overflow: visible;
+  }
+
+  .sidonia-fgroup {
+    position: relative;
+    border: 0;
+  }
+
+  .sidonia-fgroup__pill {
+    min-height: 2.5rem;
+    padding: 0.35rem 0.75rem 0.35rem 1rem;
+    border: var(--sidonia-border) solid var(--sidonia-control);
+    border-radius: var(--sidonia-radius-pill);
+    background: var(--sidonia-surface);
+    font-size: var(--sidonia-fs-sm);
+    white-space: nowrap;
+    transition: border-color var(--sidonia-d1) var(--sidonia-ease), background-color var(--sidonia-d1) var(--sidonia-ease);
+  }
+
+  .sidonia-fgroup__pill:hover {
+    border-color: var(--sidonia-text);
+  }
+
+  .sidonia-fgroup.is-active .sidonia-fgroup__pill,
+  .sidonia-fgroup[open] .sidonia-fgroup__pill {
+    border-color: var(--sidonia-text);
+  }
+
+  .sidonia-fgroup__panel {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    z-index: var(--sidonia-z-overlay);
+    width: max-content;
+    min-width: 15rem;
+    max-width: 22rem;
+    max-height: 22rem;
+    overflow-y: auto;
+    padding: var(--sidonia-s3);
+    border: var(--sidonia-border) solid var(--sidonia-line);
+    border-radius: var(--sidonia-radius);
+    background: var(--sidonia-surface);
+    box-shadow: var(--sidonia-shadow-2);
+  }
+
+  .sidonia-fgroup[open] .sidonia-fgroup__panel {
+    animation: sidonia-in var(--sidonia-d1) var(--sidonia-ease);
+  }
+
+  .sidonia-toolbar {
+    margin-inline: 0;
+    padding-inline: 0;
+    background: var(--sidonia-bg);
+  }
+}
+
+.sidonia-chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sidonia-s2);
+  margin: var(--sidonia-s4) 0 var(--sidonia-s2);
+}
+
+.sidonia-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sidonia-s2);
+  min-height: 2.25rem;
+  padding: 0.25rem 0.6rem 0.25rem 0.85rem;
+  border-radius: var(--sidonia-radius-pill);
+  background: var(--sidonia-alt);
+  font-size: var(--sidonia-fs-sm);
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.sidonia-chip:hover {
+  background: color-mix(in srgb, var(--sidonia-alt) 82%, var(--sidonia-text));
+}
+
+.sidonia-chip--clear {
+  background: transparent;
+  text-decoration: underline;
+  padding-inline: 0.5rem;
+}
+
+.sidonia-results {
+  position: relative;
+  padding-top: var(--sidonia-s6);
+  transition: opacity var(--sidonia-d2) var(--sidonia-ease);
+}
+
+.sidonia-results[aria-busy='true'] {
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+.sidonia-results[aria-busy='true']::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 2px;
+  width: 40%;
+  background: var(--sidonia-text);
+  animation: sidonia-progress 1s var(--sidonia-ease) infinite;
+}
+
+@keyframes sidonia-progress {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(250%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sidonia-results[aria-busy='true']::before {
+    animation: none;
+    width: 100%;
+  }
+}
+
+.sidonia-empty {
+  display: grid;
+  gap: var(--sidonia-s3);
+  justify-items: start;
+  padding: var(--sidonia-s12) var(--sidonia-s6);
+  border: var(--sidonia-border) dashed var(--sidonia-control);
+  border-radius: var(--sidonia-radius);
+  background: var(--sidonia-surface);
+}
+
+.sidonia-empty__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sidonia-s3);
+  margin-top: var(--sidonia-s2);
+}
+
+.sidonia-loadmore {
+  display: grid;
+  justify-items: center;
+  gap: var(--sidonia-s3);
+  width: 100%;
+  margin-bottom: var(--sidonia-s4);
+}
+
+.sidonia-pagination.has-loadmore [data-sidonia-pages] {
+  opacity: 0.8;
+}
+
+.sidonia-catalog__similar {
+  display: grid;
+  gap: var(--sidonia-s3);
+  justify-items: start;
+  margin-top: var(--sidonia-s16);
+  padding: var(--sidonia-s8);
+  border-radius: var(--sidonia-radius);
+  background: var(--sidonia-alt);
+}
+
+/* ---------------------------------------------------------------- ficha */
+
+.sidonia-listing {
+  background: var(--sidonia-bg);
+  padding: var(--sidonia-s5) 0 var(--sidonia-s12);
+}
+
+.sidonia-listing__grid {
+  display: grid;
+  grid-template-areas:
+    'head'
+    'media'
+    'summary';
+  gap: var(--sidonia-s6);
+  margin-top: var(--sidonia-s5);
+}
+
+.sidonia-listing__head {
+  grid-area: head;
+  display: grid;
+  gap: var(--sidonia-s3);
+}
+
+.sidonia-listing__kicker {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sidonia-s3);
+  font-size: var(--sidonia-fs-sm);
+  font-weight: 600;
+}
+
+.sidonia-listing__title {
+  font-size: var(--sidonia-fs-h2);
+  line-height: 1.06;
+  letter-spacing: -0.03em;
+  overflow-wrap: anywhere;
+}
+
+.sidonia-listing__hook {
+  font-size: var(--sidonia-fs-md);
+  color: var(--sidonia-muted);
+}
+
+.sidonia-listing__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sidonia-s2) var(--sidonia-s5);
+  margin: 0;
+  font-size: var(--sidonia-fs-sm);
+}
+
+.sidonia-listing__meta div {
+  display: flex;
+  align-items: center;
+  gap: var(--sidonia-s1);
+}
+
+.sidonia-listing__meta dt {
+  display: inline-flex;
+  color: var(--sidonia-muted);
+}
+
+.sidonia-listing__meta dt:not(:has(.sidonia-icon))::after {
+  content: ':';
+}
+
+.sidonia-listing__meta dd {
+  margin: 0;
+  font-weight: 500;
+}
+
+.sidonia-listing__media {
+  grid-area: media;
+  min-width: 0;
+}
+
+.sidonia-listing--portrait .sidonia-player {
+  --sidonia-player-max-h: min(78svh, 52rem);
+}
+
+.sidonia-listing__videometa {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--sidonia-s1) var(--sidonia-s4);
+  margin-top: var(--sidonia-s3);
+  font-size: var(--sidonia-fs-sm);
+  color: var(--sidonia-muted);
+}
+
+.sidonia-listing__videometa li {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sidonia-s1);
+}
+
+.sidonia-listing__summary {
+  grid-area: summary;
+  min-width: 0;
+}
+
+.sidonia-listing__card {
+  display: grid;
+  gap: var(--sidonia-s5);
+  padding: var(--sidonia-s5);
+  border: var(--sidonia-border) solid var(--sidonia-line);
+  border-radius: var(--sidonia-radius);
+  background: var(--sidonia-surface);
+}
+
+.sidonia-listing__price {
+  display: grid;
+  gap: var(--sidonia-s1);
+}
+
+.sidonia-listing__price .sidonia-price {
+  font-size: clamp(1.5rem, 1.2rem + 1vw, 2rem);
+  line-height: 1.15;
+}
+
+.sidonia-listing__price .sidonia-price--ask,
+.sidonia-listing__price .sidonia-price--hidden,
+.sidonia-listing__price .sidonia-price--sold {
+  font-size: var(--sidonia-fs-xl);
+}
+
+.sidonia-facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 var(--sidonia-s4);
+  margin: 0;
+}
+
+.sidonia-fact {
+  display: grid;
+  gap: 2px;
+  padding: var(--sidonia-s3) 0;
+  border-top: var(--sidonia-border) solid var(--sidonia-line);
+}
+
+.sidonia-fact dt {
+  font-size: var(--sidonia-fs-xs);
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  color: var(--sidonia-muted);
+}
+
+.sidonia-fact dd {
+  margin: 0;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.sidonia-actions {
+  display: grid;
+  gap: var(--sidonia-s2);
+}
+
+.sidonia-actions__note {
+  margin-top: calc(var(--sidonia-s3) * -1);
+}
+
+.sidonia-listing__tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sidonia-s2);
+}
+
+.sidonia-listing__tools > * {
+  flex: 1 1 8rem;
+}
+
+.sidonia-listing__tools .sidonia-save__btn,
+.sidonia-share__btn {
+  width: 100%;
+}
+
+.sidonia-listing__available {
+  margin-top: calc(var(--sidonia-s2) * -1);
+}
+
+@media (min-width: 1024px) {
+  .sidonia-listing__grid {
+    grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+    grid-template-areas:
+      'media head'
+      'media summary';
+    grid-template-rows: auto 1fr;
+    column-gap: clamp(2rem, 4vw, 4.5rem);
+    row-gap: var(--sidonia-s6);
+    align-items: start;
+  }
+
+  .sidonia-listing--portrait .sidonia-listing__grid {
+    grid-template-columns: minmax(0, 6fr) minmax(0, 5fr);
+  }
+
+  .sidonia-listing__media {
+    position: sticky;
+    top: calc(var(--sidonia-sticky-top, 0px) + var(--sidonia-s5));
+  }
+
+  .sidonia-listing__summary {
+    position: sticky;
+    top: calc(var(--sidonia-sticky-top, 0px) + var(--sidonia-s5));
+  }
+}
+
+/* Barra de contacto fija en móvil */
+.sidonia-contact-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: var(--sidonia-z-sticky);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sidonia-s3);
+  padding: var(--sidonia-s2) var(--sidonia-gutter) calc(var(--sidonia-s2) + var(--sidonia-safe-bottom));
+  background: color-mix(in srgb, var(--sidonia-surface) 96%, transparent);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+  border-top: var(--sidonia-border) solid var(--sidonia-line);
+  transform: translateY(0);
+  transition: transform var(--sidonia-d2) var(--sidonia-ease);
+}
+
+.sidonia-contact-bar.is-hidden {
+  transform: translateY(110%);
+}
+
+.sidonia-contact-bar[hidden] {
+  display: none;
+}
+
+.sidonia-contact-bar__price {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sidonia-contact-bar__price--text {
+  font-weight: 500;
+  font-size: var(--sidonia-fs-sm);
+}
+
+.sidonia-contact-bar__actions {
+  display: flex;
+  gap: var(--sidonia-s2);
+  flex: none;
+}
+
+@media (min-width: 1024px) {
+  .sidonia-contact-bar {
+    display: none !important;
+  }
+}
+
+/* Historia de la pieza */
+.sidonia-listing-story__grid {
+  display: grid;
+  gap: var(--sidonia-s10);
+}
+
+@media (min-width: 1024px) {
+  .sidonia-listing-story__grid {
+    grid-template-columns: minmax(0, 7fr) minmax(0, 4fr);
+    gap: clamp(2rem, 5vw, 5rem);
+    align-items: start;
+  }
+}
+
+.sidonia-listing-story__main {
+  display: grid;
+  gap: var(--sidonia-s5);
+  max-width: 44rem;
+}
+
+.sidonia-listing-story__summary {
+  font-size: var(--sidonia-fs-lg);
+  line-height: 1.5;
+}
+
+.sidonia-listing-story__text {
+  font-size: var(--sidonia-fs-md);
+  line-height: 1.7;
+}
+
+.sidonia-listing-story__sub {
+  margin-top: var(--sidonia-s4);
+}
+
+.sidonia-listing-story__aside {
+  display: grid;
+  gap: var(--sidonia-s5);
+}
+
+.sidonia-panel {
+  display: grid;
+  gap: var(--sidonia-s3);
+  align-content: start;
+  padding: var(--sidonia-s6);
+  border-radius: var(--sidonia-radius);
+  background: var(--sidonia-surface);
+  border: var(--sidonia-border) solid var(--sidonia-line);
+}
+
+.sidonia-checklist {
+  display: grid;
+  gap: var(--sidonia-s2);
+}
+
+.sidonia-checklist li {
+  display: flex;
+  gap: var(--sidonia-s2);
+  align-items: flex-start;
+}
+
+.sidonia-checklist .sidonia-icon {
+  margin-top: 0.15rem;
+}
+
+.sidonia-transcript {
+  border: var(--sidonia-border) solid var(--sidonia-line);
+  border-radius: var(--sidonia-radius);
+  background: var(--sidonia-surface);
+}
+
+.sidonia-transcript summary {
+  display: flex;
+  align-items: center;
+  gap: var(--sidonia-s3);
+  min-height: 3.25rem;
+  padding: var(--sidonia-s3) var(--sidonia-s5);
+  font-weight: 600;
+  cursor: pointer;
+  list-style: none;
+}
+
+.sidonia-transcript summary::-webkit-details-marker {
+  display: none;
+}
+
+.sidonia-transcript summary > span:first-child {
+  flex: 1;
+}
+
+.sidonia-transcript[open] summary .sidonia-icon {
+  transform: rotate(180deg);
+}
+
+.sidonia-transcript__text {
+  padding: 0 var(--sidonia-s5) var(--sidonia-s5);
+  max-height: 28rem;
+  overflow-y: auto;
+  color: var(--sidonia-muted);
+}
+
+/* Ficha técnica */
+.sidonia-spec-groups {
+  display: grid;
+  gap: var(--sidonia-s8);
+}
+
+@media (min-width: 720px) {
+  .sidonia-spec-groups {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--sidonia-s8) var(--sidonia-s10);
+  }
+}
+
+@media (min-width: 1100px) {
+  .sidonia-spec-groups {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.sidonia-spec-group__title {
+  margin-bottom: var(--sidonia-s3) !important;
+  font-size: var(--sidonia-fs-sm) !important;
+  font-weight: 600;
+  letter-spacing: 0.02em !important;
+  color: var(--sidonia-muted);
+}
+
+.sidonia-spec-group__list {
+  margin: 0;
+}
+
+.sidonia-spec-row {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--sidonia-s4);
+  padding: var(--sidonia-s3) 0;
+  border-top: var(--sidonia-border) solid var(--sidonia-line);
+}
+
+.sidonia-spec-row dt {
+  color: var(--sidonia-muted);
+}
+
+.sidonia-spec-row dd {
+  margin: 0;
+  font-weight: 600;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+/* Estado y documentos */
+.sidonia-listing-details__grid {
+  display: grid;
+  gap: var(--sidonia-s5);
+}
+
+@media (min-width: 900px) {
+  .sidonia-listing-details__grid {
+    grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
+  }
+}
+
+.sidonia-listing-details__note {
+  margin-top: var(--sidonia-s4);
+}
+
+.sidonia-doclist {
+  display: grid;
+  gap: var(--sidonia-s2);
+}
+
+.sidonia-doclist a {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sidonia-s2);
+  font-weight: 500;
+}
+
+/* Cronología */
+.sidonia-timeline__list {
+  margin-top: var(--sidonia-s8);
+  border-left: var(--sidonia-border) solid var(--sidonia-control);
+}
+
+.sidonia-timeline__item {
+  position: relative;
+  display: grid;
+  gap: var(--sidonia-s1);
+  padding: 0 0 var(--sidonia-s8) var(--sidonia-s6);
+}
+
+.sidonia-timeline__item::before {
+  content: '';
+  position: absolute;
+  left: -5px;
+  top: 0.45rem;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--sidonia-text);
+}
+
+@media (min-width: 720px) {
+  .sidonia-timeline__item {
+    grid-template-columns: 9rem 1fr;
+    gap: var(--sidonia-s5);
+  }
+}
+
+.sidonia-timeline__period {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.sidonia-timeline__title {
+  font-size: var(--sidonia-fs-md);
+}
+
+.sidonia-timeline__text {
+  color: var(--sidonia-muted);
+  margin-top: var(--sidonia-s1);
+}
+
+/* ---------------------------------------------------------------- formularios de sección */
+
+.sidonia-inquiry__grid,
+.sidonia-contact__grid,
+.sidonia-sell__grid {
+  display: grid;
+  gap: var(--sidonia-s8);
+}
+
+@media (min-width: 960px) {
+  .sidonia-inquiry__grid,
+  .sidonia-contact__grid,
+  .sidonia-sell__grid {
+    grid-template-columns: minmax(0, 4fr) minmax(0, 6fr);
+    gap: clamp(2rem, 5vw, 5rem);
+    align-items: start;
+  }
+}
+
+.sidonia-inquiry__intro,
+.sidonia-contact__intro,
+.sidonia-sell__intro {
+  display: grid;
+  gap: var(--sidonia-s4);
+  align-content: start;
+}
+
+.sidonia-inquiry__intro .sidonia-eyebrow,
+.sidonia-contact__intro .sidonia-eyebrow,
+.sidonia-sell__intro .sidonia-eyebrow {
+  margin: 0;
+}
+
+@media (min-width: 960px) {
+  .sidonia-sell__intro {
+    position: sticky;
+    top: calc(var(--sidonia-sticky-top, 0px) + var(--sidonia-s6));
+  }
+}
+
+.sidonia-inquiry__piece {
+  display: flex;
+  gap: var(--sidonia-s4);
+  align-items: center;
+  padding: var(--sidonia-s4);
+  border-radius: var(--sidonia-radius);
+  background: var(--sidonia-surface);
+  border: var(--sidonia-border) solid var(--sidonia-line);
+}
+
+.sidonia-inquiry__thumb {
+  flex: none;
+  width: 6rem;
+  height: 4.5rem;
+  border-radius: var(--sidonia-radius-s);
+  object-fit: cover;
+}
+
+.sidonia-inquiry__title {
+  font-weight: 600;
+}
+
+.sidonia-inquiry__form,
+.sidonia-contact__form,
+.sidonia-sell__form {
+  padding: clamp(1.25rem, 0.8rem + 2vw, 2.5rem);
+  border-radius: calc(var(--sidonia-radius) + 4px);
+  background: var(--sidonia-surface);
+  border: var(--sidonia-border) solid var(--sidonia-line);
+}
+
+.sidonia-form {
+  display: grid;
+  gap: var(--sidonia-s5);
+}
+
+.sidonia-form-status:empty {
+  display: none;
+}
+
+.sidonia-form-status:focus {
+  outline: none;
+}
+
+.sidonia-form__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sidonia-s3);
+}
+
+.sidonia-form__actions .sidonia-btn {
+  min-width: 12rem;
+}
+
+.sidonia-inline-choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sidonia-s2) var(--sidonia-s5);
+  min-height: var(--sidonia-control-h);
+  align-items: center;
+}
+
+.sidonia-consent {
+  display: grid;
+  gap: var(--sidonia-s3);
+}
+
+.sidonia-consent .sidonia-choice {
+  font-size: var(--sidonia-fs-sm);
+}
+
+.sidonia-channels {
+  display: grid;
+  gap: var(--sidonia-s2);
+}
+
+.sidonia-channel {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sidonia-s3);
+  min-height: 2.75rem;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.sidonia-channel:hover {
+  text-decoration: underline;
+}
+
+/* Formulario de venta en pasos */
+.sidonia-sell__note {
+  grid-template-columns: auto 1fr;
+  align-items: start;
+  padding: var(--sidonia-s4) var(--sidonia-s5);
+}
+
+.sidonia-progress {
+  display: grid;
+  gap: var(--sidonia-s2);
+}
+
+.sidonia-progress__text {
+  font-size: var(--sidonia-fs-sm);
+  font-weight: 600;
+}
+
+.sidonia-progress__bar {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--sidonia-s1);
+}
+
+.sidonia-progress__bar li {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--sidonia-line);
+  transition: background-color var(--sidonia-d2) var(--sidonia-ease);
+}
+
+.sidonia-progress__bar li.is-done {
+  background: var(--sidonia-text);
+}
+
+.sidonia-step {
+  display: grid;
+  gap: var(--sidonia-s5);
+}
+
+.sidonia-step + .sidonia-step {
+  padding-top: var(--sidonia-s8);
+  border-top: var(--sidonia-border) solid var(--sidonia-line);
+}
+
+.sidonia-step__legend {
+  display: flex !important;
+  align-items: center;
+  gap: var(--sidonia-s3);
+  font-size: var(--sidonia-fs-lg) !important;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.sidonia-step__n {
+  display: inline-grid;
+  place-items: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 50%;
+  background: var(--sidonia-text);
+  color: var(--sidonia-surface);
+  font-size: var(--sidonia-fs-sm);
+}
+
+/* Con JavaScript, solo el paso activo es visible */
+.sidonia-form--stepped .sidonia-step {
+  display: none;
+}
+
+.sidonia-form--stepped .sidonia-step.is-current {
+  display: grid;
+  padding-top: 0;
+  border-top: 0;
+}
+
+.sidonia-optioncards {
+  display: grid;
+  gap: var(--sidonia-s3);
+}
+
+@media (min-width: 560px) {
+  .sidonia-optioncards {
+    grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr));
+  }
+}
+
+.sidonia-optioncard {
+  position: relative;
+  cursor: pointer;
+}
+
+.sidonia-optioncard input {
+  position: absolute;
+  opacity: 0;
+  inset: 0;
+  margin: 0;
+  cursor: pointer;
+}
+
+.sidonia-optioncard__body {
+  display: grid;
+  gap: var(--sidonia-s1);
+  min-height: 5.5rem;
+  align-content: center;
+  padding: var(--sidonia-s4) var(--sidonia-s5);
+  border: var(--sidonia-border) solid var(--sidonia-control);
+  border-radius: var(--sidonia-radius);
+  background: var(--sidonia-surface);
+  transition: border-color var(--sidonia-d1) var(--sidonia-ease), box-shadow var(--sidonia-d1) var(--sidonia-ease);
+}
+
+.sidonia-optioncard__name {
+  font-size: var(--sidonia-fs-lg);
+  font-weight: 600;
+}
+
+.sidonia-optioncard__sub {
+  font-size: var(--sidonia-fs-xs);
+  letter-spacing: 0.12em;
+  color: var(--sidonia-muted);
+}
+
+.sidonia-optioncard input:hover + .sidonia-optioncard__body {
+  border-color: var(--sidonia-text);
+}
+
+.sidonia-optioncard input:checked + .sidonia-optioncard__body {
+  border-color: var(--sidonia-text);
+  box-shadow: inset 0 0 0 1px var(--sidonia-text);
+  background: var(--sidonia-bg);
+}
+
+.sidonia-optioncard input:focus-visible + .sidonia-optioncard__body {
+  outline: 2px solid var(--sidonia-focus);
+  outline-offset: 2px;
+}
+
+.sidonia-catgroup {
+  display: grid;
+  gap: var(--sidonia-s4);
+  padding: var(--sidonia-s5) 0;
+}
+
+.sidonia-catgroup + .sidonia-catgroup {
+  border-top: var(--sidonia-border) dashed var(--sidonia-line);
+}
+
+.sidonia-catgroup__title {
+  display: flex !important;
+  align-items: center;
+  gap: var(--sidonia-s2);
+  font-weight: 600;
+}
+
+.sidonia-catgroup[disabled] {
+  display: none;
+}
+
+html:not(.sidonia-js) .sidonia-catgroup[disabled] {
+  display: grid;
+}
+
+.sidonia-catgroup--common {
+  padding-top: var(--sidonia-s4);
+  border-top: var(--sidonia-border) solid var(--sidonia-line);
+}
+
+.sidonia-form--stepped .sidonia-catgroup {
+  padding-top: 0;
+  border-top: 0;
+}
+
+.sidonia-stepnav {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--sidonia-s3);
+}
+
+.sidonia-stepnav [data-sidonia-prev][hidden] + [data-sidonia-next] {
+  margin-left: auto;
+}
+
+/* ---------------------------------------------------------------- favoritos */
+
+.sidonia-favorites__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  justify-content: space-between;
+  gap: var(--sidonia-s4);
+  margin-bottom: var(--sidonia-s8);
+}
+
+.sidonia-favorites__where {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sidonia-s2);
+  margin-top: var(--sidonia-s3);
+}
+
+.sidonia-favorites__app {
+  display: grid;
+  gap: var(--sidonia-s4);
+}
+
+.sidonia-fav-item {
+  position: relative;
+  display: grid;
+  gap: var(--sidonia-s2);
+}
+
+.sidonia-fav-item__remove {
+  justify-self: start;
+}
+
+.sidonia-fav-retired {
+  display: grid;
+  gap: var(--sidonia-s3);
+  align-content: center;
+  min-height: 12rem;
+  padding: var(--sidonia-s5);
+  border: var(--sidonia-border) dashed var(--sidonia-control);
+  border-radius: var(--sidonia-radius);
+  background: var(--sidonia-surface);
+}
+
+.sidonia-modal__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--sidonia-s3);
+  margin-top: var(--sidonia-s5);
+}
+
+/* ---------------------------------------------------------------- cabecera de página */
+
+.sidonia-page-header {
+  position: relative;
+  isolation: isolate;
+  background: var(--sidonia-bg);
+  overflow: hidden;
+}
+
+.sidonia-page-header__inner {
+  display: grid;
+  gap: var(--sidonia-s4);
+  padding-top: var(--sidonia-s6);
+  padding-bottom: var(--sidonia-s10);
+}
+
+.sidonia-page-header__eyebrow {
+  margin: var(--sidonia-s4) 0 0;
+}
+
+.sidonia-page-header__title {
+  max-width: 22ch;
+}
+
+.sidonia-page-header__text {
+  max-width: 42rem;
+}
+
+.sidonia-page-header__content {
+  max-width: 44rem;
+}
+
+.sidonia-page-header--media {
+  min-height: min(32rem, 70svh);
+  display: flex;
+  align-items: flex-end;
+  color: #fff;
+  background: var(--sidonia-media);
+}
+
+.sidonia-page-header--media .sidonia-page-header__inner {
+  width: 100%;
+  padding-top: calc(var(--sidonia-header-h) + var(--sidonia-s12));
+}
+
+.sidonia-page-header--media .sidonia-lede,
+.sidonia-page-header--media .sidonia-eyebrow {
+  color: rgb(255 255 255 / 0.9);
+}
+
+.sidonia-page-header__media {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+}
+
+.sidonia-page-header__img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: var(--sidonia-focal, 50% 50%);
+}
+
+/* ---------------------------------------------------------------- 404 */
+
+.sidonia-notfound .sidonia-container {
+  display: grid;
+  gap: var(--sidonia-s5);
+}
+
+.sidonia-notfound .sidonia-eyebrow {
+  margin: 0;
+}
+
+.sidonia-notfound__links {
+  flex-wrap: wrap;
+}
+
+.sidonia-notfound__more {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sidonia-s3) var(--sidonia-s6);
+}
+
+/* ---------------------------------------------------------------- pie */
+
+.sidonia-footer-band {
+  background: var(--sidonia-alt);
+  color: var(--sidonia-text);
+  padding-top: var(--sidonia-s12);
+}
+
+.sidonia-footer-band__grid {
+  display: grid;
+  gap: var(--sidonia-s8);
+  padding-bottom: var(--sidonia-s10);
+}
+
+@media (min-width: 720px) {
+  .sidonia-footer-band__grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1100px) {
+  .sidonia-footer-band__grid {
+    grid-template-columns: minmax(0, 1.4fr) repeat(4, minmax(0, 1fr));
+  }
+}
+
+.sidonia-footer-band__brand {
+  display: grid;
+  gap: var(--sidonia-s3);
+  align-content: start;
+  justify-items: start;
+}
+
+.sidonia-footer-band__name {
+  font-size: var(--sidonia-fs-lg);
+  font-weight: 600;
+  letter-spacing: 0.24em;
+}
+
+.sidonia-footer-band__title {
+  margin-bottom: var(--sidonia-s3) !important;
+  font-size: var(--sidonia-fs-sm) !important;
+  font-weight: 600;
+  letter-spacing: 0.02em !important;
+  color: var(--sidonia-muted);
+}
+
+.sidonia-footer-band__col ul {
+  display: grid;
+  gap: var(--sidonia-s1);
+}
+
+.sidonia-footer-band__col a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.25rem;
+  text-decoration: none;
+}
+
+.sidonia-footer-band__col a:hover {
+  text-decoration: underline;
+}
+
+.sidonia-footer-band__total {
+  margin-bottom: var(--sidonia-s1);
+}
+
+.sidonia-footer-band__legal {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: var(--sidonia-s3);
+  padding-top: var(--sidonia-s5);
+  padding-bottom: calc(var(--sidonia-s6) + var(--sidonia-safe-bottom));
+  border-top: var(--sidonia-border) solid var(--sidonia-line);
+  font-size: var(--sidonia-fs-sm);
+}
+
+.sidonia-footer-band__legal ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sidonia-s1) var(--sidonia-s5);
+}
+
+.sidonia-footer-band__legal a {
+  color: var(--sidonia-muted);
+}
+
+/* ---------------------------------------------------------------- cabecera transparente (contrato) */
+
+/* Variables que el CSS de integración de la cabecera fija en estado transparente
+   para que el CTA «Vender con Sidonia» y el contador de favoritos mantengan contraste. */
+.sidonia-sell-cta {
+  --sidonia-btn-bg: var(--sidonia-cta-bg, var(--sidonia-button));
+  --sidonia-btn-fg: var(--sidonia-cta-fg, var(--sidonia-button-text));
+  --sidonia-btn-border: var(--sidonia-cta-bg, var(--sidonia-button));
+}
+
+.sidonia-menu-dot {
+  margin-inline-end: var(--sidonia-dot-gap);
+  vertical-align: 0.08em;
+}

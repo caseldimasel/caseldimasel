@@ -1,0 +1,25 @@
+{%- comment -%}
+  Importe público con su moneda, sin conversión ni decimales: «85.000 €», «1.450.000 €», «8500 €».
+  Parámetros: amount (número), currency (código ISO; por defecto la moneda de la tienda)
+{%- endcomment -%}
+{%- liquid
+  assign cur = currency | default: shop.currency | upcase
+  assign whole = amount | round
+  capture grouped
+    render 'sidonia-number', n: whole
+  endcapture
+  assign grouped = grouped | strip
+  case cur
+    when 'EUR'
+      assign symbol = '€'
+    when 'USD'
+      assign symbol = 'US$'
+    when 'GBP'
+      assign symbol = '£'
+    when 'CHF'
+      assign symbol = 'CHF'
+    else
+      assign symbol = cur
+  endcase
+  echo 'sidonia.price.format' | t: amount: grouped, symbol: symbol
+-%}

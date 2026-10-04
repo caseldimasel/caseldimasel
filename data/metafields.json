@@ -1,0 +1,137 @@
+{
+  "_comment": "Modelo de datos de Sidonia en Shopify: FUENTE ÚNICA para docs/04-modelo-de-datos.md, el script tools/setup/provision.mjs y la comprobación tools/check-kit.mjs. Instalar el tema NO crea estas definiciones: hay que crearlas en el administrador (o con el script).",
+  "namespace": "sidonia",
+  "owner": "PRODUCT",
+  "product_metafields": [
+    { "key": "reference", "name": "Referencia", "type": "single_line_text_field", "group": "common", "required": true, "filter": false, "use": "Referencia comercial. Viaja en WhatsApp, correo y formulario." },
+    { "key": "category", "name": "Categoría", "type": "single_line_text_field", "choices": ["Coches", "Barcos", "Casas"], "group": "common", "required": true, "filter": true, "smart": true, "use": "Nombre público de la categoría. Elige módulo técnico, punto de color y colección. Filtro «Categoría»." },
+    { "key": "status", "name": "Estado de venta", "type": "single_line_text_field", "choices": ["Disponible", "Reservado", "Vendido"], "group": "common", "required": true, "filter": true, "smart": true, "use": "Estado editorial (no inventario). Etiqueta, filtro, archivo, relacionadas y datos estructurados." },
+    { "key": "hook", "name": "Gancho editorial", "type": "single_line_text_field", "group": "common", "use": "Una línea de historia en tarjetas y cabecera de ficha. Sin exageraciones." },
+    { "key": "why_special", "name": "Qué la hace especial", "type": "multi_line_text_field", "group": "common", "use": "Resumen de hechos aportados por el propietario o el equipo." },
+    { "key": "highlights", "name": "Hechos destacados", "type": "list.single_line_text_field", "group": "common", "use": "Lista de hechos confirmados (no deducir «impecable», «único»…)." },
+    { "key": "story", "name": "Historia", "type": "rich_text_field", "group": "common", "use": "Narración ampliada de la pieza." },
+    { "key": "provenance", "name": "Procedencia", "type": "multi_line_text_field", "group": "common", "use": "Procedencia autorizada." },
+    { "key": "country", "name": "País (ubicación actual)", "type": "single_line_text_field", "group": "location", "use": "Dónde está HOY la pieza (no fabricación ni matriculación)." },
+    { "key": "region", "name": "Región o provincia (ubicación actual)", "type": "single_line_text_field", "group": "location", "filter": true, "use": "Ubicación pública. Filtro «Ubicación»." },
+    { "key": "city", "name": "Ciudad o zona (ubicación actual)", "type": "single_line_text_field", "group": "location", "use": "Solo se muestra si la precisión es «Ciudad». Nunca dirección exacta." },
+    { "key": "location_precision", "name": "Precisión de la ubicación publicada", "type": "single_line_text_field", "choices": ["Ciudad", "Región", "País"], "group": "location", "use": "Qué parte de la ubicación se publica. Sin dato: Región." },
+    { "key": "owner_name", "name": "Nombre público del propietario", "type": "single_line_text_field", "group": "owner", "use": "Nombre de pila o profesional AUTORIZADO. Nunca datos de contacto." },
+    { "key": "owner_show_name", "name": "Mostrar el nombre del propietario", "type": "boolean", "group": "owner", "use": "Verdadero solo con autorización expresa." },
+    { "key": "owner_label", "name": "Descripción del propietario si no se muestra el nombre", "type": "single_line_text_field", "group": "owner", "use": "Descripción real, p. ej. «Propietario particular»." },
+    { "key": "owner_story", "name": "Historia pública del propietario", "type": "multi_line_text_field", "group": "owner", "use": "Breve, real y autorizada." },
+    { "key": "price_mode", "name": "Modo de precio", "type": "single_line_text_field", "choices": ["Publicado", "A consultar", "No publicado"], "group": "price", "required": true, "use": "Qué se enseña. Sin dato: «Precio no publicado». Nunca un 0." },
+    { "key": "price_amount", "name": "Precio de referencia público", "type": "number_decimal", "group": "price", "use": "Solo con modo «Publicado» y valor mayor que 0. Independiente del precio de la variante." },
+    { "key": "price_currency", "name": "Moneda del precio", "type": "single_line_text_field", "group": "price", "use": "Código ISO (EUR). Sin dato: moneda de la tienda." },
+    { "key": "video", "name": "Vídeo principal (archivo)", "type": "file_reference", "file_types": ["Video"], "group": "video", "use": "FUENTE CANÓNICA del vídeo narrado (Contenido > Archivos)." },
+    { "key": "preview_clip", "name": "Clip breve de previsualización", "type": "file_reference", "file_types": ["Video"], "group": "video", "use": "Bucle silencioso opcional (6-12 s)." },
+    { "key": "video_url", "name": "Vídeo externo (YouTube o Vimeo)", "type": "url", "group": "video", "use": "Solo si no hay vídeo alojado en Shopify. Instagram/TikTok no son vídeos reproducibles: van en social_url." },
+    { "key": "video_aspect", "name": "Proporción del vídeo externo", "type": "single_line_text_field", "choices": ["9:16", "16:9", "4:5", "1:1", "4:3"], "group": "video", "use": "Los vídeos de Shopify ya traen su proporción." },
+    { "key": "video_duration", "name": "Duración del vídeo (segundos)", "type": "number_integer", "group": "video", "use": "Se muestra como m:ss solo si se conoce." },
+    { "key": "video_language", "name": "Idioma del vídeo", "type": "single_line_text_field", "group": "video", "use": "Sin dato: ajuste del tema." },
+    { "key": "subtitles_file", "name": "Subtítulos (.vtt)", "type": "file_reference", "file_types": ["GenericFile"], "group": "video", "use": "Pista WebVTT del reproductor." },
+    { "key": "subtitles_lang", "name": "Idioma de los subtítulos", "type": "single_line_text_field", "group": "video", "use": "Código, p. ej. «es»." },
+    { "key": "transcript", "name": "Transcripción", "type": "multi_line_text_field", "group": "video", "use": "Vía adicional de acceso al contenido del vídeo." },
+    { "key": "social_url", "name": "Publicación original en redes", "type": "url", "group": "video", "use": "Enlace «Ver la publicación original»." },
+    { "key": "condition_notes", "name": "Estado y observaciones", "type": "multi_line_text_field", "group": "details", "use": "Solo lo que se sabe. No es una inspección." },
+    { "key": "work_done", "name": "Trabajos realizados", "type": "list.single_line_text_field", "group": "details", "use": "Lista de trabajos conocidos." },
+    { "key": "documents", "name": "Documentos públicos", "type": "list.file_reference", "file_types": ["GenericFile"], "group": "details", "use": "Descargas PÚBLICAS. Nunca documentación personal." },
+    { "key": "timeline", "name": "Cronología", "type": "list.metaobject_reference", "metaobject": "sidonia_timeline_event", "group": "details", "use": "Hitos con fechas reales." },
+    { "key": "related", "name": "Piezas relacionadas", "type": "list.product_reference", "group": "details", "use": "Selección manual (si falta, misma categoría)." },
+    { "key": "featured", "name": "Destacada en portada", "type": "boolean", "group": "details", "smart": true, "use": "Condición de la colección «Destacadas» que usa la portada." },
+    { "key": "brand", "name": "Marca", "type": "single_line_text_field", "group": "garage", "filter": true, "use": "Filtro. Escríbela igual en todas las piezas." },
+    { "key": "model", "name": "Modelo", "type": "single_line_text_field", "group": "garage", "filter": true, "use": "Compartido con barcos." },
+    { "key": "version", "name": "Versión", "type": "single_line_text_field", "group": "garage", "use": "" },
+    { "key": "year", "name": "Año", "type": "number_integer", "group": "garage", "use": "Compartido con barcos." },
+    { "key": "mileage_km", "name": "Kilometraje (km)", "type": "number_integer", "group": "garage", "use": "Vacío si no se conoce (0 se publica como 0 km)." },
+    { "key": "fuel", "name": "Combustible", "type": "single_line_text_field", "group": "garage", "filter": true, "use": "" },
+    { "key": "gearbox", "name": "Cambio", "type": "single_line_text_field", "group": "garage", "filter": true, "use": "" },
+    { "key": "power_hp", "name": "Potencia (CV)", "type": "number_integer", "group": "garage", "use": "Solo si se conoce." },
+    { "key": "color", "name": "Color", "type": "single_line_text_field", "group": "garage", "use": "" },
+    { "key": "builder", "name": "Constructor (astillero)", "type": "single_line_text_field", "group": "harbor", "filter": true, "use": "Filtro." },
+    { "key": "boat_type", "name": "Tipo de embarcación", "type": "single_line_text_field", "group": "harbor", "filter": true, "use": "Filtro." },
+    { "key": "length_m", "name": "Eslora (m)", "type": "number_decimal", "group": "harbor", "use": "" },
+    { "key": "beam_m", "name": "Manga (m)", "type": "number_decimal", "group": "harbor", "use": "Solo si se conoce." },
+    { "key": "engine", "name": "Motorización", "type": "single_line_text_field", "group": "harbor", "use": "" },
+    { "key": "engine_hours", "name": "Horas de motor", "type": "number_integer", "group": "harbor", "use": "Solo si se conocen." },
+    { "key": "tax_regime", "name": "Régimen fiscal declarado", "type": "single_line_text_field", "group": "harbor", "use": "Solo si es pertinente y está confirmado." },
+    { "key": "property_type", "name": "Tipo de inmueble", "type": "single_line_text_field", "group": "estate", "filter": true, "use": "Filtro." },
+    { "key": "area_value", "name": "Superficie", "type": "number_decimal", "group": "estate", "use": "" },
+    { "key": "area_unit", "name": "Unidad de superficie", "type": "single_line_text_field", "group": "estate", "use": "Sin dato: m²." },
+    { "key": "plot_area", "name": "Parcela (m²)", "type": "number_decimal", "group": "estate", "use": "Solo si existe." },
+    { "key": "bedrooms", "name": "Dormitorios", "type": "number_integer", "group": "estate", "use": "" },
+    { "key": "bathrooms", "name": "Baños", "type": "number_integer", "group": "estate", "use": "" },
+    { "key": "built_period", "name": "Época de construcción", "type": "single_line_text_field", "group": "estate", "use": "Texto libre conocido («años 60»)." },
+    { "key": "energy_rating", "name": "Certificación energética", "type": "single_line_text_field", "group": "estate", "use": "Solo si se aporta." },
+    { "key": "year_band", "name": "Banda de año", "type": "single_line_text_field", "group": "bands", "filter": true, "use": "Filtro «Año» (p. ej. «1970-1979»)." },
+    { "key": "km_band", "name": "Banda de kilometraje", "type": "single_line_text_field", "group": "bands", "filter": true, "use": "Filtro «Kilometraje»." },
+    { "key": "loa_band", "name": "Banda de eslora", "type": "single_line_text_field", "group": "bands", "filter": true, "use": "Filtro «Eslora»." },
+    { "key": "area_band", "name": "Banda de superficie", "type": "single_line_text_field", "group": "bands", "filter": true, "use": "Filtro «Superficie»." },
+    { "key": "bedrooms_band", "name": "Banda de habitaciones", "type": "single_line_text_field", "group": "bands", "filter": true, "use": "Filtro «Habitaciones»." },
+    { "key": "price_band", "name": "Banda de presupuesto", "type": "single_line_text_field", "group": "bands", "filter": true, "use": "Filtro «Presupuesto» (vacío en piezas a consultar o no publicadas)." }
+  ],
+  "metaobjects": [
+    {
+      "type": "sidonia_timeline_event",
+      "name": "Hito de cronología",
+      "storefront": true,
+      "display_key": "title",
+      "fields": [
+        { "key": "period", "name": "Fecha o periodo", "type": "single_line_text_field", "required": true },
+        { "key": "title", "name": "Título", "type": "single_line_text_field", "required": true },
+        { "key": "description", "name": "Descripción", "type": "multi_line_text_field" }
+      ]
+    },
+    {
+      "type": "sidonia_social_account",
+      "name": "Cuenta social de Sidonia",
+      "storefront": true,
+      "display_key": "name",
+      "fields": [
+        { "key": "network", "name": "Red", "type": "single_line_text_field", "choices": ["Instagram", "TikTok", "YouTube", "Facebook", "X", "LinkedIn", "Pinterest", "Otra"], "required": true },
+        { "key": "name", "name": "Nombre público de la cuenta", "type": "single_line_text_field", "required": true },
+        { "key": "url", "name": "URL del perfil", "type": "url", "required": true },
+        { "key": "followers", "name": "Seguidores (cifra real)", "type": "number_integer" },
+        { "key": "include_in_total", "name": "Incluir en el total", "type": "boolean" },
+        { "key": "updated_on", "name": "Fecha de la cifra", "type": "date" }
+      ]
+    }
+  ],
+  "filters": {
+    "_comment": "Presupuesto de filtros: Shopify admite hasta 25 filtros por tienda y 50 definiciones de metacampo usadas como filtro (help.shopify.com, consultado el 4/10/2026). Los numéricos se filtran por valor exacto, no por rango: por eso hay bandas.",
+    "order": ["category", "status", "region", "price_band", "brand", "model", "year_band", "km_band", "gearbox", "fuel", "boat_type", "builder", "loa_band", "property_type", "bedrooms_band", "area_band"],
+    "labels": {
+      "category": "Categoría", "status": "Estado", "region": "Ubicación", "price_band": "Presupuesto",
+      "brand": "Marca", "model": "Modelo", "year_band": "Año", "km_band": "Kilometraje", "gearbox": "Cambio", "fuel": "Combustible",
+      "boat_type": "Tipo de embarcación", "builder": "Constructor", "loa_band": "Eslora",
+      "property_type": "Tipo de inmueble", "bedrooms_band": "Habitaciones", "area_band": "Superficie"
+    }
+  },
+  "collections": [
+    { "handle": "explorar", "title": "Explorar", "template": "sidonia", "any": true, "rules": [["category", "Coches"], ["category", "Barcos"], ["category", "Casas"]] },
+    { "handle": "coches", "title": "Coches", "template": "garage", "rules": [["category", "Coches"]] },
+    { "handle": "barcos", "title": "Barcos", "template": "harbor", "rules": [["category", "Barcos"]] },
+    { "handle": "casas", "title": "Casas", "template": "estate", "rules": [["category", "Casas"]] },
+    { "handle": "vendidas", "title": "Archivo de piezas vendidas", "template": "sold", "rules": [["status", "Vendido"]] },
+    { "handle": "destacadas", "title": "Destacadas", "template": "", "rules": [["featured", "true"]] }
+  ],
+  "pages": [
+    { "handle": "vender-con-sidonia", "title": "Vender con Sidonia", "template": "sell" },
+    { "handle": "como-vendemos", "title": "Cómo vendemos", "template": "how-it-works" },
+    { "handle": "sobre-sidonia", "title": "Sobre Sidonia", "template": "about" },
+    { "handle": "favoritos", "title": "Favoritos", "template": "favorites" },
+    { "handle": "contacto", "title": "Contacto", "template": "sidonia-contact" },
+    { "handle": "busco", "title": "Cuéntanos qué buscas", "template": "wanted" }
+  ],
+  "menu": {
+    "handle": "sidonia-principal",
+    "title": "Sidonia (principal)",
+    "items": [
+      ["Explorar", "/collections/explorar"],
+      ["Coches", "/collections/coches"],
+      ["Barcos", "/collections/barcos"],
+      ["Casas", "/collections/casas"],
+      ["Cómo vendemos", "/pages/como-vendemos"],
+      ["Sobre Sidonia", "/pages/sobre-sidonia"]
+    ]
+  }
+}

@@ -1,0 +1,84 @@
+/*
+ * ------------------------------------------------------------
+ * Plantilla del kit Sidonia para Impact. Generada por tools/build-templates.mjs.
+ * Edítala desde el editor de temas; si regeneras, se pierden los cambios hechos aquí a mano.
+ * ------------------------------------------------------------
+ */
+{
+  "sections": {
+    "main": {
+      "type": "sidonia-catalog",
+      "settings": {
+        "show_tabs": true,
+        "show_community": false
+      }
+    },
+    "faq": {
+      "type": "sidonia-faq",
+      "settings": {
+        "scope": "auto",
+        "heading": "Preguntas frecuentes"
+      },
+      "blocks": {
+        "question_1": {
+          "type": "question",
+          "settings": {
+            "question": "¿Qué tipo de piezas seleccionáis?",
+            "answer": "<p>Coches, barcos y casas con historia, carácter, diseño, cuidado o una procedencia interesante. No depende del precio ni de la antigüedad: valoramos qué hace especial a cada pieza y si podemos contarla bien.</p>",
+            "category": "all"
+          }
+        },
+        "question_2": {
+          "type": "question",
+          "settings": {
+            "question": "¿Qué información necesitáis para estudiar mi pieza?",
+            "answer": "<p>Para empezar basta con lo esencial: qué es, dónde está, qué la hace especial y cómo contactar contigo. Si tienes fotos, vídeos o un anuncio publicado, puedes pegar el enlace. En esta fase no pedimos documentación personal.</p>",
+            "category": "all"
+          }
+        },
+        "question_3": {
+          "type": "question",
+          "settings": {
+            "question": "¿Cómo es la grabación?",
+            "answer": "<p>Si la pieza encaja, acordamos contigo cómo y cuándo grabarla y escuchar su historia. Los detalles concretos se hablan contigo antes.</p>",
+            "category": "all"
+          }
+        },
+        "question_4": {
+          "type": "question",
+          "settings": {
+            "question": "¿Cómo pido información sobre una pieza?",
+            "answer": "<p>Desde cada ficha puedes escribirnos por WhatsApp, por correo o con el formulario. El mensaje incluye la referencia de la pieza para que sepamos de cuál hablas.</p>",
+            "category": "all"
+          }
+        },
+        "question_5": {
+          "type": "question",
+          "settings": {
+            "question": "¿Qué ocurre después de contactar?",
+            "answer": "<p>El equipo de Sidonia revisa tu mensaje y te contesta por el canal que prefieras. Si eres propietario, enviar la solicitud inicia una valoración de encaje: no implica aceptación ni compromiso de venta.</p>",
+            "category": "all"
+          }
+        }
+      },
+      "block_order": [
+        "question_1",
+        "question_2",
+        "question_3",
+        "question_4",
+        "question_5"
+      ]
+    },
+    "owner_cta": {
+      "type": "sidonia-owner-cta",
+      "settings": {
+        "preselect": "auto"
+      }
+    }
+  },
+  "order": [
+    "main",
+    "faq",
+    "owner_cta"
+  ]
+}

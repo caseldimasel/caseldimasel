@@ -1,3 +1,12 @@
 node_modules/
-tools/preview/fixtures/clip.webm
 .DS_Store
+
+# Código licenciado de Impact (Maestrooo). Este repositorio es PÚBLICO:
+# la copia de Impact y el tema integrado viven solo en local (ver docs/02-instalacion.md).
+impact/
+
+# Artefactos generados (se reconstruyen con los scripts de tools/ e integration/)
+build/
+dist/
+harness/fixtures/*.webm
+legacy/tema-independiente-1.4.0/tools/preview/fixtures/clip.webm

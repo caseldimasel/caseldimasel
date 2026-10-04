@@ -1,0 +1,123 @@
+{%- comment -%}
+  Cabecera del ANFITRIÓN DE PRUEBAS (no es Impact). Implementación de referencia de lo que la
+  integración debe conseguir en la cabecera de Impact:
+  - Logo (o SIDONIA en texto), menú con puntos de categoría (sidonia-menu-dot), búsqueda,
+    Favoritos con contador y «Vender con Sidonia» (sidonia-header-actions).
+  - Estados: transparente sobre un bloque visual compatible; piedra sólida al superarlo, sin bloque,
+    o con un panel abierto. La altura no cambia entre estados.
+  - Móvil: barra compacta con «Vender», búsqueda, favoritos y menú; tira de categorías debajo.
+{%- endcomment -%}
+{%- liquid
+  assign s = section.settings
+  assign menu = s.menu
+  capture keys_csv
+    render 'sidonia-division-keys'
+  endcapture
+  assign div_keys = keys_csv | strip | split: ','
+  capture explore_url
+    render 'sidonia-url', key: 'explore'
+  endcapture
+  capture sell_url
+    render 'sidonia-url', key: 'sell'
+  endcapture
+  capture fav_url
+    render 'sidonia-url', key: 'favorites'
+  endcapture
+  assign logo_w = settings.logo_width | default: 120
+-%}
+<header class="harness-header sidonia-scope" data-sidonia-header>
+  <div class="harness-header__bar">
+    <details class="harness-panel harness-drawer" data-sidonia-header-panel>
+      <summary class="harness-icon-btn" aria-label="{{ 'harness.menu' | t }}">{%- render 'sidonia-icon', name: 'menu', size: 22 -%}</summary>
+      <div class="harness-drawer__panel">
+        <nav aria-label="{{ 'harness.menu' | t }}">
+          <ul class="harness-drawer__list" role="list">
+            {%- for link in menu.links -%}
+              <li><a href="{{ link.url }}">{%- render 'sidonia-menu-dot', link: link -%}{{ link.title | escape }}</a></li>
+            {%- endfor -%}
+            <li><a href="{{ fav_url | strip }}">{{ 'sidonia.favorites.link_empty' | t }}</a></li>
+          </ul>
+        </nav>
+        <a class="sidonia-btn sidonia-btn--block" href="{{ sell_url | strip }}">{{ 'sidonia.header.sell' | t }}</a>
+      </div>
+    </details>
+
+    <a class="harness-logo" href="{{ routes.root_url }}" style="--logo-w: {{ logo_w }}px">
+      {%- if settings.logo != blank -%}
+        {{ settings.logo | image_url: width: 480 | image_tag: class: 'harness-logo__img harness-logo__img--dark', alt: shop.name, width: logo_w }}
+        {%- if settings.logo_light != blank -%}
+          {{ settings.logo_light | image_url: width: 480 | image_tag: class: 'harness-logo__img harness-logo__img--light', alt: '', width: logo_w }}
+        {%- endif -%}
+      {%- else -%}
+        <span class="harness-logo__text">{{ settings.sidonia_brand_name | default: shop.name | escape }}</span>
+      {%- endif -%}
+    </a>
+
+    <nav class="harness-nav" aria-label="Principal">
+      <ul role="list">
+        {%- for link in menu.links -%}
+          <li><a class="harness-nav__link" href="{{ link.url }}"{% if link.current %} aria-current="page"{% endif %}>{%- render 'sidonia-menu-dot', link: link -%}{{ link.title | escape }}</a></li>
+        {%- endfor -%}
+      </ul>
+    </nav>
+
+    <div class="harness-tools">
+      <details class="harness-panel harness-search" data-sidonia-header-panel>
+        <summary class="harness-icon-btn" aria-label="{{ 'harness.search' | t }}">{%- render 'sidonia-icon', name: 'search', size: 21 -%}</summary>
+        <div class="harness-search__panel">
+          <form class="sidonia-search sidonia-search--page" action="{{ routes.search_url }}" method="get" role="search">
+            <div class="sidonia-search__row">
+              <label class="sidonia-sr" for="harness-q">{{ 'sidonia.search.placeholder' | t }}</label>
+              <span class="sidonia-search__icon" aria-hidden="true">{%- render 'sidonia-icon', name: 'search', size: 20 -%}</span>
+              <input id="harness-q" class="sidonia-search__input" type="search" name="q" placeholder="{{ 'sidonia.search.placeholder' | t }}" autocomplete="off">
+              <input type="hidden" name="type" value="product">
+              <input type="hidden" name="options[prefix]" value="last">
+              <button class="sidonia-btn sidonia-search__submit" type="submit">{{ 'sidonia.search.submit' | t }}</button>
+            </div>
+          </form>
+        </div>
+      </details>
+      {%- render 'sidonia-header-actions' -%}
+    </div>
+  </div>
+  <nav class="harness-strip" aria-label="{{ 'sidonia.footer.categories' | t }}">
+    <ul role="list">
+      <li><a href="{{ explore_url | strip }}">{{ 'sidonia.search.all' | t }}</a></li>
+      {%- for k in div_keys -%}
+        {%- assign key_i = k | strip -%}
+        {%- capture d_url -%}{%- render 'sidonia-division', key: key_i, out: 'url' -%}{%- endcapture -%}
+        <li><a href="{{ d_url | strip }}">{%- render 'sidonia-cat-label', key: key_i -%}</a></li>
+      {%- endfor -%}
+    </ul>
+  </nav>
+</header>
+<script>
+  (function () {
+    var h = document.querySelector('.harness-header');
+    if (!h || h.__bound) return;
+    h.__bound = true;
+    h.addEventListener('toggle', function (e) {
+      var d = e.target;
+      if (d.open) h.querySelectorAll('details[open]').forEach(function (o) { if (o !== d) o.open = false; });
+      h.classList.toggle('is-panel-open', !!h.querySelector('details[open]'));
+      document.dispatchEvent(new CustomEvent('sidonia:header-panel'));
+      if (d.open && d.classList.contains('harness-search')) { var i = d.querySelector('input[type=search]'); if (i) i.focus(); }
+    }, true);
+    document.addEventListener('keydown', function (e) {
+      if (e.key !== 'Escape') return;
+      var o = h.querySelector('details[open]');
+      if (o) { o.open = false; o.querySelector('summary').focus(); }
+    });
+  })();
+</script>
+
+{% schema %}
+{
+  "name": "Cabecera (anfitrión de pruebas)",
+  "tag": "div",
+  "class": "harness-header-section",
+  "settings": [
+    { "type": "link_list", "id": "menu", "label": "Menú", "default": "main-menu" }
+  ]
+}
+{% endschema %}

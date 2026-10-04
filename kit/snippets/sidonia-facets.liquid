@@ -1,0 +1,104 @@
+{%- comment -%}
+  Grupos de filtros de Shopify / Search & Discovery (results.filters). Se consulta TODO el catálogo
+  de la colección o la búsqueda, no solo las tarjetas de la página visible.
+
+  - Escritorio: barra horizontal de «píldoras» con panel desplegable (como los listados de JamesEdition).
+  - Móvil: los mismos grupos en un panel a pantalla completa con «Ver N resultados».
+  - Los metacampos numéricos no admiten rangos nativos: los rangos se publican como bandas de texto
+    (sidonia.year_band, km_band, loa_band, area_band, bedrooms_band, price_band). Ver docs/06.
+  - El filtro de precio nativo usa el precio de la variante: solo se muestra si el ajuste
+    «Las variantes reflejan el precio publicado» está activo.
+
+  Parámetros: results (collection o search), uid
+{%- endcomment -%}
+{%- for filter in results.filters -%}
+  {%- liquid
+    assign skip = false
+    if filter.type == 'price_range' and settings.sidonia_variant_prices == false
+      assign skip = true
+    endif
+    if filter.type == 'list' and filter.values.size == 0
+      assign skip = true
+    endif
+    if filter.type == 'boolean' and filter.values.size == 0
+      assign skip = true
+    endif
+    assign is_cat = false
+    if filter.param_name == 'filter.p.m.sidonia.category'
+      assign is_cat = true
+    endif
+    assign active_count = filter.active_values.size
+    if filter.type == 'price_range'
+      assign active_count = 0
+      if filter.min_value.value != blank or filter.max_value.value != blank
+        assign active_count = 1
+      endif
+    endif
+    assign gid = uid | append: '-f' | append: forloop.index
+  -%}
+  {%- unless skip -%}
+    <details class="sidonia-fgroup{% if active_count > 0 %} is-active{% endif %}" data-sidonia-fgroup data-param="{{ filter.param_name | escape }}">
+      <summary class="sidonia-fgroup__pill">
+        <span class="sidonia-fgroup__label">{{ filter.label | escape }}</span>
+        {%- if active_count > 0 -%}<span class="sidonia-fgroup__count">{{ active_count }}</span>{%- endif -%}
+        {%- render 'sidonia-icon', name: 'chevron-down', size: 16, class: 'sidonia-fgroup__chev' -%}
+      </summary>
+      <div class="sidonia-fgroup__panel" id="{{ gid }}">
+        {%- if filter.type == 'price_range' -%}
+          <fieldset class="sidonia-fieldset">
+            <legend class="sidonia-sr">{{ filter.label | escape }}</legend>
+            <div class="sidonia-pricefilter">
+              <div class="sidonia-field">
+                <label class="sidonia-field__label" for="{{ gid }}-min">{{ 'sidonia.catalog.price_min' | t }}</label>
+                <input id="{{ gid }}-min" class="sidonia-input" type="number" inputmode="numeric" name="{{ filter.min_value.param_name }}" value="{% if filter.min_value.value != blank %}{{ filter.min_value.value | divided_by: 100 }}{% endif %}" min="0" step="1">
+              </div>
+              <div class="sidonia-field">
+                <label class="sidonia-field__label" for="{{ gid }}-max">{{ 'sidonia.catalog.price_max' | t }}</label>
+                <input id="{{ gid }}-max" class="sidonia-input" type="number" inputmode="numeric" name="{{ filter.max_value.param_name }}" value="{% if filter.max_value.value != blank %}{{ filter.max_value.value | divided_by: 100 }}{% endif %}" min="0" step="1">
+              </div>
+            </div>
+          </fieldset>
+        {%- else -%}
+          <fieldset class="sidonia-fieldset">
+            <legend class="sidonia-sr">{{ filter.label | escape }}</legend>
+            <ul class="sidonia-fgroup__list" role="list">
+              {%- for value in filter.values -%}
+                <li>
+                  <label class="sidonia-choice sidonia-fvalue{% if value.count == 0 and value.active == false %} is-empty{% endif %}">
+                    <input
+                      type="checkbox"
+                      name="{{ value.param_name | escape }}"
+                      value="{{ value.value | escape }}"
+                      {% if value.active %}checked{% endif %}
+                      {% if value.count == 0 and value.active == false %}disabled{% endif %}
+                    >
+                    <span class="sidonia-fvalue__text">
+                      {%- if is_cat -%}
+                        {%- capture vkey -%}{%- render 'sidonia-category', value: value.value -%}{%- endcapture -%}
+                        {%- assign vkey = vkey | strip -%}
+                        {%- if vkey != blank -%}
+                          {%- render 'sidonia-cat-label', key: vkey, name: value.label -%}
+                        {%- else -%}
+                          {{ value.label | escape }}
+                        {%- endif -%}
+                      {%- else -%}
+                        {{ value.label | escape }}
+                      {%- endif -%}
+                    </span>
+                    <span class="sidonia-fvalue__count">{{ value.count }}</span>
+                  </label>
+                </li>
+              {%- endfor -%}
+            </ul>
+          </fieldset>
+        {%- endif -%}
+        <div class="sidonia-fgroup__foot">
+          {%- if active_count > 0 -%}
+            <a class="sidonia-link" href="{{ filter.url_to_remove }}" data-sidonia-facet-link>{{ 'sidonia.catalog.clear_group' | t }}</a>
+          {%- endif -%}
+          <button type="submit" class="sidonia-btn sidonia-btn--sm sidonia-fgroup__apply" data-sidonia-nojs>{{ 'sidonia.catalog.apply' | t }}</button>
+        </div>
+      </div>
+    </details>
+  {%- endunless -%}
+{%- endfor -%}

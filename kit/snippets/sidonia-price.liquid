@@ -1,0 +1,51 @@
+{%- comment -%}
+  Precio editorial de una pieza. NUNCA usa el precio de la variante de Shopify (que puede ser un
+  valor técnico, por ejemplo 0, porque las piezas no se venden por el checkout).
+
+  Modo (metacampo sidonia.price_mode):
+    «Publicado»    + importe > 0  → published  «85.000 €»
+    «A consultar»                 → ask        «Precio a consultar»
+    «No publicado» o sin dato     → hidden     «Precio no publicado»
+  Una pieza vendida nunca muestra precio: → sold (texto vacío; la etiqueta «Vendido» informa).
+
+  Parámetros: product, out = text (por defecto) | kind | amount | currency
+{%- endcomment -%}
+{%- liquid
+  assign mode = product.metafields.sidonia.price_mode.value | downcase | strip
+  assign amount = product.metafields.sidonia.price_amount.value
+  assign cur = product.metafields.sidonia.price_currency.value | strip | upcase
+  if cur == blank
+    assign cur = shop.currency
+  endif
+  assign status_raw = product.metafields.sidonia.status.value | downcase | strip
+  assign kind = 'hidden'
+  if status_raw == 'vendido' or status_raw == 'vendida' or status_raw == 'sold'
+    assign kind = 'sold'
+  elsif mode == 'a consultar' or mode == 'consultar' or mode == 'ask' or mode == 'request'
+    assign kind = 'ask'
+  elsif mode == 'publicado' or mode == 'published'
+    if amount != blank and amount > 0
+      assign kind = 'published'
+    endif
+  endif
+
+  case out
+    when 'kind'
+      echo kind
+    when 'amount'
+      if kind == 'published'
+        echo amount
+      endif
+    when 'currency'
+      echo cur
+    else
+      case kind
+        when 'published'
+          render 'sidonia-amount', amount: amount, currency: cur
+        when 'ask'
+          echo 'sidonia.price.ask' | t
+        when 'hidden'
+          echo 'sidonia.price.hidden' | t
+      endcase
+  endcase
+-%}

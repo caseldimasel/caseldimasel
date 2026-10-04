@@ -1,0 +1,105 @@
+{%- comment -%}
+  SIDONIA · Confianza y comunidad.
+  - Dato del fundador: «Más de 200 clientes han confiado en nosotros para vender sus propiedades»
+    (clientes que han confiado; no son ventas cerradas, testimonios ni operaciones verificadas).
+  - Cifra combinada de seguidores calculada desde las cuentas reales (metaobjeto sidonia_social_account).
+    No hay ningún total manual: si no hay cifras válidas, se muestra «Sigue las historias de Sidonia».
+  - Cifras introducidas a mano y con fecha; no hay actualización en directo.
+{%- endcomment -%}
+{%- liquid
+  assign s = section.settings
+  capture total
+    render 'sidonia-social', out: 'total'
+  endcapture
+  assign total = total | strip
+  capture summed
+    render 'sidonia-social', out: 'summed'
+  endcapture
+  assign summed = summed | strip | plus: 0
+  capture accounts
+    render 'sidonia-social', out: 'list'
+  endcapture
+  assign accounts = accounts | strip
+  capture dups
+    render 'sidonia-social', out: 'duplicates'
+  endcapture
+  assign dups = dups | strip
+  capture updated
+    render 'sidonia-social', out: 'updated'
+  endcapture
+  assign updated = updated | strip
+  assign has_statement = false
+  if s.show_statement and s.statement_figure != blank
+    assign has_statement = true
+  endif
+-%}
+<section id="{{ s.anchor | default: 'sidonia-comunidad' | handleize }}" class="sidonia-scope sidonia-section sidonia-community{% if s.background == 'alt' %} sidonia-section--alt{% elsif s.background == 'surface' %} sidonia-section--surface{% endif %}" data-section-id="{{ section.id }}">
+  <div class="sidonia-container">
+    <div class="sidonia-head">
+      <div class="sidonia-head__text">
+        {%- if s.eyebrow != blank -%}<p class="sidonia-eyebrow">{{ s.eyebrow | escape }}</p>{%- endif -%}
+        {%- if s.heading != blank -%}<h2 class="sidonia-h2">{{ s.heading | escape }}</h2>{%- endif -%}
+      </div>
+    </div>
+    <div class="sidonia-community__grid">
+      {%- if has_statement -%}
+        <div class="sidonia-community__fact">
+          <p class="sidonia-community__figure">{{ s.statement_figure | escape }}</p>
+          <p class="sidonia-community__label">{{ s.statement_text | escape }}</p>
+        </div>
+      {%- endif -%}
+      <div class="sidonia-community__social">
+        {%- if total != blank -%}
+          {%- capture total_txt -%}{%- render 'sidonia-number', n: total -%}{%- endcapture -%}
+          <p class="sidonia-community__figure"><span class="sidonia-community__num">{{ total_txt | strip }}</span></p>
+          <p class="sidonia-community__label">{{ 'sidonia.community.total' | t: count: total }}</p>
+          {%- if s.phrase != blank -%}<p class="sidonia-community__phrase">{{ s.phrase | escape }}</p>{%- endif -%}
+          <p class="sidonia-note sidonia-community__disclaimer">
+            {{ 'sidonia.community.disclaimer' | t }}
+            {%- if updated != blank %} {{ 'sidonia.community.updated' | t: date: updated }}{%- endif -%}
+          </p>
+        {%- else -%}
+          <p class="sidonia-community__follow">{{ 'sidonia.community.follow' | t }}</p>
+          {%- if s.phrase != blank -%}<p class="sidonia-community__phrase">{{ s.phrase | escape }}</p>{%- endif -%}
+        {%- endif -%}
+        {%- if accounts != blank -%}
+          <ul class="sidonia-social" role="list" aria-label="{{ 'sidonia.community.accounts_label' | t }}">{{ accounts }}</ul>
+        {%- endif -%}
+      </div>
+    </div>
+    {%- if request.design_mode -%}
+      {%- if accounts == blank -%}
+        <p class="sidonia-editor-hint">{{ 'sidonia.editor.social_none' | t }}</p>
+      {%- endif -%}
+      {%- if dups != blank -%}
+        <p class="sidonia-editor-hint" role="alert"><strong>{{ 'sidonia.editor.social_duplicates' | t }}</strong> {{ dups | escape }}</p>
+      {%- endif -%}
+    {%- endif -%}
+  </div>
+</section>
+
+{% schema %}
+{
+  "name": "Sidonia · Comunidad",
+  "tag": "div",
+  "settings": [
+    { "type": "text", "id": "eyebrow", "label": "Antetítulo", "default": "Confianza y comunidad" },
+    { "type": "text", "id": "heading", "label": "Título", "default": "Personas que ya nos han confiado su historia" },
+    { "type": "header", "content": "Dato del fundador" },
+    { "type": "checkbox", "id": "show_statement", "label": "Mostrar el dato", "default": true },
+    { "type": "paragraph", "content": "Significa clientes que han confiado en Sidonia. No lo presentes como ventas cerradas, testimonios ni operaciones verificadas." },
+    { "type": "text", "id": "statement_figure", "label": "Cifra", "default": "Más de 200" },
+    { "type": "text", "id": "statement_text", "label": "Texto", "default": "clientes han confiado en nosotros para vender sus propiedades" },
+    { "type": "header", "content": "Redes sociales" },
+    { "type": "paragraph", "content": "Las cuentas y sus cifras se editan en Contenido > Metaobjetos > Cuenta social de Sidonia. El total se calcula solo con las cuentas marcadas «Incluir en el total» que tengan cifra; una misma cuenta repetida se cuenta una vez." },
+    { "type": "text", "id": "phrase", "label": "Frase editorial breve (opcional)" },
+    { "type": "text", "id": "anchor", "label": "Ancla (id)", "default": "sidonia-comunidad" },
+    { "type": "select", "id": "background", "label": "Fondo", "options": [
+      { "value": "bg", "label": "Piedra" },
+      { "value": "surface", "label": "Piedra clara" },
+      { "value": "alt", "label": "Piedra alternativa" }
+    ], "default": "bg" }
+  ],
+  "presets": [{ "name": "Sidonia · Comunidad" }]
+}
+{% endschema %}

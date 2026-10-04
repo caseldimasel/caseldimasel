@@ -1,0 +1,36 @@
+{%- comment -%}
+  Acciones Sidonia para la cabecera: Favoritos (con contador local) y «Vender con Sidonia».
+  Se inserta en la cabecera de Impact durante la integración (punto exacto: ver la auditoría).
+  Hereda el color de texto de la cabecera (currentColor), así funciona sobre la cabecera
+  transparente y sobre la sólida piedra sin cambiar de tamaño.
+
+  Parámetros: show_favorites (por defecto true), show_sell (por defecto true), sell_label (opcional)
+{%- endcomment -%}
+{%- liquid
+  capture fav_url
+    render 'sidonia-url', key: 'favorites'
+  endcapture
+  capture fav_exists
+    render 'sidonia-url', key: 'favorites', out: 'exists'
+  endcapture
+  capture sell_url
+    render 'sidonia-url', key: 'sell'
+  endcapture
+  assign label = sell_label | default: settings.sidonia_sell_label | strip
+  if label == blank
+    assign label = 'sidonia.header.sell' | t
+  endif
+-%}
+<div class="sidonia-header-actions">
+  {%- unless show_favorites == false -%}
+    {%- if fav_exists contains 'true' -%}
+      <a class="sidonia-fav-link" href="{{ fav_url | strip }}" data-sidonia-fav-link aria-label="{{ 'sidonia.favorites.link_empty' | t }}">
+        {%- render 'sidonia-icon', name: 'heart', size: 22 -%}
+        <sidonia-fav-count class="sidonia-fav-count" hidden></sidonia-fav-count>
+      </a>
+    {%- endif -%}
+  {%- endunless -%}
+  {%- unless show_sell == false -%}
+    <a class="sidonia-btn sidonia-btn--sm sidonia-sell-cta" href="{{ sell_url | strip }}" data-sidonia-track="sell_cta"><span class="sidonia-sell-cta__long">{{ label | escape }}</span><span class="sidonia-sell-cta__short" aria-hidden="true">{{ 'sidonia.header.sell_short' | t }}</span></a>
+  {%- endunless -%}
+</div>

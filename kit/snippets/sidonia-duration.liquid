@@ -1,0 +1,12 @@
+{%- comment -%}Duración «m:ss» solo si se conoce (nunca se inventa). Parámetro: seconds.{%- endcomment -%}
+{%- liquid
+  if seconds != blank
+    assign total = seconds | plus: 0
+    if total > 0
+      assign mins = total | divided_by: 60
+      assign secs = total | modulo: 60
+      assign secs_text = secs | prepend: '0' | slice: -2, 2
+      echo mins | append: ':' | append: secs_text
+    endif
+  endif
+-%}

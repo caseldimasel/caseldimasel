@@ -1,0 +1,9 @@
+{
+  "harness": {
+    "menu": "Menú",
+    "close": "Cerrar",
+    "search": "Buscar",
+    "skip": "Saltar al contenido",
+    "notice": "Arnés de pruebas del kit Sidonia. No es Impact: datos rotulados [PRUEBA]."
+  }
+}

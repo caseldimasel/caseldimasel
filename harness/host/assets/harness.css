@@ -1,0 +1,343 @@
+/* ==========================================================================
+   ANFITRIÓN DE PRUEBAS (no es Impact): estilos mínimos del «tema base» y cabecera de referencia.
+   En Impact, este papel lo cumplen su propio CSS y su cabecera; la integración traslada ahí
+   los estados de la cabecera (ver docs/09-guia-cabecera-y-datos-publicos.md).
+   ========================================================================== */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  --harness-header-h: 4rem;
+  --sidonia-header-h: var(--harness-header-h);
+  --sidonia-sticky-top: var(--harness-header-h);
+}
+
+body.harness-body {
+  margin: 0;
+  background: var(--sidonia-bg, #f5f3ee);
+  color: var(--sidonia-text, #252723);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-size: 1rem;
+  line-height: 1.55;
+  overflow-x: clip;
+  -webkit-font-smoothing: antialiased;
+}
+
+img {
+  max-width: 100%;
+  height: auto;
+}
+
+.harness-main:focus {
+  outline: none;
+}
+
+.harness-skip {
+  position: fixed;
+  left: 1rem;
+  top: 1rem;
+  z-index: 100;
+  padding: 0.75rem 1rem;
+  border-radius: 10px;
+  background: var(--sidonia-text);
+  color: var(--sidonia-surface);
+  transform: translateY(-200%);
+}
+
+.harness-skip:focus {
+  transform: none;
+}
+
+/* ---------------------------------------------------------------- cabecera */
+
+.harness-header-section {
+  position: sticky;
+  top: 0;
+  z-index: var(--sidonia-z-header, 30);
+}
+
+.harness-header {
+  --harness-fg: var(--sidonia-text);
+  background: var(--sidonia-bg);
+  color: var(--harness-fg);
+  border-bottom: 1px solid var(--sidonia-line);
+  transition:
+    background-color var(--sidonia-d2) var(--sidonia-ease),
+    color var(--sidonia-d2) var(--sidonia-ease),
+    border-color var(--sidonia-d2) var(--sidonia-ease);
+}
+
+.harness-header__bar {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  height: var(--harness-header-h);
+  max-width: calc(var(--sidonia-page-width) + 2 * var(--sidonia-gutter));
+  margin-inline: auto;
+  padding-inline: var(--sidonia-gutter);
+}
+
+.harness-logo {
+  display: inline-flex;
+  align-items: center;
+  width: var(--logo-w, 120px);
+  height: 2.5rem;
+  margin-right: auto;
+  color: inherit;
+  text-decoration: none;
+}
+
+.harness-logo__img {
+  width: 100%;
+  height: auto;
+  max-height: 2.5rem;
+  object-fit: contain;
+  object-position: left center;
+}
+
+.harness-logo__img--light {
+  display: none;
+}
+
+.harness-logo__text {
+  font-size: 1.0625rem;
+  font-weight: 600;
+  letter-spacing: 0.26em;
+}
+
+.harness-nav {
+  display: none;
+}
+
+.harness-nav ul {
+  display: flex;
+  gap: 0.25rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.harness-nav__link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.5rem;
+  padding: 0 0.7rem;
+  border-radius: 8px;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  color: inherit;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.harness-nav__link:hover {
+  background: color-mix(in srgb, currentColor 9%, transparent);
+}
+
+.harness-nav__link[aria-current='page'] {
+  text-decoration: underline;
+  text-underline-offset: 0.35em;
+}
+
+.harness-tools {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.harness-icon-btn {
+  display: inline-grid;
+  place-items: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 50%;
+  color: inherit;
+  cursor: pointer;
+  list-style: none;
+}
+
+.harness-icon-btn::-webkit-details-marker {
+  display: none;
+}
+
+.harness-icon-btn:hover {
+  background: color-mix(in srgb, currentColor 9%, transparent);
+}
+
+.harness-panel[open] > .harness-icon-btn {
+  background: color-mix(in srgb, currentColor 12%, transparent);
+}
+
+/* Panel de búsqueda bajo la barra */
+.harness-search__panel {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 100%;
+  padding: 1rem var(--sidonia-gutter) 1.25rem;
+  background: var(--sidonia-bg);
+  border-bottom: 1px solid var(--sidonia-line);
+  color: var(--sidonia-text);
+}
+
+.harness-search__panel .sidonia-search {
+  max-width: 48rem;
+  margin-inline: auto;
+}
+
+/* Menú móvil */
+.harness-drawer {
+  order: -1;
+}
+
+.harness-drawer__panel {
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: var(--harness-header-h);
+  bottom: 0;
+  z-index: 40;
+  display: grid;
+  align-content: start;
+  gap: 1.5rem;
+  padding: 1rem var(--sidonia-gutter) calc(1.5rem + env(safe-area-inset-bottom));
+  background: var(--sidonia-bg);
+  color: var(--sidonia-text);
+  overflow-y: auto;
+}
+
+.harness-drawer__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.harness-drawer__list a {
+  display: flex;
+  align-items: center;
+  min-height: 3.25rem;
+  border-bottom: 1px solid var(--sidonia-line);
+  font-size: 1.25rem;
+  font-weight: 500;
+  color: inherit;
+  text-decoration: none;
+}
+
+/* Tira de categorías (móvil) */
+.harness-strip {
+  border-top: 1px solid color-mix(in srgb, currentColor 14%, transparent);
+}
+
+.harness-strip ul {
+  display: flex;
+  gap: 1.25rem;
+  margin: 0;
+  padding: 0 var(--sidonia-gutter);
+  overflow-x: auto;
+  list-style: none;
+  scrollbar-width: none;
+}
+
+.harness-strip a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.75rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: inherit;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.harness-header .sidonia-header-actions .sidonia-fav-link {
+  display: inline-grid;
+}
+
+@media (min-width: 1024px) {
+  html {
+    --harness-header-h: 4.5rem;
+  }
+
+  .harness-drawer,
+  .harness-strip {
+    display: none;
+  }
+
+  .harness-nav {
+    display: block;
+    margin-right: auto;
+  }
+
+  .harness-logo {
+    margin-right: 1.5rem;
+  }
+
+  .harness-tools {
+    gap: 0.5rem;
+  }
+}
+
+/* ---------------------------------------------------------------- estado transparente */
+/*
+ * Primer render correcto sin JavaScript: :has() detecta que la PRIMERA sección del contenido
+ * declara data-sidonia-header-overlay. La cabecera pasa a posición fija (el bloque visual ya reserva
+ * su altura con padding), así que cambiar entre transparente y sólida no altera la altura ni mueve nada.
+ * sidonia-core.js añade html[data-sidonia-header="solid"] al superar el bloque o abrir un panel.
+ */
+html:has(#MainContent > .shopify-section:first-child [data-sidonia-header-overlay='true']) .harness-header-section {
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: 0;
+}
+
+html:has(#MainContent > .shopify-section:first-child [data-sidonia-header-overlay='true']):not([data-sidonia-header='solid']) .harness-header:not(.is-panel-open):not(:has(details[open])) {
+  --harness-fg: #fff;
+  --sidonia-cta-bg: var(--sidonia-surface);
+  --sidonia-cta-fg: var(--sidonia-text);
+  background: transparent;
+  border-color: transparent;
+}
+
+html:has(#MainContent > .shopify-section:first-child [data-sidonia-header-overlay='true']):not([data-sidonia-header='solid']) .harness-header:not(.is-panel-open):not(:has(details[open])) .harness-logo__img--light {
+  display: block;
+}
+
+html:has(#MainContent > .shopify-section:first-child [data-sidonia-header-overlay='true']):not([data-sidonia-header='solid']) .harness-header:not(.is-panel-open):not(:has(details[open])) .harness-logo__img--dark:has(+ .harness-logo__img--light) {
+  display: none;
+}
+
+html:has(#MainContent > .shopify-section:first-child [data-sidonia-header-overlay='true']):not([data-sidonia-header='solid']) .harness-header:not(.is-panel-open):not(:has(details[open])) .sidonia-dot {
+  box-shadow: 0 0 0 1.5px rgb(255 255 255 / 0.9);
+}
+
+html:has(#MainContent > .shopify-section:first-child [data-sidonia-header-overlay='true']):not([data-sidonia-header='solid']) .harness-header:not(.is-panel-open):not(:has(details[open])) .sidonia-fav-count {
+  background: #fff;
+  color: var(--sidonia-text);
+}
+
+/* El hero reserva la tira de categorías móvil además de la barra */
+@media (max-width: 1023px) {
+  html {
+    --sidonia-header-h: calc(var(--harness-header-h) + 2.75rem);
+    --sidonia-sticky-top: calc(var(--harness-header-h) + 2.75rem);
+  }
+}
+
+/* ---------------------------------------------------------------- aviso del arnés */
+
+.harness-notice {
+  margin: 0;
+  padding: 0.75rem var(--sidonia-gutter);
+  background: var(--sidonia-alt);
+  color: var(--sidonia-muted);
+  font-size: 0.75rem;
+  text-align: center;
+  border-top: 1px dashed var(--sidonia-control);
+}

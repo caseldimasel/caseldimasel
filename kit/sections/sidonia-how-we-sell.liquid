@@ -1,0 +1,89 @@
+{%- comment -%}
+  SIDONIA · Cómo vendemos (pasos). Copy humano y sin promesas no confirmadas:
+  ni plazos de venta, ni valoraciones profesionales, ni gestión documental, ni inspecciones.
+{%- endcomment -%}
+{%- liquid
+  assign s = section.settings
+  capture sell_url
+    render 'sidonia-url', key: 'sell'
+  endcapture
+  capture how_url
+    render 'sidonia-url', key: 'how'
+  endcapture
+  capture how_exists
+    render 'sidonia-url', key: 'how', out: 'exists'
+  endcapture
+  assign anchor_id = s.anchor | default: 'sidonia-como' | handleize
+-%}
+<section id="{{ anchor_id }}" class="sidonia-scope sidonia-section sidonia-how{% if s.background == 'alt' %} sidonia-section--alt{% elsif s.background == 'surface' %} sidonia-section--surface{% endif %}" data-section-id="{{ section.id }}">
+  <div class="sidonia-container">
+    <div class="sidonia-head">
+      <div class="sidonia-head__text">
+        {%- if s.eyebrow != blank -%}<p class="sidonia-eyebrow">{{ s.eyebrow | escape }}</p>{%- endif -%}
+        {%- if s.heading != blank -%}<h2 class="sidonia-h2">{{ s.heading | escape }}</h2>{%- endif -%}
+        {%- if s.text != blank -%}<p class="sidonia-lede">{{ s.text | escape }}</p>{%- endif -%}
+      </div>
+    </div>
+    <ol class="sidonia-steps" role="list">
+      {%- for block in section.blocks -%}
+        <li class="sidonia-step" {{ block.shopify_attributes }}>
+          <span class="sidonia-step__num" aria-hidden="true">{{ forloop.index | prepend: '0' | slice: -2, 2 }}</span>
+          <h3 class="sidonia-step__title">{{ block.settings.title | escape }}</h3>
+          {%- if block.settings.text != blank -%}<p class="sidonia-step__text">{{ block.settings.text | escape }}</p>{%- endif -%}
+        </li>
+      {%- endfor -%}
+    </ol>
+    {%- if s.show_ctas -%}
+      <div class="sidonia-how__ctas">
+        <a class="sidonia-btn" href="{{ sell_url | strip }}" data-sidonia-track="sell_cta">{{ s.cta_label | escape }}</a>
+        {%- if s.show_more and how_exists contains 'true' and template.suffix != 'how-it-works' -%}
+          <a class="sidonia-link" href="{{ how_url | strip }}">{{ s.more_label | escape }}{%- render 'sidonia-icon', name: 'arrow-right', size: 18 -%}</a>
+        {%- endif -%}
+      </div>
+    {%- endif -%}
+  </div>
+</section>
+
+{% schema %}
+{
+  "name": "Sidonia · Cómo vendemos",
+  "tag": "div",
+  "settings": [
+    { "type": "text", "id": "eyebrow", "label": "Antetítulo", "default": "Para propietarios" },
+    { "type": "text", "id": "heading", "label": "Título", "default": "Cómo vendemos" },
+    { "type": "textarea", "id": "text", "label": "Texto", "default": "Contamos cada pieza como merece y la presentamos a quien sabe apreciarla." },
+    { "type": "text", "id": "anchor", "label": "Ancla (id)", "default": "sidonia-como" },
+    { "type": "select", "id": "background", "label": "Fondo", "options": [
+      { "value": "bg", "label": "Piedra" },
+      { "value": "surface", "label": "Piedra clara" },
+      { "value": "alt", "label": "Piedra alternativa" }
+    ], "default": "alt" },
+    { "type": "checkbox", "id": "show_ctas", "label": "Mostrar botones", "default": true },
+    { "type": "text", "id": "cta_label", "label": "Botón", "default": "Vender con Sidonia" },
+    { "type": "checkbox", "id": "show_more", "label": "Enlazar a la página «Cómo vendemos»", "default": true },
+    { "type": "text", "id": "more_label", "label": "Texto del enlace", "default": "Conoce el proceso" }
+  ],
+  "blocks": [
+    {
+      "type": "step",
+      "name": "Paso",
+      "settings": [
+        { "type": "text", "id": "title", "label": "Título", "default": "Paso" },
+        { "type": "textarea", "id": "text", "label": "Texto" }
+      ]
+    }
+  ],
+  "max_blocks": 6,
+  "presets": [
+    {
+      "name": "Sidonia · Cómo vendemos",
+      "blocks": [
+        { "type": "step", "settings": { "title": "Nos cuentas qué tienes", "text": "Qué es, dónde está y, sobre todo, qué lo hace especial para ti." } },
+        { "type": "step", "settings": { "title": "Valoramos si encaja", "text": "Lo estudiamos con calma y, si encaja en Sidonia, acordamos el proceso contigo." } },
+        { "type": "step", "settings": { "title": "Grabamos su historia", "text": "Vamos a verlo, lo grabamos y contamos su historia con una narración cuidada." } },
+        { "type": "step", "settings": { "title": "La presentamos", "text": "La mostramos a nuestra comunidad y atendemos el interés que genera, según el servicio contratado." } }
+      ]
+    }
+  ]
+}
+{% endschema %}
