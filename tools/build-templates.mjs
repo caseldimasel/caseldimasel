@@ -1,8 +1,9 @@
 // Genera las plantillas JSON del kit (kit/templates/*.json) a partir de una única definición.
-// Uso: node tools/build-templates.mjs
+// Uso: node tools/build-templates.mjs          (escribe kit/templates/*.json)
+//      node tools/build-templates.mjs --check  (no escribe; sale con 1 si alguna plantilla difiere)
 // Las plantillas solo usan secciones sidonia-*; su reconciliación con las de Impact se decide
 // en la auditoría (ver integration/manifest.json y docs/02-instalacion.md).
-import { writeFileSync, mkdirSync } from 'node:fs';
+import { writeFileSync, mkdirSync, readFileSync, existsSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -109,7 +110,7 @@ T['page.how-it-works'] = template([
   ['faq', faq('all')],
   ['owner_cta', ownerCta('none')]
 ]);
-T['page.about'] = template([
+T['page.sidonia-about'] = template([
   ['header', { type: 'sidonia-page-header', settings: { eyebrow: 'Sobre Sidonia', show_page_content: true } }],
   ['criteria', { type: 'sidonia-criteria', settings: { background: 'surface' }, ...CRITERIA }],
   ['community', { type: 'sidonia-community', settings: { background: 'bg' } }],
@@ -126,6 +127,14 @@ T['page.wanted'] = template([
   ['form', { type: 'sidonia-contact-form', settings: { mode: 'wanted', heading: 'Qué buscas', button: 'Enviar' } }]
 ]);
 
+if (process.argv.includes('--check')) {
+  const stale = Object.entries(T).filter(([name, data]) => {
+    const f = join(OUT, `${name}.json`);
+    return !existsSync(f) || readFileSync(f, 'utf8') !== HEADER + JSON.stringify(data, null, 2) + '\n';
+  });
+  stale.forEach(([name]) => console.log(`Desactualizada: kit/templates/${name}.json`));
+  process.exit(stale.length ? 1 : 0);
+}
 for (const [name, data] of Object.entries(T)) {
   writeFileSync(join(OUT, `${name}.json`), HEADER + JSON.stringify(data, null, 2) + '\n');
 }

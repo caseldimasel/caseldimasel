@@ -155,7 +155,7 @@ log.modified.push(`${MANIFEST.layout.file} (render de sidonia-head y sidonia-bod
 
 /* ---------- 6. parches ---------- */
 const patchDir = join(ROOT, 'integration', 'patches');
-const patches = existsSync(patchDir) ? readdirSync(patchDir).filter((f) => f.endsWith('.mjs')).sort() : [];
+const patches = existsSync(patchDir) ? readdirSync(patchDir).filter((f) => f.endsWith('.mjs') && !f.startsWith('_')).sort() : [];
 for (const p of patches) {
   const mod = await import(pathToFileURL(join(patchDir, p)).href);
   if (typeof mod.apply !== 'function') continue;
@@ -163,8 +163,16 @@ for (const p of patches) {
     log.notes.push(`parche ${p}: no aplica a este tema base`);
     continue;
   }
-  const r = await mod.apply(out);
+  let r;
+  try {
+    r = await mod.apply(out, { base, root: ROOT, update });
+  } catch (e) {
+    console.error(`\nEl parche ${p} no se ha podido aplicar: ${e.message}\nNo se ha completado la integración (la salida queda a medias en ${out}; el tema base no se ha tocado).`);
+    process.exit(5);
+  }
   (r && r.modified ? r.modified : []).forEach((m) => log.modified.push(`${m} (parche ${p})`));
+  (r && r.created ? r.created : []).forEach((m) => log.created.push(`${m} (parche ${p})`));
+  (r && r.notes ? r.notes : []).forEach((m) => log.notes.push(`parche ${p}: ${m}`));
 }
 if (!patches.length) log.notes.push('Sin parches específicos de Impact todavía: se escriben tras la auditoría (integration/patches/README.md).');
 

@@ -62,7 +62,8 @@ img {
   z-index: var(--sidonia-z-header, 30);
 }
 
-.harness-header {
+.harness-header,
+.harness-header.sidonia-scope {
   --harness-fg: var(--sidonia-text);
   background: var(--sidonia-bg);
   color: var(--harness-fg);

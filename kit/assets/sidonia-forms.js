@@ -227,11 +227,15 @@
     this.setBusy(true);
     if (this.status) this.status.textContent = S.t('sending');
     S.announce(S.t('sending'));
+    // Si la conexión se queda colgada, a los 25 s se avisa como fallo de red (los datos siguen en el formulario).
+    var ctrl = typeof AbortController === 'function' ? new AbortController() : null;
+    var timer = ctrl ? setTimeout(function () { ctrl.abort(); }, 25000) : null;
     fetch(this.form.getAttribute('action') || location.pathname, {
       method: 'POST',
       body: new FormData(this.form),
       credentials: 'same-origin',
-      headers: { Accept: 'text/html' }
+      headers: { Accept: 'text/html' },
+      signal: ctrl ? ctrl.signal : undefined
     })
       .then(function (res) {
         return res.text().then(function (text) {
@@ -245,6 +249,7 @@
         if (self.submitBtn) self.submitBtn.focus();
       })
       .then(function () {
+        if (timer) clearTimeout(timer);
         self.setBusy(false);
       });
   };

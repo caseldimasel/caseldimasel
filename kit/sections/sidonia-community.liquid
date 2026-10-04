@@ -28,6 +28,9 @@
     render 'sidonia-social', out: 'updated'
   endcapture
   assign updated = updated | strip
+  if updated != blank
+    assign updated = updated | date: '%d/%m/%Y'
+  endif
   assign has_statement = false
   if s.show_statement and s.statement_figure != blank
     assign has_statement = true

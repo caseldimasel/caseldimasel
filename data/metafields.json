@@ -117,7 +117,7 @@
   "pages": [
     { "handle": "vender-con-sidonia", "title": "Vender con Sidonia", "template": "sell" },
     { "handle": "como-vendemos", "title": "Cómo vendemos", "template": "how-it-works" },
-    { "handle": "sobre-sidonia", "title": "Sobre Sidonia", "template": "about" },
+    { "handle": "sobre-sidonia", "title": "Sobre Sidonia", "template": "sidonia-about" },
     { "handle": "favoritos", "title": "Favoritos", "template": "favorites" },
     { "handle": "contacto", "title": "Contacto", "template": "sidonia-contact" },
     { "handle": "busco", "title": "Cuéntanos qué buscas", "template": "wanted" }

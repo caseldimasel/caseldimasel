@@ -778,15 +778,17 @@ body.sidonia-skin {
 
 .sidonia-card__body {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--sidonia-s1);
   padding-top: var(--sidonia-s4);
 }
 
 .sidonia-card__top {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: var(--sidonia-s3);
+  gap: var(--sidonia-s1) var(--sidonia-s3);
   min-height: 1.75rem;
 }
 
@@ -1106,7 +1108,7 @@ body.sidonia-skin {
 }
 
 .sidonia-video-modal .sidonia-player {
-  max-height: calc(100dvh - 6rem);
+  --sidonia-player-max-h: calc(100dvh - 7rem);
   border-radius: var(--sidonia-radius-s);
 }
 
@@ -1133,22 +1135,35 @@ html.sidonia-lock {
 
 /* ---------------------------------------------------------------- reproductor */
 
+/* «hidden» siempre gana a las reglas de display de los componentes Sidonia (y solo a las suyas). */
+[class*='sidonia-'][hidden],
+.sidonia-scope [hidden] {
+  display: none !important;
+}
+
+/* Los elementos personalizados son «inline» por defecto: se fijan como bloque. */
+sidonia-player:not([hidden]),
+sidonia-facets:not([hidden]),
+sidonia-favorites-page:not([hidden]),
+sidonia-favorites-tools:not([hidden]),
+sidonia-autopreview:not([hidden]),
+sidonia-share:not([hidden]) {
+  display: block;
+}
+
+/* El ancho se calcula a partir del alto máximo y la proporción real del vídeo: un vertical nunca se recorta
+   ni desborda el viewport; un horizontal ocupa el ancho disponible. */
 .sidonia-player {
   position: relative;
-  width: 100%;
+  display: block;
+  width: min(100%, calc(var(--sidonia-player-max-h, 82vh) * var(--sidonia-video-ratio, 0.5625)));
   aspect-ratio: var(--sidonia-video-ratio, 9 / 16);
   max-width: 100%;
+  margin-inline: auto;
   overflow: hidden;
   border-radius: var(--sidonia-radius);
   background: var(--sidonia-media);
   color: var(--sidonia-on-media);
-}
-
-.sidonia-player--portrait {
-  width: auto;
-  height: min(var(--sidonia-player-max-h, 78vh), 100%);
-  max-height: var(--sidonia-player-max-h, 78vh);
-  margin-inline: auto;
 }
 
 .sidonia-player__poster,
@@ -1283,6 +1298,20 @@ html.sidonia-lock {
   border-radius: 50%;
   color: inherit;
   text-decoration: none;
+}
+
+.sidonia-fav-link--text {
+  display: inline-flex;
+  gap: var(--sidonia-s2);
+  width: auto;
+  height: auto;
+  border-radius: 0;
+  color: inherit;
+  text-decoration: none;
+}
+
+.sidonia-fav-link--text .sidonia-fav-count {
+  position: static;
 }
 
 .sidonia-fav-link:hover {

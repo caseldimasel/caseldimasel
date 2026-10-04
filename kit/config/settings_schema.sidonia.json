@@ -131,7 +131,7 @@
     "name": "Sidonia · Vídeo",
     "settings": [
       { "type": "text", "id": "sidonia_video_language", "label": "Idioma por defecto de los vídeos", "default": "Español" },
-      { "type": "checkbox", "id": "sidonia_page_preview", "label": "Clip silencioso en la ficha (escritorio)", "default": true, "info": "Usa el clip breve de cada pieza. Nunca con «reducir movimiento» ni ahorro de datos; nunca suena." },
+      { "type": "checkbox", "id": "sidonia_page_preview", "label": "Clip silencioso en la ficha (escritorio)", "default": false, "info": "Desactivado por defecto: la ficha abre con la foto de portada y no descarga vídeo. Si lo activas usa el clip breve de cada pieza; nunca con «reducir movimiento» ni ahorro de datos y nunca suena." },
       { "type": "checkbox", "id": "sidonia_card_hover_preview", "label": "Clip silencioso al pasar el ratón por una tarjeta", "default": false, "info": "Solo escritorio con ratón. Se descarga al pasar por encima, nunca al cargar el listado." },
       { "type": "checkbox", "id": "sidonia_external_consent", "label": "Pedir permiso antes de cargar YouTube o Vimeo", "default": true }
     ]

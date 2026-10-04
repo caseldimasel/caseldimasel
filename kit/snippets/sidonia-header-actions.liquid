@@ -4,7 +4,8 @@
   Hereda el color de texto de la cabecera (currentColor), así funciona sobre la cabecera
   transparente y sobre la sólida piedra sin cambiar de tamaño.
 
-  Parámetros: show_favorites (por defecto true), show_sell (por defecto true), sell_label (opcional)
+  Parámetros: show_favorites (por defecto true), show_sell (por defecto true), sell_label (opcional),
+              variant ('text' = enlace «Favoritos» con texto, para menús desplegables o paneles móviles)
 {%- endcomment -%}
 {%- liquid
   capture fav_url
@@ -21,6 +22,14 @@
     assign label = 'sidonia.header.sell' | t
   endif
 -%}
+{%- if variant == 'text' -%}
+  {%- if fav_exists contains 'true' -%}
+    <a class="sidonia-fav-link sidonia-fav-link--text" href="{{ fav_url | strip }}" data-sidonia-fav-link>
+      {%- render 'sidonia-icon', name: 'heart', size: 20 -%}<span>{{ 'sidonia.favorites.menu_label' | t }}</span>
+      <sidonia-fav-count class="sidonia-fav-count" hidden></sidonia-fav-count>
+    </a>
+  {%- endif -%}
+{%- else -%}
 <div class="sidonia-header-actions">
   {%- unless show_favorites == false -%}
     {%- if fav_exists contains 'true' -%}
@@ -34,3 +43,4 @@
     <a class="sidonia-btn sidonia-btn--sm sidonia-sell-cta" href="{{ sell_url | strip }}" data-sidonia-track="sell_cta"><span class="sidonia-sell-cta__long">{{ label | escape }}</span><span class="sidonia-sell-cta__short" aria-hidden="true">{{ 'sidonia.header.sell_short' | t }}</span></a>
   {%- endunless -%}
 </div>
+{%- endif -%}

@@ -16,7 +16,7 @@
       if (this._bound) return;
       this._bound = true;
       var listing = this.closest('[data-sidonia-listing]');
-      if (!listing || !('IntersectionObserver' in window)) return;
+      if (!listing) return;
       this.hidden = false;
       this.classList.add('is-hidden');
       this._actionsVisible = true;
@@ -26,15 +26,28 @@
       var actions = listing.querySelector('.sidonia-listing__card');
       var form = document.getElementById('sidonia-consulta');
       var self = this;
-      this._io = new IntersectionObserver(function (entries) {
-        entries.forEach(function (en) {
-          if (en.target === actions) self._actionsVisible = en.isIntersecting || en.boundingClientRect.top > 0;
-          if (en.target === form) self._formVisible = en.isIntersecting;
-        });
+      // Posiciones leídas en cada fotograma de desplazamiento (no con IntersectionObserver: un salto de ancla o un
+      // desplazamiento rápido que pasa por encima del resumen no cruza ningún umbral y dejaría el estado sin actualizar).
+      var frame = 0;
+      this._measure = function () {
+        frame = 0;
+        var vh = window.innerHeight;
+        if (actions) {
+          var a = actions.getBoundingClientRect();
+          self._actionsVisible = a.bottom > 0; // visible o todavía por debajo
+        }
+        if (form) {
+          var f = form.getBoundingClientRect();
+          self._formVisible = f.top < vh && f.bottom > 0;
+        }
         self._apply();
-      });
-      if (actions) this._io.observe(actions);
-      if (form) this._io.observe(form);
+      };
+      this._onScroll = function () {
+        if (!frame) frame = requestAnimationFrame(self._measure);
+      };
+      window.addEventListener('scroll', this._onScroll, { passive: true });
+      window.addEventListener('resize', this._onScroll, { passive: true });
+      this._measure();
       this._onFocusIn = function (e) {
         var t = e.target;
         self._typing = !!(t && /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName));
@@ -63,7 +76,8 @@
     }
     disconnectedCallback() {
       this._bound = false;
-      if (this._io) this._io.disconnect();
+      window.removeEventListener('scroll', this._onScroll);
+      window.removeEventListener('resize', this._onScroll);
       clearInterval(this._poll);
       document.removeEventListener('focusin', this._onFocusIn);
       document.removeEventListener('focusout', this._onFocusOut);

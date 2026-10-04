@@ -170,9 +170,12 @@
   {%- endpaginate -%}
 {%- endif -%}
 
+
+<script src="{{ 'sidonia-catalog.js' | asset_url }}" defer></script>
+
 {% schema %}
 {
-  "name": "Sidonia · Catálogo con filtros",
+  "name": "Sidonia · Catálogo",
   "tag": "div",
   "class": "sidonia-section-catalog",
   "enabled_on": { "templates": ["collection", "search"] },

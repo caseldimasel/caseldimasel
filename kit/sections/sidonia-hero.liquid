@@ -106,9 +106,21 @@
   assign sell_url = sell_url | strip
   assign overlay = s.overlay | default: 45 | divided_by: 100.0
 -%}
+{%- if overlay_on -%}
+  {%- comment -%}
+    Contrato de cabecera transparente del tema anfitrión. En Impact (verificado en 7.2.0): la sección
+    declara «allow-transparent-header» y sube bajo la cabecera con este margen; el JavaScript de Impact
+    pone la cabecera sólida al bajar o al abrir un panel. Sin esas variables, el margen es 0.
+  {%- endcomment -%}
+  <style>
+    #shopify-section-{{ section.id }} {
+      margin-block-start: calc(-1 * var(--header-height, 0px) * var(--section-is-first, 0));
+    }
+  </style>
+{%- endif -%}
 <section
   class="sidonia-scope sidonia-hero{% if has_media %} sidonia-hero--media{% else %} sidonia-hero--plain{% endif %} sidonia-hero--{{ s.height }}"
-  {% if overlay_on %}data-sidonia-header-overlay="true"{% endif %}
+  {% if overlay_on %}data-sidonia-header-overlay="true" allow-transparent-header{% endif %}
   data-section-id="{{ section.id }}"
   style="--sidonia-hero-shade: {{ overlay }};"
 >

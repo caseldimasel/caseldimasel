@@ -8,5 +8,5 @@ impact/
 # Artefactos generados (se reconstruyen con los scripts de tools/ e integration/)
 build/
 dist/
-harness/fixtures/*.webm
+tools/harness/fixtures/*.webm
 legacy/tema-independiente-1.4.0/tools/preview/fixtures/clip.webm

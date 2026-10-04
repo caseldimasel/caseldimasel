@@ -18,7 +18,8 @@
     "price": {
       "format": "{{ amount }} {{ symbol }}",
       "ask": "Precio a consultar",
-      "hidden": "Precio no publicado"
+      "hidden": "Precio no publicado",
+      "from": "Desde {{ price }}"
     },
     "status": {
       "available": "Disponible",
@@ -294,6 +295,7 @@
     "favorites": {
       "save": "Guardar",
       "saved": "Guardado",
+      "menu_label": "Favoritos",
       "save_aria": "Guardar {{ title }}",
       "added": "Guardada en este navegador: {title}",
       "removed": "Quitada de tus guardadas: {title}",

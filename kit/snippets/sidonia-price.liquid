@@ -7,6 +7,8 @@
     «A consultar»                 → ask        «Precio a consultar»
     «No publicado» o sin dato     → hidden     «Precio no publicado»
   Una pieza vendida nunca muestra precio: → sold (texto vacío; la etiqueta «Vendido» informa).
+  Un producto de la tienda que NO es una pieza Sidonia (sin sidonia.category: libros, láminas…) puede
+  aparecer en la búsqueda: muestra su precio de venta normal de Shopify → commerce.
 
   Parámetros: product, out = text (por defecto) | kind | amount | currency
 {%- endcomment -%}
@@ -19,7 +21,13 @@
   endif
   assign status_raw = product.metafields.sidonia.status.value | downcase | strip
   assign kind = 'hidden'
-  if status_raw == 'vendido' or status_raw == 'vendida' or status_raw == 'sold'
+  assign is_piece = false
+  if product.metafields.sidonia.category != blank
+    assign is_piece = true
+  endif
+  if is_piece == false and product.price > 0
+    assign kind = 'commerce'
+  elsif status_raw == 'vendido' or status_raw == 'vendida' or status_raw == 'sold'
     assign kind = 'sold'
   elsif mode == 'a consultar' or mode == 'consultar' or mode == 'ask' or mode == 'request'
     assign kind = 'ask'
@@ -46,6 +54,13 @@
           echo 'sidonia.price.ask' | t
         when 'hidden'
           echo 'sidonia.price.hidden' | t
+        when 'commerce'
+          assign shop_price = product.price | money
+          if product.price_varies
+            echo 'sidonia.price.from' | t: price: shop_price
+          else
+            echo shop_price
+          endif
       endcase
   endcase
 -%}

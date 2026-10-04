@@ -9,6 +9,7 @@
     required (bool: obligatorio siempre), cat_required (bool: obligatorio solo si su categoría está activa),
     optional_label (bool), autocomplete, inputmode, options | options_key ("valor|Etiqueta;valor|Etiqueta"),
     wide (bool), class
+  lint:opcional uid, field, label, label_key, help, help_key, placeholder, placeholder_key, options, options_key
 {%- endcomment -%}
 {%- liquid
   assign t = type | default: 'text'
