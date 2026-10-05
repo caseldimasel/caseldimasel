@@ -245,8 +245,18 @@ export const SORT_OPTIONS = [
 
 /** SIDONIA_SHOP_DATA=1: la misma pieza como producto «normal» de Shopify (foto, precio en la variante y etiquetas
  *  «Clave: valor»), que es como están hoy los productos en la tienda. Para probar el tema del repo Sidonia-Shopify. */
+// Descripciones [PRUEBA] con el formato de la tienda real: emojis, datos y la historia mezclados, en tres variantes
+const SHOP_DESCRIPTIONS = {
+  'prueba-coche-a': '<p>🔥 [PRUEBA] Coche de ejemplo A 🔥</p><p>Un coche con mucha historia: perteneció a un médico de Sevilla que lo usó durante treinta años para sus escapadas por la sierra. 🏁 Restaurado en 2019 respetando su configuración original.</p><p>Ha dormido siempre en garaje y conserva la documentación de origen.</p><p>✅ Año: 1972<br>✅ Kilómetros: 84.000 km<br>✅ Motor: 1.3 litros<br>✅ Potencia: 89 CV<br>✅ Cambio: Manual de 5 velocidades<br>✅ Color: Rosso Alfa</p><p>📍 Madrid</p>',
+  'prueba-barco-a': '<h3>⚓️ Historia</h3><p>Un velero que ha cruzado el Atlántico dos veces con la misma familia. 🌊 Cada verano ha recorrido las calas de Menorca.</p><h3>Ficha técnica</h3><ul><li>Año: 1988</li><li>Eslora: 12,5 m</li><li>Manga: 3,9 m</li><li>Motor: Volvo Penta 40 CV</li><li>Horas de motor: 1.200</li><li>Velas nuevas en 2022</li></ul><h3>Ubicación</h3><p>Puerto de Mahón, Menorca</p>',
+  'prueba-casa-a': '<p><strong>🏡 HISTORIA</strong></p><p>Casa de pueblo de 1890 rehabilitada por un arquitecto local, con patio interior y vigas originales. ☀️</p><p><strong>CARACTERÍSTICAS</strong></p><p>- Superficie: 180 m²<br>- Habitaciones: 4<br>- Baños: 2<br>- Parcela: 300 m²</p><p>Ubicación: Valldemossa, Mallorca</p>'
+};
+
 function shopLike(id, o, cover, data) {
-  const media = cover ? [{ ...cover, media_type: 'image', preview_image: cover, position: 1 }] : [];
+  const extra = cover && SHOP_DESCRIPTIONS[o.handle]
+    ? [1, 2, 3, 4, 5, 6].map((n) => image(`${o.title} ${n}`, 1600, 1200, ['#8a7f6a', '#6f7d86', '#9a8f78', '#56616a', '#7b6f5e', '#8d8577'][n - 1], `${o.title} — foto ${n + 1}`, '50.0% 50.0%', n % 2 ? CAR_PHOTOS[(n + 1) % CAR_PHOTOS.length] : undefined))
+    : [];
+  const media = cover ? [cover, ...extra].map((im, i) => ({ ...im, media_type: 'image', preview_image: im, position: i + 1 })) : [];
   const price = o.price_mode === 'Publicado' ? Math.round((o.price || 0) * 100) : 0;
   const available = o.status !== 'Vendido';
   const variant = { id: id * 10, title: 'Default Title', price, compare_at_price: null, available, url: `/products/${o.handle}?variant=${id * 10}`, options: ['Default Title'], option1: 'Default Title', featured_media: null, selling_plan_allocations: [], quantity_rule: { min: 1, max: null, increment: 1 } };
@@ -263,8 +273,8 @@ function shopLike(id, o, cover, data) {
   if (o.fuel) tags.push(`Combustible: ${o.fuel}`);
   if (o.city || o.region) tags.push(`Ubicación: ${o.city || o.region}`);
   return {
-    id, handle: o.handle, title: o.title, url: `/products/${o.handle}`, description: o.description || '', vendor: o.brand || o.builder || '', type: o.category.replace(/s$/, ''),
-    tags, published_at: '2026-09-01T10:00:00Z', created_at: `2026-09-${String(1 + (id % 27)).padStart(2, '0')}T10:00:00Z`, template_suffix: '',
+    id, handle: o.handle, title: o.title, url: `/products/${o.handle}`, description: SHOP_DESCRIPTIONS[o.handle] || o.description || '', vendor: o.brand || o.builder || '', type: o.category.replace(/s$/, ''),
+    tags, published_at: '2026-09-01T10:00:00Z', created_at: `2026-09-${String(1 + (id % 27)).padStart(2, '0')}T10:00:00Z`, template_suffix: 'cars',
     featured_image: cover, featured_media: media[0] || null, images: cover ? [cover] : [], media,
     price, price_min: price, price_max: price, price_varies: false, compare_at_price: null, compare_at_price_min: 0, compare_at_price_max: 0, compare_at_price_varies: false,
     available, variants: [variant], selected_or_first_available_variant: variant, first_available_variant: variant, selected_variant: null, has_only_default_variant: true,
