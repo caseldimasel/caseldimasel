@@ -16,7 +16,10 @@ Para cada producto:
 
 Uso:
   python3 preparar-descripciones.py productos_export.csv
-      -> productos_export_preparado.csv   (para importar en Shopify: «Sobrescribir productos con el mismo identificador»)
+      -> productos_export_importar.csv    (el que se importa en Shopify con «Sobrescribir productos con el mismo
+                                           identificador»: solo Handle, título, descripción, SEO y filtros de los
+                                           productos que cambian, así no toca fotos, vídeos, precios ni existencias)
+      -> productos_export_preparado.csv   (la exportación completa con los cambios, como copia)
       -> productos_export_revision.html  (antes y después de cada producto, para revisarlo antes de importar)
   Opciones: --titulos (quita también los emojis de los títulos) · --solo-emojis (no reorganiza nada)
             --sin-filtros (no añade las columnas de filtros)
@@ -353,7 +356,7 @@ def main():
             fila.extend([''] * (len(cab) - len(fila)))
     resumen = []
 
-    informe, n_reorg, n_emojis, n_titulos = [], 0, 0, 0
+    informe, para_importar, n_reorg, n_emojis, n_titulos = [], [], 0, 0, 0
     for fila in filas[1:]:
         if len(fila) <= col['Body (HTML)']:
             continue
@@ -362,6 +365,7 @@ def main():
         body = fila[col['Body (HTML)']]
         if not body.strip() and not titulo.strip():
             continue  # fila de variante o imagen
+        original = list(fila)
         antes = body
         nuevo = None if solo_emojis else reescribir(body, sin_emojis(titulo).strip())
         if nuevo is None:
@@ -383,9 +387,20 @@ def main():
             n_titulos += 1
         if nuevo != antes:
             informe.append((handle, sin_emojis(titulo).strip() or handle, antes, nuevo))
+        if fila != original:
+            para_importar.append(fila)
 
     with open(base + '_preparado.csv', 'w', newline='', encoding='utf-8') as f:
         csv.writer(f).writerows(filas)
+
+    # Solo las columnas que cambian, una fila por producto: al importarlo no se tocan fotos, vídeos, precios ni stock
+    # (en Shopify, una columna que no está en el CSV se queda como estaba; una columna vacía se borra)
+    cols = [col[n] for n in ('Handle', 'Title', 'Body (HTML)', 'SEO Description') if n in col] + list(col_filtro.values())
+    with open(base + '_importar.csv', 'w', newline='', encoding='utf-8') as f:
+        w = csv.writer(f)
+        w.writerow([cab[i] for i in cols])
+        for fila in para_importar:
+            w.writerow([fila[i] for i in cols])
 
     e = html.escape
     with open(base + '_revision.html', 'w', encoding='utf-8') as f:
@@ -414,7 +429,8 @@ def main():
         for clave, nombre in (('tipo', 'Tipo'), ('decada', 'Década'), ('provincia', 'Localización'), ('marca', 'Marca')):
             c = collections.Counter(d[clave] or '(vacío)' for _, _, d in resumen)
             print(f'{nombre}: ' + ', '.join(f'{k} {v}' for k, v in sorted(c.items(), key=lambda x: -x[1])))
-    print(f'Escrito: {base}_preparado.csv')
+    print(f'Para importar: {base}_importar.csv ({len(para_importar)} productos; solo título, descripción, SEO y filtros)')
+    print(f'Completo: {base}_preparado.csv')
     print(f'Revisión: {base}_revision.html')
 
 
