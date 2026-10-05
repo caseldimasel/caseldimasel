@@ -24,9 +24,10 @@ Uso:
   Opciones: --titulos (quita también los emojis de los títulos) · --solo-emojis (no reorganiza nada)
             --sin-filtros (no añade las columnas de filtros)
 
-Filtros: a cada anuncio le añade Marca, Década, Tipo de anuncio (Coche / Barco / Casa / Moto), Localización
-(provincia) y Ubicación como metacampos custom.* (columnas «… (product.metafields.custom.…)»). Antes de importar,
-crea esas definiciones en Shopify (Ajustes > Datos personalizados > Productos, «Texto de una línea»).
+Filtros: a cada anuncio le añade Tipo (carrocería del coche: 4x4, Coupé, Familiar…; tipo de barco o de casa), Marca,
+Año, Kilómetros (por tramos), Combustible y Localización (provincia) como metacampos custom.* (columnas
+«… (product.metafields.custom.…)»). Antes de importar, crea esas definiciones en Shopify (Ajustes > Datos
+personalizados > Productos, «Texto de una sola línea»).
 
 El resto del CSV (otras columnas, filas de variantes e imágenes) se copia tal cual.
 """
@@ -240,14 +241,70 @@ def reescribir(body, titulo_producto):
 
 # ------------------------------------------------------------------------------------------------ Datos para filtros
 # Metacampos que se añaden al CSV (hay que crear antes sus definiciones en Shopify: Ajustes > Datos personalizados >
-# Productos, tipo «Texto de una línea»). Search & Discovery los convierte en filtros.
+# Productos, tipo «Texto de una sola línea»). Search & Discovery los convierte en filtros y el tema los muestra con
+# estos nombres (snippets/sidonia-filters.liquid).
 COLUMNAS_FILTRO = [
+    ('tipo', 'Tipo (product.metafields.custom.tipo)'),
     ('marca', 'Marca (product.metafields.custom.marca)'),
-    ('decada', 'Década (product.metafields.custom.decada)'),
-    ('tipo', 'Tipo de anuncio (product.metafields.custom.tipo)'),
+    ('ano', 'Año (product.metafields.custom.ano)'),
+    ('kilometros', 'Kilómetros (product.metafields.custom.kilometros)'),
+    ('combustible', 'Combustible (product.metafields.custom.combustible)'),
     ('provincia', 'Localización (product.metafields.custom.provincia)'),
-    ('ubicacion', 'Ubicación (product.metafields.custom.ubicacion)'),
 ]
+# Tramos de kilómetros: el tema los convierte en «Desde … Hasta …» (mismos textos en snippets/sidonia-filters.liquid)
+TRAMOS_KM = [
+    (25000, 'Menos de 25.000 km'), (50000, '25.000 - 50.000 km'), (100000, '50.000 - 100.000 km'),
+    (150000, '100.000 - 150.000 km'), (200000, '150.000 - 200.000 km'), (float('inf'), 'Más de 200.000 km'),
+]
+
+# Tipo de coche (carrocería). Se mira en este orden y gana el primero:
+#   1. modelos que son 4x4, SUV, pick-up o furgoneta aunque el título diga «Cabrio» (un Clase G cabrio es un 4x4)
+#   2. palabras del título o de «Carrocería:» en la ficha (Cabrio, Coupé, Avant…)
+#   3. la etiqueta «4X4» de la tienda
+#   4. palabras de la descripción (descapotable, capota, coupé, berlina)
+#   5. modelos conocidos (911 → Coupé, Boxster → Descapotable, Golf → Compacto, E30 → Berlina…)
+# Lo que no encaja se queda vacío (en rojo en la revisión) para ponerlo a mano en el producto.
+CLASE_COCHE = [
+    ('4x4', r'\b(DEFENDER|SANTANA|SERIE I{1,3}|LAND ROVER (88|109|110)|RANGE ROVER|LAND CRUISER|[BFH]J ?\d\d|WRANGLER|'
+            r'WILLYS|CJ-?\d|CHEROKEE|COMM?ANDO|CLASE G|G-?CLASS|G ?(55|63|500)|\d{3} ?GD|NIVA|MASSIF|PATROL|PAJERO|'
+            r'DISCOVERY|BRONCO|SAMURAI|UNIMOG|4X4)\b'),
+    ('SUV', r'\b(CAYENNE|MACAN|X[3-7]|ESCALADE|ML ?\d{3}|GL[ESC]|Q[357]|TOUAREG|URUS|BENTAYGA|TAHOE|EVOQUE|VELAR)\b'),
+    ('Pick-up', r'\b(PICK-?UP|RAM|F-?\d{3}|HILUX|NAVARA|L200|SILVERADO|TUNDRA)\b'),
+    ('Furgoneta y camper', r'\b(KOMBI|WESTFALIA|CARAVELLE|CALIFORNIA|MULTIVAN|TRANSPORTER|T[1-6]|BULLI|CAMPER|FURGONETA|VAN)\b'),
+]
+PALABRAS_COCHE = [
+    ('Descapotable', r'\b(CABRIO\w*|CONVERTIBLE|DESCAPOTABLE|SPYDER|SPIDER|ROADSTER|TARGA|SPEEDSTER|VOLANTE|BARCHETTA)\b'),
+    ('Coupé', r'\b(COUP[EÉ])\b'),
+    ('Familiar', r'\b(AVANT|TOURING|ESTATE|BREAK|VARIANT|SHOOTING BRAKE|SPORTWAGON|FAMILIAR)\b|^MERCEDES.*\b\d{3} ?T[DE]?\b'),
+]
+DESCRIPCION_COCHE = [
+    ('Descapotable', r'\b(descapotable|cabrio\w*|convertible|roadster|capota)\b'),
+    ('Coupé', r'\bcoup[eé]\b'),
+    ('Berlina', r'\b(berlina|sed[aá]n)\b'),
+]
+MODELOS_COCHE = [
+    ('Descapotable', r'\b(BOXSTER|986|987|SPITFIRE|TR[2-8]A?|COBRA|ELISE|EXIGE|ELAN|914(/\d)?|MX-?5|MIATA|SLK|'
+                     r'Z4|STAG|\d{3} ?SL|SL ?\d{3})\b'),
+    ('Coupé', r'\b((911|912|930|964|993|996|997|991|992|924|928|944|968)\w*|CAYMAN|TESTAROSSA|VANTAGE|DB\d+|XJ-?S|'
+              r'XJR-S|F-TYPE|SUPRA|DELOREAN|FULVIA|PUMA|M[2346]|CLK|CL ?\d{3}|MUSTANG|CAMARO|CORVETTE|Z3|NSX|GT6)\b'),
+    ('Compacto', r'\b(MINI|GOLF|CLIO|YARIS|A35|A45|POLO|IBIZA|FIESTA|CORSA|R5|205|PANDA)\b'),
+    ('Berlina', r'\b(XJ\w*|SOVEREIGN|RAPIDE|REVERO|M5|E(12|21|23|28|30|32|34|36|38|39)|2002\w*|BEETLE|ESCARABAJO|'
+                r'[1-6]\d0 ?(S|SE|SEL|SEB|D|E)?|S ?\d{3}|E ?\d{3})\b'),
+]
+# Tipo de barco y de casa
+CLASE_BARCO = [
+    ('Velero', r'v[ée]lica|m[aá]stil|g[ée]nova|foque|quilla|\bvelero|\bsloop|\bketch|hallberg|\bswan\b|oyster|nauticat'),
+    ('Neumática', r'neum[aá]tic|semirr[ií]gid|\brib\b|zodiac'),
+    ('Llaüt', r'\bll?a[uü]t|llagut'),
+]
+CLASE_CASA = [
+    ('Ático', r'[aá]tico'), ('Piso', r'\b(piso|apartamento|d[uú]plex)\b'), ('Chalet', r'\bchalet'),
+    ('Finca', r'\b(finca|cortijo|mas[ií]a|caser[ií]o|casa de campo|hacienda)\b'), ('Villa', r'\bvilla\b'),
+    ('Casa', r'\bcasa\b'),
+]
+DIESEL = re.compile(r'(\b\d{3}G?D\b|\bTD\d?\b|\d\.\dTD\b|\bTDV\d\b|\bTDI\b|\bCDI\b|\bDSE\b|\bHDI\b|\bJTD\b|\bDCI\b|'
+                    r'DI[EÉ]SEL|GAS[OÓ]LEO)', re.I)
+
 MARCAS_COMPUESTAS = [
     ('LAND CRUISER', 'Toyota'), ('LAND ROVER', 'Land Rover'), ('RANGE ROVER', 'Land Rover'),
     ('ASTON MARTIN', 'Aston Martin'), ('ALFA ROMEO', 'Alfa Romeo'), ('ROLLS ROYCE', 'Rolls-Royce'),
@@ -295,10 +352,63 @@ def provincia_de(lugar):
     return min(hallados)[1] if hallados else ''
 
 
+def primero(reglas, texto, flags=0):
+    for nombre, patron in reglas:
+        if re.search(patron, texto, flags):
+            return nombre
+    return ''
+
+
+def tipo_coche(titulo, filas, texto, etiquetas):
+    t = titulo.upper()
+    carroceria = ' '.join(f.upper() for f in filas if re.match(r'^carrocer[ií]a\b', f, re.I))
+    if t.startswith('COLECCI'):
+        return ''
+    return (primero(CLASE_COCHE, t) or primero(PALABRAS_COCHE, f'{t} {carroceria}')
+            or ('4x4' if '4X4' in etiquetas else '')
+            or primero(DESCRIPCION_COCHE, texto, re.I) or primero(MODELOS_COCHE, t))
+
+
+def kilometros(filas):
+    for fila in filas:
+        # «Kilometraje: 106.000 km», o una línea que empieza por los kilómetros («116.000 km, cuidado…»)
+        if re.match(r'^(kilometraje|kil[oó]metros|km)\b', fila, re.I) or re.match(r'^\d{1,3}(\.\d{3})+\s?(km|kil)', fila, re.I):
+            m = re.search(r'(\d{1,3}(?:[.\s]\d{3})+|\d+)', fila.split(':', 1)[-1])
+            if not m:
+                continue
+            km = int(re.sub(r'\D', '', m.group(1)))
+            if re.search(r'milla|miles', fila, re.I):
+                km = round(km * 1.609)
+            return next(nombre for tope, nombre in TRAMOS_KM if km < tope)
+    return ''
+
+
+def combustible(titulo, filas, clase):
+    dato = next((f.split(':', 1)[1].lower() for f in filas if re.match(r'^combustible\b', f, re.I)), '')
+    if 'híbrid' in dato or 'hibrid' in dato or 'mhev' in dato:
+        return 'Híbrido'
+    if 'eléctric' in dato or 'electric' in dato:
+        return 'Eléctrico'
+    if 'di' in dato and 'sel' in dato or 'gasóleo' in dato or 'gasoleo' in dato:
+        return 'Diésel'
+    if 'gasolina' in dato:
+        return 'Gasolina'
+    if 'glp' in dato:
+        return 'GLP'
+    motor = ' '.join(f for f in filas if re.match(r'^(motor|motorizaci[oó]n)\b', f, re.I))
+    if DIESEL.search(f'{titulo} {motor}'):
+        return 'Diésel'
+    # Sin dato: los clásicos y deportivos son de gasolina; en 4x4, SUV, pick-up y furgonetas no se puede saber
+    if clase in ('4x4', 'SUV', 'Pick-up', 'Furgoneta y camper', ''):
+        return ''
+    return 'Gasolina'
+
+
 def datos_filtro(titulo, body, tags, categoria):
-    """Marca, década, tipo, provincia y ubicación de un anuncio (vacíos si no es un anuncio)."""
+    """Tipo, marca, año, kilómetros, combustible y provincia de un anuncio (vacíos si no se saben)."""
     story, specs, loc, details, _ = partir(body, titulo)
     filas = [t for k, t in specs if k == 'row']
+    texto = html.unescape(re.sub(r'<[^>]+>', ' ', body))
     ano = ''
     for fila in filas:
         if re.match(r'^a[ñn]o\b', fila, re.I):
@@ -311,16 +421,27 @@ def datos_filtro(titulo, body, tags, categoria):
         ano = m[-1] if m else ''
     etiquetas = tags.upper()
     if 'BARCO' in etiquetas or 'Embarcaci' in categoria:
-        tipo = 'Barco'
+        categoria = 'Barco'
     elif CASA.search(titulo):
-        tipo = 'Casa'
+        categoria = 'Casa'
     else:
-        tipo = 'Coche'
-    marca = '' if tipo == 'Casa' else marca_de(titulo)
-    if marca in MARCAS_MOTO:
-        tipo = 'Moto'
-    decada = f'{int(ano) // 10 * 10}-{int(ano) // 10 * 10 + 9}' if ano else ''
-    return {'marca': marca, 'ano': ano, 'decada': decada, 'tipo': tipo, 'provincia': provincia_de(loc), 'ubicacion': loc}
+        categoria = 'Coche'
+    marca = '' if categoria == 'Casa' else marca_de(titulo)
+    km, fuel = '', ''
+    if categoria == 'Casa':
+        tipo_fila = ' '.join(f for f in filas if re.match(r'^tipo\b', f, re.I))
+        tipo = primero(CLASE_CASA, f'{tipo_fila} {titulo}', re.I) or 'Casa'
+    elif categoria == 'Barco':
+        eslora = re.search(r'eslora[^:]*:\s*([\d.,]+)', texto, re.I)
+        metros = float(eslora.group(1).replace('.', '').replace(',', '.')) if eslora else 0
+        tipo = primero(CLASE_BARCO, f'{titulo} {texto}', re.I) or ('Yate' if metros >= 12 else 'Lancha')
+    elif marca in MARCAS_MOTO:
+        tipo, km, fuel = 'Moto', kilometros(filas), combustible(titulo, filas, 'Moto')
+    else:
+        tipo = tipo_coche(titulo, filas, texto, etiquetas)
+        km, fuel = kilometros(filas), combustible(titulo, filas, tipo)
+    return {'tipo': tipo, 'marca': marca, 'ano': ano, 'kilometros': km, 'combustible': fuel,
+            'provincia': provincia_de(loc), 'ubicacion': loc, 'categoria': categoria}
 
 
 def main():
@@ -412,11 +533,18 @@ def main():
                 '@media(max-width:800px){.p{grid-template-columns:1fr}}</style>')
         f.write(f'<h1>Revisión: {len(informe)} productos cambian ({n_reorg} reorganizados, {n_emojis} tenían emojis)</h1>')
         if resumen:
-            f.write('<h2>Datos para los filtros</h2><p>Revisa sobre todo «Marca» y «Localización». Lo vacío se queda sin valor en ese filtro.</p>'
-                    '<table style="border-collapse:collapse;font-size:14px"><tr>' + ''.join(f'<th style="text-align:left;padding:4px 10px;border-bottom:1px solid #ccc">{h}</th>' for h in ('Anuncio', 'Marca', 'Año', 'Década', 'Tipo', 'Localización', 'Ubicación')) + '</tr>')
+            f.write('<h2>Datos para los filtros</h2><p>Revisa sobre todo «Tipo» y «Marca». Lo que está en rojo no se ha '
+                    'podido saber: ese anuncio no saldrá al filtrar por ese dato (se puede poner a mano en el producto, '
+                    'en «Metacampos»).</p><table style="border-collapse:collapse;font-size:14px"><tr>'
+                    + ''.join(f'<th style="text-align:left;padding:4px 10px;border-bottom:1px solid #ccc">{h}</th>'
+                              for h in ('Anuncio', 'Tipo', 'Marca', 'Año', 'Kilómetros', 'Combustible', 'Localización')) + '</tr>')
             for handle, titulo, d in resumen:
-                celdas = (titulo, d['marca'], d['ano'], d['decada'], d['tipo'], d['provincia'], d['ubicacion'])
-                f.write('<tr>' + ''.join(f'<td style="padding:4px 10px;border-bottom:1px solid #eee;{"background:#fdecea" if not v and i in (1, 3, 5) else ""}">{e(v)}</td>' for i, v in enumerate(celdas)) + '</tr>')
+                celdas = (titulo, d['tipo'], d['marca'], d['ano'], d['kilometros'], d['combustible'], d['provincia'])
+                aplica = {1: True, 2: d['categoria'] != 'Casa', 3: True, 4: d['categoria'] == 'Coche',
+                          5: d['categoria'] == 'Coche', 6: True}
+                f.write('<tr>' + ''.join(f'<td style="padding:4px 10px;border-bottom:1px solid #eee;'
+                                         f'{"background:#fdecea" if not v and aplica.get(i) else ""}">{e(v)}</td>'
+                                         for i, v in enumerate(celdas)) + '</tr>')
             f.write('</table><h2>Descripciones</h2>')
         for handle, titulo, antes, nuevo in informe:
             f.write(f'<section class="p"><h2>{e(titulo)} <small>({e(handle)})</small></h2>'
@@ -426,7 +554,8 @@ def main():
           f'{n_emojis} tenían emojis' + (f', {n_titulos} títulos sin emojis' if titulos else ''))
     if resumen:
         import collections
-        for clave, nombre in (('tipo', 'Tipo'), ('decada', 'Década'), ('provincia', 'Localización'), ('marca', 'Marca')):
+        for clave, nombre in (('tipo', 'Tipo'), ('marca', 'Marca'), ('kilometros', 'Kilómetros'),
+                              ('combustible', 'Combustible'), ('provincia', 'Localización')):
             c = collections.Counter(d[clave] or '(vacío)' for _, _, d in resumen)
             print(f'{nombre}: ' + ', '.join(f'{k} {v}' for k, v in sorted(c.items(), key=lambda x: -x[1])))
     print(f'Para importar: {base}_importar.csv ({len(para_importar)} productos; solo título, descripción, SEO y filtros)')

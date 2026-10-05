@@ -123,6 +123,8 @@ export function productsFromCsv(path) {
     const available = id % 9 !== 0;
     const tags = (r.Tags || '').split(',').map((t) => t.trim()).filter(Boolean);
     const category = tags.includes('BARCOS') ? 'Barcos' : /chalet|casa|villa|finca|piso|apartamento/i.test(r.Title) ? 'Casas' : 'Coches';
+    // Como el filtro «Categoría» que trae Search & Discovery por defecto: el tema no debe mostrarlo
+    custom.categoria = { value: category, type: 'single_line_text_field' };
     const cover = image(r.Title, 1600, 1200, category === 'Barcos' ? '#2c5f86' : category === 'Casas' ? '#3d6b52' : '#9a8f78', r.Title, '50.0% 50.0%', category === 'Coches' ? CAR_PHOTOS[id % CAR_PHOTOS.length] : undefined);
     const media = [cover].map((im, i) => ({ ...im, media_type: 'image', preview_image: im, position: i + 1 }));
     media.push({ ...video(0.5625, cover), id: `v${id}`, position: 2 }); // el CSV no trae los vídeos: uno vertical de prueba
@@ -286,8 +288,12 @@ export function buildFilters(base, query, urlFor) {
 export const SHOP_FILTER_DEFS = [
   { key: 'tipo', label: 'Tipo' },
   { key: 'marca', label: 'Marca' },
-  { key: 'decada', label: 'Año' },
-  { key: 'provincia', label: 'Localización' }
+  { key: 'ano', label: 'Año' },
+  { key: 'kilometros', label: 'Kilómetros' },
+  { key: 'combustible', label: 'Combustible' },
+  { key: 'provincia', label: 'Localización' },
+  // Uno que el tema no muestra (como «Categoría» en la tienda): no debe salir en la ventana de filtros
+  { key: 'categoria', label: 'Categoría' }
 ];
 const shopMf = (p, key) => {
   const custom = (p.metafields && p.metafields.custom) || {};
@@ -403,10 +409,13 @@ function shopLike(id, o, cover, data) {
     object_type: 'product', metafields: { ...mf(data), custom: shopCustom(o) }, __data: data, collections: []
   };
 }
-// Los metacampos de filtro que pone preparar-descripciones.py (custom.tipo, marca, decada, provincia)
+// Los metacampos de filtro que pone preparar-descripciones.py (custom.tipo, marca, ano, kilometros, combustible, provincia)
+const KM_TRAMOS = [[25000, 'Menos de 25.000 km'], [50000, '25.000 - 50.000 km'], [100000, '50.000 - 100.000 km'], [150000, '100.000 - 150.000 km'], [200000, '150.000 - 200.000 km'], [Infinity, 'Más de 200.000 km']];
 function shopCustom(o) {
   const t = (v) => (v ? { value: String(v), type: 'single_line_text_field' } : undefined);
-  const decade = o.year ? `${Math.floor(o.year / 10) * 10}-${Math.floor(o.year / 10) * 10 + 9}` : '';
-  const custom = { tipo: t(o.category.replace(/s$/, '')), marca: t(o.brand || o.builder), decada: t(decade), provincia: t(o.region) };
+  const tipo = o.category === 'Coches' ? (o.km > 100000 ? 'Berlina' : 'Coupé') : o.boat_type || o.ptype;
+  const km = o.km ? KM_TRAMOS.find(([tope]) => o.km < tope)[1] : '';
+  const fuel = { Gasolina: 'Gasolina', Diésel: 'Diésel' }[o.fuel] || '';
+  const custom = { tipo: t(tipo), marca: t(o.brand || o.builder), ano: t(o.year), kilometros: t(km), combustible: t(fuel), provincia: t(o.region), categoria: t(o.category) };
   return Object.fromEntries(Object.entries(custom).filter(([, v]) => v));
 }

@@ -379,7 +379,7 @@ function searchGlobals(store, globals, q) {
   };
   const list = sortProducts(applyFilters(base, filters), q.sort_by?.[0] || 'relevance');
   const allForFilters = terms ? base : store.products;
-  globals.search = { performed: 'q' in q, terms, results: list, results_count: list.length, filters: buildFilters(allForFilters, filters, urlFor), sort_options: [{ name: 'Relevancia', value: 'relevance' }, ...SORT_OPTIONS], default_sort_by: 'relevance', sort_by: q.sort_by?.[0] || null };
+  globals.search = { performed: 'q' in q, terms, results: list, results_count: list.length, types: list.length || Object.keys(filters).length ? ['product'] : [], filters: buildFilters(allForFilters, filters, urlFor), sort_options: [{ name: 'Relevancia', value: 'relevance' }, ...SORT_OPTIONS], default_sort_by: 'relevance', sort_by: q.sort_by?.[0] || null };
 }
 
 export function createRenderer(store) {
