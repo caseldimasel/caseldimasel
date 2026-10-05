@@ -126,8 +126,11 @@ export function productsFromCsv(path) {
     // Como el filtro «Categoría» que trae Search & Discovery por defecto: el tema no debe mostrarlo
     custom.categoria = { value: category, type: 'single_line_text_field' };
     const cover = image(r.Title, 1600, 1200, category === 'Barcos' ? '#2c5f86' : category === 'Casas' ? '#3d6b52' : '#9a8f78', r.Title, '50.0% 50.0%', category === 'Coches' ? CAR_PHOTOS[id % CAR_PHOTOS.length] : undefined);
-    const media = [cover].map((im, i) => ({ ...im, media_type: 'image', preview_image: im, position: i + 1 }));
-    media.push({ ...video(0.5625, cover), id: `v${id}`, position: 2 }); // el CSV no trae los vídeos: uno vertical de prueba
+    // El CSV no trae los vídeos: uno vertical de prueba, el primero (como en la tienda) salvo en uno de cada cuatro,
+    // que empieza por la foto, para probar la ficha con «solo el primer archivo»
+    const photo = { ...cover, media_type: 'image', preview_image: cover };
+    const clip = { ...video(0.5625, cover), id: `v${id}` };
+    const media = (id % 4 === 0 ? [photo, clip] : [clip, photo]).map((m, i) => ({ ...m, position: i + 1 }));
     const price = Math.round(parseFloat(r['Variant Price'] || '0') * 100);
     const variant = { id: id * 10, title: 'Default Title', price, compare_at_price: null, available, url: `/products/${r.Handle}?variant=${id * 10}`, options: ['Default Title'], option1: 'Default Title', featured_media: null, selling_plan_allocations: [], quantity_rule: { min: 1, max: null, increment: 1 } };
     out.push({

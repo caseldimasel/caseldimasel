@@ -506,6 +506,8 @@ function makeFilters(engine) {
     asset_url: (v) => `/assets/${str(v)}?v=1`,
     image_url: (v, a, raw) => {
       if (!v || typeof v !== 'object') return '';
+      // Como en Shopify: de un vídeo (o un medio sin imagen propia) se usa su imagen de vista previa
+      if (v.media_type && v.media_type !== 'image' && v.preview_image) v = v.preview_image;
       const named = Object.fromEntries(raw.filter((r) => r.named).map((r, i) => [r.named, a[raw.indexOf(r)]]));
       const w = named.width || v.width;
       return `/img/${v.id}?width=${w}`;
