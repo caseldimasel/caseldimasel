@@ -169,6 +169,7 @@ const PAGES = [
   { handle: 'favoritos', title: 'Favoritos', template: 'favorites' },
   { handle: 'contacto', title: 'Contacto', template: 'sidonia-contact' },
   { handle: 'busco', title: 'Cuéntanos qué buscas', template: 'wanted' },
+  { handle: 'vender', title: 'Vende con Sidonia', template: 'vender' },
   { handle: 'privacidad', title: 'Aviso de privacidad', template: 'legal', content: '<p>[PRUEBA] Texto legal pendiente de Sidonia.</p>' }
 ];
 
