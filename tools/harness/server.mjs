@@ -178,7 +178,9 @@ export function createStore(profile = 'full', port = 4173) {
   const full = profile === 'full';
   const products = full ? buildProducts().concat(buildCommerceProducts()) : [];
   const byHandle = Object.fromEntries(products.map((p) => [p.handle, p]));
-  const col = (handle, title, list, suffix = '') => ({ handle, title, url: `/collections/${handle}`, description: '', featured_image: null, products: list, products_count: list.length, all_products_count: list.length, template_suffix: suffix, filters: [], object_type: 'collection' });
+  // products se marca como «drop» de Shopify (no es una lista normal: concat la rechaza; where/sort/map sí funcionan)
+  const asDrop = (list) => Object.defineProperty([...list], '__shopifyDrop', { value: true });
+  const col = (handle, title, list, suffix = '') => ({ handle, title, url: `/collections/${handle}`, description: '', featured_image: null, products: asDrop(list), products_count: list.length, all_products_count: list.length, template_suffix: suffix, filters: [], object_type: 'collection' });
   const cat = (c) => products.filter((p) => p.__data.category === c);
   const collections = full
     ? {

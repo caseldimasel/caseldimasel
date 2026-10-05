@@ -532,7 +532,8 @@ function makeFilters(engine) {
     uniq: (v) => (Array.isArray(v) ? [...new Set(v)] : v),
     compact: (v) => (Array.isArray(v) ? v.filter((x) => !isNil(x)) : v),
     reverse: (v) => (Array.isArray(v) ? v.slice().reverse() : v),
-    concat: (v, a) => (Array.isArray(v) ? v.concat(a[0] || []) : v),
+    // Como Shopify: collection.products no es una lista normal y «concat» la rechaza
+    concat: (v, a) => { if (a[0] && a[0].__shopifyDrop) throw new Error('concat filter requires an array argument'); return (Array.isArray(v) ? v : []).concat(Array.isArray(a[0]) ? a[0] : []); },
     url_escape: (v) => encodeURI(str(v)),
     escape_once: (v) => str(v).replace(/&(?!(amp|lt|gt|quot|#39);)/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'),
     image_tag: (v, a, raw) => {
