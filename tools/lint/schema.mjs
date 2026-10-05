@@ -94,6 +94,10 @@ function validateSetting(where, st, ids) {
     case 'collection_list':
       if ('limit' in st && !(st.limit >= 1 && st.limit <= 50)) err(w, 'limit entre 1 y 50');
       break;
+    case 'url':
+      // Shopify rechaza el archivo entero si el valor por defecto de un url no es /collections o /collections/all
+      if ('default' in st && !['/collections', '/collections/all'].includes(st.default)) err(w, `url por defecto solo puede ser /collections o /collections/all (hay ${JSON.stringify(st.default)})`);
+      break;
     case 'richtext':
       if ('default' in st && !/^\s*<(p|ul|ol)\b/.test(st.default)) err(w, 'richtext por defecto debe empezar por <p>, <ul> u <ol>');
       break;

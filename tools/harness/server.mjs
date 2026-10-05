@@ -170,7 +170,7 @@ const PAGES = [
   { handle: 'contacto', title: 'Contacto', template: 'sidonia-contact' },
   { handle: 'busco', title: 'Cuéntanos qué buscas', template: 'wanted' },
   { handle: 'vender', title: 'Vende con Sidonia', template: 'vender' },
-  { handle: 'vende-con-nosotros', title: 'Vende con nosotros', template: 'vender' },
+  { handle: 'vende-con-nosotros', title: 'VENDE CON NOSOTROS', template: '' }, // como en la tienda: sin la plantilla «vender» asignada
   { handle: 'privacidad', title: 'Aviso de privacidad', template: 'legal', content: '<p>[PRUEBA] Texto legal pendiente de Sidonia.</p>' }
 ];
 
@@ -399,6 +399,8 @@ export function createRenderer(store) {
       name = 'page';
       globals.page = store.pages[m[1]];
       suffix = globals.page.template_suffix;
+      // ?view=<sufijo> como en Shopify: plantilla alternativa si existe
+      if (q.view?.[0] && (existsSync(join(THEME, 'templates', `page.${q.view[0]}.json`)) || existsSync(join(THEME, 'templates', `page.${q.view[0]}.liquid`)))) suffix = q.view[0];
     } else if (req.path === '/search') {
       name = 'search';
       searchGlobals(store, globals, q);
