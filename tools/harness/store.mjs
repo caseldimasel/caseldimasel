@@ -116,6 +116,7 @@ export function productsFromCsv(path) {
     const category = tags.includes('BARCOS') ? 'Barcos' : /chalet|casa|villa|finca|piso|apartamento/i.test(r.Title) ? 'Casas' : 'Coches';
     const cover = image(r.Title, 1600, 1200, category === 'Barcos' ? '#2c5f86' : category === 'Casas' ? '#3d6b52' : '#9a8f78', r.Title, '50.0% 50.0%', category === 'Coches' ? CAR_PHOTOS[id % CAR_PHOTOS.length] : undefined);
     const media = [cover].map((im, i) => ({ ...im, media_type: 'image', preview_image: im, position: i + 1 }));
+    media.push({ ...video(0.5625, cover), id: `v${id}`, position: 2 }); // el CSV no trae los vídeos: uno vertical de prueba
     const price = Math.round(parseFloat(r['Variant Price'] || '0') * 100);
     const variant = { id: id * 10, title: 'Default Title', price, compare_at_price: null, available: r.Status === 'active', url: `/products/${r.Handle}?variant=${id * 10}`, options: ['Default Title'], option1: 'Default Title', featured_media: null, selling_plan_allocations: [], quantity_rule: { min: 1, max: null, increment: 1 } };
     out.push({
@@ -299,6 +300,9 @@ function shopLike(id, o, cover, data) {
     ? [1, 2, 3, 4, 5, 6].map((n) => image(`${o.title} ${n}`, 1600, 1200, ['#8a7f6a', '#6f7d86', '#9a8f78', '#56616a', '#7b6f5e', '#8d8577'][n - 1], `${o.title} — foto ${n + 1}`, '50.0% 50.0%', n % 2 ? CAR_PHOTOS[(n + 1) % CAR_PHOTOS.length] : undefined))
     : [];
   const media = cover ? [cover, ...extra].map((im, i) => ({ ...im, media_type: 'image', preview_image: im, position: i + 1 })) : [];
+  // Vídeo como en la tienda (todos los anuncios tienen uno): vertical en el coche A, horizontal en el barco A; la casa A sin vídeo
+  const shopVideo = { 'prueba-coche-a': 0.5625, 'prueba-barco-a': 1.7778 }[o.handle];
+  if (shopVideo && cover) media.push({ ...video(shopVideo, cover), id: `v${id}`, position: media.length + 1 });
   const price = o.price_mode === 'Publicado' ? Math.round((o.price || 0) * 100) : 0;
   const available = o.status !== 'Vendido';
   const variant = { id: id * 10, title: 'Default Title', price, compare_at_price: null, available, url: `/products/${o.handle}?variant=${id * 10}`, options: ['Default Title'], option1: 'Default Title', featured_media: null, selling_plan_allocations: [], quantity_rule: { min: 1, max: null, increment: 1 } };
