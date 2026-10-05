@@ -90,6 +90,48 @@ export function makeProduct(o) {
   };
 }
 
+/** SIDONIA_PRODUCTS_CSV=<ruta>: los anuncios (tipo «Cars») salen de una exportación de productos de Shopify, con su
+ *  título, descripción, precio y etiquetas reales (fotos de prueba). Para probar la ficha con descripciones reales.
+ *  El CSV solo se lee: no se copia al repositorio. */
+function parseCsv(text) {
+  const rows = []; let row = [], field = '', q = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (q) { if (c === '"') { if (text[i + 1] === '"') { field += '"'; i++; } else q = false; } else field += c; continue; }
+    if (c === '"') q = true; else if (c === ',') { row.push(field); field = ''; } else if (c === '\n') { row.push(field); rows.push(row); row = []; field = ''; } else if (c !== '\r') field += c;
+  }
+  if (field || row.length) { row.push(field); rows.push(row); }
+  const head = rows.shift();
+  return rows.filter((r) => r.length > 1).map((r) => Object.fromEntries(head.map((h, i) => [h, r[i] ?? ''])));
+}
+
+export function productsFromCsv(path) {
+  const rows = parseCsv(readFileSync(path, 'utf8').replace(/^\uFEFF/, ''));
+  const out = [];
+  let id = 50000;
+  for (const r of rows) {
+    if (!r.Title || r.Type !== 'Cars') continue;
+    id++;
+    const tags = (r.Tags || '').split(',').map((t) => t.trim()).filter(Boolean);
+    const category = tags.includes('BARCOS') ? 'Barcos' : /chalet|casa|villa|finca|piso|apartamento/i.test(r.Title) ? 'Casas' : 'Coches';
+    const cover = image(r.Title, 1600, 1200, category === 'Barcos' ? '#2c5f86' : category === 'Casas' ? '#3d6b52' : '#9a8f78', r.Title, '50.0% 50.0%', category === 'Coches' ? CAR_PHOTOS[id % CAR_PHOTOS.length] : undefined);
+    const media = [cover].map((im, i) => ({ ...im, media_type: 'image', preview_image: im, position: i + 1 }));
+    const price = Math.round(parseFloat(r['Variant Price'] || '0') * 100);
+    const variant = { id: id * 10, title: 'Default Title', price, compare_at_price: null, available: r.Status === 'active', url: `/products/${r.Handle}?variant=${id * 10}`, options: ['Default Title'], option1: 'Default Title', featured_media: null, selling_plan_allocations: [], quantity_rule: { min: 1, max: null, increment: 1 } };
+    out.push({
+      id, handle: r.Handle, title: r.Title, url: `/products/${r.Handle}`, description: r['Body (HTML)'] || '', vendor: r.Vendor || '', type: r.Type,
+      tags, published_at: '2026-09-01T10:00:00Z', created_at: '2026-09-01T10:00:00Z', template_suffix: 'cars',
+      featured_image: cover, featured_media: media[0], images: [cover], media,
+      price, price_min: price, price_max: price, price_varies: false, compare_at_price: null, compare_at_price_min: 0, compare_at_price_max: 0, compare_at_price_varies: false,
+      available: r.Status === 'active', variants: [variant], selected_or_first_available_variant: variant, first_available_variant: variant, selected_variant: null, has_only_default_variant: true,
+      options: ['Title'], options_with_values: [{ name: 'Title', position: 1, values: ['Default Title'], selected_value: 'Default Title' }], options_by_name: {},
+      'gift_card?': false, requires_selling_plan: false, selling_plan_groups: [], quantity_price_breaks_configured: false,
+      object_type: 'product', metafields: {}, __data: { category, status: r.Status === 'active' ? 'Disponible' : 'Vendido', price_amount: price / 100 }, collections: []
+    });
+  }
+  return out;
+}
+
 export function buildProducts() {
   const L = [];
   const A = makeProduct({

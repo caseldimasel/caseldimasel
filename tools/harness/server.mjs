@@ -9,7 +9,7 @@ import { join, dirname, extname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
 import { Liquid, Context } from './liquid.mjs';
-import { buildProducts, buildCommerceProducts, socialAccounts, applyFilters, buildFilters, sortProducts, SORT_OPTIONS, IMAGES, image, logoImage } from './store.mjs';
+import { buildProducts, buildCommerceProducts, productsFromCsv, socialAccounts, applyFilters, buildFilters, sortProducts, SORT_OPTIONS, IMAGES, image, logoImage } from './store.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 export const ROOT = join(here, '..', '..');
@@ -176,7 +176,7 @@ const PAGES = [
 
 export function createStore(profile = 'full', port = 4173) {
   const full = profile === 'full';
-  const products = full ? buildProducts().concat(buildCommerceProducts()) : [];
+  const products = full ? buildProducts().concat(buildCommerceProducts(), process.env.SIDONIA_PRODUCTS_CSV ? productsFromCsv(process.env.SIDONIA_PRODUCTS_CSV) : []) : [];
   const byHandle = Object.fromEntries(products.map((p) => [p.handle, p]));
   // products se marca como «drop» de Shopify (no es una lista normal: concat la rechaza; where/sort/map sí funcionan)
   const asDrop = (list) => Object.defineProperty([...list], '__shopifyDrop', { value: true });
