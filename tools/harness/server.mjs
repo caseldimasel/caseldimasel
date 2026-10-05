@@ -170,6 +170,7 @@ const PAGES = [
   { handle: 'contacto', title: 'Contacto', template: 'sidonia-contact' },
   { handle: 'busco', title: 'Cuéntanos qué buscas', template: 'wanted' },
   { handle: 'vender', title: 'Vende con Sidonia', template: 'vender' },
+  { handle: 'vende-con-nosotros', title: 'Vende con nosotros', template: 'vender' },
   { handle: 'privacidad', title: 'Aviso de privacidad', template: 'legal', content: '<p>[PRUEBA] Texto legal pendiente de Sidonia.</p>' }
 ];
 
@@ -187,7 +188,9 @@ export function createStore(profile = 'full', port = 4173) {
         casas: col('casas', 'Casas', cat('Casas'), 'estate'),
         vendidas: col('vendidas', 'Archivo de piezas vendidas', products.filter((p) => p.__data.status === 'Vendido'), 'sold'),
         destacadas: col('destacadas', 'Destacadas', products.filter((p) => p.__data.featured === true)),
-        all: col('all', 'Productos', products)
+        all: col('all', 'Productos', products),
+        // Handle real de la tienda (Sidonia-Shopify): mismo contenido que «coches»
+        'coches-en-venta': col('coches-en-venta', 'Coches en venta', cat('Coches'))
       }
     : { all: col('all', 'Productos', []) };
   const menus = full
@@ -214,7 +217,11 @@ export function createStore(profile = 'full', port = 4173) {
     menus['drawer-menu'] = menus['main-menu'];
     menus.shop = { title: '[PRUEBA] Tienda', links: [{ title: '[PRUEBA] Productos', url: '/collections/all', links: [] }] };
   }
-  menus['secundary-menu'] = { title: 'Secundario', links: [] };
+  // [PRUEBA] «Nosotros» y «Contacto» como en la tienda: la cabecera de Sidonia-Shopify debe ocultarlos (ajuste hide_links)
+  menus['secundary-menu'] = { title: 'Secundario', links: full ? [
+    { title: 'Nosotros', url: '/pages/sobre-sidonia', links: [] },
+    { title: 'Contacto', url: '/pages/contacto', links: [] }
+  ] : [] };
   menus['customer-account-main-menu'] = { title: 'Cuenta', links: [] };
   menus.footer = menus.footer || { title: 'Pie', links: [] };
   for (const m of Object.values(menus)) {
