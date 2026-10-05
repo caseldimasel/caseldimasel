@@ -80,6 +80,7 @@ export function makeProduct(o) {
     year_band: o.year_band, km_band: o.km_band, loa_band: o.loa_band, area_band: o.area_band, bedrooms_band: o.beds_band, price_band: o.price_band
   };
   const suffix = { Coches: 'garage', Barcos: 'harbor', Casas: 'estate' }[o.category];
+  if (process.env.SIDONIA_SHOP_DATA) return shopLike(id, o, cover, data);
   return {
     id, handle: o.handle, title: o.title, url: `/products/${o.handle}`,
     description: o.description || '', vendor: o.brand || o.builder || '', type: o.category, tags: ['sidonia'],
@@ -241,3 +242,34 @@ export const SORT_OPTIONS = [
   { name: 'Precio, de mayor a menor', value: 'price-descending' },
   { name: 'Fecha, de más reciente a más antigua', value: 'created-descending' }
 ];
+
+/** SIDONIA_SHOP_DATA=1: la misma pieza como producto «normal» de Shopify (foto, precio en la variante y etiquetas
+ *  «Clave: valor»), que es como están hoy los productos en la tienda. Para probar el tema del repo Sidonia-Shopify. */
+function shopLike(id, o, cover, data) {
+  const media = cover ? [{ ...cover, media_type: 'image', preview_image: cover, position: 1 }] : [];
+  const price = o.price_mode === 'Publicado' ? Math.round((o.price || 0) * 100) : 0;
+  const available = o.status !== 'Vendido';
+  const variant = { id: id * 10, title: 'Default Title', price, compare_at_price: null, available, url: `/products/${o.handle}?variant=${id * 10}`, options: ['Default Title'], option1: 'Default Title', featured_media: null, selling_plan_allocations: [], quantity_rule: { min: 1, max: null, increment: 1 } };
+  const fmt = (n) => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  const tags = [];
+  if (o.status === 'Reservado' || o.status === 'Vendido') tags.push(o.status);
+  if (o.year) tags.push(`Año: ${o.year}`);
+  if (o.km) tags.push(`Km: ${fmt(o.km)}`);
+  if (o.loa) tags.push(`Eslora: ${o.loa} m`);
+  if (o.boat_type) tags.push(`Tipo: ${o.boat_type}`);
+  if (o.ptype) tags.push(`Tipo: ${o.ptype}`);
+  if (o.beds) tags.push(`Habitaciones: ${o.beds}`);
+  if (o.area) tags.push(`Superficie: ${o.area} m²`);
+  if (o.fuel) tags.push(`Combustible: ${o.fuel}`);
+  if (o.city || o.region) tags.push(`Ubicación: ${o.city || o.region}`);
+  return {
+    id, handle: o.handle, title: o.title, url: `/products/${o.handle}`, description: o.description || '', vendor: o.brand || o.builder || '', type: o.category.replace(/s$/, ''),
+    tags, published_at: '2026-09-01T10:00:00Z', created_at: `2026-09-${String(1 + (id % 27)).padStart(2, '0')}T10:00:00Z`, template_suffix: '',
+    featured_image: cover, featured_media: media[0] || null, images: cover ? [cover] : [], media,
+    price, price_min: price, price_max: price, price_varies: false, compare_at_price: null, compare_at_price_min: 0, compare_at_price_max: 0, compare_at_price_varies: false,
+    available, variants: [variant], selected_or_first_available_variant: variant, first_available_variant: variant, selected_variant: null, has_only_default_variant: true,
+    options: ['Title'], options_with_values: [{ name: 'Title', position: 1, values: ['Default Title'], selected_value: 'Default Title' }], options_by_name: {},
+    'gift_card?': false, requires_selling_plan: false, selling_plan_groups: [], quantity_price_breaks_configured: false,
+    object_type: 'product', metafields: mf(data), __data: data, collections: []
+  };
+}
