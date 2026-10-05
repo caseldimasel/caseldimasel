@@ -166,7 +166,7 @@ const PAGES = [
   { handle: 'vender-con-sidonia', title: 'Vender con Sidonia', template: 'sell' },
   { handle: 'como-vendemos', title: 'Cómo vendemos', template: 'how-it-works' },
   { handle: 'sobre-sidonia', title: 'Sobre Sidonia', template: 'sidonia-about', content: '<p>[PRUEBA] Texto de la página Sobre Sidonia: aquí irá la historia real del equipo.</p>' },
-  { handle: 'favoritos', title: 'Favoritos', template: 'favorites', alt: 'favoritos' },
+  { handle: 'favoritos', title: 'Favoritos', template: 'favorites' },
   { handle: 'contacto', title: 'Contacto', template: 'sidonia-contact' },
   { handle: 'busco', title: 'Cuéntanos qué buscas', template: 'wanted' },
   { handle: 'vender', title: 'Vende con Sidonia', template: 'vender' },
