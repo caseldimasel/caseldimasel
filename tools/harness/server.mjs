@@ -166,7 +166,7 @@ const PAGES = [
   { handle: 'vender-con-sidonia', title: 'Vender con Sidonia', template: 'sell' },
   { handle: 'como-vendemos', title: 'Cómo vendemos', template: 'how-it-works' },
   { handle: 'sobre-sidonia', title: 'Sobre Sidonia', template: 'sidonia-about', content: '<p>[PRUEBA] Texto de la página Sobre Sidonia: aquí irá la historia real del equipo.</p>' },
-  { handle: 'favoritos', title: 'Favoritos', template: 'favorites' },
+  { handle: 'favoritos', title: 'Favoritos', template: 'favorites', alt: 'favoritos' },
   { handle: 'contacto', title: 'Contacto', template: 'sidonia-contact' },
   { handle: 'busco', title: 'Cuéntanos qué buscas', template: 'wanted' },
   { handle: 'vender', title: 'Vende con Sidonia', template: 'vender' },
@@ -221,7 +221,7 @@ export function createStore(profile = 'full', port = 4173) {
     m.handle = m.handle || '';
     for (const l of m.links) Object.assign(l, { levels: l.links && l.links.length ? 1 : 0, current: false, active: false, child_active: false, links: l.links || [] });
   }
-  const pages = full ? Object.fromEntries(PAGES.map((p) => [p.handle, { ...p, url: `/pages/${p.handle}`, template_suffix: p.template, content: p.content || '', object_type: 'page' }])) : {};
+  const pages = full ? Object.fromEntries(PAGES.map((p) => [p.handle, { ...p, url: `/pages/${p.handle}`, template_suffix: p.alt && existsSync(join(THEME, 'templates', `page.${p.alt}.json`)) ? p.alt : p.template, content: p.content || '', object_type: 'page' }])) : {};
 
   const schemaGroups = readJsonLoose(join(THEME, 'config/settings_schema.json'));
   const typedCtx = { menus, collections, byHandle, pages };
