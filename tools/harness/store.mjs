@@ -110,24 +110,33 @@ export function productsFromCsv(path) {
   const out = [];
   let id = 50000;
   for (const r of rows) {
-    if (!r.Title || r.Type !== 'Cars') continue;
+    // Archivados y borradores no se ven en la tienda
+    if (!r.Title || r.Type !== 'Cars' || (r.Status && r.Status !== 'active')) continue;
     id++;
+    // Metacampos de la exportación preparada: columnas «Nombre (product.metafields.custom.clave)»
+    const custom = {};
+    for (const [col, val] of Object.entries(r)) {
+      const m = col.match(/\(product\.metafields\.custom\.(\w+)\)$/);
+      if (m && val) custom[m[1]] = { value: val, type: 'single_line_text_field' };
+    }
+    // El CSV no trae existencias: uno de cada nueve se marca «vendido» (sin stock) para probar el filtro Estado
+    const available = id % 9 !== 0;
     const tags = (r.Tags || '').split(',').map((t) => t.trim()).filter(Boolean);
     const category = tags.includes('BARCOS') ? 'Barcos' : /chalet|casa|villa|finca|piso|apartamento/i.test(r.Title) ? 'Casas' : 'Coches';
     const cover = image(r.Title, 1600, 1200, category === 'Barcos' ? '#2c5f86' : category === 'Casas' ? '#3d6b52' : '#9a8f78', r.Title, '50.0% 50.0%', category === 'Coches' ? CAR_PHOTOS[id % CAR_PHOTOS.length] : undefined);
     const media = [cover].map((im, i) => ({ ...im, media_type: 'image', preview_image: im, position: i + 1 }));
     media.push({ ...video(0.5625, cover), id: `v${id}`, position: 2 }); // el CSV no trae los vídeos: uno vertical de prueba
     const price = Math.round(parseFloat(r['Variant Price'] || '0') * 100);
-    const variant = { id: id * 10, title: 'Default Title', price, compare_at_price: null, available: r.Status === 'active', url: `/products/${r.Handle}?variant=${id * 10}`, options: ['Default Title'], option1: 'Default Title', featured_media: null, selling_plan_allocations: [], quantity_rule: { min: 1, max: null, increment: 1 } };
+    const variant = { id: id * 10, title: 'Default Title', price, compare_at_price: null, available, url: `/products/${r.Handle}?variant=${id * 10}`, options: ['Default Title'], option1: 'Default Title', featured_media: null, selling_plan_allocations: [], quantity_rule: { min: 1, max: null, increment: 1 } };
     out.push({
       id, handle: r.Handle, title: r.Title, url: `/products/${r.Handle}`, description: r['Body (HTML)'] || '', vendor: r.Vendor || '', type: r.Type,
       tags, published_at: '2026-09-01T10:00:00Z', created_at: '2026-09-01T10:00:00Z', template_suffix: 'cars',
       featured_image: cover, featured_media: media[0], images: [cover], media,
       price, price_min: price, price_max: price, price_varies: false, compare_at_price: null, compare_at_price_min: 0, compare_at_price_max: 0, compare_at_price_varies: false,
-      available: r.Status === 'active', variants: [variant], selected_or_first_available_variant: variant, first_available_variant: variant, selected_variant: null, has_only_default_variant: true,
+      available, variants: [variant], selected_or_first_available_variant: variant, first_available_variant: variant, selected_variant: null, has_only_default_variant: true,
       options: ['Title'], options_with_values: [{ name: 'Title', position: 1, values: ['Default Title'], selected_value: 'Default Title' }], options_by_name: {},
       'gift_card?': false, requires_selling_plan: false, selling_plan_groups: [], quantity_price_breaks_configured: false,
-      object_type: 'product', metafields: {}, __data: { category, status: r.Status === 'active' ? 'Disponible' : 'Vendido', price_amount: price / 100 }, collections: []
+      object_type: 'product', metafields: { custom }, __data: { category, status: available ? 'Disponible' : 'Vendido', price_amount: price / 100, custom }, collections: []
     });
   }
   return out;
@@ -270,6 +279,71 @@ export function buildFilters(base, query, urlFor) {
   }
   return out;
 }
+
+/* Filtros de la tienda real (Search & Discovery con SIDONIA_SHOP_DATA=1): metacampos custom.*, precio y
+   disponibilidad, con los mismos objetos y parámetros que da Shopify (filter.p.m.custom.*, filter.v.price.gte/lte,
+   filter.v.availability con valores «1» y «0»). Los valores de lista van en orden alfabético, como en Shopify. */
+export const SHOP_FILTER_DEFS = [
+  { key: 'tipo', label: 'Tipo' },
+  { key: 'marca', label: 'Marca' },
+  { key: 'decada', label: 'Año' },
+  { key: 'provincia', label: 'Localización' }
+];
+const shopMf = (p, key) => {
+  const custom = (p.metafields && p.metafields.custom) || {};
+  const v = custom[key] && custom[key].value;
+  return v === undefined || v === null || v === '' ? undefined : String(v);
+};
+const PRICE = 'filter.v.price';
+const AVAIL = 'filter.v.availability';
+export function applyShopFilters(products, query) {
+  const gte = query[`${PRICE}.gte`]?.[0];
+  const lte = query[`${PRICE}.lte`]?.[0];
+  const avail = query[AVAIL] || [];
+  return products.filter((p) => {
+    for (const d of SHOP_FILTER_DEFS) {
+      const vals = query[`filter.p.m.custom.${d.key}`];
+      if (vals && vals.length && !vals.includes(shopMf(p, d.key))) return false;
+    }
+    const euros = (p.price || 0) / 100;
+    if (gte !== undefined && gte !== '' && euros < parseFloat(gte)) return false;
+    if (lte !== undefined && lte !== '' && euros > parseFloat(lte)) return false;
+    if (avail.length && !avail.includes(p.available ? '1' : '0')) return false;
+    return true;
+  });
+}
+export function buildShopFilters(base, query, urlFor) {
+  const out = [];
+  const without = (...keys) => Object.fromEntries(Object.entries(query).filter(([k]) => !keys.includes(k)));
+  const listFilter = (label, param, distinct, valueOf, labelOf = (v) => v) => {
+    const others = without(param);
+    const scoped = applyShopFilters(base, others);
+    const active = query[param] || [];
+    const values = distinct.map((v) => ({
+      label: labelOf(v), value: v, param_name: param, count: scoped.filter((p) => valueOf(p) === v).length, active: active.includes(v),
+      url_to_add: urlFor({ ...query, [param]: [...active, v] }), url_to_remove: urlFor({ ...query, [param]: active.filter((x) => x !== v) })
+    }));
+    out.push({ label, param_name: param, type: 'list', presentation: 'text', values, active_values: values.filter((v) => v.active), inactive_values: values.filter((v) => !v.active), url_to_remove: urlFor(others) });
+  };
+  for (const d of SHOP_FILTER_DEFS) {
+    const distinct = [...new Set(base.map((p) => shopMf(p, d.key)).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'es'));
+    if (distinct.length) listFilter(d.label, `filter.p.m.custom.${d.key}`, distinct, (p) => shopMf(p, d.key));
+  }
+  if (base.length) {
+    const gte = query[`${PRICE}.gte`]?.[0];
+    const lte = query[`${PRICE}.lte`]?.[0];
+    const cents = (v) => (v === undefined || v === '' ? null : Math.round(parseFloat(v) * 100));
+    out.push({
+      label: 'Precio', param_name: PRICE, type: 'price_range', presentation: null, values: [], active_values: [],
+      min_value: { param_name: `${PRICE}.gte`, value: cents(gte) }, max_value: { param_name: `${PRICE}.lte`, value: cents(lte) },
+      range_max: Math.max(...base.map((p) => p.price || 0)), url_to_remove: urlFor(without(`${PRICE}.gte`, `${PRICE}.lte`))
+    });
+    const present = ['1', '0'].filter((v) => base.some((p) => (p.available ? '1' : '0') === v));
+    listFilter('Disponibilidad', AVAIL, present, (p) => (p.available ? '1' : '0'), (v) => (v === '1' ? 'En existencia' : 'Agotado'));
+  }
+  return out;
+}
+
 export function sortProducts(list, sort) {
   const arr = list.slice();
   if (sort === 'created-descending') return arr.sort((a, b) => (b.created_at > a.created_at ? 1 : -1));
@@ -326,6 +400,13 @@ function shopLike(id, o, cover, data) {
     available, variants: [variant], selected_or_first_available_variant: variant, first_available_variant: variant, selected_variant: null, has_only_default_variant: true,
     options: ['Title'], options_with_values: [{ name: 'Title', position: 1, values: ['Default Title'], selected_value: 'Default Title' }], options_by_name: {},
     'gift_card?': false, requires_selling_plan: false, selling_plan_groups: [], quantity_price_breaks_configured: false,
-    object_type: 'product', metafields: mf(data), __data: data, collections: []
+    object_type: 'product', metafields: { ...mf(data), custom: shopCustom(o) }, __data: data, collections: []
   };
+}
+// Los metacampos de filtro que pone preparar-descripciones.py (custom.tipo, marca, decada, provincia)
+function shopCustom(o) {
+  const t = (v) => (v ? { value: String(v), type: 'single_line_text_field' } : undefined);
+  const decade = o.year ? `${Math.floor(o.year / 10) * 10}-${Math.floor(o.year / 10) * 10 + 9}` : '';
+  const custom = { tipo: t(o.category.replace(/s$/, '')), marca: t(o.brand || o.builder), decada: t(decade), provincia: t(o.region) };
+  return Object.fromEntries(Object.entries(custom).filter(([, v]) => v));
 }

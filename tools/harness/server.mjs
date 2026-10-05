@@ -9,7 +9,7 @@ import { join, dirname, extname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
 import { Liquid, Context } from './liquid.mjs';
-import { buildProducts, buildCommerceProducts, productsFromCsv, socialAccounts, applyFilters, buildFilters, sortProducts, SORT_OPTIONS, IMAGES, image, logoImage } from './store.mjs';
+import { buildProducts, buildCommerceProducts, productsFromCsv, socialAccounts, applyFilters as applyKitFilters, buildFilters as buildKitFilters, applyShopFilters, buildShopFilters, sortProducts, SORT_OPTIONS, IMAGES, image, logoImage } from './store.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 export const ROOT = join(here, '..', '..');
@@ -355,6 +355,9 @@ function urlWith(path, filters, extra) {
   const s = params.toString();
   return s ? `${path}?${s}` : path;
 }
+// Con SIDONIA_SHOP_DATA=1 los filtros son los de la tienda real (Search & Discovery); si no, los del kit
+const applyFilters = (list, f) => (process.env.SIDONIA_SHOP_DATA ? applyShopFilters : applyKitFilters)(list, f);
+const buildFilters = (base, f, urlFor) => (process.env.SIDONIA_SHOP_DATA ? buildShopFilters : buildKitFilters)(base, f, urlFor);
 const queryFilters = (q) => Object.fromEntries(Object.entries(q).filter(([k]) => k.startsWith('filter.')));
 
 function collectionGlobals(globals, c, q) {

@@ -19,6 +19,11 @@ Uso:
       -> productos_export_preparado.csv   (para importar en Shopify: «Sobrescribir productos con el mismo identificador»)
       -> productos_export_revision.html  (antes y después de cada producto, para revisarlo antes de importar)
   Opciones: --titulos (quita también los emojis de los títulos) · --solo-emojis (no reorganiza nada)
+            --sin-filtros (no añade las columnas de filtros)
+
+Filtros: a cada anuncio le añade Marca, Década, Tipo de anuncio (Coche / Barco / Casa / Moto), Localización
+(provincia) y Ubicación como metacampos custom.* (columnas «… (product.metafields.custom.…)»). Antes de importar,
+crea esas definiciones en Shopify (Ajustes > Datos personalizados > Productos, «Texto de una línea»).
 
 El resto del CSV (otras columnas, filas de variantes e imágenes) se copia tal cual.
 """
@@ -230,6 +235,91 @@ def reescribir(body, titulo_producto):
     return '\n'.join(partes)
 
 
+# ------------------------------------------------------------------------------------------------ Datos para filtros
+# Metacampos que se añaden al CSV (hay que crear antes sus definiciones en Shopify: Ajustes > Datos personalizados >
+# Productos, tipo «Texto de una línea»). Search & Discovery los convierte en filtros.
+COLUMNAS_FILTRO = [
+    ('marca', 'Marca (product.metafields.custom.marca)'),
+    ('decada', 'Década (product.metafields.custom.decada)'),
+    ('tipo', 'Tipo de anuncio (product.metafields.custom.tipo)'),
+    ('provincia', 'Localización (product.metafields.custom.provincia)'),
+    ('ubicacion', 'Ubicación (product.metafields.custom.ubicacion)'),
+]
+MARCAS_COMPUESTAS = [
+    ('LAND CRUISER', 'Toyota'), ('LAND ROVER', 'Land Rover'), ('RANGE ROVER', 'Land Rover'),
+    ('ASTON MARTIN', 'Aston Martin'), ('ALFA ROMEO', 'Alfa Romeo'), ('ROLLS ROYCE', 'Rolls-Royce'),
+    ('ROLLS-ROYCE', 'Rolls-Royce'), ('MERCEDES-BENZ', 'Mercedes-Benz'), ('MERCEDES-AMG', 'Mercedes-Benz'),
+    ('MERCEDES', 'Mercedes-Benz'), ('DMC', 'DeLorean'), ('VW', 'Volkswagen'), ('AUSTIN HEALEY', 'Austin-Healey'),
+]
+SIGLAS = {'BMW', 'MG', 'AC', 'AMG', 'GMC', 'TVR', 'NSU', 'DS', 'SEAT'}
+MARCAS_MOTO = {'Yamaha', 'Ducati', 'Harley-Davidson', 'Kawasaki', 'Vespa', 'Bultaco', 'Montesa', 'Ossa', 'Derbi', 'Suzuki'}
+CASA = re.compile(r'\b(chalet|casa|villa|finca|piso|apartamento|[aá]tico|cortijo|mas[ií]a|caser[ií]o)\b', re.I)
+# Lugar (en minúsculas) -> provincia. Se usa el primero que aparezca en el texto de la ubicación.
+PROVINCIAS = {
+    'madrid': 'Madrid', 'majadahonda': 'Madrid', 'pozuelo': 'Madrid', 'aranjuez': 'Madrid', 'alcobendas': 'Madrid',
+    'las rozas': 'Madrid', 'boadilla': 'Madrid', 'barcelona': 'Barcelona', 'sitges': 'Barcelona', 'bilbao': 'Vizcaya',
+    'vizcaya': 'Vizcaya', 'bizkaia': 'Vizcaya', 'valencia': 'Valencia', 'sevilla': 'Sevilla', 'málaga': 'Málaga',
+    'malaga': 'Málaga', 'marbella': 'Málaga', 'mijas': 'Málaga', 'ojén': 'Málaga', 'butibamba': 'Málaga',
+    'ibiza': 'Islas Baleares', 'mallorca': 'Islas Baleares', 'menorca': 'Islas Baleares', 'baleares': 'Islas Baleares',
+    'sotogrande': 'Cádiz', 'conil': 'Cádiz', 'cádiz': 'Cádiz', 'puerto de santa maría': 'Cádiz', 'jerez': 'Cádiz',
+    'toledo': 'Toledo', 'consuegra': 'Toledo', 'tarragona': 'Tarragona', 'santander': 'Cantabria', 'liencres': 'Cantabria',
+    'cantabria': 'Cantabria', 'pamplona': 'Navarra', 'navarra': 'Navarra', 'ávila': 'Ávila', 'avila': 'Ávila',
+    'tenerife': 'Santa Cruz de Tenerife', 'segovia': 'Segovia', 'valladolid': 'Valladolid', 'la rioja': 'La Rioja',
+    'logroño': 'La Rioja', 'gijón': 'Asturias', 'oviedo': 'Asturias', 'asturias': 'Asturias',
+    'san sebastián': 'Guipúzcoa', 'donostia': 'Guipúzcoa', 'lloret': 'Girona', 'girona': 'Girona', 'gerona': 'Girona',
+    'zaragoza': 'Zaragoza', 'alicante': 'Alicante', 'murcia': 'Murcia', 'granada': 'Granada', 'córdoba': 'Córdoba',
+    'salamanca': 'Salamanca', 'burgos': 'Burgos', 'león': 'León', 'a coruña': 'A Coruña', 'pontevedra': 'Pontevedra',
+    'vigo': 'Pontevedra', 'las palmas': 'Las Palmas', 'gran canaria': 'Las Palmas', 'lanzarote': 'Las Palmas',
+}
+
+
+def marca_de(titulo):
+    t = titulo.upper().strip()
+    for prefijo, marca in MARCAS_COMPUESTAS:
+        if t.startswith(prefijo + ' ') or t == prefijo:
+            return marca
+    primera = t.split()[0] if t.split() else ''
+    if not primera or primera.startswith('COLECCI'):
+        return ''
+    if primera in SIGLAS:
+        return primera
+    return '-'.join(x.capitalize() for x in primera.lower().split('-'))
+
+
+def provincia_de(lugar):
+    low = (lugar or '').lower()
+    hallados = [(low.find(k), v) for k, v in PROVINCIAS.items() if k in low]
+    return min(hallados)[1] if hallados else ''
+
+
+def datos_filtro(titulo, body, tags, categoria):
+    """Marca, década, tipo, provincia y ubicación de un anuncio (vacíos si no es un anuncio)."""
+    story, specs, loc, details, _ = partir(body, titulo)
+    filas = [t for k, t in specs if k == 'row']
+    ano = ''
+    for fila in filas:
+        if re.match(r'^a[ñn]o\b', fila, re.I):
+            m = re.search(r'\b(19\d\d|20\d\d)\b', fila)
+            if m:
+                ano = m.group(1)
+                break
+    if not ano:
+        m = re.findall(r'\b(19\d\d|20[0-2]\d)\b', titulo)
+        ano = m[-1] if m else ''
+    etiquetas = tags.upper()
+    if 'BARCO' in etiquetas or 'Embarcaci' in categoria:
+        tipo = 'Barco'
+    elif CASA.search(titulo):
+        tipo = 'Casa'
+    else:
+        tipo = 'Coche'
+    marca = '' if tipo == 'Casa' else marca_de(titulo)
+    if marca in MARCAS_MOTO:
+        tipo = 'Moto'
+    decada = f'{int(ano) // 10 * 10}-{int(ano) // 10 * 10 + 9}' if ano else ''
+    return {'marca': marca, 'ano': ano, 'decada': decada, 'tipo': tipo, 'provincia': provincia_de(loc), 'ubicacion': loc}
+
+
 def main():
     args = [a for a in sys.argv[1:] if not a.startswith('--')]
     if len(args) != 1:
@@ -247,6 +337,22 @@ def main():
     if 'Body (HTML)' not in col:
         sys.exit('No encuentro la columna «Body (HTML)». ¿Es una exportación de productos de Shopify?')
 
+    con_filtros = '--sin-filtros' not in sys.argv
+    col_tags = cab.index('Tags') if 'Tags' in cab else None
+    col_cat = cab.index('Product Category') if 'Product Category' in cab else None
+    col_tipo = cab.index('Type') if 'Type' in cab else None
+    col_filtro = {}
+    if con_filtros:
+        for clave, cabecera in COLUMNAS_FILTRO:
+            if cabecera in cab:
+                col_filtro[clave] = cab.index(cabecera)
+            else:
+                cab.append(cabecera)
+                col_filtro[clave] = len(cab) - 1
+        for fila in filas[1:]:
+            fila.extend([''] * (len(cab) - len(fila)))
+    resumen = []
+
     informe, n_reorg, n_emojis, n_titulos = [], 0, 0, 0
     for fila in filas[1:]:
         if len(fila) <= col['Body (HTML)']:
@@ -262,6 +368,11 @@ def main():
             nuevo = sin_emojis(body)
         else:
             n_reorg += 1
+            if con_filtros:
+                datos = datos_filtro(sin_emojis(titulo).strip(), body, fila[col_tags] if col_tags is not None else '', fila[col_cat] if col_cat is not None else '')
+                for clave, i in col_filtro.items():
+                    fila[i] = datos[clave]
+                resumen.append((handle, sin_emojis(titulo).strip(), datos))
         if EMOJI.search(antes):
             n_emojis += 1
         fila[col['Body (HTML)']] = nuevo
@@ -285,12 +396,24 @@ def main():
                 '.c b{display:block;font-size:.75rem;text-transform:uppercase;letter-spacing:.06em;opacity:.6;margin-bottom:.5rem}'
                 '@media(max-width:800px){.p{grid-template-columns:1fr}}</style>')
         f.write(f'<h1>Revisión: {len(informe)} productos cambian ({n_reorg} reorganizados, {n_emojis} tenían emojis)</h1>')
+        if resumen:
+            f.write('<h2>Datos para los filtros</h2><p>Revisa sobre todo «Marca» y «Localización». Lo vacío se queda sin valor en ese filtro.</p>'
+                    '<table style="border-collapse:collapse;font-size:14px"><tr>' + ''.join(f'<th style="text-align:left;padding:4px 10px;border-bottom:1px solid #ccc">{h}</th>' for h in ('Anuncio', 'Marca', 'Año', 'Década', 'Tipo', 'Localización', 'Ubicación')) + '</tr>')
+            for handle, titulo, d in resumen:
+                celdas = (titulo, d['marca'], d['ano'], d['decada'], d['tipo'], d['provincia'], d['ubicacion'])
+                f.write('<tr>' + ''.join(f'<td style="padding:4px 10px;border-bottom:1px solid #eee;{"background:#fdecea" if not v and i in (1, 3, 5) else ""}">{e(v)}</td>' for i, v in enumerate(celdas)) + '</tr>')
+            f.write('</table><h2>Descripciones</h2>')
         for handle, titulo, antes, nuevo in informe:
             f.write(f'<section class="p"><h2>{e(titulo)} <small>({e(handle)})</small></h2>'
                     f'<div class="c"><b>Antes</b>{antes}</div><div class="c"><b>Después</b>{nuevo}</div></section>')
 
     print(f'{len(informe)} productos cambian: {n_reorg} reorganizados en Historia / Ficha técnica / Ubicación, '
           f'{n_emojis} tenían emojis' + (f', {n_titulos} títulos sin emojis' if titulos else ''))
+    if resumen:
+        import collections
+        for clave, nombre in (('tipo', 'Tipo'), ('decada', 'Década'), ('provincia', 'Localización'), ('marca', 'Marca')):
+            c = collections.Counter(d[clave] or '(vacío)' for _, _, d in resumen)
+            print(f'{nombre}: ' + ', '.join(f'{k} {v}' for k, v in sorted(c.items(), key=lambda x: -x[1])))
     print(f'Escrito: {base}_preparado.csv')
     print(f'Revisión: {base}_revision.html')
 
