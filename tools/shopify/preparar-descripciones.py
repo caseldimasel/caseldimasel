@@ -371,8 +371,9 @@ def tipo_coche(titulo, filas, texto, etiquetas):
 
 def kilometros(filas):
     for fila in filas:
-        # «Kilometraje: 106.000 km», o una línea que empieza por los kilómetros («116.000 km, cuidado…»)
-        if re.match(r'^(kilometraje|kil[oó]metros|km)\b', fila, re.I) or re.match(r'^\d{1,3}(\.\d{3})+\s?(km|kil)', fila, re.I):
+        # «Kilometraje: 106.000 km», o una línea que empieza por los kilómetros («116.000 km, cuidado…», «> 7.000 km»,
+        # «49.523 millas»); lo mismo que lee el tema en snippets/sidonia-filters.liquid
+        if re.match(r'^(kilometraje|kil[oó]metros|km)\b', fila, re.I) or re.match(r'^[<>≈~+\s]*\d{1,3}(\.\d{3})+\s?(km|kil|millas)', fila, re.I):
             m = re.search(r'(\d{1,3}(?:[.\s]\d{3})+|\d+)', fila.split(':', 1)[-1])
             if not m:
                 continue
