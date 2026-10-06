@@ -1,11 +1,13 @@
-// Iconos y pantallas de carga de la app con el logo completo de Sidonia sobre blanco.
-// Lee el logo de assets/sidonia-app-logo.png del tema y escribe los PNG en assets/.
-// Uso: SIDONIA_THEME=../sidonia-shopify node tools/app-icon/build-logo.mjs
+// Iconos y pantallas de carga de la app de Sidonia, sobre blanco:
+// - iconos y accesos directos: el isotipo (la «O» con el punto, assets/sidonia-app-isotipo.png, recortada del logo);
+// - pantallas de carga del iPhone: el logo completo (assets/sidonia-app-logo.png).
+// Uso: SIDONIA_THEME=../sidonia-shopify node tools/app-icon/build.mjs
 import { chromium, CHROMIUM_PATH } from '../harness/pw.mjs';
 import { readFileSync } from 'node:fs';
 const THEME = process.env.SIDONIA_THEME || '../sidonia-shopify';
 const OUT = THEME + '/assets/';
 const LOGO = 'data:image/png;base64,' + readFileSync(OUT + 'sidonia-app-logo.png').toString('base64');
+const ISO = 'data:image/png;base64,' + readFileSync(OUT + 'sidonia-app-isotipo.png').toString('base64');
 const b = await chromium.launch({ executablePath: CHROMIUM_PATH, args: ['--no-sandbox'] });
 const p = await b.newPage({ deviceScaleFactor: 1 });
 async function shot(html, w, h, file, transparent = false) {
@@ -14,14 +16,14 @@ async function shot(html, w, h, file, transparent = false) {
   await p.evaluate(() => Promise.all([...document.images].map((i) => i.decode())));
   await p.screenshot({ path: OUT + file, omitBackground: transparent, clip: { x: 0, y: 0, width: w, height: h } });
 }
-// Cuadrado blanco (esquinas redondeadas opcionales) con el logo centrado a `ancho` del lado
-const icon = (size, ancho, radius = 0, dy = 0) => `<div style="width:${size}px;height:${size}px;border-radius:${radius * size}px;background:#fff;display:grid;place-items:center"><img src="${LOGO}" style="width:${Math.round(size * ancho)}px;height:auto;display:block;transform:translateY(${dy}px)"></div>`;
-await shot(icon(180, 0.8), 180, 180, 'sidonia-app-icon-180.png');
-await shot(icon(192, 0.8, 0.225), 192, 192, 'sidonia-app-icon-192.png', true);
-await shot(icon(512, 0.8, 0.225), 512, 512, 'sidonia-app-icon-512.png', true);
-// Android adaptable: el logo dentro de la zona segura (círculo del 80 %)
-await shot(icon(192, 0.66), 192, 192, 'sidonia-app-icon-maskable-192.png');
-await shot(icon(512, 0.66), 512, 512, 'sidonia-app-icon-maskable-512.png');
+// Cuadrado blanco (esquinas redondeadas opcionales) con el isotipo centrado, de `alto` del lado
+const icon = (size, alto, radius = 0) => `<div style="width:${size}px;height:${size}px;border-radius:${radius * size}px;background:#fff;display:grid;place-items:center"><img src="${ISO}" style="height:${Math.round(size * alto)}px;width:auto;display:block"></div>`;
+await shot(icon(180, 0.6), 180, 180, 'sidonia-app-icon-180.png');
+await shot(icon(192, 0.6, 0.225), 192, 192, 'sidonia-app-icon-192.png', true);
+await shot(icon(512, 0.6, 0.225), 512, 512, 'sidonia-app-icon-512.png', true);
+// Android adaptable: el isotipo dentro de la zona segura (círculo del 80 %)
+await shot(icon(192, 0.5), 192, 192, 'sidonia-app-icon-maskable-192.png');
+await shot(icon(512, 0.5), 512, 512, 'sidonia-app-icon-maskable-512.png');
 // Accesos directos: iconos negros de línea sobre blanco
 const glyph = {
   descubre: '<rect x="30" y="24" width="36" height="48" rx="11" fill="none" stroke="#111" stroke-width="5"/><path d="M42 38v20l15-10z" fill="#111"/><circle cx="66" cy="25" r="7" fill="#ff4d5e"/>',
