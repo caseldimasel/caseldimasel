@@ -435,7 +435,7 @@ function luminance([r, g, b]) {
 
 function strftime(d, fmt) {
   const p = (n, w = 2) => String(n).padStart(w, '0');
-  return fmt.replace(/%([YmdHMSyb])/g, (_, c) => ({ Y: d.getFullYear(), m: p(d.getMonth() + 1), d: p(d.getDate()), H: p(d.getHours()), M: p(d.getMinutes()), S: p(d.getSeconds()), y: p(d.getFullYear() % 100), b: ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'][d.getMonth()] }[c]));
+  return fmt.replace(/%([YmdHMSybs])/g, (_, c) => ({ s: Math.floor(d.getTime() / 1000), Y: d.getFullYear(), m: p(d.getMonth() + 1), d: p(d.getDate()), H: p(d.getHours()), M: p(d.getMinutes()), S: p(d.getSeconds()), y: p(d.getFullYear() % 100), b: ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'][d.getMonth()] }[c]));
 }
 
 function makeFilters(engine) {

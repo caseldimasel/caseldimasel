@@ -405,6 +405,8 @@ export function createRenderer(store) {
       const c = Object.values(store.collections).find((x) => x.handle === m[1]);
       name = 'collection';
       suffix = c.template_suffix;
+      // ?view=<sufijo> como en Shopify: plantilla alternativa si existe
+      if (q.view?.[0] && (existsSync(join(THEME, 'templates', `collection.${q.view[0]}.json`)) || existsSync(join(THEME, 'templates', `collection.${q.view[0]}.liquid`)))) suffix = q.view[0];
       collectionGlobals(globals, c, q);
     } else if ((m = /^\/products\/([^/]+)$/.exec(req.path)) && store.byHandle[m[1]]) {
       name = 'product';

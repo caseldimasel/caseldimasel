@@ -130,14 +130,19 @@ export function productsFromCsv(path) {
     // que empieza por la foto, para probar la ficha con «solo el primer archivo»
     const photo = { ...cover, media_type: 'image', preview_image: cover };
     const clip = { ...video(0.5625, cover), id: `v${id}` };
-    const media = (id % 4 === 0 ? [photo, clip] : [clip, photo]).map((m, i) => ({ ...m, position: i + 1 }));
+    // Uno de cada seis, sin vídeo (para el modo Descubre, que solo enseña anuncios con vídeo)
+    const media = (id % 6 === 5 ? [photo] : id % 4 === 0 ? [photo, clip] : [clip, photo]).map((m, i) => ({ ...m, position: i + 1 }));
     const price = Math.round(parseFloat(r['Variant Price'] || '0') * 100);
-    const variant = { id: id * 10, title: 'Default Title', price, compare_at_price: null, available, url: `/products/${r.Handle}?variant=${id * 10}`, options: ['Default Title'], option1: 'Default Title', featured_media: null, selling_plan_allocations: [], quantity_rule: { min: 1, max: null, increment: 1 } };
+    // Uno de cada siete con precio anterior más alto (etiqueta «Ha bajado de precio»)
+    const compare = price > 0 && id % 7 === 3 ? Math.round((price * 1.12) / 50000) * 50000 : null;
+    // Uno de cada cinco publicado hace menos de diez días (etiqueta «Nuevo»); el resto, hace meses
+    const published = new Date(Date.now() - (id % 5 === 1 ? id % 10 : 60 + (id % 90)) * 86400000).toISOString();
+    const variant = { id: id * 10, title: 'Default Title', price, compare_at_price: compare, available, url: `/products/${r.Handle}?variant=${id * 10}`, options: ['Default Title'], option1: 'Default Title', featured_media: null, selling_plan_allocations: [], quantity_rule: { min: 1, max: null, increment: 1 } };
     out.push({
       id, handle: r.Handle, title: r.Title, url: `/products/${r.Handle}`, description: r['Body (HTML)'] || '', vendor: r.Vendor || '', type: r.Type,
-      tags, published_at: '2026-09-01T10:00:00Z', created_at: '2026-09-01T10:00:00Z', template_suffix: 'cars',
+      tags, published_at: published, created_at: published, template_suffix: 'cars',
       featured_image: cover, featured_media: media[0], images: [cover], media,
-      price, price_min: price, price_max: price, price_varies: false, compare_at_price: null, compare_at_price_min: 0, compare_at_price_max: 0, compare_at_price_varies: false,
+      price, price_min: price, price_max: price, price_varies: false, compare_at_price: compare, compare_at_price_min: compare || 0, compare_at_price_max: compare || 0, compare_at_price_varies: false,
       available, variants: [variant], selected_or_first_available_variant: variant, first_available_variant: variant, selected_variant: null, has_only_default_variant: true,
       options: ['Title'], options_with_values: [{ name: 'Title', position: 1, values: ['Default Title'], selected_value: 'Default Title' }], options_by_name: {},
       'gift_card?': false, requires_selling_plan: false, selling_plan_groups: [], quantity_price_breaks_configured: false,
