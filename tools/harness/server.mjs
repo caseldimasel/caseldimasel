@@ -217,9 +217,10 @@ export function createStore(profile = 'full', port = 4173) {
   // SIDONIA_SHOP_DATA=1 (tema Sidonia-Shopify): menú principal como el de la tienda (Coches, Barcos, Casas + Nosotros y Contacto)
   if (full && process.env.SIDONIA_SHOP_DATA) {
     menus['main-menu'] = { title: 'Menú principal', links: [
-      { title: 'Coches', url: '/collections/coches-en-venta', type: 'collection_link', object: collections['coches-en-venta'], links: [] },
-      { title: 'Barcos', url: '/collections/barcos', type: 'collection_link', object: collections.barcos, links: [] },
-      { title: 'Casas', url: '/collections/casas', type: 'collection_link', object: collections.casas, links: [] },
+      // Como en la tienda: los títulos del menú escritos en mayúsculas
+      { title: 'COCHES', url: '/collections/coches-en-venta', type: 'collection_link', object: collections['coches-en-venta'], links: [] },
+      { title: 'BARCOS', url: '/collections/barcos', type: 'collection_link', object: collections.barcos, links: [] },
+      { title: 'CASAS', url: '/collections/casas', type: 'collection_link', object: collections.casas, links: [] },
       { title: 'Nosotros', url: '/pages/sobre-sidonia', type: 'page_link', links: [] },
       { title: 'Contacto', url: '/pages/contacto', type: 'page_link', links: [] }
     ] };
