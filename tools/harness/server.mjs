@@ -84,6 +84,13 @@ function typed(s, v, ctx) {
       return typeof v === 'string' ? (ctx.pages && ctx.pages[v]) || null : v;
     case 'collection_list':
       return Array.isArray(v) ? v.map((h) => (typeof h === 'string' ? ctx.collections && ctx.collections[h] : h)).filter(Boolean) : v;
+    case 'url': {
+      // Como Shopify: shopify://collections/x → /collections/x (vacío si la colección, página o producto no existe)
+      const m = typeof v === 'string' && /^shopify:\/\/(collections|pages|products|blogs)\/(.+)$/.exec(v);
+      if (!m) return v;
+      const ok = m[1] === 'collections' ? ctx.collections && ctx.collections[m[2]] : m[1] === 'pages' ? ctx.pages && ctx.pages[m[2]] : m[1] === 'products' ? ctx.byHandle && ctx.byHandle[m[2]] : true;
+      return ok ? `/${m[1]}/${m[2]}` : '';
+    }
     case 'product_list':
       return Array.isArray(v) ? v.map((h) => (typeof h === 'string' ? ctx.byHandle && ctx.byHandle[h] : h)).filter(Boolean) : v;
     case 'video':
