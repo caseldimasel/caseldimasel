@@ -1,0 +1,57 @@
+{%- comment -%}
+  Migas de pan accesibles y su versión en datos estructurados (BreadcrumbList).
+  En una ficha, el paso intermedio es la categoría de la pieza (Coches, Barcos, Casas).
+  Parámetros: category (clave, opcional), schema (bool, por defecto true)
+{%- endcomment -%}
+{%- liquid
+  assign mid_url = ''
+  assign mid_title = ''
+  if template.name == 'product' and category != blank
+    capture mid_url
+      render 'sidonia-division', key: category, out: 'url'
+    endcapture
+    capture mid_title
+      render 'sidonia-division', key: category, out: 'name'
+    endcapture
+    assign mid_url = mid_url | strip
+    assign mid_title = mid_title | strip
+  endif
+  case template.name
+    when 'product'
+      assign last_title = product.title
+    when 'collection'
+      assign last_title = collection.title
+    when 'page'
+      assign last_title = page.title
+    when 'search'
+      assign last_title = 'sidonia.search.title' | t
+    else
+      assign last_title = page_title
+  endcase
+-%}
+<nav class="sidonia-crumbs" aria-label="{{ 'sidonia.general.breadcrumbs' | t }}">
+  <ol role="list">
+    <li><a href="{{ routes.root_url }}">{{ 'sidonia.general.home' | t }}</a></li>
+    {%- if mid_url != blank -%}
+      <li>{%- if category != blank -%}<a href="{{ mid_url }}">{{ mid_title | escape }}</a>{%- endif -%}</li>
+    {%- endif -%}
+    <li><span aria-current="page">{{ last_title | escape }}</span></li>
+  </ol>
+</nav>
+{%- unless schema == false -%}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": {{ 'sidonia.general.home' | t | json }}, "item": {{ shop.url | append: routes.root_url | json }} }
+    {%- if mid_url != blank -%}
+    , { "@type": "ListItem", "position": 2, "name": {{ mid_title | json }}, "item": {{ shop.url | append: mid_url | json }} }
+    , { "@type": "ListItem", "position": 3, "name": {{ last_title | json }} }
+    {%- else -%}
+    , { "@type": "ListItem", "position": 2, "name": {{ last_title | json }} }
+    {%- endif -%}
+  ]
+}
+</script>
+{%- endunless -%}

@@ -1,0 +1,103 @@
+{%- comment -%}
+  SIDONIA · Piezas relacionadas, de forma explicable:
+    1. Las elegidas a mano en el metacampo sidonia.related.
+    2. Si faltan, otras piezas de la misma categoría en el orden de su colección.
+  Nunca la propia pieza ni piezas vendidas. Sin piezas, no se muestra.
+{%- endcomment -%}
+{%- liquid
+  assign s = section.settings
+  capture cat
+    render 'sidonia-category', product: product
+  endcapture
+  assign cat = cat | strip
+  capture cat_name
+    render 'sidonia-division', key: cat, out: 'name'
+  endcapture
+  assign cat_name = cat_name | strip
+  assign limit = s.limit | default: 4
+  assign shown = 0
+  assign used = '|' | append: product.id | append: '|'
+  assign manual = product.metafields.sidonia.related.value
+  capture cards
+    for p in manual
+      if shown >= limit
+        break
+      endif
+      assign token = '|' | append: p.id | append: '|'
+      if used contains token
+        continue
+      endif
+      capture p_st
+        render 'sidonia-status', product: p
+      endcapture
+      if p_st contains 'sold'
+        continue
+      endif
+      assign used = used | append: p.id | append: '|'
+      assign shown = shown | plus: 1
+      echo '<li class="sidonia-row__item">'
+      render 'sidonia-card', product: p, show_hook: false
+      echo '</li>'
+    endfor
+    if shown < limit and cat != blank
+      assign col_key = 'sidonia_' | append: cat | append: '_collection'
+      assign col = settings[col_key]
+      if col == blank
+        assign guess = cat_name | handleize
+        assign col = collections[guess]
+      endif
+      for p in col.products limit: 24
+        if shown >= limit
+          break
+        endif
+        assign token = '|' | append: p.id | append: '|'
+        if used contains token
+          continue
+        endif
+        capture p_st
+          render 'sidonia-status', product: p
+        endcapture
+        if p_st contains 'sold'
+          continue
+        endif
+        assign used = used | append: p.id | append: '|'
+        assign shown = shown | plus: 1
+        echo '<li class="sidonia-row__item">'
+        render 'sidonia-card', product: p, show_hook: false
+        echo '</li>'
+      endfor
+    endif
+  endcapture
+-%}
+{%- if shown > 0 -%}
+<section class="sidonia-scope sidonia-section sidonia-related" data-section-id="{{ section.id }}">
+  <div class="sidonia-container">
+    <div class="sidonia-head">
+      <div class="sidonia-head__text">
+        <h2 class="sidonia-h2">
+          {%- if cat_name != blank -%}{{ s.heading | replace: '[categoria]', cat_name | escape }}{%- else -%}{{ s.heading_generic | escape }}{%- endif -%}
+        </h2>
+        <p class="sidonia-note">{{ 'sidonia.related.explain' | t }}</p>
+      </div>
+      {%- if cat != blank -%}
+        {%- capture cat_url -%}{%- render 'sidonia-division', key: cat, out: 'url' -%}{%- endcapture -%}
+        <a class="sidonia-link" href="{{ cat_url | strip }}">{{ 'sidonia.related.see_all' | t: name: cat_name }}{%- render 'sidonia-icon', name: 'arrow-right', size: 18 -%}</a>
+      {%- endif -%}
+    </div>
+    <ul class="sidonia-row" role="list">{{ cards }}</ul>
+  </div>
+</section>
+{%- endif -%}
+
+{% schema %}
+{
+  "name": "Sidonia · Relacionadas",
+  "tag": "div",
+  "enabled_on": { "templates": ["product"] },
+  "settings": [
+    { "type": "text", "id": "heading", "label": "Título", "default": "Más piezas de [categoria]", "info": "[categoria] se sustituye por Coches, Barcos o Casas." },
+    { "type": "text", "id": "heading_generic", "label": "Título sin categoría", "default": "Sigue descubriendo" },
+    { "type": "range", "id": "limit", "label": "Número de piezas", "min": 2, "max": 8, "step": 1, "default": 4 }
+  ]
+}
+{% endschema %}

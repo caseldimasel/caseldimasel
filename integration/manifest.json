@@ -1,0 +1,71 @@
+{
+  "_comment": "Qué hace apply-kit.mjs con cada parte del kit. «new» = archivos nuevos (si ya existen, conflicto; en --update se conservan). «replace» = plantillas que sustituyen a las del tema base SOLO si se pasan en --replace. Los parches de Impact están en integration/patches/ (escritos tras auditar Impact 7.2.0).",
+  "copy": [
+    "assets",
+    "sections",
+    "snippets"
+  ],
+  "templates": {
+    "new": [
+      "collection.sidonia.json",
+      "collection.garage.json",
+      "collection.harbor.json",
+      "collection.estate.json",
+      "collection.sold.json",
+      "product.garage.json",
+      "product.harbor.json",
+      "product.estate.json",
+      "product.sidonia-card.liquid",
+      "page.sell.json",
+      "page.how-it-works.json",
+      "page.sidonia-about.json",
+      "page.favorites.json",
+      "page.sidonia-contact.json",
+      "page.wanted.json"
+    ],
+    "replace": [
+      "index.json",
+      "search.json",
+      "404.json"
+    ]
+  },
+  "locales": {
+    "source": "locales/es.json",
+    "namespace": "sidonia",
+    "targets": [
+      "default",
+      "es.json"
+    ]
+  },
+  "settings": {
+    "source": "config/settings_schema.sidonia.json",
+    "prefix": "sidonia_"
+  },
+  "layout": {
+    "file": "layout/theme.liquid",
+    "head": {
+      "before": "</head>",
+      "snippet": "sidonia-head",
+      "marker": "sidonia:head"
+    },
+    "body": {
+      "before": "</body>",
+      "snippet": "sidonia-body-end",
+      "marker": "sidonia:body"
+    }
+  },
+  "never_touch": [
+    "config/settings_data.json"
+  ],
+  "patches": {
+    "dir": "integration/patches",
+    "verified_on": "Impact 7.2.0",
+    "list": [
+      "10-impact-header",
+      "20-impact-commerce",
+      "30-impact-seo",
+      "40-impact-bridge",
+      "50-impact-templates"
+    ]
+  }
+}

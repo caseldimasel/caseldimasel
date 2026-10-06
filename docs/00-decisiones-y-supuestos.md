@@ -1,68 +1,49 @@
-# 00 · Decisiones, supuestos y trazabilidad del briefing
+# 00 · Decisiones, supuestos y requisitos trazables
 
-## Resumen de decisiones esenciales
+## Decisiones esenciales (15 líneas)
 
-1. **Tema propio desde cero**, sin base de terceros ni código de Impact: Liquid, plantillas JSON, CSS y JavaScript sin paso de build. No hay licencia ajena que conservar.
-2. **Las piezas son productos de Shopify** con metacampos del propietario de la tienda en el namespace `sidonia`. Solo la cronología usa un metaobjeto.
-3. **Estado editorial independiente del inventario**: Disponible, Reservado y Vendido salen de un metacampo; las piezas no son comprables (inventario 0, sin seguir vendiendo).
-4. **El precio visible sale de metacampos** (modo + importe). El tema nunca imprime el precio de la variante ni un 0.
-5. **Filtros nativos de Search & Discovery**; los rangos se resuelven con **bandas de texto** porque un metacampo numérico no da un rango libre.
-6. **Filtro, orden y paginación reales** (Section Rendering API) con **estado en la URL**; sin JavaScript funcionan como formularios y enlaces.
-7. **Vídeo bajo demanda**: las tarjetas llevan portada y botón; el `<video>` se crea al pulsar, en un modal nativo. Nunca hay audio automático y solo suena uno a la vez.
-8. **Favoritos locales** (sin cuenta) que se revalidan al abrir con `?view=card`, una vista alternativa soportada de Shopify.
-9. **Formularios con el contacto nativo de Shopify**, mejorados con `fetch`; el éxito se decide por la respuesta real. Sin subida de archivos: solo un enlace.
-10. **Tipografía de sistema por defecto** (sans, negrita compacta; opción serif y opción de la biblioteca de fuentes de Shopify); ningún archivo de fuente externo.
-11. **Colores de división editables**; si no alcanzan 4,5:1 como texto, el tema los oscurece solo.
-12. **Divisiones como datos**: añadir una categoría es una lista y unos ajustes, no una reescritura de la navegación.
-13. **Rediseño tipo escaparate (v1.1)**: por petición expresa de Sidonia, la interfaz sigue el patrón de Bring a Trailer / Cars & Bids / Wallapop (cabecera oscura con buscador, pestañas de categoría, filas de marcas, tarjetas con foto y precio, filtros en cajón). Se mantiene lo no negociable: nada de urgencia, descuentos ni valoraciones inventados, sin carrito ni compra. **Impact no es la base**: es un tema propietario y su código no está en este repositorio; si se quiere partir de él hay que descargarlo (*Temas → Acciones → Descargar archivo del tema*), añadirlo al repositorio y comprobar que su licencia lo permite.
-14. **Marcas completas**: la página y la sección «Marcas» listan todas las marcas de `tools/brands.json` (150 de coches, 130 de barcos), con o sin stock; los números salen de los filtros reales. Una marca que falte se añade al JSON y se regenera el snippet.
-15. **Fotos**: el tema no incluye fotografías de stock (no había acceso a Internet ni licencias). Las imágenes salen de las piezas, de las colecciones y de los ajustes; el logo de Sidonia sí va incluido (`theme/assets/sidonia-logo-*.png`).
-16. **Lo que no se puede garantizar sin Shopify se declara**: ver `09-informe-de-pruebas.md`.
+1. **Base:** la copia licenciada de **Impact 7.2.0** de la tienda (exportación del 4/10/2026), en un **duplicado sin publicar**. Nada de tema propio, Dawn ni headless.
+2. **Método:** kit `sidonia-*` (secciones, snippets, CSS, JS) + **5 parches pequeños** sobre archivos de Impact, aplicados por script con anclas exactas y registro de cambios. `settings_data.json` no se toca.
+3. **Cabecera transparente:** el mecanismo **nativo de Impact** (`allow-transparent-header`, verificado en `theme.js › StoreHeader`). El hero Sidonia se declara compatible; no hay un segundo sistema de cabecera.
+4. **Categorías públicas:** Coches (rojo `#B63F38`), Barcos (azul `#28638E`), Casas (verde `#347455`); claves internas `garage`, `harbor`, `estate`; comunidades SIDONIA GARAGE / HARBOR / ESTATE como texto secundario opcional.
+5. **Piedra en todo el tema:** tokens Sidonia + un **puente** que redefine las variables de color de Impact (desactivable con una casilla). Contrastes medidos ([03](03-sistema-de-diseno.md)).
+6. **Pieza = producto de Shopify** con metacampos `sidonia.*`. Lo que la distingue de un producto normal es `sidonia.category`: el comercio actual (libros, láminas, coches a escala) **no cambia**.
+7. **Precio editorial separado del precio de variante:** «85.000 €», «Precio a consultar», «Precio no publicado» o «Vendida». Nunca 0, tampoco en buscador ni JSON-LD.
+8. **Filtros reales** de Shopify/Search & Discovery: 16 de 25; números en **bandas de texto** porque los filtros numéricos de metacampo son por valor exacto.
+9. **Un único formulario de venta** en 3 pasos sobre el formulario de contacto nativo; preselección validada con `?categoria=`; los campos de otras categorías no se envían.
+10. **Vídeo:** portada primero, sonido solo tras pulsar, un único vídeo con sonido, vertical sin recortar, sin vídeos en la carga del listado.
+11. **Redes:** metaobjeto `sidonia_social_account`; el total se **calcula** (sin duplicados, vacío ≠ 0, aclaración «Suma de seguidores…»).
+12. **Propietario:** nombre público solo con autorización (casilla); si no, descripción real; nunca datos de contacto.
+13. **Favoritos anónimos** en el navegador, revalidados contra la tienda al abrir la página.
+14. **Cabecera de Impact:** en el duplicado se activa «cabecera fija» y el diseño «logo a la izquierda, navegación en línea» (más cercano a JamesEdition). Ambos se revierten en el editor.
+15. **Repositorio público:** el código de Impact, el tema integrado, el ZIP y el diff **no** se suben; solo el trabajo propio.
 
-## Supuestos declarados
+## Supuestos
 
-- Tienda en español de España, una sola moneda para precios editoriales (EUR por defecto), sin selector de idioma.
-- Operación de **catálogo y generación de contactos**: sin carrito, financiación, depósitos, subastas, reservas de pago ni comisiones.
-- Nombre de la marca madre **SIDONIA** y divisiones públicas **Coches (punto rojo), Barcos (punto azul) y Casas (punto verde)**. Internamente las claves siguen siendo `garage`, `harbor` y `estate` (los archivos de marca usan Garage, Harbour y Home, y hay además una marca Time, amarilla, que se puede añadir como división nueva: ver `01`).
-- El tema se publica **solo cuando lo decida Sidonia**; el tema actual (Impact) no se toca.
-- Los logos, el isotipo, los datos de contacto, las cifras de redes, los vídeos y los anuncios reales los aporta Sidonia (`11-datos-pendientes.md`).
-- Las condiciones legales, tarifas, exclusividades, plazos y alcance de la intermediación **no se han redactado**: no se prometen.
+| Supuesto | Consecuencia | Cómo cambiarlo |
+|---|---|---|
+| El idioma de la tienda es español; Impact tiene `en.default.json` como idioma por defecto del tema | Las cadenas `sidonia.*` se copian en `es.json` **y** en `en.default.json` | Traducir en *Contenido > Traducciones* si se publica otro idioma |
+| Las piezas se venden fuera del checkout | Sin carrito ni compra en sus fichas; inventario 0 sin vender sin existencias ([10](10-precios-y-compra.md)) | — |
+| El formulario de contacto nativo es suficiente en la primera versión | Las solicitudes llegan al correo de la tienda | Integración con CRM en [17](17-fase-2.md) |
+| La colección actual `coches-en-venta` y los productos con plantilla `product.cars` son anuncios reales | No se borran ni se cambian; se proponen pasos de migración ([02](02-instalacion.md) §6) | — |
+| Las páginas «vende tu casa» usan la app *Powerful Form Builder* | Se conservan; el CTA nuevo apunta a `/pages/vender-con-sidonia` | Redirección si se decide retirar las antiguas |
+| Faltan logos definitivos, cuentas, cifras, vídeos, fichas y textos legales | Ajustes vacíos, estados vacíos cuidados; nada inventado ([13](13-datos-pendientes.md)) | Rellenar desde el editor |
+| JamesEdition no se pudo abrir desde el entorno (red bloqueada) | Los patrones se describen sin afirmar una revisión visual ([01](01-patrones-jamesedition.md)) | Revisión en navegador antes de publicar |
 
-## Trazabilidad del briefing
+## Requisitos trazables
 
-| § | Tema | Estado | Dónde |
-|---|---|---|---|
-| 1 | Qué es Sidonia, «alma», no afirmar inspecciones ni garantías | Cumplido | Textos por defecto sin esas afirmaciones; `listing.*`, `product.facts_note` |
-| 2 | Arquitectura de marca, logos editables, texto de reserva, categorías futuras | Cumplido (logos los aporta Sidonia) | `01`, `settings_schema.json`, `division-keys` |
-| 3 | Dos recorridos, objetivos | Cumplido | Home, ficha, `page.sell` |
-| 4 | Tema independiente, sin publicar | Cumplido | `02`; sin base de terceros |
-| 4 | Consultar documentación vigente de Shopify | **No cumplido** (red bloqueada) | `09` §2 y §5 |
-| 5–6 | Dirección creativa, sistema de diseño, ajustes útiles | Cumplido | `sd-base.css`, `css-variables`, `settings_schema.json` |
-| 6 | Localización | Cumplido (cadenas en `locales`) | Sin selector de idioma |
-| 7 | Navegación y mapa de páginas | Cumplido; Impact/redirecciones: por hacer en tienda | `02` |
-| 8.1–8.11 | Home completa | Cumplido | `sections/` y `index.json` |
-| 9 | Catálogo y tarjetas | Cumplido | `listing-card`, `main-collection` |
-| 10 | Buscador y filtros reales | Cumplido en el tema; configuración en Shopify pendiente | `04` |
-| 11 | Ficha de anuncio | Cumplido | `main-product`, `product-*` |
-| 12 | Vídeo | Cumplido en el tema; límites de Shopify por verificar | `07` |
-| 13 | Contactar (WhatsApp, email, formulario) | Cumplido; recepción por probar | `08` |
-| 14 | Formulario de propietarios | Cumplido; reparto de leads y subida de archivos **no implementados** | `08` |
-| 15 | Favoritos | Cumplido | `sd-favorites.js` |
-| 16 | Modelo de datos | Cumplido (definiciones por crear en el administrador) | `03` |
-| 17 | Precio, disponibilidad, bloqueo de compra | Cumplido en el tema; bloqueo **por probar** | `05` |
-| 18 | Funciones adicionales | Compartir, relacionadas, archivo, «algo parecido», FAQ por categoría, idioma de vídeo, «qué buscas» cumplidos; fase 2 documentada | `13` |
-| 19 | Rendimiento y accesibilidad | Diseñado y medido en local; **LCP/INP y lector de pantalla sin medir** | `09` |
-| 20 | SEO y analítica | Cumplido | `seo-meta`, `structured-listing`, `sd-analytics.js` |
-| 21 | Estructura y compatibilidad con el editor | Cumplido en el tema; prueba en el editor real pendiente | `09` §6 |
-| 22 | Contenido de demostración | Instalación vacía cuidada; fixtures solo en `tools/` | `tools/preview/store.mjs` |
-| 23–24 | Fases y entregables | Entregados los 11 | `README.md` |
-| 25 | Pruebas de aceptación | Ver `09`: las que dependen de Shopify real constan como pendientes | `09` |
-| 26 | Criterio de calidad | Revisión visual y funcional local | — |
-
-## Estado para continuar el proyecto
-
-**Terminado:** tema completo (35 secciones, 40 snippets, 11 assets, 26 plantillas, 357 cadenas), validador, intérprete y servidor de previsualización, 67 pruebas end-to-end, bandas, ZIP y documentación.
-
-**Pendiente (requiere Shopify o decisiones de Sidonia):** subir el ZIP y ejecutar Theme Check; crear definiciones, colecciones, filtros, páginas y menús; probar recepción de formularios y bloqueo de compra; verificar los hechos del apartado 5 de `09`; cargar contenido real; accesibilidad con lector de pantalla y Lighthouse; decisiones legales.
-
-**Cómo retomar:** `node tools/validate-theme.mjs` → `node tools/tests/e2e.mjs` → editar → `node tools/generate-templates.mjs` / `node tools/build-locale.mjs` si procede → `node tools/build-zip.mjs`.
+| # | Requisito del encargo | Componente (Impact o nuevo) | Archivo real | Cómo se comprueba |
+|---|---|---|---|---|
+| 1 | Base Impact, duplicado sin publicar | Impact 7.2.0 + kit | `impact/original` → `impact/sidonia` (local) | `audit-impact.mjs`; `apply-kit.mjs` no modifica el original; ZIP con carpetas en la raíz |
+| 2 | Cercanía a JamesEdition | Cabecera de Impact (logo izq.), `sidonia-hero`, `sidonia-catalog`, `sidonia-card`, `sidonia-listing` | `sections/header-group.json`, `kit/sections/*` | Capturas 01–09; pruebas §2–§5 |
+| 3 | Acabado Apple | Tokens y movimiento 150–220 ms, `prefers-reduced-motion` | `kit/assets/sidonia-base.css` | Prueba «Movimiento reducido» |
+| 4 | Fondo piedra en todo | Tokens + puente de colores de Impact | `snippets/sidonia-impact-bridge.liquid` | Capturas (carrito, búsqueda, 404, producto normal); casilla «Aplicar la paleta piedra» |
+| 5 | Cabecera transparente / sólida | Mecanismo nativo de Impact + `sidonia-hero` | `sections/sidonia-hero.liquid` (atributo y margen), `header-group.json` (fija) | Pruebas §3: transparente, sólida al bajar, misma altura, sólida al pasar el ratón; sin JS |
+| 6 | Coches · Barcos · Casas con punto | `sidonia-menu-dot`, `sidonia-cat-label`, ajustes de categoría | Parche `10-impact-header.mjs` (menú escritorio y móvil) | Prueba «Nombres públicos exactos y puntos de color» |
+| 7 | Un único formulario de venta | `sidonia-sell-form` + `sidonia-forms.js` | `templates/page.sell.json` | Pruebas §7: pasos, preselección, campos enviados, red, anti-spam, sin JS |
+| 8 | Redes y total calculado | `sidonia-social`, `sidonia-community`, metaobjeto | `kit/snippets/sidonia-social.liquid` | Pruebas §8: 20.700 = 12.400 + 8.300, duplicada fuera, sin cifra ≠ 0, estado vacío |
+| 9 | Ficha: precio, descripción, detalles, propietario, ubicación | `sidonia-listing` y módulos | `templates/product.garage/harbor/estate.json` | Prueba §5 «La ficha muestra…»; capturas 06–11 |
+| — | Comercio normal intacto | Impact sin cambios para productos sin `sidonia.category` | Parche `20-impact-commerce.mjs` | Página `/products/prueba-libro` con precio y «Añadir a la cesta»; captura 18 |
+| — | Sin precio 0 ni oferta comprable | `sidonia-price`, guardas de Impact | Parches `20` y `30` | Pruebas «Precios» y «Datos estructurados» |
+| — | Accesibilidad y responsive | HTML semántico, foco, `aria-*`, 5 anchos | Todo el kit | Pruebas §1 y §9 |
+| — | Analítica sin datos personales | `S.track` con lista blanca y consentimiento | `kit/assets/sidonia-core.js` | Pruebas §9 |

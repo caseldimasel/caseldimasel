@@ -1,0 +1,42 @@
+{%- comment -%}
+  Punto de categoría para un enlace de menú. Si el enlace apunta a la colección de una categoría
+  (Coches, Barcos, Casas…), imprime su punto decorativo; si no, nada. El texto del enlace sigue
+  siendo el del menú de Shopify (Tienda online > Navegación).
+  Se inserta delante del título de cada enlace del menú principal de Impact durante la integración.
+
+  Parámetros: link (objeto link de un menú) o url (texto)
+{%- endcomment -%}
+{%- liquid
+  assign target = url
+  if link != blank
+    assign target = link.url
+  endif
+  assign target = target | split: '?' | first | downcase
+  assign target_handle = ''
+  if link != blank and link.type == 'collection_link'
+    assign target_handle = link.object.handle
+  endif
+  capture keys_csv
+    render 'sidonia-division-keys'
+  endcapture
+  assign div_keys = keys_csv | strip | split: ','
+  assign hit = ''
+  for k in div_keys
+    assign key_i = k | strip
+    capture d_url
+      render 'sidonia-division', key: key_i, out: 'url'
+    endcapture
+    capture d_handle
+      render 'sidonia-division', key: key_i, out: 'handle'
+    endcapture
+    assign d_url = d_url | strip | downcase
+    assign d_handle = d_handle | strip
+    if d_handle != blank
+      if target_handle == d_handle or target == d_url
+        assign hit = key_i
+        break
+      endif
+    endif
+  endfor
+-%}
+{%- if hit != '' -%}<span class="sidonia-dot sidonia-dot--{{ hit }} sidonia-menu-dot" aria-hidden="true"></span>{%- endif -%}

@@ -1,0 +1,376 @@
+{
+  "sidonia": {
+    "general": {
+      "home": "Inicio",
+      "breadcrumbs": "Migas de pan",
+      "close": "Cerrar",
+      "cancel": "Cancelar",
+      "new_window": "(se abre en una ventana nueva)"
+    },
+    "header": {
+      "sell": "Vender con Sidonia",
+      "sell_short": "Vender"
+    },
+    "number": {
+      "thousands": ".",
+      "decimal": ","
+    },
+    "price": {
+      "format": "{{ amount }} {{ symbol }}",
+      "ask": "Precio a consultar",
+      "hidden": "Precio no publicado",
+      "from": "Desde {{ price }}"
+    },
+    "status": {
+      "available": "Disponible",
+      "reserved": "Reservado",
+      "sold": "Vendido",
+      "sold_long": "Vendida"
+    },
+    "units": {
+      "km": "{{ value }} km",
+      "hp": "{{ value }} CV",
+      "m": "{{ value }} m",
+      "m2": "{{ value }} m²",
+      "hours": "{{ value }} h",
+      "bedrooms": {
+        "one": "{{ count }} dormitorio",
+        "many": "{{ count }} dormitorios",
+        "other": "{{ count }} dormitorios"
+      },
+      "bathrooms": {
+        "one": "{{ count }} baño",
+        "many": "{{ count }} baños",
+        "other": "{{ count }} baños"
+      }
+    },
+    "specs": {
+      "brand": "Marca",
+      "model": "Modelo",
+      "version": "Versión",
+      "year": "Año",
+      "mileage": "Kilometraje",
+      "fuel": "Combustible",
+      "gearbox": "Cambio",
+      "power": "Potencia",
+      "color": "Color",
+      "builder": "Constructor",
+      "boat_type": "Tipo de embarcación",
+      "length": "Eslora",
+      "beam": "Manga",
+      "engine": "Motorización",
+      "hours": "Horas de motor",
+      "tax_regime": "Régimen fiscal declarado",
+      "property_type": "Tipo de inmueble",
+      "area": "Superficie",
+      "plot": "Parcela",
+      "bedrooms": "Dormitorios",
+      "bathrooms": "Baños",
+      "built_period": "Época de construcción",
+      "energy_rating": "Certificación energética",
+      "group_identity": "Identificación",
+      "group_mechanics": "Mecánica",
+      "group_use": "Uso y aspecto",
+      "group_boat": "Embarcación",
+      "group_dimensions": "Dimensiones",
+      "group_engine": "Motor",
+      "group_tax": "Fiscalidad",
+      "group_property": "Inmueble",
+      "group_surfaces": "Superficies",
+      "group_layout": "Distribución",
+      "group_energy": "Energía"
+    },
+    "divisions": {
+      "count": {
+        "one": "{{ count }} pieza",
+        "many": "{{ count }} piezas",
+        "other": "{{ count }} piezas"
+      }
+    },
+    "listing": {
+      "location": "Ubicación",
+      "owner": "Propietario",
+      "reference": "Ref.",
+      "summary": "Resumen de la pieza",
+      "available_note": "Disponible significa que acepta consultas. No es una compra en línea: el siguiente paso es hablar con Sidonia.",
+      "reserved_note": "Está reservada: puedes escribirnos igualmente y te contamos cómo está.",
+      "sold_note": "Esta pieza ya se vendió. La mantenemos publicada como parte del archivo de Sidonia.",
+      "provenance": "Procedencia",
+      "facts_source": "Hechos aportados por el propietario o por el equipo de Sidonia.",
+      "owner_story": "Su propietario",
+      "owner_story_named": "{{ name }}, su propietario",
+      "condition": "Estado y observaciones",
+      "work_done": "Trabajos realizados",
+      "documents": "Documentos"
+    },
+    "video": {
+      "watch": "Ver historia",
+      "watch_long": "Ver y escuchar su historia",
+      "play_aria": "Ver y escuchar la historia de {{ title }} (con sonido)",
+      "modal_title": "Vídeo",
+      "close": "Cerrar el vídeo",
+      "duration": "Duración {{ time }}",
+      "language_value": "Idioma del vídeo: {{ lang }}",
+      "language": "Idioma del vídeo: {lang}",
+      "subtitles_available": "Subtítulos disponibles",
+      "subtitles_label": "Subtítulos",
+      "read_transcript": "Leer la transcripción",
+      "transcript": "Transcripción del vídeo",
+      "original_post": "Ver la publicación original",
+      "see_listing": "Ver la ficha",
+      "error": "No hemos podido cargar el vídeo. Puede ser la conexión: vuelve a intentarlo. Los datos y el contacto de la pieza siguen disponibles.",
+      "retry": "Reintentar",
+      "unavailable": "El vídeo de esta pieza estará disponible pronto.",
+      "consent_text": "Este vídeo se reproduce desde {provider}, que puede usar cookies o datos de navegación.",
+      "consent_button": "Ver en {provider}",
+      "pause_background": "Pausar o reanudar el vídeo de fondo"
+    },
+    "contact": {
+      "whatsapp": "Escribir por WhatsApp",
+      "whatsapp_short": "WhatsApp",
+      "whatsapp_similar": "Pedir algo parecido por WhatsApp",
+      "email": "Escribir un correo",
+      "form": "Enviar una consulta",
+      "form_short": "Consultar",
+      "form_similar": "Busco algo parecido",
+      "form_similar_short": "Algo parecido",
+      "mailto_note": "El correo se abre en tu aplicación de correo; no se envía desde la web."
+    },
+    "inquiry": {
+      "about": "Estás consultando por",
+      "kind_interest": "Interés en una pieza",
+      "kind_similar": "Busco algo parecido",
+      "message_default": "Hola, me interesa {{ title }} (referencia {{ ref }}). ¿Podéis darme más información?",
+      "message_similar": "Hola, he visto {{ title }} (referencia {{ ref }}), que ya está vendida. Busco algo parecido."
+    },
+    "forms": {
+      "name": "Nombre",
+      "email": "Correo electrónico",
+      "phone": "Teléfono",
+      "message": "Mensaje",
+      "optional": "(opcional)",
+      "choose": "Elige una opción",
+      "preferred": "¿Cómo prefieres que te contactemos?",
+      "pref_email": "Correo",
+      "pref_phone": "Teléfono",
+      "privacy_text": "Usaremos tus datos solo para responderte.",
+      "privacy_link": "Aviso de privacidad",
+      "privacy_check": "He leído el aviso de privacidad y acepto que Sidonia use estos datos para estudiar mi solicitud y contactarme.",
+      "privacy_accepted": "Aceptado",
+      "marketing_yes": "Sí",
+      "error_title": "Revisa estos datos:",
+      "err_required": "Este dato es necesario.",
+      "err_email": "Escribe un correo válido, por ejemplo nombre@dominio.es.",
+      "err_url": "Pega un enlace completo que empiece por https://",
+      "err_number": "Escribe un número válido.",
+      "err_choose": "Elige una opción.",
+      "err_privacy": "Necesitamos que aceptes el aviso de privacidad para poder contestarte.",
+      "review": {
+        "one": "Hay {count} dato por revisar.",
+        "other": "Hay {count} datos por revisar."
+      },
+      "sending": "Enviando…",
+      "network_error": "No se ha podido enviar por un problema de conexión. Tus datos siguen aquí: vuelve a intentarlo.",
+      "challenge": "Shopify necesita comprobar que no eres un robot."
+    },
+    "sell": {
+      "kind": "Solicitud de venta",
+      "step1": "¿Qué quieres vender?",
+      "step2": "Cuéntanos sobre la pieza",
+      "step3": "Tus datos de contacto",
+      "step_of": "Paso {{ step }} de {{ total }}",
+      "step_announce": "Paso {step} de {total}",
+      "next": "Siguiente",
+      "prev": "Anterior",
+      "if_category": "Datos para",
+      "err_category": "Elige si es un coche, un barco o una casa.",
+      "evaluation_note": "Enviar la solicitud inicia una valoración de encaje: no implica aceptación ni compromiso de venta.",
+      "no_documents": "No te pedimos documentación personal, escrituras ni datos bancarios en esta fase.",
+      "phone_help": "Necesario si prefieres teléfono o WhatsApp.",
+      "f": {
+        "g_make": "Marca",
+        "g_model": "Modelo",
+        "year": "Año",
+        "g_km": "Kilometraje",
+        "g_km_help": "Solo si lo conoces.",
+        "location": "¿Dónde está el coche?",
+        "location_boat": "¿Dónde está el barco?",
+        "location_help": "Ciudad, región o puerto. No hace falta la dirección.",
+        "price": "Precio orientativo",
+        "price_help": "Opcional. Nos ayuda a entender tus expectativas.",
+        "h_make": "Constructor y modelo",
+        "h_type": "Tipo de embarcación",
+        "h_type_help": "Velero, motora, clásico de madera…",
+        "h_loa": "Eslora (m)",
+        "h_loa_help": "Solo si la conoces.",
+        "e_type": "Tipo de inmueble",
+        "e_type_help": "Casa, piso, masía, finca…",
+        "e_loc": "Ciudad o región",
+        "e_loc_help": "No hace falta la dirección exacta.",
+        "e_area": "Superficie (m²)",
+        "e_beds": "Habitaciones",
+        "special": "¿Qué hace especial a esta pieza?",
+        "story": "Su historia",
+        "story_help": "De dónde viene, quién la ha cuidado, qué momentos guarda.",
+        "state": "Estado",
+        "state_help": "Cómo está hoy, con tus palabras.",
+        "relation": "Tu relación con la pieza",
+        "relation_options": "Propietario|Soy el propietario;Familiar|Es de un familiar;Representante|Represento al propietario;Otra|Otra relación",
+        "link": "Enlace a vídeo, carpeta o anuncio",
+        "link_help": "Pega un enlace a fotos, un vídeo o un anuncio publicado. No subas archivos aquí."
+      }
+    },
+    "contact_form": {
+      "kind_general": "Consulta general",
+      "kind_wanted": "Busco una pieza",
+      "category": "¿Qué buscas?",
+      "body_wanted": "Cuéntanos qué buscas",
+      "body_wanted_placeholder": "Tipo de pieza, época, presupuesto aproximado, zona…",
+      "wanted_note": "Lo revisa el equipo de Sidonia. No es un sistema de alertas automáticas."
+    },
+    "catalog": {
+      "count": {
+        "one": "{{ count }} pieza",
+        "many": "{{ count }} piezas",
+        "other": "{{ count }} piezas"
+      },
+      "view_results": {
+        "one": "Ver {{ count }} resultado",
+        "many": "Ver {{ count }} resultados",
+        "other": "Ver {{ count }} resultados"
+      },
+      "showing": "Mostrando {{ shown }} de {{ total }}",
+      "filters": "Filtros",
+      "apply": "Aplicar filtros",
+      "clear_all": "Limpiar todo",
+      "clear_group": "Quitar",
+      "remove_filter": "Quitar filtro",
+      "active_filters": "Filtros activos",
+      "results_heading": "Resultados",
+      "categories": "Categorías",
+      "sort": "Ordenar",
+      "sort_editorial": "Selección editorial",
+      "sort_newest": "Novedades",
+      "sort_relevance": "Relevancia",
+      "sort_price_asc": "Precio: de menor a mayor",
+      "sort_price_desc": "Precio: de mayor a menor",
+      "view": "Vista",
+      "view_grid": "Ver en cuadrícula",
+      "view_list": "Ver en lista",
+      "price_min": "Desde",
+      "price_max": "Hasta",
+      "pagination": "Paginación",
+      "page": "Página",
+      "previous": "Página anterior",
+      "next": "Página siguiente",
+      "load_more": "Cargar más piezas",
+      "loading": "Cargando resultados…",
+      "loaded_more": "Se han añadido {count} piezas.",
+      "results_announce": "{count} piezas",
+      "load_error": "No se han podido cargar los resultados.",
+      "empty_title": "Todavía no hay piezas aquí",
+      "empty_text": "Estamos preparando nuevas historias. Mientras tanto, explora el resto de la selección o cuéntanos qué buscas.",
+      "empty_filtered_title": "No hay piezas con estos filtros",
+      "empty_filtered_text": "Prueba a quitar algún filtro o a ampliar la búsqueda. También puedes contarnos qué buscas.",
+      "explore_all": "Ver toda la selección",
+      "wanted_cta": "Cuéntanos qué buscas",
+      "archive_eyebrow": "Archivo",
+      "archive_note": "Piezas que ya encontraron a su nuevo propietario. Las conservamos con su autorización porque su historia sigue contando.",
+      "archive_cta_title": "¿Buscas algo parecido?",
+      "archive_cta_text": "Cuéntanos qué te ha gustado de estas piezas y qué estás buscando. Lo revisa el equipo de Sidonia.",
+      "archive_cta_button": "Busco algo parecido"
+    },
+    "search": {
+      "title": "Buscar en la selección",
+      "results_for": "Resultados para «{{ terms }}»",
+      "placeholder": "¿Qué estás buscando?",
+      "submit": "Buscar",
+      "all": "Todo",
+      "category_legend": "Categoría",
+      "text_only": "Buscamos en nombres, marcas, modelos, lugares y descripciones.",
+      "see_category": "Ver todas las piezas de {{ name }}",
+      "empty_title": "No hemos encontrado piezas",
+      "empty_text": "Prueba con otras palabras, revisa la ortografía o explora por categoría."
+    },
+    "favorites": {
+      "save": "Guardar",
+      "saved": "Guardado",
+      "menu_label": "Favoritos",
+      "save_aria": "Guardar {{ title }}",
+      "added": "Guardada en este navegador: {title}",
+      "removed": "Quitada de tus guardadas: {title}",
+      "local_only": "Guardado en este navegador. No se sincroniza con otros dispositivos.",
+      "warn_session": "Tu navegador solo permite guardar durante esta sesión: al cerrarla se perderán.",
+      "warn_memory": "Tu navegador no permite guardar: las piezas se perderán al recargar la página.",
+      "warn_corrupt": "No hemos podido leer tus piezas guardadas y hemos empezado de cero.",
+      "warn_fetch": "No hemos podido comprobar alguna pieza. Revisa tu conexión y recarga.",
+      "count": {
+        "one": "{count} pieza guardada",
+        "other": "{count} piezas guardadas"
+      },
+      "link_count": "Favoritos: {count} piezas guardadas",
+      "link_empty": "Favoritos",
+      "retired": "Esta pieza ya no está publicada.",
+      "remove": "Quitar",
+      "clear": "Vaciar favoritos",
+      "clear_confirm": "Sí, vaciar",
+      "confirm_title": "¿Vaciar tus favoritos?",
+      "confirm_text": "Se quitarán todas las piezas guardadas en este navegador.",
+      "empty_title": "Aún no has guardado ninguna pieza",
+      "empty_text": "Pulsa el corazón de una pieza para guardarla aquí y volver a ella cuando quieras.",
+      "no_js": "Para ver tus piezas guardadas hace falta activar JavaScript."
+    },
+    "community": {
+      "total": {
+        "one": "seguidor entre nuestras redes",
+        "many": "seguidores entre nuestras redes",
+        "other": "seguidores entre nuestras redes"
+      },
+      "followers_count": {
+        "one": "{{ value }} seguidor",
+        "many": "{{ value }} seguidores",
+        "other": "{{ value }} seguidores"
+      },
+      "disclaimer": "Suma de seguidores de las cuentas mostradas.",
+      "updated": "Cifras actualizadas a {{ date }}.",
+      "follow": "Sigue las historias de Sidonia",
+      "accounts_label": "Redes sociales de Sidonia"
+    },
+    "related": {
+      "explain": "Otras piezas disponibles de la misma categoría.",
+      "see_all": "Ver todo en {{ name }}"
+    },
+    "testimonials": {
+      "see_listing": "Ver la pieza"
+    },
+    "share": {
+      "share": "Compartir",
+      "copy": "Copiar enlace",
+      "copied": "Enlace copiado",
+      "copy_failed": "No se ha podido copiar el enlace"
+    },
+    "footer": {
+      "categories": "Categorías",
+      "contact": "Contacto",
+      "follow": "Síguenos"
+    },
+    "notfound": {
+      "code": "Error 404",
+      "sell": "Quiero vender con Sidonia",
+      "contact": "Escribir al equipo"
+    },
+    "editor": {
+      "hero_media": "Añade una imagen o un vídeo de portada para que la cabecera pueda ir transparente encima. Sin imagen, la cabecera es piedra sólida.",
+      "divisions": "Nombres, frases, portadas, correos y colecciones de cada categoría: Ajustes del tema > Sidonia · Categorías.",
+      "listings_empty": "No hay piezas reales que mostrar. Elige una colección (por ejemplo «Destacadas») o piezas concretas. Fuera del editor, esta sección se oculta.",
+      "story_product": "Elige una pieza real con vídeo. Fuera del editor, esta sección no se muestra mientras no haya pieza.",
+      "social_none": "No hay cuentas sociales configuradas. Créalas en Contenido > Metaobjetos > Cuenta social de Sidonia (ver docs/09). Mientras tanto se muestra «Sigue las historias de Sidonia» sin cifras.",
+      "social_duplicates": "Cuentas repetidas (se cuentan una sola vez):",
+      "testimonials_empty": "Ningún testimonio está marcado como autorizado. Fuera del editor, esta sección no se muestra.",
+      "testimonial_hidden": "Testimonio oculto: falta marcar «Autorizado» o completar el texto y el nombre.",
+      "faq_pending": "Pendiente de Sidonia: tarifas, exclusividad y plazos. No se responden por defecto para no prometer condiciones no confirmadas.",
+      "catalog_empty": "Esta colección no tiene piezas publicadas. Comprueba sus condiciones (docs/06-colecciones-y-filtros.md).",
+      "no_channels": "No hay WhatsApp ni correo configurados: solo se muestra el formulario. Configúralos en Ajustes del tema > Sidonia · Contacto."
+    }
+  }
+}
