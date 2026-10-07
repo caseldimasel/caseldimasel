@@ -314,9 +314,10 @@ function renderSectionHtml(engine, sec, globals, group) {
 
 function makeGlobals(store, req) {
   const q = req.query;
-  // Para probar el inicio de sesión: cookie harness_cuentas=1 (cuentas de cliente activadas) y harness_cliente=1 (con sesión)
+  // Para probar el inicio de sesión: cookie harness_cuentas=1 (cuentas clásicas) o =nuevas (cuentas nuevas) y
+  // harness_cliente=1 (con sesión; la pone el inicio de sesión simulado)
   const cookies = Object.fromEntries(String(req.headers?.cookie || '').split(';').map((c) => c.trim().split('=')).filter((c) => c[0]));
-  const conCuentas = cookies.harness_cuentas === '1' || cookies.harness_cliente === '1';
+  const conCuentas = Boolean(cookies.harness_cuentas) || cookies.harness_cliente === '1';
   const cliente = cookies.harness_cliente === '1'
     ? { id: 7001, name: 'Lucía Prueba', first_name: 'Lucía', last_name: 'Prueba', email: 'lucia@ejemplo.es', phone: '+34600111222', tags: [] }
     : null;
@@ -338,7 +339,7 @@ function makeGlobals(store, req) {
       metaobjects: { sidonia_social_account: { values: store.social } }
     },
     request: { design_mode: q.design_mode?.[0] === '1', locale: { iso_code: 'es' }, host: 'localhost', page_type: 'index', path: req.path },
-    routes: { root_url: '/', search_url: '/search', collections_url: '/collections', all_products_collection_url: '/collections/all', cart_url: '/cart', cart_add_url: '/cart/add', cart_change_url: '/cart/change', cart_update_url: '/cart/update', account_url: '/account', account_login_url: '/account/login', predictive_search_url: '/search/suggest', product_recommendations_url: '/recommendations/products' },
+    routes: { root_url: '/', search_url: '/search', collections_url: '/collections', all_products_collection_url: '/collections/all', cart_url: '/cart', cart_add_url: '/cart/add', cart_change_url: '/cart/change', cart_update_url: '/cart/update', account_url: '/account', account_login_url: cookies.harness_cuentas === 'nuevas' ? '/customer_authentication/redirect?locale=es&region_country=ES' : '/account/login', predictive_search_url: '/search/suggest', product_recommendations_url: '/recommendations/products' },
     localization: { available_countries: [], available_languages: [{ iso_code: 'es', endonym_name: 'Español' }], country: { iso_code: 'ES', name: 'España', currency: { iso_code: 'EUR', symbol: '€' } }, language: { iso_code: 'es', endonym_name: 'Español' } },
     cart: { item_count: 0, items: [], total_price: 0, currency: { iso_code: 'EUR' }, attributes: {}, note: '', cart_level_discount_applications: [], requires_shipping: false },
     predictive_search: { performed: false, resources: {} },
@@ -532,6 +533,12 @@ export function startServer({ port = 4173, profile = 'full', compose = true, the
       res.end(body);
     };
     try {
+      // Inicio de sesión simulado (cuentas nuevas: /customer_authentication/login?return_to=; clásicas: /account/login?return_url=)
+      if (path === '/customer_authentication/login' || path === '/account/login') {
+        const back = query.return_to?.[0] || query.return_url?.[0] || '/account';
+        const safe = back.startsWith('/') && !back.startsWith('//') ? back : '/account';
+        return send(302, '', 'text/plain', { location: safe, 'set-cookie': 'harness_cliente=1; Path=/' });
+      }
       if (path.startsWith('/assets/')) {
         const f = join(THEME, 'assets', path.slice(8));
         return existsSync(f) ? send(200, readFileSync(f), MIME[extname(f)] || 'application/octet-stream') : send(404, 'no asset');

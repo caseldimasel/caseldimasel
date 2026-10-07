@@ -55,13 +55,16 @@ Un único formulario para Coches, Barcos y Casas:
 
 ## Ofertas («Hacer una oferta»)
 
-En cada coche, casa o barco en venta (y en las subastas que no llegan a la reserva) hay un botón **«Hacer una oferta»**
-junto al precio y en la barra de abajo. Abre una ventana con la oferta, nombre, teléfono, email, mensaje y el
+En cada coche, casa o barco en venta hay un botón **«Hacer oferta»** en la barra de abajo, en blanco junto a WhatsApp
+(y en las subastas que no llegan a la reserva, en su resumen). Abre una ventana con la oferta, nombre, teléfono, email, mensaje y el
 consentimiento de privacidad (`snippets/sidonia-offer.liquid`, `assets/sidonia-offer.js`).
 
 - **Inicio de sesión:** si las cuentas de cliente están activadas y el ajuste «Pedir iniciar sesión para ofertar» está
-  marcado, hay que entrar antes (Shopify envía un código al email). Al volver, la ventana se abre sola con el email ya
-  puesto.
+  marcado, primero se escribe la oferta; «Continuar» la guarda en el navegador y lleva a entrar con el email (Shopify
+  envía un código). La vuelta a la ficha va en el enlace: `/customer_authentication/login?return_to=…` con las cuentas
+  nuevas y `/account/login?return_url=…` con las clásicas. Al volver, la ventana se abre sola con la oferta, el mensaje y
+  los datos de la cuenta puestos. Si se cae en otra página de la tienda, un aviso arriba ofrece «Terminar» la oferta
+  (`snippets/sidonia-offer-resume.liquid`, caduca a las 6 horas).
 - **Envío:** con el servidor de ofertas configurado ([servicios/ofertas](../servicios/ofertas/README.md)), el cliente
   recibe el email de «¡Gracias por tu oferta!» y el equipo un aviso; si no hay servidor o falla, la oferta llega al
   correo de la tienda por el formulario de contacto de Shopify (campos `Tipo: Oferta`, `Producto`, `Enlace`,
