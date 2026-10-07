@@ -427,3 +427,34 @@ function shopCustom(o) {
   const custom = { tipo: t(tipo), marca: t(o.brand || o.builder), ano: t(o.year), kilometros: t(km), combustible: t(fuel), provincia: t(o.region), categoria: t(o.category) };
   return Object.fromEntries(Object.entries(custom).filter(([, v]) => v));
 }
+
+
+/** Subastas de prueba (perfil con datos de la tienda): copias de anuncios con vídeo, con la plantilla «subasta» y los
+ *  metacampos subasta.* que más adelante escribirá el motor de subastas. Las horas van respecto a «ahora». */
+export function auctionProducts(products) {
+  const base = products.filter((p) => p.template_suffix === 'cars' && p.__data?.category === 'Coches' && !p.handle.startsWith('prueba') && (p.media || []).some((m) => m.media_type === 'video') && p.price > 0).slice(0, 6);
+  const H = 3600e3, D = 24 * H, now = Date.now();
+  const iso = (t) => new Date(t).toISOString();
+  const plan = [
+    { estado: 'en_directo', inicio: now - 5 * D, fin: now + 2 * D + 5 * H, salida: 30000, puja: 41250, pujas: 14, reserva: false },
+    { estado: 'en_directo', inicio: now - 7 * D + 3 * 60e3, fin: now + 3 * 60e3, salida: 15000, puja: 22500, pujas: 23, reserva: true },
+    { estado: 'en_directo', inicio: now - 6 * D, fin: now + 20 * H, salida: 5000, puja: 9100, pujas: 9, sinReserva: true },
+    { estado: 'proximamente', inicio: now + 2 * D, fin: now + 9 * D, salida: 60000, puja: 0, pujas: 0 },
+    { estado: 'vendida', inicio: now - 10 * D, fin: now - 3 * D, salida: 35000, puja: 52000, pujas: 31, reserva: true },
+    { estado: 'reserva_no_alcanzada', inicio: now - 13 * D, fin: now - 6 * D, salida: 30000, puja: 38000, pujas: 17, reserva: false }
+  ];
+  return base.map((p, i) => {
+    const a = plan[i % plan.length];
+    const subasta = {
+      estado: { value: a.estado },
+      inicio: { value: iso(a.inicio) },
+      fin: { value: iso(a.fin) },
+      precio_salida: { value: a.salida },
+      sin_reserva: { value: Boolean(a.sinReserva) },
+      reserva_alcanzada: { value: Boolean(a.reserva) },
+      puja_actual: { value: a.puja },
+      pujas: { value: a.pujas }
+    };
+    return { ...p, id: 900000 + i, handle: `subasta-${p.handle}`, url: `/products/subasta-${p.handle}`, title: p.title, template_suffix: 'subasta', available: true, tags: [...(p.tags || []), 'subasta'], metafields: { ...(p.metafields || {}), subasta }, __data: { ...p.__data, status: 'Subasta' } };
+  });
+}

@@ -9,7 +9,7 @@ import { join, dirname, extname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
 import { Liquid, Context } from './liquid.mjs';
-import { buildProducts, buildCommerceProducts, productsFromCsv, socialAccounts, applyFilters as applyKitFilters, buildFilters as buildKitFilters, applyShopFilters, buildShopFilters, sortProducts, SORT_OPTIONS, IMAGES, image, logoImage } from './store.mjs';
+import { buildProducts, buildCommerceProducts, productsFromCsv, auctionProducts, socialAccounts, applyFilters as applyKitFilters, buildFilters as buildKitFilters, applyShopFilters, buildShopFilters, sortProducts, SORT_OPTIONS, IMAGES, image, logoImage } from './store.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 export const ROOT = join(here, '..', '..');
@@ -184,6 +184,9 @@ const PAGES = [
 export function createStore(profile = 'full', port = 4173) {
   const full = profile === 'full';
   const products = full ? buildProducts().concat(buildCommerceProducts(), process.env.SIDONIA_PRODUCTS_CSV ? productsFromCsv(process.env.SIDONIA_PRODUCTS_CSV) : []) : [];
+  // Subastas de prueba (con los datos de la tienda): anuncios copiados con la plantilla «subasta»
+  const auctions = full && process.env.SIDONIA_SHOP_DATA ? auctionProducts(products) : [];
+  products.push(...auctions);
   const byHandle = Object.fromEntries(products.map((p) => [p.handle, p]));
   // products se marca como «drop» de Shopify (no es una lista normal: concat la rechaza; where/sort/map sí funcionan)
   const asDrop = (list) => Object.defineProperty([...list], '__shopifyDrop', { value: true });
@@ -198,6 +201,7 @@ export function createStore(profile = 'full', port = 4173) {
         vendidas: col('vendidas', 'Archivo de piezas vendidas', products.filter((p) => p.__data.status === 'Vendido'), 'sold'),
         destacadas: col('destacadas', 'Destacadas', products.filter((p) => p.__data.featured === true)),
         all: col('all', 'Productos', products),
+        subastas: col('subastas', 'Subastas', auctions, 'subastas'),
         // Handle real de la tienda (Sidonia-Shopify): mismo contenido que «coches»
         'coches-en-venta': col('coches-en-venta', 'Coches en venta', cat('Coches'))
       }
