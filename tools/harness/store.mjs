@@ -453,7 +453,10 @@ export function auctionProducts(products) {
       sin_reserva: { value: Boolean(a.sinReserva) },
       reserva_alcanzada: { value: Boolean(a.reserva) },
       puja_actual: { value: a.puja },
-      pujas: { value: a.pujas }
+      pujas: { value: a.pujas },
+      lote: { value: String(101 + i).padStart(4, '0') },
+      vendedor: { value: i % 3 === 1 ? 'profesional' : 'particular' },
+      destacados: { value: ['Matrícula española y ITV en vigor', 'Libro de mantenimiento sellado y facturas', 'Dos juegos de llaves', 'Vídeo y galería completa en la ficha'].join('\n') }
     };
     return { ...p, id: 900000 + i, handle: `subasta-${p.handle}`, url: `/products/subasta-${p.handle}`, title: p.title, template_suffix: 'subasta', available: true, tags: [...(p.tags || []), 'subasta'], metafields: { ...(p.metafields || {}), subasta }, __data: { ...p.__data, status: 'Subasta' } };
   });
