@@ -314,6 +314,12 @@ function renderSectionHtml(engine, sec, globals, group) {
 
 function makeGlobals(store, req) {
   const q = req.query;
+  // Para probar el inicio de sesión: cookie harness_cuentas=1 (cuentas de cliente activadas) y harness_cliente=1 (con sesión)
+  const cookies = Object.fromEntries(String(req.headers?.cookie || '').split(';').map((c) => c.trim().split('=')).filter((c) => c[0]));
+  const conCuentas = cookies.harness_cuentas === '1' || cookies.harness_cliente === '1';
+  const cliente = cookies.harness_cliente === '1'
+    ? { id: 7001, name: 'Lucía Prueba', first_name: 'Lucía', last_name: 'Prueba', email: 'lucia@ejemplo.es', phone: '+34600111222', tags: [] }
+    : null;
   const queryString = (over = {}) => {
     const params = new URLSearchParams();
     for (const [k, vals] of Object.entries(q)) {
@@ -326,7 +332,7 @@ function makeGlobals(store, req) {
   return {
     settings: store.settings,
     shop: {
-      name: 'Tienda de prueba', url: `http://localhost:${store.port}`, currency: 'EUR', description: '', customer_accounts_enabled: false, enabled_payment_types: [], money_format: '{{amount_with_comma_separator}} €', locale: 'es',
+      name: 'Tienda de prueba', url: `http://localhost:${store.port}`, currency: 'EUR', description: '', customer_accounts_enabled: conCuentas, enabled_payment_types: [], money_format: '{{amount_with_comma_separator}} €', locale: 'es',
       privacy_policy: store.profile === 'full' ? { url: '/policies/privacy-policy', title: 'Política de privacidad' } : null,
       terms_of_service: null, legal_notice: null,
       metaobjects: { sidonia_social_account: { values: store.social } }
@@ -337,7 +343,7 @@ function makeGlobals(store, req) {
     cart: { item_count: 0, items: [], total_price: 0, currency: { iso_code: 'EUR' }, attributes: {}, note: '', cart_level_discount_applications: [], requires_shipping: false },
     predictive_search: { performed: false, resources: {} },
     recommendations: { performed: true, products: [], products_count: 0 },
-    customer: null,
+    customer: cliente,
     collections: Object.fromEntries(Object.values(store.collections).map((c) => [c.handle, c])),
     pages: store.pages,
     linklists: store.menus,
@@ -584,7 +590,7 @@ export function startServer({ port = 4173, profile = 'full', compose = true, the
           if (errors.length) {
             errors.messages = messages;
             errors.translated_fields = { email: 'correo electrónico', body: 'mensaje' };
-            const rq = { path: ref.pathname, query: Object.fromEntries([...ref.searchParams].map(([k, v]) => [k, [v]])), formState: { posted: false, errors, values: { name: one('contact[name]'), email, phone: one('contact[phone]'), body: one('contact[body]') } } };
+            const rq = { headers: req.headers, path: ref.pathname, query: Object.fromEntries([...ref.searchParams].map(([k, v]) => [k, [v]])), formState: { posted: false, errors, values: { name: one('contact[name]'), email, phone: one('contact[phone]'), body: one('contact[body]') } } };
             return send(200, renderer.renderRequest(rq).html);
           }
           store.submissions.push({ at: Date.now(), page: ref.pathname, fields });
@@ -595,11 +601,11 @@ export function startServer({ port = 4173, profile = 'full', compose = true, the
       if (path === '/cart.js') return send(200, JSON.stringify({ token: 'arnes', note: '', attributes: {}, item_count: 0, items: [], total_price: 0, currency: 'EUR', requires_shipping: false }), 'application/json');
       if (path === '/recommendations/products') {
         const prod = store.products.find((x) => String(x.id) === String(query.product_id?.[0]));
-        const out = renderer.renderRequest({ path: prod ? prod.url : '/', query: {}, sectionId: query.section_id?.[0] });
+        const out = renderer.renderRequest({ path: prod ? prod.url : '/', query: {}, sectionId: query.section_id?.[0], headers: req.headers });
         return send(200, out.html);
       }
       if (path === '/challenge') return send(200, '<!doctype html><title>Verificación</title><p>Pantalla de verificación simulada.</p>');
-      const out = renderer.renderRequest({ path, query, sectionId: query.section_id?.[0] });
+      const out = renderer.renderRequest({ path, query, sectionId: query.section_id?.[0], headers: req.headers });
       return send(out.status, out.html);
     } catch (e) {
       console.error(e);

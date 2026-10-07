@@ -53,8 +53,24 @@ Un único formulario para Coches, Barcos y Casas:
   funciona con el formulario nativo): se pide un enlace. La subida real queda para la fase 2 ([17](17-fase-2.md)).
 - Las solicitudes no se publican como productos.
 
+## Ofertas («Hacer una oferta»)
+
+En cada coche, casa o barco en venta (y en las subastas que no llegan a la reserva) hay un botón **«Hacer una oferta»**
+junto al precio y en la barra de abajo. Abre una ventana con la oferta, nombre, teléfono, email, mensaje y el
+consentimiento de privacidad (`snippets/sidonia-offer.liquid`, `assets/sidonia-offer.js`).
+
+- **Inicio de sesión:** si las cuentas de cliente están activadas y el ajuste «Pedir iniciar sesión para ofertar» está
+  marcado, hay que entrar antes (Shopify envía un código al email). Al volver, la ventana se abre sola con el email ya
+  puesto.
+- **Envío:** con el servidor de ofertas configurado ([servicios/ofertas](../servicios/ofertas/README.md)), el cliente
+  recibe el email de «¡Gracias por tu oferta!» y el equipo un aviso; si no hay servidor o falla, la oferta llega al
+  correo de la tienda por el formulario de contacto de Shopify (campos `Tipo: Oferta`, `Producto`, `Enlace`,
+  `Precio publicado`, `Oferta`).
+- Ajustes: Personalizar › Ajustes del tema › **Sidonia · Ofertas**.
+
 ## Pendiente de comprobar en la tienda (no se puede en el arnés)
 
 - [ ] Enviar los 4 formularios desde la vista previa del duplicado y confirmar que **llegan** al correo de la tienda con todos los campos.
 - [ ] Comprobar la pantalla anti-spam en un envío repetido.
 - [ ] Revisar el texto del aviso de privacidad con la política real.
+- [ ] Hacer una oferta de prueba (con y sin sesión) y comprobar el aviso al equipo y el email de gracias.

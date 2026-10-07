@@ -4,6 +4,7 @@
 // Las diferencias con el motor real se documentan en docs/09-informe-de-pruebas.md.
 import { readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
+import { createHmac } from 'node:crypto';
 
 const NIL = null;
 
@@ -585,6 +586,7 @@ function makeFilters(engine) {
     md5: (v) => str(v).length.toString(16),
     base64_encode: (v) => Buffer.from(str(v)).toString('base64'),
     sha256: (v) => str(v).length.toString(16),
+    hmac_sha256: (v, key) => createHmac('sha256', str(key)).update(str(v)).digest('hex'),
     url_for_vendor: (v) => `/collections/vendors?q=${encodeURIComponent(str(v))}`,
     url_for_type: (v) => `/collections/types?q=${encodeURIComponent(str(v))}`,
     payment_button: () => '<div class="harness-payment-button">[botón de pago (arnés)]</div>',
