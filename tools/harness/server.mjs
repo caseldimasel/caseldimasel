@@ -312,6 +312,11 @@ function renderSectionHtml(engine, sec, globals, group) {
   return `<${tag} id="shopify-section-${sec.id}" class="shopify-section${cls}">${out}</${tag}>`;
 }
 
+// Imita el captcha invisible de Shopify (hCaptcha) en los formularios de contacto y de cliente: al enviarlos de forma
+// normal (evento submit) añade la ficha h-captcha-response y los envía. Un envío por fetch sin ficha recibe un 400
+// «Missing CAPTCHA token», como en la tienda.
+const CAPTCHA_SCRIPT = `<script>document.addEventListener('submit',function(e){var f=e.target;if(!f||!/\\/contact/.test(f.getAttribute('action')||'')||f.querySelector('[name="h-captcha-response"]'))return;e.preventDefault();setTimeout(function(){var t=document.createElement('textarea');t.name='h-captcha-response';t.hidden=true;t.value='arnes-'+Date.now();f.appendChild(t);window.__captchas=(window.__captchas||0)+1;HTMLFormElement.prototype.submit.call(f);},80);},true);window.Shopify=window.Shopify||{};Shopify.captcha={protect:function(f,cb){cb&&cb();}};</script>`;
+
 function makeGlobals(store, req) {
   const q = req.query;
   // Para probar el inicio de sesión: cookie harness_cuentas=1 (cuentas clásicas) o =nuevas (cuentas nuevas) y
@@ -348,7 +353,7 @@ function makeGlobals(store, req) {
     collections: Object.fromEntries(Object.values(store.collections).map((c) => [c.handle, c])),
     pages: store.pages,
     linklists: store.menus,
-    content_for_header: `<script>window.__events=[];window.dataLayer=[];window.Shopify=window.Shopify||{};Shopify.routes=Shopify.routes||{root:'/'};Shopify.locale='es';Shopify.currency={active:'EUR',rate:'1.0'};Shopify.country='ES';Shopify.designMode=${q.design_mode?.[0] === '1'};Shopify.analytics={publish:function(n,p){window.__events.push([n,p])}};Shopify.customerPrivacy={analyticsProcessingAllowed:function(){return window.__consent!==false}};</script>`,
+    content_for_header: `<script>window.__events=[];window.dataLayer=[];window.Shopify=window.Shopify||{};Shopify.routes=Shopify.routes||{root:'/'};Shopify.locale='es';Shopify.currency={active:'EUR',rate:'1.0'};Shopify.country='ES';Shopify.designMode=${q.design_mode?.[0] === '1'};Shopify.analytics={publish:function(n,p){window.__events.push([n,p])}};Shopify.customerPrivacy={analyticsProcessingAllowed:function(){return window.__consent!==false}};</script>${CAPTCHA_SCRIPT}`,
     canonical_url: `http://localhost:${store.port}${req.path}`,
     current_page: Math.max(1, parseInt(q.page?.[0] || '1', 10)),
     __path: req.path,
@@ -360,6 +365,7 @@ function makeGlobals(store, req) {
 
 function formStateHook(req) {
   return (kind) => {
+    if (kind === 'customer') return { posted: req.query.customer_posted?.[0] === 'true', errors: null, values: {} };
     if (kind !== 'contact') return { posted: false, errors: null, values: {} };
     if (req.formState) return req.formState;
     if (req.query.contact_posted?.[0] === 'true') return { posted: true, errors: null, values: {} };
@@ -581,6 +587,11 @@ export function startServer({ port = 4173, profile = 'full', compose = true, the
           const fields = parseBody(Buffer.concat(chunks), req.headers['content-type'] || '');
           const ref = new URL(req.headers.referer || `http://localhost:${port}/pages/contacto`);
           const one = (k) => (fields[k] || [''])[0];
+          const sinCaptcha = /(^|;\s*)harness_captcha=0/.test(req.headers.cookie || '');
+          if (!sinCaptcha && !one('h-captcha-response')) {
+            return send(400, '<!doctype html><title>Algo ha salido mal</title><p>Algo ha salido mal.</p><p>Missing CAPTCHA token</p>');
+          }
+          const tipo = one('form_type') || 'contact';
           const email = one('contact[email]');
           if (email.startsWith('netfail')) return res.socket.destroy(); // corte de conexión real (fetch falla al momento)
           if (email.startsWith('challenge')) return send(302, '', 'text/plain', { location: '/challenge' });
@@ -601,7 +612,9 @@ export function startServer({ port = 4173, profile = 'full', compose = true, the
             return send(200, renderer.renderRequest(rq).html);
           }
           store.submissions.push({ at: Date.now(), page: ref.pathname, fields });
-          return send(302, '', 'text/plain', { location: `${ref.pathname}?contact_posted=true` });
+          const ok = new URLSearchParams(ref.search);
+          ok.set(tipo === 'customer' ? 'customer_posted' : 'contact_posted', 'true');
+          return send(302, '', 'text/plain', { location: `${ref.pathname}?${ok}` });
         });
         return;
       }
