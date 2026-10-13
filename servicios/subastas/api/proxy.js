@@ -15,6 +15,7 @@ export default async function handler(req, res) {
   }
   try {
     const r = await atender({ method: req.method, ruta, query, body }, cfg, { db: supabase(cfg), stripe: stripe(cfg) });
+    console.log(req.method, ruta, r.status);
     Object.entries(r.headers || {}).forEach(([k, v]) => res.setHeader(k, v));
     res.status(r.status).send(r.body);
   } catch (e) {

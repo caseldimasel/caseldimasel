@@ -51,6 +51,7 @@ Las pujas de verdad. El tema de Shopify ya tiene las pantallas (ficha, puja dire
 | `POST api/pujar` | `{ handle, importe, tipo: 'directa' \| 'maxima', intento }` |
 | `POST api/comentar` | `{ handle, texto, respuesta_a }` |
 | `POST api/seguir` | `{ handle, on }` |
+| `GET conexion` | Página de comprobación: dice si la firma y la base de datos están bien |
 | `GET/POST registro` | Página de registro (dentro del tema) → Stripe → `registro/vuelta` → vuelta a la ficha |
 
 ## Pruebas

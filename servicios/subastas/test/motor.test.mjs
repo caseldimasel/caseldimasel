@@ -125,3 +125,13 @@ test('Supabase: clave nueva solo en apikey; clave antigua también como Bearer',
   assert.equal('Authorization' in vistos[0][1], false);
   assert.equal(vistos[1][1].Authorization, 'Bearer eyJjwt');
 });
+
+test('página de conexión: dice qué falla sin enseñar nada secreto', async () => {
+  const db = fakeDb();
+  const ok = await atender({ method: 'GET', ruta: 'conexion', query: q() }, cfg, { db });
+  assert.equal(ok.headers['Content-Type'], 'application/liquid');
+  assert.match(ok.body, /está conectado/);
+  const mal = await atender({ method: 'GET', ruta: 'conexion', query: { ...q(), signature: 'x' } }, cfg, { db });
+  assert.match(mal.body, /La firma no cuadra/);
+  assert.equal(mal.body.includes(SECRETO), false);
+});

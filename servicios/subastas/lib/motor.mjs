@@ -111,11 +111,31 @@ function paginaRegistro({ error = '', alias = '', volver = '/', accion }) {
 </div>`;
 }
 
+async function paginaConexion(query, cfg, { db }) {
+  const firma = comprobarProxy(query, cfg.secreto);
+  let base = false;
+  if (firma) { try { base = Array.isArray((await db('sidonia_estado', { p_handles: [] }))?.subastas); } catch (e) { console.error(e); } }
+  const fila = (ok, si, no) => `<li style="margin:.5rem 0">${ok ? '✅' : '❌'} ${ok ? si : no}</li>`;
+  const todo = firma && base;
+  return liquid(`<div class="page-width" style="max-width:560px;margin:3rem auto;padding:0 1.25rem">
+  <p style="font-size:.75rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;opacity:.55;margin:0">Subastas Sidonia</p>
+  <h1 style="margin:.3rem 0 1rem">${todo ? 'El motor de subastas está conectado' : 'Al motor le falta algo'}</h1>
+  <ul style="list-style:none;padding:0;line-height:1.5">
+    ${fila(true, 'La tienda llega al motor (proxy de la app)', '')}
+    ${fila(firma, 'La firma de Shopify es correcta (SHOPIFY_APP_SECRET)', 'La firma no cuadra: revisa SHOPIFY_APP_SECRET en Vercel y vuelve a desplegar')}
+    ${firma ? fila(base, 'La base de datos responde (Supabase)', 'Supabase no responde: revisa SUPABASE_URL y SUPABASE_SERVICE_KEY') : ''}
+    ${fila(Boolean(query.logged_in_customer_id), 'Has iniciado sesión: tus pujas irán a tu nombre', 'No has iniciado sesión (para pujar hará falta)')}
+  </ul>
+</div>`);
+}
+
 /**
  * Atiende una petición ya recibida. req: { method, ruta, query, body }. Devuelve { status, headers, body }.
  * deps: { db(fn, args), stripe(method, path, body) } para poder probarlo sin servicios reales.
  */
 export async function atender(req, cfg, deps) {
+  // Página de comprobación: sidonia.es/apps/subastas/conexion (no enseña nada secreto)
+  if (String(req.ruta || '').replace(/^\/+|\/+$/g, '') === 'conexion') return paginaConexion(req.query, cfg, deps);
   if (!comprobarProxy(req.query, cfg.secreto)) return json(401, { ok: false, error: 'firma' });
   const cliente = req.query.logged_in_customer_id ? String(req.query.logged_in_customer_id) : null;
   const ruta = String(req.ruta || '').replace(/^\/+|\/+$/g, '');
