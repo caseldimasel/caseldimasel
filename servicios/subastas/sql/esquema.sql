@@ -318,3 +318,17 @@ end $$;
 create or replace function sidonia_stripe_cliente(p_cliente text, p_stripe text) returns void language sql as $$
   update pujadores set stripe_cliente = p_stripe where cliente = p_cliente
 $$;
+
+-- Seguridad en Supabase: las funciones solo las puede usar el servidor (clave de servicio), nunca la clave pública
+-- (anon) ni un usuario de Supabase. Si no, cualquiera podría llamar a sidonia_pujar en nombre de otro cliente.
+revoke execute on all functions in schema public from public;
+do $$
+begin
+  if exists (select 1 from pg_roles where rolname = 'anon') then
+    execute 'revoke execute on all functions in schema public from anon, authenticated';
+    execute 'alter default privileges in schema public revoke execute on functions from public, anon, authenticated';
+  end if;
+  if exists (select 1 from pg_roles where rolname = 'service_role') then
+    execute 'grant execute on all functions in schema public to service_role';
+  end if;
+end $$;
