@@ -16,7 +16,8 @@ Las pujas de verdad. El tema de Shopify ya tiene las pantallas (ficha, puja dire
 ## Puesta en marcha
 
 1. **Supabase**: crea un proyecto (región UE). En *SQL Editor* pega `sql/esquema.sql` y ejecútalo. En *Project
-   Settings › API* copia la *URL* y la *service_role key* (secreta: solo va en Vercel).
+   Settings › API Keys* copia la *secret key* (`sb_secret_…`) o, en «Legacy API keys», la *service_role* (las dos
+   valen; es secreta: solo va en Vercel). La URL es `https://<id-del-proyecto>.supabase.co`.
 2. **Stripe**: crea la cuenta de Sidonia y copia la *secret key* (empieza por `sk_test_` mientras pruebas).
 3. **App de Shopify** (Partners › Apps › Crear app). En *Configuración › Proxy de la app*: prefijo `apps`, subruta
    `subastas`, URL `https://<tu-servidor>.vercel.app/proxy`. Instálala en la tienda y copia el *secreto de cliente*.
@@ -26,7 +27,7 @@ Las pujas de verdad. El tema de Shopify ya tiene las pantallas (ficha, puja dire
    | --- | --- |
    | `SHOPIFY_APP_SECRET` | Secreto de cliente de la app de Shopify (firma del proxy) |
    | `SUPABASE_URL` | URL del proyecto de Supabase |
-   | `SUPABASE_SERVICE_KEY` | *service_role key* de Supabase |
+   | `SUPABASE_SERVICE_KEY` | *secret key* (`sb_secret_…`) o *service_role* de Supabase |
    | `STRIPE_SECRET_KEY` | Clave secreta de Stripe |
    | `TIENDA_URL` | `https://sidonia.es` |
 

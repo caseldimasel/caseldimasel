@@ -52,7 +52,12 @@ export function supabase(cfg, fetchImpl = fetch) {
   return async (fn, args) => {
     const r = await fetchImpl(`${cfg.supabaseUrl}/rest/v1/rpc/${fn}`, {
       method: 'POST',
-      headers: { apikey: cfg.supabaseKey, Authorization: `Bearer ${cfg.supabaseKey}`, 'Content-Type': 'application/json' },
+      // Claves nuevas (sb_secret_…): solo en «apikey». Claves antiguas (service_role, un JWT): también como Bearer.
+      headers: {
+        apikey: cfg.supabaseKey,
+        ...(cfg.supabaseKey.startsWith('sb_') ? {} : { Authorization: `Bearer ${cfg.supabaseKey}` }),
+        'Content-Type': 'application/json'
+      },
       body: JSON.stringify(args)
     });
     if (!r.ok) throw new Error(`Supabase ${fn} ${r.status}: ${await r.text().catch(() => '')}`);

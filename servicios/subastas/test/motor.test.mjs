@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createHmac } from 'node:crypto';
-import { atender, comprobarProxy, config, firmaProxy } from '../lib/motor.mjs';
+import { atender, comprobarProxy, config, firmaProxy, supabase } from '../lib/motor.mjs';
 
 const SECRETO = 'secreto-de-la-app';
 const cfg = config({ SHOPIFY_APP_SECRET: SECRETO, TIENDA_URL: 'https://sidonia.es' });
@@ -113,4 +113,15 @@ test('volver solo a páginas de la tienda', async () => {
   db.pujador = { registrado: true };
   const r = await atender({ method: 'GET', ruta: 'registro', query: q({ return_url: 'https://malo.com' }) }, cfg, { db });
   assert.equal(r.headers.Location, '/');
+});
+
+test('Supabase: clave nueva solo en apikey; clave antigua también como Bearer', async () => {
+  const vistos = [];
+  const f = async (url, init) => { vistos.push([url, init.headers]); return { ok: true, json: async () => ({}) }; };
+  await supabase(config({ SUPABASE_URL: 'https://x.supabase.co/', SUPABASE_SERVICE_KEY: 'sb_secret_abc' }), f)('sidonia_estado', {});
+  await supabase(config({ SUPABASE_URL: 'https://x.supabase.co', SUPABASE_SERVICE_KEY: 'eyJjwt' }), f)('sidonia_estado', {});
+  assert.equal(vistos[0][0], 'https://x.supabase.co/rest/v1/rpc/sidonia_estado');
+  assert.equal(vistos[0][1].apikey, 'sb_secret_abc');
+  assert.equal('Authorization' in vistos[0][1], false);
+  assert.equal(vistos[1][1].Authorization, 'Bearer eyJjwt');
 });
