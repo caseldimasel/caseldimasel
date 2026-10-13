@@ -1,10 +1,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createHmac } from 'node:crypto';
-import { atender, comprobarProxy, config, firmaProxy, supabase } from '../lib/motor.mjs';
+import { atender, comprobarProxy, config, firmaProxy, firmarDatos, leerDatos, supabase } from '../lib/motor.mjs';
 
 const SECRETO = 'secreto-de-la-app';
-const cfg = config({ SHOPIFY_APP_SECRET: SECRETO, TIENDA_URL: 'https://sidonia.es' });
+const CLAVE = 'clave-del-motor';
+const cfg = config({ SHOPIFY_APP_SECRET: SECRETO, TIENDA_URL: 'https://sidonia.es', SUBASTAS_CLAVE: CLAVE });
 const ahora = () => String(Math.floor(Date.now() / 1000));
 const firmar = (q) => ({ ...q, signature: firmaProxy(q, SECRETO) });
 const q = (extra = {}, cliente = '7001') => firmar({ shop: 'sidonia.myshopify.com', path_prefix: '/apps/subastas', timestamp: ahora(), logged_in_customer_id: cliente, ...extra });
@@ -134,4 +135,27 @@ test('página de conexión: dice qué falla sin enseñar nada secreto', async ()
   const mal = await atender({ method: 'GET', ruta: 'conexion', query: { ...q(), signature: 'x' } }, cfg, { db });
   assert.match(mal.body, /La firma no cuadra/);
   assert.equal(mal.body.includes(SECRETO), false);
+});
+
+test('sincronizar: la subasta sale de la ficha de Shopify, firmada por el tema', async () => {
+  const t = Math.floor(Date.now() / 1000);
+  const d = { handle: 'nissan-vanette', t, inicio: t, fin: t + 86400, salida: 750, reserva: 1500, titulo: 'Nissan Vanette | 1990' };
+  const { datos, firma } = firmarDatos(d, CLAVE);
+  assert.equal(datos.includes('1500'), false, 'la reserva no viaja a la vista');
+  assert.deepEqual(leerDatos(datos, firma, CLAVE), d);
+  assert.equal(leerDatos(datos.replace('|750|', '|1|'), firma, CLAVE), null, 'cambiar el precio rompe la firma');
+  assert.equal(leerDatos(datos, firma, 'otra'), null);
+  assert.equal(leerDatos(firmarDatos({ ...d, t: t + 3600 }, CLAVE).datos, firmarDatos({ ...d, t: t + 3600 }, CLAVE).firma, CLAVE), null, 'del futuro, no');
+  assert.equal(leerDatos(...Object.values(firmarDatos({ ...d, reserva: null }, CLAVE)), CLAVE).reserva, null, 'sin reserva');
+
+  const db = fakeDb();
+  const r = await atender({ method: 'POST', ruta: 'api/sincronizar', query: q({}, ''), body: { datos, firma } }, cfg, { db });
+  assert.equal(r.status, 200, 'no hace falta haber iniciado sesión');
+  assert.deepEqual(db.calls[0], ['sidonia_sincronizar', {
+    p_handle: 'nissan-vanette', p_titulo: 'Nissan Vanette | 1990', p_inicio: new Date(t * 1000).toISOString(), p_fin: new Date((t + 86400) * 1000).toISOString(),
+    p_salida: 750, p_reserva: 1500, p_version: t, p_cliente: null
+  }]);
+  const mal = await atender({ method: 'POST', ruta: 'api/sincronizar', query: q(), body: { datos, firma: 'ab' } }, cfg, { db });
+  assert.equal(mal.status, 400);
+  assert.equal(db.calls.length, 1);
 });

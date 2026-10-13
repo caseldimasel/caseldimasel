@@ -268,7 +268,9 @@ export function createStore(profile = 'full', port = 4173) {
         sidonia_analytics: true
       }
     : {};
-  const settings = settingsFrom(schemaGroups.filter((g) => g.settings).flatMap((g) => g.settings), { ...savedSettings(), ...overrides }, typedCtx);
+  // SIDONIA_SETTINGS='{"id": valor}': ajustes del tema para una prueba (por ejemplo, el motor de subastas real)
+  const extra = process.env.SIDONIA_SETTINGS ? JSON.parse(process.env.SIDONIA_SETTINGS) : {};
+  const settings = settingsFrom(schemaGroups.filter((g) => g.settings).flatMap((g) => g.settings), { ...savedSettings(), ...overrides, ...extra }, typedCtx);
   const sectionOverrides = full
     ? {
         'sidonia-hero': { image: heroImage, story_product: byHandle['prueba-coche-a'] },

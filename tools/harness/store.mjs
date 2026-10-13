@@ -452,6 +452,7 @@ export function auctionProducts(products) {
       precio_salida: { value: a.salida },
       sin_reserva: { value: Boolean(a.sinReserva) },
       reserva_alcanzada: { value: Boolean(a.reserva) },
+      reserva: { value: a.sinReserva ? null : Math.round(a.salida * 1.5) },
       puja_actual: { value: a.puja },
       pujas: { value: a.pujas },
       lote: { value: String(101 + i).padStart(4, '0') },

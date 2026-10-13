@@ -129,6 +129,23 @@ test('motor de subastas', { skip }, async (t) => {
     assert.equal(json(`sidonia_pujador('e')`).registrado, true);
   });
 
+  await t.test('sincronizar desde Shopify: crea, pone al día y no deja que una página vieja deshaga', () => {
+    const sinc = (v, salida, reserva, fin = "now() + interval '2 days'", inicio = 'now()') =>
+      json(`sidonia_sincronizar('vanette', 'Nissan Vanette', ${inicio}, ${fin}, ${salida}, ${reserva}, ${v})`);
+    let r = sinc(10, 750, 1500);
+    assert.equal(r.ok, true);
+    assert.equal(r.subasta.estado, 'en_directo');
+    assert.equal(r.subasta.salida, 750);
+    assert.equal('reserva' in r.subasta, false);
+    assert.equal(sinc(20, 900, 'null').subasta.sin_reserva, true, 'sin pujas, se cambia todo');
+    assert.equal(sinc(15, 500, 1500).subasta.salida, 900, 'una versión vieja no pisa');
+    assert.equal(pujar('vanette', 'a', 900).ok, true);
+    r = sinc(30, 100, 2000, "now() + interval '5 days'");
+    assert.equal(r.subasta.salida, 900, 'con pujas no cambia la salida');
+    assert.equal(r.subasta.reserva_ok, false, 'pero sí la reserva');
+    assert.equal(sinc(40, 0, 'null').error, 'datos');
+  });
+
   await t.test('cien pujas a la vez: ninguna se pisa', async () => {
     psql(`insert into subastas (handle, estado, inicio, fin, salida) values ('casa', 'en_directo', now() - interval '1 day', now() + interval '1 day', 100000);
           insert into pujadores (cliente, alias, registrado) select 'p' || g, 'p' || g, true from generate_series(1, 100) g;`);

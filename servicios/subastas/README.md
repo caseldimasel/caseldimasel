@@ -30,18 +30,24 @@ Las pujas de verdad. El tema de Shopify ya tiene las pantallas (ficha, puja dire
    | `SUPABASE_SERVICE_KEY` | *secret key* (`sb_secret_…`) o *service_role* de Supabase |
    | `STRIPE_SECRET_KEY` | Clave secreta de Stripe |
    | `TIENDA_URL` | `https://sidonia.es` |
+   | `SUBASTAS_CLAVE` | Una contraseña larga inventada; la misma va en el tema (*Clave del motor*) |
 
-5. **Tema**: Personalizar › Ajustes del tema › Sidonia · Subastas › desmarca **Modo demostración** (la dirección del
-   motor ya es `/apps/subastas`).
-6. **Crear una subasta** (por ahora en Supabase › *Table editor* › `subastas`, o con SQL):
+5. **Tema**: Personalizar › Ajustes del tema › Sidonia · Subastas › pon la **Clave del motor** (la misma que
+   `SUBASTAS_CLAVE`) y desmarca **Modo demostración**.
+6. **Crear una subasta**: en Shopify, sin tocar Supabase. Producto con la plantilla «subasta» y los metacampos
+   `subasta.inicio` y `subasta.fin` (fecha y hora), `subasta.precio_salida` (entero) y, si tiene reserva,
+   `subasta.reserva` (entero). La primera vez que se abre la ficha, el tema manda esos datos firmados con la clave
+   (la reserva, cifrada: no se ve en la página) y el motor crea la subasta. Si luego cambias los metacampos, se pone
+   al día al abrir la ficha: sin pujas se puede cambiar todo; con pujas, solo el final y la reserva.
+
+   Para crearla a mano (o si no usas la clave):
 
    ```sql
    insert into subastas (handle, titulo, inicio, fin, salida, reserva)
    values ('porsche-912-1967', 'Porsche 912 1967', '2026-11-02 18:00+01', '2026-11-09 20:00+01', 30000, 45000);
    ```
 
-   El `handle` es el del producto en Shopify (con la plantilla «subasta» y los metacampos `subasta.inicio`, `subasta.fin`
-   y `subasta.precio_salida`). `reserva` vacía = sin reserva.
+   Si ya tenías el esquema de antes, ejecuta una vez `sql/actualizacion-2026-10-sincronizar.sql`.
 
 ## Rutas (detrás de `/apps/subastas`)
 
@@ -51,6 +57,7 @@ Las pujas de verdad. El tema de Shopify ya tiene las pantallas (ficha, puja dire
 | `POST api/pujar` | `{ handle, importe, tipo: 'directa' \| 'maxima', intento }` |
 | `POST api/comentar` | `{ handle, texto, respuesta_a }` |
 | `POST api/seguir` | `{ handle, on }` |
+| `POST api/sincronizar` | `{ datos, firma }`: la ficha crea o pone al día su subasta (datos firmados por el tema) |
 | `GET conexion` | Página de comprobación: dice si la firma y la base de datos están bien |
 | `GET/POST registro` | Página de registro (dentro del tema) → Stripe → `registro/vuelta` → vuelta a la ficha |
 
@@ -67,4 +74,4 @@ PGTEST="-h localhost -U postgres" npm test # además, el motor contra un Postgre
 - Retener la comisión en la tarjeta al pujar.
 - Verificar el móvil por SMS en el registro.
 - Pasar a Shopify la puja actual al terminar (metacampos), para que el listado quede bien aunque no haya JavaScript.
-- Panel para crear subastas y responder comentarios como «Vendedor» o «Sidonia».
+- Responder comentarios como «Vendedor» o «Sidonia».

@@ -9,6 +9,7 @@
  *   POST api/pujar     { handle, importe, tipo, intento }
  *   POST api/comentar  { handle, texto, respuesta_a }
  *   POST api/seguir    { handle, on }
+ *   POST api/sincronizar { datos, firma } → crea o pone al día la subasta con lo que pone en Shopify (ver abajo)
  *   GET  registro?return_url=    → página del registro (nombre de usuario y condiciones), dentro del tema
  *   POST registro                → guarda el nombre y lleva a Stripe a guardar la tarjeta
  *   GET  registro/vuelta?session_id=&return_url= → marca la tarjeta como guardada y vuelve a la ficha
@@ -21,6 +22,7 @@ export function config(env = process.env) {
     supabaseUrl: (env.SUPABASE_URL || '').replace(/\/$/, ''),
     supabaseKey: env.SUPABASE_SERVICE_KEY || '',     // clave de servicio (solo en el servidor)
     stripeKey: env.STRIPE_SECRET_KEY || '',
+    clave: env.SUBASTAS_CLAVE || '',                 // la misma que «Clave del motor» en los ajustes del tema
     tienda: (env.TIENDA_URL || 'https://sidonia.es').replace(/\/$/, ''),
     prefijo: env.PROXY_PREFIJO || '/apps/subastas'
   };
@@ -45,6 +47,35 @@ export function comprobarProxy(query, secreto, ahora = Date.now()) {
   if (a.length !== b.length || !timingSafeEqual(a, b)) return false;
   const ts = Number(query.timestamp);
   return !ts || Math.abs(ahora / 1000 - ts) < 3600;   // firmas de hace más de una hora, fuera
+}
+
+/* ---------------------------------------------------------------------------- Subastas creadas desde Shopify */
+// La ficha de una subasta (plantilla «subasta», metacampos subasta.*) lleva estos datos firmados por el tema con la
+// «Clave del motor» (hmac_sha256 en Liquid, en el servidor de Shopify: la clave nunca llega al navegador):
+//   v1|handle|t|inicio|fin|salida|reserva_cifrada|título      (t, inicio y fin en segundos)
+// La reserva es secreta, así que va sumada a un número que solo conocen el tema y el motor: las cifras de
+// hmac(clave, «handle|reserva|t»), las 9 primeras. t es cuándo se pintó la página: una versión más vieja no pisa
+// a una más nueva (pestañas abiertas desde hace días, por ejemplo).
+const mascara = (clave, handle, t) => Number(createHmac('sha256', clave).update(`${handle}|reserva|${t}`).digest('hex').replace(/[a-f]/g, '').slice(0, 9)) || 0;
+
+export function firmarDatos(d, clave) {
+  const datos = ['v1', d.handle, d.t, d.inicio, d.fin, d.salida, (d.reserva || 0) + mascara(clave, d.handle, d.t), d.titulo || ''].join('|');
+  return { datos, firma: createHmac('sha256', clave).update(datos).digest('hex') };
+}
+
+export function leerDatos(datos, firma, clave, ahora = Date.now()) {
+  if (!clave || typeof datos !== 'string' || typeof firma !== 'string') return null;
+  const a = createHmac('sha256', clave).update(datos).digest();
+  const b = Buffer.from(firma.replace(/[^0-9a-f]/gi, ''), 'hex');
+  if (a.length !== b.length || !timingSafeEqual(a, b)) return null;
+  const [v, handle, t, inicio, fin, salida, resC, ...titulo] = datos.split('|');
+  const n = (x) => (/^\d+$/.test(x || '') ? Number(x) : NaN);
+  const d = { handle, t: n(t), inicio: n(inicio), fin: n(fin), salida: n(salida), titulo: titulo.join('|') };
+  if (v !== 'v1' || !handle || ![d.t, d.inicio, d.fin, d.salida, n(resC)].every(Number.isFinite)) return null;
+  if (d.t > ahora / 1000 + 600 || d.salida <= 0 || d.fin <= d.inicio) return null;
+  const reserva = n(resC) - mascara(clave, handle, d.t);
+  d.reserva = reserva > 0 ? reserva : null;
+  return d;
 }
 
 /* ---------------------------------------------------------------------------- Base de datos (Supabase) */
@@ -145,6 +176,15 @@ export async function atender(req, cfg, deps) {
   if (ruta === 'api/estado' && req.method === 'GET') {
     const handles = String(req.query.h || '').split(',').map((h) => h.trim()).filter(Boolean).slice(0, 60);
     return json(200, await db('sidonia_estado', { p_handles: handles, p_cliente: cliente }));
+  }
+
+  if (ruta === 'api/sincronizar' && req.method === 'POST') {
+    const d = leerDatos(body.datos, body.firma, cfg.clave);
+    if (!d) return json(400, { ok: false, error: 'datos' });
+    return json(200, await db('sidonia_sincronizar', {
+      p_handle: d.handle, p_titulo: d.titulo, p_inicio: new Date(d.inicio * 1000).toISOString(), p_fin: new Date(d.fin * 1000).toISOString(),
+      p_salida: d.salida, p_reserva: d.reserva, p_version: d.t, p_cliente: cliente
+    }));
   }
 
   if (ruta.startsWith('api/') && req.method === 'POST') {
