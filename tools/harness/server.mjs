@@ -339,6 +339,7 @@ function makeGlobals(store, req) {
   };
   return {
     settings: store.settings,
+    all_products: store.byHandle,
     shop: {
       name: 'Tienda de prueba', url: `http://localhost:${store.port}`, currency: 'EUR', description: '', customer_accounts_enabled: conCuentas, enabled_payment_types: [], money_format: '{{amount_with_comma_separator}} €', locale: 'es',
       privacy_policy: store.profile === 'full' ? { url: '/policies/privacy-policy', title: 'Política de privacidad' } : null,
