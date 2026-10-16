@@ -1,0 +1,137 @@
+{%- comment -%}
+  Cuentas sociales de Sidonia. FUENTE ÚNICA: entradas del metaobjeto «sidonia_social_account»
+  (Contenido > Metaobjetos). La misma fuente alimenta la sección de comunidad, el pie y «Sobre Sidonia»:
+  ninguna cifra se escribe en el código ni en una sección.
+
+  Campos de cada cuenta (ver docs/04-modelo-de-datos.md §5):
+    network (Instagram, TikTok, YouTube, Facebook, X, LinkedIn, Pinterest, Otra) · name · url
+    followers (entero; vacío = sin cifra, NO cero) · include_in_total (verdadero/falso) · updated_on (fecha)
+
+  Reglas del total:
+    - Suma solo cuentas con include_in_total = verdadero y una cifra válida (entero ≥ 0).
+    - Una cifra vacía no es cero: esa cuenta se enlaza, pero no suma.
+    - Una misma cuenta repetida (misma URL normalizada, o misma red + mismo nombre) se cuenta una vez.
+    - El total es la suma de seguidores de cuentas, no un número de personas únicas.
+
+  Parámetros: out =
+    total       suma (vacío si no hay ninguna cifra válida)
+    summed      número de cuentas que suman
+    list        elementos <li> de todas las cuentas con URL (sin repetir)
+    duplicates  nombres de las entradas repetidas, separados por « · » (para el aviso del editor)
+    updated     fecha de actualización más reciente entre las cuentas que suman (AAAA-MM-DD)
+    exists      'true' si hay al menos una cuenta con URL
+{%- endcomment -%}
+{%- liquid
+  assign entries = shop.metaobjects.sidonia_social_account.values
+  assign seen = '|'
+  assign total = 0
+  assign summed = 0
+  assign dups = ''
+  assign latest = ''
+  assign items = ''
+  assign any = false
+
+  for e in entries
+    assign e_url = e.url.value | strip
+    assign e_name = e.name.value | strip
+    assign e_net = e.network.value | strip
+    assign e_net_key = e_net | downcase | handleize
+    assign norm = e_url | downcase | remove: 'https://' | remove: 'http://' | remove: 'www.' | split: '?' | first | split: '#' | first
+    assign norm_last = norm | slice: -1, 1
+    if norm_last == '/'
+      assign norm_cut = norm.size | minus: 1
+      assign norm = norm | slice: 0, norm_cut
+    endif
+    if norm contains 'm.facebook.com'
+      assign norm = norm | replace: 'm.facebook.com', 'facebook.com'
+    endif
+    assign ident = e_net_key | append: ':' | append: e_name | downcase | remove: '@'
+
+    assign token_url = '|u:' | append: norm | append: '|'
+    assign token_id = '|i:' | append: ident | append: '|'
+    assign is_dup = false
+    if norm != blank and seen contains token_url
+      assign is_dup = true
+    endif
+    if e_name != blank and seen contains token_id
+      assign is_dup = true
+    endif
+
+    if is_dup
+      assign dup_label = e_name | default: e_url
+      if dups == ''
+        assign dups = dup_label
+      else
+        assign dups = dups | append: ' · ' | append: dup_label
+      endif
+      continue
+    endif
+    if norm != blank
+      assign seen = seen | append: 'u:' | append: norm | append: '|'
+    endif
+    if e_name != blank
+      assign seen = seen | append: 'i:' | append: ident | append: '|'
+    endif
+
+    assign f = e.followers.value
+    assign counts = false
+    if e.include_in_total.value == true and f != blank
+      assign f_num = f | plus: 0
+      if f_num >= 0
+        assign counts = true
+        assign total = total | plus: f_num
+        assign summed = summed | plus: 1
+        assign upd = e.updated_on.value | date: '%Y-%m-%d'
+        if upd != blank and upd > latest
+          assign latest = upd
+        endif
+      endif
+    endif
+
+    if e_url != blank and out == 'list'
+      assign any = true
+      capture item
+        echo '<li class="sidonia-social__item"><a class="sidonia-social__link" href="'
+        echo e_url | escape
+        echo '" target="_blank" rel="noopener">'
+        render 'sidonia-icon', name: e_net_key, size: 22
+        echo '<span class="sidonia-social__text"><span class="sidonia-social__name">'
+        echo e_name | default: e_net | escape
+        echo '</span><span class="sidonia-social__net">'
+        echo e_net | escape
+        if counts
+          capture f_txt
+            render 'sidonia-number', n: f
+          endcapture
+          echo ' · '
+          echo 'sidonia.community.followers_count' | t: count: f, value: f_txt
+        endif
+        echo '</span></span><span class="sidonia-sr"> '
+        echo 'sidonia.general.new_window' | t
+        echo '</span></a></li>'
+      endcapture
+      assign items = items | append: item
+    elsif e_url != blank
+      assign any = true
+    endif
+  endfor
+
+  case out
+    when 'total'
+      if summed > 0
+        echo total
+      endif
+    when 'summed'
+      echo summed
+    when 'list'
+      echo items
+    when 'duplicates'
+      echo dups
+    when 'updated'
+      echo latest
+    when 'exists'
+      if any
+        echo 'true'
+      endif
+  endcase
+-%}

@@ -1,0 +1,18 @@
+{%- comment -%}
+  Nombre público de una categoría con su punto de color.
+  El punto es decorativo (aria-hidden): el nombre aporta el significado.
+
+  Parámetros: key (garage|harbor|estate…), class (opcional), name (opcional: texto ya resuelto)
+{%- endcomment -%}
+{%- liquid
+  assign label = name
+  if label == blank
+    capture label
+      render 'sidonia-division', key: key, out: 'name'
+    endcapture
+    assign label = label | strip
+  endif
+-%}
+{%- if key != blank -%}
+  <span class="sidonia-cat sidonia-cat--{{ key }}{% if class != blank %} {{ class }}{% endif %}"><span class="sidonia-dot" aria-hidden="true"></span>{{ label | escape }}</span>
+{%- endif -%}

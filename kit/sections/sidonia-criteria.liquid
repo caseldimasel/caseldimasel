@@ -1,0 +1,64 @@
+{%- comment -%}
+  SIDONIA · Criterio de selección: qué buscamos y por qué seleccionar cuida la plataforma.
+  Sin umbrales de precio: importa el carácter de la pieza.
+{%- endcomment -%}
+{%- assign s = section.settings -%}
+<section id="{{ s.anchor | default: 'sidonia-criterio' | handleize }}" class="sidonia-scope sidonia-section sidonia-criteria{% if s.background == 'alt' %} sidonia-section--alt{% elsif s.background == 'surface' %} sidonia-section--surface{% endif %}" data-section-id="{{ section.id }}">
+  <div class="sidonia-container sidonia-criteria__grid">
+    <div class="sidonia-criteria__intro">
+      {%- if s.eyebrow != blank -%}<p class="sidonia-eyebrow">{{ s.eyebrow | escape }}</p>{%- endif -%}
+      {%- if s.heading != blank -%}<h2 class="sidonia-h2">{{ s.heading | escape }}</h2>{%- endif -%}
+      {%- if s.text != blank -%}<div class="sidonia-lede sidonia-rte">{{ s.text }}</div>{%- endif -%}
+    </div>
+    <ul class="sidonia-criteria__list" role="list">
+      {%- for block in section.blocks -%}
+        <li class="sidonia-criterion" {{ block.shopify_attributes }}>
+          <h3 class="sidonia-criterion__title">{{ block.settings.title | escape }}</h3>
+          {%- if block.settings.text != blank -%}<p class="sidonia-criterion__text">{{ block.settings.text | escape }}</p>{%- endif -%}
+        </li>
+      {%- endfor -%}
+    </ul>
+  </div>
+</section>
+
+{% schema %}
+{
+  "name": "Sidonia · Criterio",
+  "tag": "div",
+  "settings": [
+    { "type": "text", "id": "eyebrow", "label": "Antetítulo", "default": "Criterio" },
+    { "type": "text", "id": "heading", "label": "Título", "default": "Seleccionamos lo que tiene algo que contar" },
+    { "type": "richtext", "id": "text", "label": "Texto", "default": "<p>No publicamos cualquier cosa. Elegir con cuidado es lo que hace que cada pieza tenga el sitio y la atención que merece, y que quien llega a Sidonia encuentre algo especial. No depende del precio ni de la antigüedad.</p>" },
+    { "type": "text", "id": "anchor", "label": "Ancla (id)", "default": "sidonia-criterio" },
+    { "type": "select", "id": "background", "label": "Fondo", "options": [
+      { "value": "bg", "label": "Piedra" },
+      { "value": "surface", "label": "Piedra clara" },
+      { "value": "alt", "label": "Piedra alternativa" }
+    ], "default": "bg" }
+  ],
+  "blocks": [
+    {
+      "type": "criterion",
+      "name": "Criterio",
+      "settings": [
+        { "type": "text", "id": "title", "label": "Título", "default": "Historia" },
+        { "type": "textarea", "id": "text", "label": "Texto" }
+      ]
+    }
+  ],
+  "max_blocks": 8,
+  "presets": [
+    {
+      "name": "Sidonia · Criterio",
+      "blocks": [
+        { "type": "criterion", "settings": { "title": "Historia", "text": "Una vida vivida que merece ser contada." } },
+        { "type": "criterion", "settings": { "title": "Carácter", "text": "Algo que la hace reconocible entre muchas." } },
+        { "type": "criterion", "settings": { "title": "Diseño", "text": "Una forma pensada con intención." } },
+        { "type": "criterion", "settings": { "title": "Singularidad", "text": "Una pieza que no se encuentra en cualquier esquina." } },
+        { "type": "criterion", "settings": { "title": "Cuidado", "text": "Alguien la ha mantenido con atención." } },
+        { "type": "criterion", "settings": { "title": "Procedencia", "text": "Un origen o un recorrido interesante." } }
+      ]
+    }
+  ]
+}
+{% endschema %}

@@ -1,0 +1,61 @@
+{%- comment -%}
+  Número con separadores de español de España.
+  - Miles con punto a partir de cinco cifras (12.400); los números de cuatro cifras van sin
+    separador (2400), como recomiendan la RAE y el formato es-ES de los navegadores.
+  - Decimales con coma, solo si se piden y no son cero (12,5).
+  No redondea salvo que se pidan 0 decimales. Parámetros: n, decimals (opcional, 0-2)
+{%- endcomment -%}
+{%- liquid
+  assign as_text = n | append: ''
+  assign neg = false
+  if as_text contains '-'
+    assign neg = true
+    assign as_text = as_text | remove: '-'
+  endif
+  assign parts = as_text | split: '.'
+  assign int_part = parts[0] | default: '0'
+  assign frac = parts[1]
+  assign sep = 'sidonia.number.thousands' | t
+  assign dec = 'sidonia.number.decimal' | t
+  assign out_text = int_part
+  if int_part.size > 4
+    assign out_text = ''
+    assign i = int_part.size
+    for step in (1..8)
+      if i <= 0
+        break
+      endif
+      assign start = i | minus: 3
+      if start < 0
+        assign start = 0
+      endif
+      assign len = i | minus: start
+      assign chunk = int_part | slice: start, len
+      if out_text == ''
+        assign out_text = chunk
+      else
+        assign out_text = chunk | append: sep | append: out_text
+      endif
+      assign i = start
+    endfor
+  endif
+  if neg
+    echo '-'
+  endif
+  echo out_text
+  if decimals != blank and decimals > 0 and frac != blank
+    assign frac_cut = frac | slice: 0, decimals
+    assign frac_num = frac_cut | plus: 0
+    if frac_num > 0
+      assign frac_trim = frac_cut
+      if decimals == 2 and frac_cut.size == 2
+        assign last_digit = frac_cut | slice: 1, 1
+        if last_digit == '0'
+          assign frac_trim = frac_cut | slice: 0, 1
+        endif
+      endif
+      echo dec
+      echo frac_trim
+    endif
+  endif
+-%}

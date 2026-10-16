@@ -1,0 +1,36 @@
+{%- comment -%}
+  Ordenación. Solo opciones REALES de Shopify con sentido para Sidonia:
+  selección editorial (orden manual de la colección), novedades (fecha de creación del producto),
+  relevancia (búsqueda) y precio solo si las variantes reflejan el precio publicado.
+  Nunca «más populares» ni «más vendidos». Parámetros: results, uid
+{%- endcomment -%}
+{%- assign sort_by = results.sort_by | default: results.default_sort_by -%}
+<div class="sidonia-sort">
+  <label class="sidonia-sort__label" for="{{ uid }}-sort">{{ 'sidonia.catalog.sort' | t }}</label>
+  <select class="sidonia-select sidonia-sort__select" id="{{ uid }}-sort" name="sort_by" data-sidonia-sort>
+    {%- for option in results.sort_options -%}
+      {%- liquid
+        assign label = ''
+        case option.value
+          when 'manual'
+            assign label = 'sidonia.catalog.sort_editorial' | t
+          when 'created-descending'
+            assign label = 'sidonia.catalog.sort_newest' | t
+          when 'relevance'
+            assign label = 'sidonia.catalog.sort_relevance' | t
+          when 'price-ascending'
+            if settings.sidonia_variant_prices
+              assign label = 'sidonia.catalog.sort_price_asc' | t
+            endif
+          when 'price-descending'
+            if settings.sidonia_variant_prices
+              assign label = 'sidonia.catalog.sort_price_desc' | t
+            endif
+        endcase
+      -%}
+      {%- if label != blank -%}
+        <option value="{{ option.value }}"{% if option.value == sort_by %} selected="selected"{% endif %}>{{ label }}</option>
+      {%- endif -%}
+    {%- endfor -%}
+  </select>
+</div>
