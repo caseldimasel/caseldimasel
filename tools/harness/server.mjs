@@ -440,6 +440,8 @@ export function createRenderer(store) {
       name = 'product';
       globals.product = store.byHandle[m[1]];
       suffix = q.view?.[0] === 'sidonia-card' ? 'sidonia-card' : globals.product.template_suffix;
+      // ?view=<sufijo> como en Shopify: plantilla alternativa del producto si existe
+      if (q.view?.[0] && q.view[0] !== 'sidonia-card' && existsSync(join(THEME, 'templates', `product.${q.view[0]}.json`))) suffix = q.view[0];
     } else if ((m = /^\/pages\/([^/]+)$/.exec(req.path)) && store.pages[m[1]]) {
       name = 'page';
       globals.page = store.pages[m[1]];
