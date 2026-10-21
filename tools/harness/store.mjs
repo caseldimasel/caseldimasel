@@ -462,3 +462,14 @@ export function auctionProducts(products) {
     return { ...p, id: 900000 + i, handle: `subasta-${p.handle}`, url: `/products/subasta-${p.handle}`, title: p.title, template_suffix: 'subasta', available: true, tags: [...(p.tags || []), 'subasta'], metafields: { ...(p.metafields || {}), subasta }, __data: { ...p.__data, status: 'Subasta' } };
   });
 }
+
+/** Círculo: anuncios de la comunidad de prueba (copias de unos coches con su vendedor, como los publica el motor) */
+export function circleProducts(products) {
+  const base = products.filter((p) => p.template_suffix === 'cars' && p.__data?.category === 'Coches' && !p.handle.startsWith('prueba') && !p.handle.startsWith('subasta-') && p.price > 0).slice(6, 10);
+  const sellers = [['Enrique', 'enrique-4f2a', '+34612345678'], ['Iñaki', 'inaki-91c0', '+34699112233'], ['Enrique', 'enrique-4f2a', '+34612345678'], ['Luis', 'luis-07bd', '+34655443322']];
+  return base.map((p, i) => {
+    const [nombre, slug, tel] = sellers[i % sellers.length];
+    const metafields = { ...(p.metafields || {}), custom: { ...((p.metafields || {}).custom || {}), vendedor_nombre: { value: nombre }, vendedor_slug: { value: slug }, vendedor_telefono: { value: tel } } };
+    return { ...p, id: 950000 + i, handle: `circulo-${p.handle}`, url: `/products/circulo-${p.handle}`, vendor: 'Círculo Sidonia', tags: [...(p.tags || []), 'circulo', 'coche', `vendedor-${slug}`], metafields, __data: { ...p.__data } };
+  });
+}

@@ -9,7 +9,7 @@ import { join, dirname, extname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
 import { Liquid, Context } from './liquid.mjs';
-import { buildProducts, buildCommerceProducts, productsFromCsv, auctionProducts, socialAccounts, applyFilters as applyKitFilters, buildFilters as buildKitFilters, applyShopFilters, buildShopFilters, sortProducts, SORT_OPTIONS, IMAGES, image, logoImage } from './store.mjs';
+import { buildProducts, buildCommerceProducts, productsFromCsv, auctionProducts, circleProducts, socialAccounts, applyFilters as applyKitFilters, buildFilters as buildKitFilters, applyShopFilters, buildShopFilters, sortProducts, SORT_OPTIONS, IMAGES, image, logoImage } from './store.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 export const ROOT = join(here, '..', '..');
@@ -178,7 +178,8 @@ const PAGES = [
   { handle: 'busco', title: 'Cuéntanos qué buscas', template: 'wanted' },
   { handle: 'vender', title: 'Vende con Sidonia', template: 'vender' },
   { handle: 'vende-con-nosotros', title: 'VENDE CON NOSOTROS', template: '' }, // como en la tienda: sin la plantilla «vender» asignada
-  { handle: 'privacidad', title: 'Aviso de privacidad', template: 'legal', content: '<p>[PRUEBA] Texto legal pendiente de Sidonia.</p>' }
+  { handle: 'privacidad', title: 'Aviso de privacidad', template: 'legal', content: '<p>[PRUEBA] Texto legal pendiente de Sidonia.</p>' },
+  { handle: 'publicar', title: 'Publica gratis', template: 'publicar' }
 ];
 
 export function createStore(profile = 'full', port = 4173) {
@@ -187,6 +188,9 @@ export function createStore(profile = 'full', port = 4173) {
   // Subastas de prueba (con los datos de la tienda): anuncios copiados con la plantilla «subasta»
   const auctions = full && process.env.SIDONIA_SHOP_DATA ? auctionProducts(products) : [];
   products.push(...auctions);
+  // Círculo (anuncios de la comunidad): copias de unos coches con su vendedor (con los datos de la tienda)
+  const circle = full && process.env.SIDONIA_SHOP_DATA ? circleProducts(products) : [];
+  products.push(...circle);
   const byHandle = Object.fromEntries(products.map((p) => [p.handle, p]));
   // products se marca como «drop» de Shopify (no es una lista normal: concat la rechaza; where/sort/map sí funcionan)
   const asDrop = (list) => Object.defineProperty([...list], '__shopifyDrop', { value: true });
@@ -202,6 +206,7 @@ export function createStore(profile = 'full', port = 4173) {
         destacadas: col('destacadas', 'Destacadas', products.filter((p) => p.__data.featured === true)),
         all: col('all', 'Productos', products),
         subastas: col('subastas', 'Subastas', auctions, 'subastas'),
+        circulo: col('circulo', 'Círculo', circle, 'circulo'),
         // Handle real de la tienda (Sidonia-Shopify): mismo contenido que «coches»
         'coches-en-venta': col('coches-en-venta', 'Coches en venta', cat('Coches'))
       }
@@ -429,13 +434,20 @@ export function createRenderer(store) {
     let suffix = '';
     let m;
     if (req.path === '/') name = 'index';
-    else if ((m = /^\/collections\/([^/]+)$/.exec(req.path)) && store.collections[m[1]] !== undefined) {
-      const c = Object.values(store.collections).find((x) => x.handle === m[1]);
+    else if ((m = /^\/collections\/([^/]+)(?:\/([^/]+))?$/.exec(req.path)) && store.collections[m[1]] !== undefined) {
+      let c = Object.values(store.collections).find((x) => x.handle === m[1]);
+      // /collections/<colección>/<etiqueta>: solo los productos con esa etiqueta (como en Shopify), p. ej. el perfil de un vendedor
+      const tag = m[2] ? decodeURIComponent(m[2]) : '';
+      if (tag) {
+        const list = [...c.products].filter((p) => (p.tags || []).map((t) => String(t).toLowerCase()).includes(tag.toLowerCase()));
+        c = { ...c, products: Object.defineProperty(list, '__shopifyDrop', { value: true }), products_count: list.length, all_products_count: list.length };
+      }
       name = 'collection';
       suffix = c.template_suffix;
       // ?view=<sufijo> como en Shopify: plantilla alternativa si existe
       if (q.view?.[0] && (existsSync(join(THEME, 'templates', `collection.${q.view[0]}.json`)) || existsSync(join(THEME, 'templates', `collection.${q.view[0]}.liquid`)))) suffix = q.view[0];
       collectionGlobals(globals, c, q);
+      globals.current_tags = tag ? [tag] : [];
     } else if ((m = /^\/products\/([^/]+)$/.exec(req.path)) && store.byHandle[m[1]]) {
       name = 'product';
       globals.product = store.byHandle[m[1]];
