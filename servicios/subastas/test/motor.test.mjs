@@ -128,10 +128,14 @@ test('Supabase: clave nueva solo en apikey; clave antigua también como Bearer',
 });
 
 test('página de conexión: dice qué falla sin enseñar nada secreto', async () => {
-  const db = fakeDb();
-  const ok = await atender({ method: 'GET', ruta: 'conexion', query: q() }, cfg, { db });
+  const base = fakeDb();
+  const db = async (fn, a) => (fn === 'sidonia_anuncios_lista' ? [] : base(fn, a));
+  const ok = await atender({ method: 'GET', ruta: 'conexion', query: q() }, cfg, { db, fetch: async () => ({ ok: true }) });
   assert.equal(ok.headers['Content-Type'], 'application/liquid');
-  assert.match(ok.body, /está conectado/);
+  assert.match(ok.body, /Todo conectado/);
+  const sinAnuncios = await atender({ method: 'GET', ruta: 'conexion', query: q() }, cfg, { db: base, fetch: async () => ({ ok: false }) });
+  assert.match(sinAnuncios.body, /falta ejecutar sql\/circulo\.sql/);
+  assert.match(sinAnuncios.body, /falta el cubo de fotos/);
   const mal = await atender({ method: 'GET', ruta: 'conexion', query: { ...q(), signature: 'x' } }, cfg, { db });
   assert.match(mal.body, /La firma no cuadra/);
   assert.equal(mal.body.includes(SECRETO), false);

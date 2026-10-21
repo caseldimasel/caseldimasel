@@ -1,7 +1,7 @@
 /* SIDONIA · Punto de entrada en Vercel. vercel.json manda /proxy/<ruta> aquí (?ruta=<ruta>).
  * En la app de Shopify, el proxy es: prefijo «apps», subruta «subastas», URL https://<este-servidor>/proxy
  */
-import { atender, config, stripe, supabase } from '../lib/motor.mjs';
+import { atender, codigoError, config, stripe, supabase } from '../lib/motor.mjs';
 
 export default async function handler(req, res) {
   const cfg = config();
@@ -20,6 +20,6 @@ export default async function handler(req, res) {
     res.status(r.status).send(r.body);
   } catch (e) {
     console.error(e);
-    res.status(500).json({ ok: false, error: 'servidor' });
+    res.status(500).json({ ok: false, error: 'servidor', detalle: codigoError(e) });
   }
 }

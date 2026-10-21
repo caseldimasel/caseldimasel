@@ -1,10 +1,13 @@
 /* SIDONIA · Comprobación: /api/salud responde si el motor está publicado y tiene sus claves puestas (sin enseñarlas). */
+import { VERSION } from '../lib/motor.mjs';
+
 export default function handler(req, res) {
   const tiene = (k) => Boolean(process.env[k]);
   res.setHeader('Cache-Control', 'no-store');
   res.status(200).json({
     ok: true,
     servicio: 'sidonia-subastas',
+    version: VERSION,
     claves: {
       SUPABASE_URL: tiene('SUPABASE_URL'),
       SUPABASE_SERVICE_KEY: tiene('SUPABASE_SERVICE_KEY'),

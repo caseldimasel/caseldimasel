@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { atender, config, firmaProxy } from '../lib/motor.mjs';
+import { atender, codigoError, config, firmaProxy } from '../lib/motor.mjs';
 import { atenderPanel, descripcionHtml, metacamposFiltros, permisosSubida, productoShopify, publicarEnShopify, slugVendedor, telefono, validar } from '../lib/circulo.mjs';
 
 const SECRETO = 'secreto-de-la-app';
@@ -36,6 +36,13 @@ test('validar: lo bueno pasa y se limpia; lo malo dice qué campo', () => {
   assert.equal(validar(bueno({ telefono: '123' }), '7001').campo, 'telefono');
   assert.equal(validar(bueno({ acepta_telefono: false }), '7001').campo, 'acepta_telefono');
   assert.equal(validar(bueno({ condiciones: false }), '7001').campo, 'condiciones');
+});
+
+test('errores: una palabra que dice qué falta, sin secretos', () => {
+  assert.equal(codigoError(new Error('Supabase sidonia_anuncio_mio 404: {"message":"Could not find the function"}')), 'anuncios-sql');
+  assert.equal(codigoError(new Error('Storage 400: Bucket not found')), 'anuncios-fotos');
+  assert.equal(codigoError(new Error('Supabase sidonia_estado 401: key')), 'base-de-datos');
+  assert.equal(codigoError(new Error('otra cosa')), 'motor');
 });
 
 test('teléfono y perfil del vendedor', () => {

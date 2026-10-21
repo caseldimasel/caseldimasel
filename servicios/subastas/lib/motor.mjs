@@ -18,6 +18,8 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { rutasTienda } from './circulo.mjs';
 
+export const VERSION = 'anuncios-2026-10-21';
+
 export function config(env = process.env) {
   return {
     secreto: env.SHOPIFY_APP_SECRET || '',          // secreto de la app de Shopify (firma del proxy)
@@ -147,20 +149,53 @@ function paginaRegistro({ error = '', alias = '', volver = '/', accion }) {
 </div>`;
 }
 
-async function paginaConexion(query, cfg, { db }) {
+/** Qué ha fallado, en una palabra que se puede enseñar (sin datos secretos): para el mensaje del formulario */
+export function codigoError(e) {
+  const m = String((e && e.message) || e);
+  if (/sidonia_anuncio|relation "anuncios"|anuncios_/.test(m)) return 'anuncios-sql';
+  if (/Storage|bucket/i.test(m)) return 'anuncios-fotos';
+  if (/Supabase/.test(m)) return 'base-de-datos';
+  return 'motor';
+}
+
+/** El cubo de fotos de los anuncios existe (Supabase Storage) */
+async function cuboFotos(cfg, fetchImpl = fetch) {
+  try {
+    const r = await fetchImpl(`${cfg.supabaseUrl}/storage/v1/bucket/anuncios`, {
+      headers: { apikey: cfg.supabaseKey, ...(cfg.supabaseKey.startsWith('sb_') ? {} : { Authorization: `Bearer ${cfg.supabaseKey}` }) }
+    });
+    return r.ok;
+  } catch (e) {
+    return false;
+  }
+}
+
+async function paginaConexion(query, cfg, { db, fetch: fetchImpl = fetch }) {
   const firma = comprobarProxy(query, cfg.secreto);
   let base = false;
-  if (firma) { try { base = Array.isArray((await db('sidonia_estado', { p_handles: [] }))?.subastas); } catch (e) { console.error(e); } }
+  let anuncios = false;
+  let fotos = false;
+  if (firma) {
+    try { base = Array.isArray((await db('sidonia_estado', { p_handles: [] }))?.subastas); } catch (e) { console.error(e); }
+    try { anuncios = Array.isArray(await db('sidonia_anuncios_lista', { p_estado: 'ninguno' })); } catch (e) { console.error(e); }
+    fotos = await cuboFotos(cfg, fetchImpl);
+  }
+  const panel = Boolean(cfg.adminClave);
+  const shopify = Boolean(cfg.shopifyTienda && cfg.shopifyClientId);
   const fila = (ok, si, no) => `<li style="margin:.5rem 0">${ok ? '✅' : '❌'} ${ok ? si : no}</li>`;
-  const todo = firma && base;
-  return liquid(`<div class="page-width" style="max-width:560px;margin:3rem auto;padding:0 1.25rem">
-  <p style="font-size:.75rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;opacity:.55;margin:0">Subastas Sidonia</p>
-  <h1 style="margin:.3rem 0 1rem">${todo ? 'El motor de subastas está conectado' : 'Al motor le falta algo'}</h1>
+  const todo = firma && base && anuncios && fotos;
+  return liquid(`<div class="page-width" style="max-width:600px;margin:3rem auto;padding:0 1.25rem">
+  <p style="font-size:.75rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;opacity:.55;margin:0">Motor de Sidonia · ${VERSION}</p>
+  <h1 style="margin:.3rem 0 1rem">${todo ? 'Todo conectado' : 'Al motor le falta algo'}</h1>
   <ul style="list-style:none;padding:0;line-height:1.5">
     ${fila(true, 'La tienda llega al motor (proxy de la app)', '')}
     ${fila(firma, 'La firma de Shopify es correcta (SHOPIFY_APP_SECRET)', 'La firma no cuadra: revisa SHOPIFY_APP_SECRET en Vercel y vuelve a desplegar')}
     ${firma ? fila(base, 'La base de datos responde (Supabase)', 'Supabase no responde: revisa SUPABASE_URL y SUPABASE_SERVICE_KEY') : ''}
-    ${fila(Boolean(query.logged_in_customer_id), 'Has iniciado sesión: tus pujas irán a tu nombre', 'No has iniciado sesión (para pujar hará falta)')}
+    ${firma ? fila(anuncios, 'Anuncios gratis: la tabla está creada', 'Anuncios gratis: falta ejecutar sql/circulo.sql en Supabase › SQL Editor') : ''}
+    ${firma ? fila(fotos, 'Anuncios gratis: el cubo de fotos está creado', 'Anuncios gratis: falta el cubo de fotos «anuncios» (se crea con sql/circulo.sql)') : ''}
+    ${fila(panel, 'Panel para revisar anuncios: tiene contraseña (ADMIN_CLAVE)', 'Panel para revisar anuncios: falta ADMIN_CLAVE en Vercel')}
+    ${fila(shopify, 'Publicar en Shopify desde el panel: configurado', 'Publicar en Shopify desde el panel: faltan SHOPIFY_TIENDA y SHOPIFY_CLIENT_ID en Vercel')}
+    ${fila(Boolean(query.logged_in_customer_id), 'Has iniciado sesión', 'No has iniciado sesión (para anunciar o pujar hará falta)')}
   </ul>
 </div>`);
 }
