@@ -1,3 +1,12 @@
 {
-  "rewrites": [{ "source": "/proxy/:ruta*", "destination": "/api/proxy?ruta=:ruta*" }]
+  "rewrites": [
+    {
+      "source": "/proxy/:ruta*",
+      "destination": "/api/proxy?ruta=:ruta*"
+    },
+    {
+      "source": "/admin",
+      "destination": "/api/admin"
+    }
+  ]
 }

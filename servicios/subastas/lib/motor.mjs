@@ -13,8 +13,10 @@
  *   GET  registro?return_url=    → página del registro (nombre de usuario y condiciones), dentro del tema
  *   POST registro                → guarda el nombre y lleva a Stripe a guardar la tarjeta
  *   GET  registro/vuelta?session_id=&return_url= → marca la tarjeta como guardada y vuelve a la ficha
+ *   api/anuncio…                 → anuncios del Círculo (ver circulo.mjs)
  */
 import { createHmac, timingSafeEqual } from 'node:crypto';
+import { rutasTienda } from './circulo.mjs';
 
 export function config(env = process.env) {
   return {
@@ -24,7 +26,10 @@ export function config(env = process.env) {
     stripeKey: env.STRIPE_SECRET_KEY || '',
     clave: env.SUBASTAS_CLAVE || '',                 // la misma que «Clave del motor» en los ajustes del tema
     tienda: (env.TIENDA_URL || 'https://sidonia.es').replace(/\/$/, ''),
-    prefijo: env.PROXY_PREFIJO || '/apps/subastas'
+    prefijo: env.PROXY_PREFIJO || '/apps/subastas',
+    shopifyTienda: (env.SHOPIFY_TIENDA || '').replace(/^https?:\/\//, '').replace(/\/$/, ''),   // xxxx.myshopify.com
+    shopifyClientId: env.SHOPIFY_CLIENT_ID || '',    // ID de cliente de la app (para publicar fichas del Círculo)
+    adminClave: env.ADMIN_CLAVE || ''                // contraseña del panel /admin
   };
 }
 
@@ -185,6 +190,12 @@ export async function atender(req, cfg, deps) {
       p_handle: d.handle, p_titulo: d.titulo, p_inicio: new Date(d.inicio * 1000).toISOString(), p_fin: new Date(d.fin * 1000).toISOString(),
       p_salida: d.salida, p_reserva: d.reserva, p_version: d.t, p_cliente: cliente
     }));
+  }
+
+  // Círculo: anuncios de la comunidad
+  if (ruta === 'api/anuncio' || ruta.startsWith('api/anuncio/')) {
+    const r = await rutasTienda({ ruta, method: req.method, body }, cliente, cfg, deps);
+    if (r) return r;
   }
 
   if (ruta.startsWith('api/') && req.method === 'POST') {
