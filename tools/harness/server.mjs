@@ -569,6 +569,15 @@ export function startServer({ port = 4173, profile = 'full', compose = true, the
         const f = join(FIXTURES, path.slice(10));
         return existsSync(f) ? send(200, readFileSync(f), MIME[extname(f)] || 'application/octet-stream') : send(404, 'no fixture');
       }
+      // Búsqueda predictiva de Shopify (/search/suggest.json): productos cuyo título, marca o etiquetas contienen la búsqueda
+      if (path === '/search/suggest.json') {
+        const terms = String(query.q?.[0] || '').toLowerCase().trim();
+        const words = terms.split(/\s+/).filter(Boolean);
+        const limit = Number(query['resources[limit]']?.[0] || 10);
+        const hits = words.length ? store.products.filter((p) => { const t = `${p.title} ${p.vendor} ${(p.tags || []).join(' ')}`.toLowerCase(); return words.every((w) => t.includes(w)); }).slice(0, limit) : [];
+        const products = hits.map((p) => { const img = p.featured_image || (p.media || [])[0]?.preview_image; return { id: p.id, title: p.title, handle: p.handle, url: p.url, price: (p.price / 100).toFixed(2), tags: p.tags || [], vendor: p.vendor, image: img ? `${img.src}?width=600` : null, featured_image: img ? { url: `${img.src}?width=600`, alt: p.title } : null }; });
+        return send(200, JSON.stringify({ resources: { results: { products, queries: [], collections: [], pages: [], articles: [] } } }), 'application/json');
+      }
       if (path.startsWith('/img/')) {
         const info = IMAGES[path.slice(5)];
         if (!info) return send(404, 'no img');
