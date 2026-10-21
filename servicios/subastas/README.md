@@ -1,4 +1,4 @@
-# Motor de Sidonia: Círculo (anuncios de la comunidad) y subastas
+# Motor de Sidonia: «Del dueño» (anuncios gratis de particulares) y subastas
 
 Las pujas de verdad. El tema de Shopify ya tiene las pantallas (ficha, puja directa y máxima, registro, comentarios,
 «¡Has ganado!»); con el **modo demostración** apagado, en vez de simular habla con este motor a través de
@@ -50,13 +50,13 @@ Las pujas de verdad. El tema de Shopify ya tiene las pantallas (ficha, puja dire
    Si ya tenías el esquema de antes, ejecuta una vez `sql/actualizacion-2026-10-sincronizar.sql`.
 
 
-## Círculo: anuncios de la comunidad
+## «Del dueño»: anuncios gratis de particulares
 
 Cualquiera con cuenta en Sidonia puede publicar **un anuncio gratis** (coche, barco o casa) desde
-`sidonia.es/pages/publicar`: tipo, lo básico, ficha técnica, descripción breve, historia, descripción mecánica, fotos
+`sidonia.es/pages/publicar` (hay que iniciar sesión): tipo, lo básico, ficha técnica, descripción breve, historia, descripción mecánica, fotos
 (mínimo `CIRCULO_FOTOS_MIN`, 8 por defecto; máximo 30) y contacto. Las fotos se suben directas a Supabase Storage (cubo
 «anuncios») con permisos firmados por el servidor. El equipo lo revisa en el **panel** y, al aprobarlo, el motor crea
-la ficha en Shopify (plantilla «cars», etiquetas `circulo`, `coche|barco|casa` y `vendedor-<perfil>`, metacampos
+la ficha en Shopify (plantilla «cars», etiquetas `particular`, `coche|barco|casa` y `vendedor-<perfil>`, metacampos
 `custom.vendedor_nombre`, `custom.vendedor_slug`, `custom.vendedor_telefono`, fotos y precio) y la publica en la tienda.
 
 Puesta en marcha:
@@ -66,7 +66,9 @@ Puesta en marcha:
    `write_publications` (además de `write_app_proxy`), publícala y acepta la actualización en la tienda.
 3. **Vercel › variables:** `SHOPIFY_TIENDA` (`xxxx.myshopify.com`), `SHOPIFY_CLIENT_ID` (ID de cliente de la app) y
    `ADMIN_CLAVE` (contraseña del panel). Redeploy.
-4. **Panel:** `https://<tu-servidor>.vercel.app/admin` (usuario: cualquiera; contraseña: `ADMIN_CLAVE`).
+4. **Shopify:** página «Publicar» (plantilla `publicar`) y colección automática «Del dueño» (identificador `del-dueno`,
+   condición: etiqueta = `particular`, plantilla `circulo`). Más de un anuncio por persona: lo gestiona el equipo a mano.
+5. **Panel:** `https://<tu-servidor>.vercel.app/admin` (usuario: cualquiera; contraseña: `ADMIN_CLAVE`).
 
 | Ruta (detrás de `/apps/subastas`) | |
 | --- | --- |

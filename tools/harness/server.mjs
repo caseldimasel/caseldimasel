@@ -206,7 +206,7 @@ export function createStore(profile = 'full', port = 4173) {
         destacadas: col('destacadas', 'Destacadas', products.filter((p) => p.__data.featured === true)),
         all: col('all', 'Productos', products),
         subastas: col('subastas', 'Subastas', auctions, 'subastas'),
-        circulo: col('circulo', 'Círculo', circle, 'circulo'),
+        'del-dueno': col('del-dueno', 'Del dueño', circle, 'del-dueno'),
         // Handle real de la tienda (Sidonia-Shopify): mismo contenido que «coches»
         'coches-en-venta': col('coches-en-venta', 'Coches en venta', cat('Coches'))
       }

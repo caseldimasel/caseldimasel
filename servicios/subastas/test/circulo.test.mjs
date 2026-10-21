@@ -83,7 +83,7 @@ test('ficha en Shopify: descripción con el formato de Sidonia, sin HTML del ven
   assert.match(html, /<h3>Ubicación<\/h3>\n<p>Madrid<\/p>/);
   assert.equal(html.includes('<script>'), false);
   const { product, media } = productoShopify(cfg, a);
-  assert.deepEqual(product.tags, ['circulo', 'coche', `vendedor-${a.vendedor_slug}`]);
+  assert.deepEqual(product.tags, ['particular', 'coche', `vendedor-${a.vendedor_slug}`]);
   assert.equal(product.templateSuffix, 'cars');
   assert.equal(media.length, 10);
   assert.equal(media[0].originalSource, 'https://x.supabase.co/storage/v1/object/public/anuncios/7001/k00-abcdefgh.jpg');

@@ -1,4 +1,4 @@
-/* SIDONIA · Panel del Círculo: https://<este-servidor>/admin (contraseña: ADMIN_CLAVE). Revisar, publicar y rechazar anuncios. */
+/* SIDONIA · Panel «Del dueño»: https://<este-servidor>/admin (contraseña: ADMIN_CLAVE). Revisar, publicar y rechazar anuncios. */
 import { config, supabase } from '../lib/motor.mjs';
 import { atenderPanel } from '../lib/circulo.mjs';
 

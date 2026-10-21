@@ -1,4 +1,4 @@
-/* SIDONIA · Círculo: anuncios de la comunidad (coches, barcos y casas), revisados por Sidonia.
+/* SIDONIA · Del dueño: anuncios gratis de particulares (coches, barcos y casas), revisados por Sidonia.
  *
  * Desde la tienda (proxy de la app, con la sesión del cliente; ver motor.mjs):
  *   GET  api/anuncio          → { ok, anuncio }   su anuncio activo (o el último), o null
@@ -137,16 +137,16 @@ export function productoShopify(cfg, a) {
     product: {
       title: a.titulo,
       descriptionHtml: descripcionHtml(a),
-      vendor: 'Círculo Sidonia',
+      vendor: 'Del dueño',
       productType: 'Cars',
-      tags: ['circulo', tipoTag, `vendedor-${a.vendedor_slug}`],
+      tags: ['particular', tipoTag, `vendedor-${a.vendedor_slug}`],
       templateSuffix: 'cars',
       status: 'ACTIVE',
       metafields: [
         { namespace: 'custom', key: 'vendedor_nombre', type: 'single_line_text_field', value: a.vendedor_nombre },
         { namespace: 'custom', key: 'vendedor_slug', type: 'single_line_text_field', value: a.vendedor_slug },
         { namespace: 'custom', key: 'vendedor_telefono', type: 'single_line_text_field', value: a.telefono },
-        { namespace: 'custom', key: 'circulo_id', type: 'single_line_text_field', value: String(a.id) }
+        { namespace: 'custom', key: 'anuncio_id', type: 'single_line_text_field', value: String(a.id) }
       ]
     },
     media: (a.fotos || []).map((f, i) => ({ originalSource: urlFoto(cfg, f), mediaContentType: 'IMAGE', alt: i === 0 ? a.titulo : `${a.titulo} · foto ${i + 1}` }))
@@ -239,7 +239,7 @@ export function paginaPanel(cfg, lista, { estado = 'pendiente', aviso = '' } = {
     </div>
   </article>`).join('') || '<p class="vacio">No hay anuncios aquí.</p>';
   return `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Círculo · Panel de Sidonia</title><meta name="robots" content="noindex">
+<title>Del dueño · Panel de Sidonia</title><meta name="robots" content="noindex">
 <style>
   :root { color-scheme: light; font-family: system-ui, -apple-system, Segoe UI, sans-serif; color: #1a1a1a; background: #f6f5f2; }
   body { max-width: 1100px; margin: 0 auto; padding: 24px 16px 80px; }
