@@ -1,7 +1,9 @@
-/* SIDONIA · Del dueño: anuncios gratis de particulares (coches, barcos y casas), revisados por Sidonia.
+/* SIDONIA · Anuncios de dueños: coches, motos, barcos y casas que publica su dueño (particular o profesional), gratis
+ * y revisados por Sidonia. Salen en la web con el resto («Dueño particular» / «Dueño profesional»).
  *
  * Desde la tienda (proxy de la app, con la sesión del cliente; ver motor.mjs):
  *   GET  api/anuncio          → { ok, anuncio }   su anuncio activo (o el último), o null
+ *   GET  api/anuncios         → { ok, anuncios }  todos los suyos (su perfil)
  *   POST api/anuncio/fotos    { tipos: ['image/jpeg', …] } → { ok, subidas: [{ ruta, url }] }   permisos para subir fotos
  *   POST api/anuncio          { tipo, titulo, precio, … }  → { ok, anuncio } | { ok: false, error, campo }
  * Panel del equipo (directo en Vercel, con contraseña): /admin → lista, aprobar y publicar en Shopify, rechazar, retirar.
@@ -10,7 +12,8 @@
  */
 import { createHash } from 'node:crypto';
 
-export const TIPOS = ['coche', 'barco', 'casa'];
+export const TIPOS = ['coche', 'moto', 'barco', 'casa'];
+export const VENDEDOR_TIPOS = ['particular', 'profesional'];
 export const FOTOS_MIN = Number(process.env.CIRCULO_FOTOS_MIN || 8);
 export const FOTOS_MAX = 30;
 const EXT = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' };
@@ -59,6 +62,8 @@ export function validar(b, cliente) {
   const fotos = (Array.isArray(b.fotos) ? b.fotos : []).map(String);
   const propia = new RegExp(`^${String(cliente).replace(/\W/g, '')}/[a-z0-9-]{8,64}\\.(jpg|png|webp)$`);
   if (fotos.length < FOTOS_MIN || fotos.length > FOTOS_MAX || !fotos.every((f) => propia.test(f)) || new Set(fotos).size !== fotos.length) return fallo('fotos');
+  const vendedor_tipo = String(b.vendedor_tipo || '');
+  if (!VENDEDOR_TIPOS.includes(vendedor_tipo)) return fallo('vendedor_tipo');
   const vendedor_nombre = texto(b.vendedor_nombre, 40).replace(/[<>]/g, '');
   if (vendedor_nombre.length < 2) return fallo('vendedor_nombre');
   const tel = telefono(b.telefono);
@@ -69,7 +74,7 @@ export function validar(b, cliente) {
     ok: true,
     datos: {
       tipo, titulo, precio, ubicacion, resumen, historia, mecanica, ficha, fotos,
-      vendedor_nombre, vendedor_slug: slugVendedor(vendedor_nombre, cliente), telefono: tel,
+      vendedor_nombre, vendedor_slug: slugVendedor(vendedor_nombre, cliente), vendedor_tipo, telefono: tel,
       email: texto(b.email, 160), acepta_telefono: true
     }
   };
@@ -103,6 +108,10 @@ export async function rutasTienda({ ruta, method, body }, cliente, cfg, deps) {
   if (!cliente) return json(200, { ok: false, error: 'login' });
   const { db } = deps;
   if (ruta === 'api/anuncio' && method === 'GET') return json(200, { ok: true, anuncio: await db('sidonia_anuncio_mio', { p_cliente: cliente }) });
+  if (ruta === 'api/anuncios' && method === 'GET') {
+    const lista = await db('sidonia_anuncios_mios', { p_cliente: cliente });
+    return json(200, { ok: true, anuncios: (lista || []).map((a) => ({ ...a, portada: a.portada ? urlFoto(cfg, a.portada) : '' })) });
+  }
   if (ruta === 'api/anuncio/fotos' && method === 'POST') {
     const mio = await db('sidonia_anuncio_mio', { p_cliente: cliente });
     if (mio && ['pendiente', 'aprobado', 'publicado'].includes(mio.estado)) return json(200, { ok: false, error: 'limite', anuncio: mio });
@@ -131,21 +140,27 @@ export function descripcionHtml(a) {
   ].join('\n');
 }
 
+/* En la tienda, como las fichas de Sidonia: etiqueta de categoría en mayúsculas (COCHES, MOTOS, BARCOS, CASAS: así entran
+ * en sus colecciones) y, además, «dueno» (anuncio de un dueño), «particular» o «profesional» y su perfil «vendedor-…». */
+const CATEGORIA = { coche: ['COCHES', 'Cars'], moto: ['MOTOS', 'Motorcycles'], barco: ['BARCOS', 'Boats'], casa: ['CASAS', 'Real Estate'] };
+
 export function productoShopify(cfg, a) {
-  const tipoTag = { coche: 'coche', barco: 'barco', casa: 'casa' }[a.tipo];
+  const [categoria, productType] = CATEGORIA[a.tipo] || CATEGORIA.coche;
+  const vendedorTipo = a.vendedor_tipo === 'profesional' ? 'profesional' : 'particular';
   return {
     product: {
       title: a.titulo,
       descriptionHtml: descripcionHtml(a),
-      vendor: 'Del dueño',
-      productType: 'Cars',
-      tags: ['particular', tipoTag, `vendedor-${a.vendedor_slug}`],
+      vendor: a.vendedor_nombre,
+      productType,
+      tags: [categoria, 'dueno', vendedorTipo, `vendedor-${a.vendedor_slug}`],
       templateSuffix: 'cars',
       status: 'ACTIVE',
       metafields: [
         { namespace: 'custom', key: 'vendedor_nombre', type: 'single_line_text_field', value: a.vendedor_nombre },
         { namespace: 'custom', key: 'vendedor_slug', type: 'single_line_text_field', value: a.vendedor_slug },
         { namespace: 'custom', key: 'vendedor_telefono', type: 'single_line_text_field', value: a.telefono },
+        { namespace: 'custom', key: 'vendedor_tipo', type: 'single_line_text_field', value: vendedorTipo },
         { namespace: 'custom', key: 'anuncio_id', type: 'single_line_text_field', value: String(a.id) }
       ]
     },
@@ -180,6 +195,18 @@ export function shopifyAdmin(cfg, fetchImpl = fetch) {
   };
 }
 
+/** Los metacampos de los filtros, sacados de la ficha técnica y la ubicación */
+export function metacamposFiltros(a) {
+  const ficha = Object.fromEntries((a.ficha || []).map(([k, v]) => [String(k).toLowerCase(), String(v)]));
+  const out = [];
+  const poner = (key, value) => { if (value) out.push({ namespace: 'custom', key, type: 'single_line_text_field', value: String(value).slice(0, 100) }); };
+  poner('provincia', a.ubicacion);
+  poner('marca', ficha.marca);
+  poner('ano', (ficha['año'] || ficha.ano || '').match(/\d{4}/)?.[0]);
+  poner('combustible', ficha.combustible && ficha.combustible.charAt(0).toUpperCase() + ficha.combustible.slice(1));
+  return out;
+}
+
 /** Crea la ficha en Shopify (producto activo, con fotos, precio y en la tienda online). Devuelve { handle, url } */
 export async function publicarEnShopify(cfg, a, gql) {
   const { product, media } = productoShopify(cfg, a);
@@ -197,6 +224,11 @@ export async function publicarEnShopify(cfg, a, gql) {
     const ue = u.productVariantsBulkUpdate.userErrors;
     if (ue.length) throw new Error(`Shopify precio: ${ue.map((e) => e.message).join(' · ')}`);
   }
+  // Filtros de la tienda (marca, año, combustible, provincia): si los metacampos de la tienda tienen otro tipo, se deja
+  try {
+    const mf = metacamposFiltros(a).map((m) => ({ ...m, ownerId: p.id }));
+    if (mf.length) await gql(`mutation($m: [MetafieldsSetInput!]!) { metafieldsSet(metafields: $m) { userErrors { field message } } }`, { m: mf });
+  } catch (e) { /* no es imprescindible */ }
   // En la tienda online (canal de venta)
   const pubs = await gql('{ publications(first: 20) { nodes { id name } } }');
   const tienda = pubs.publications.nodes.find((n) => /online store|tienda online/i.test(n.name)) || pubs.publications.nodes[0];
@@ -221,7 +253,7 @@ export function paginaPanel(cfg, lista, { estado = 'pendiente', aviso = '' } = {
     <div class="cuerpo">
       <p class="meta">#${a.id} · ${esc(a.tipo)} · ${new Date(a.creado).toLocaleString('es-ES', { timeZone: 'Europe/Madrid' })} · <span class="est est-${esc(a.estado)}">${esc(ESTADOS[a.estado] || a.estado)}</span></p>
       <h2>${esc(a.titulo)} <small>${fmt(a.precio)} · ${esc(a.ubicacion)}</small></h2>
-      <p class="vend">Lo vende <b>${esc(a.vendedor_nombre)}</b> · <a href="tel:${esc(a.telefono)}">${esc(a.telefono)}</a>${a.email ? ` · ${esc(a.email)}` : ''} · ${(a.fotos || []).length} fotos</p>
+      <p class="vend">Lo vende <b>${esc(a.vendedor_nombre)}</b> (${a.vendedor_tipo === 'profesional' ? 'profesional' : 'particular'}) · <a href="tel:${esc(a.telefono)}">${esc(a.telefono)}</a>${a.email ? ` · ${esc(a.email)}` : ''} · ${(a.fotos || []).length} fotos</p>
       <p class="res">${esc(a.resumen)}</p>
       <details><summary>Historia, mecánica y ficha técnica</summary>
         <h3>Historia</h3>${parrafos(a.historia)}
@@ -239,7 +271,7 @@ export function paginaPanel(cfg, lista, { estado = 'pendiente', aviso = '' } = {
     </div>
   </article>`).join('') || '<p class="vacio">No hay anuncios aquí.</p>';
   return `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Del dueño · Panel de Sidonia</title><meta name="robots" content="noindex">
+<title>Anuncios de dueños · Panel de Sidonia</title><meta name="robots" content="noindex">
 <style>
   :root { color-scheme: light; font-family: system-ui, -apple-system, Segoe UI, sans-serif; color: #1a1a1a; background: #f6f5f2; }
   body { max-width: 1100px; margin: 0 auto; padding: 24px 16px 80px; }
@@ -267,7 +299,7 @@ export function paginaPanel(cfg, lista, { estado = 'pendiente', aviso = '' } = {
   button.si { background: #1a1a1a; color: #fff; } button.no { border-color: #a2121f; color: #a2121f; }
   .vacio { opacity: .6; }
 </style></head><body>
-<header><h1>SIDONIA · CÍRCULO</h1><span>Panel del equipo</span></header>
+<header><h1>SIDONIA · ANUNCIOS DE DUEÑOS</h1><span>Panel del equipo</span></header>
 ${aviso ? `<p class="aviso${aviso.startsWith('Error') ? ' mal' : ''}">${esc(aviso)}</p>` : ''}
 <nav>${pestañas}</nav>
 ${tarjetas}

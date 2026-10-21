@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { atender, config, firmaProxy } from '../lib/motor.mjs';
-import { atenderPanel, descripcionHtml, permisosSubida, productoShopify, publicarEnShopify, slugVendedor, telefono, validar } from '../lib/circulo.mjs';
+import { atenderPanel, descripcionHtml, metacamposFiltros, permisosSubida, productoShopify, publicarEnShopify, slugVendedor, telefono, validar } from '../lib/circulo.mjs';
 
 const SECRETO = 'secreto-de-la-app';
 const cfg = config({ SHOPIFY_APP_SECRET: SECRETO, SUPABASE_URL: 'https://x.supabase.co', SUPABASE_SERVICE_KEY: 'sb_secret_x', TIENDA_URL: 'https://sidonia.es', SHOPIFY_TIENDA: 'sidonia.myshopify.com', SHOPIFY_CLIENT_ID: 'cid', ADMIN_CLAVE: 'panel-secreto' });
@@ -14,8 +14,8 @@ const bueno = (extra = {}) => ({
   resumen: 'Un 911 SC de 1982 con la pintura original y todo el historial.',
   historia: 'Lo compró mi padre en 1989 en Stuttgart y desde entonces ha estado en la familia. '.repeat(3),
   mecanica: 'Motor revisado en 2023, embrague nuevo y frenos al día. Sin óxido.',
-  ficha: [['Año', '1982'], ['Kilometraje', '128.000 km'], ['Motor', '3.0 bóxer'], ['', 'vacío']],
-  fotos: fotos(10), vendedor_nombre: 'Enrique', telefono: '612 345 678', email: 'e@x.es', acepta_telefono: true, condiciones: true, ...extra
+  ficha: [['Marca', 'Porsche'], ['Año', '1982'], ['Kilometraje', '128.000 km'], ['', 'vacío']],
+  fotos: fotos(10), vendedor_nombre: 'Enrique', vendedor_tipo: 'particular', telefono: '612 345 678', email: 'e@x.es', acepta_telefono: true, condiciones: true, ...extra
 });
 
 test('validar: lo bueno pasa y se limpia; lo malo dice qué campo', () => {
@@ -26,7 +26,10 @@ test('validar: lo bueno pasa y se limpia; lo malo dice qué campo', () => {
   assert.equal(v.datos.ficha.length, 3, 'las filas vacías fuera');
   assert.match(v.datos.vendedor_slug, /^enrique-[0-9a-f]{4}$/);
   assert.equal(validar(bueno({ precio: '', precio_consultar: true }), '7001').datos.precio, null);
-  assert.equal(validar(bueno({ tipo: 'moto' }), '7001').campo, 'tipo');
+  assert.equal(validar(bueno({ tipo: 'moto' }), '7001').ok, true, 'las motos también');
+  assert.equal(validar(bueno({ tipo: 'avion' }), '7001').campo, 'tipo');
+  assert.equal(validar(bueno({ vendedor_tipo: '' }), '7001').campo, 'vendedor_tipo');
+  assert.equal(validar(bueno({ vendedor_tipo: 'profesional' }), '7001').datos.vendedor_tipo, 'profesional');
   assert.equal(validar(bueno({ historia: 'corta' }), '7001').campo, 'historia');
   assert.equal(validar(bueno({ fotos: fotos(3) }), '7001').campo, 'fotos');
   assert.equal(validar(bueno({ fotos: fotos(10, '9999') }), '7001').campo, 'fotos', 'solo fotos de su carpeta');
@@ -83,7 +86,11 @@ test('ficha en Shopify: descripción con el formato de Sidonia, sin HTML del ven
   assert.match(html, /<h3>Ubicación<\/h3>\n<p>Madrid<\/p>/);
   assert.equal(html.includes('<script>'), false);
   const { product, media } = productoShopify(cfg, a);
-  assert.deepEqual(product.tags, ['particular', 'coche', `vendedor-${a.vendedor_slug}`]);
+  assert.deepEqual(product.tags, ['COCHES', 'dueno', 'particular', `vendedor-${a.vendedor_slug}`]);
+  assert.equal(product.vendor, 'Enrique');
+  assert.equal(product.metafields.find((m) => m.key === 'vendedor_tipo').value, 'particular');
+  assert.deepEqual(productoShopify(cfg, { ...a, tipo: 'moto', vendedor_tipo: 'profesional' }).product.tags.slice(0, 3), ['MOTOS', 'dueno', 'profesional']);
+  assert.deepEqual(metacamposFiltros(a).map((m) => [m.key, m.value]), [['provincia', 'Madrid'], ['marca', 'Porsche'], ['ano', '1982']]);
   assert.equal(product.templateSuffix, 'cars');
   assert.equal(media.length, 10);
   assert.equal(media[0].originalSource, 'https://x.supabase.co/storage/v1/object/public/anuncios/7001/k00-abcdefgh.jpg');
@@ -93,15 +100,16 @@ test('ficha en Shopify: descripción con el formato de Sidonia, sin HTML del ven
 test('publicar en Shopify: crea, pone el precio y la publica en la tienda online', async () => {
   const pasos = [];
   const gql = async (query, vars) => {
-    pasos.push(query.match(/(productCreate|productVariantsBulkUpdate|publications|publishablePublish)/)[1]);
+    pasos.push(query.match(/(productCreate|productVariantsBulkUpdate|metafieldsSet|publications|publishablePublish)/)[1]);
     if (/productCreate/.test(query)) return { productCreate: { product: { id: 'gid://P/1', handle: 'porsche-911-sc-1982', variants: { nodes: [{ id: 'gid://V/1' }] } }, userErrors: [] } };
     if (/productVariantsBulkUpdate/.test(query)) { assert.equal(vars.variants[0].price, '65000'); return { productVariantsBulkUpdate: { userErrors: [] } }; }
+    if (/metafieldsSet/.test(query)) { assert.equal(vars.m[0].ownerId, 'gid://P/1'); return { metafieldsSet: { userErrors: [] } }; }
     if (/publishablePublish/.test(query)) { assert.equal(vars.input[0].publicationId, 'gid://Pub/2'); return { publishablePublish: { userErrors: [] } }; }
     return { publications: { nodes: [{ id: 'gid://Pub/1', name: 'Point of Sale' }, { id: 'gid://Pub/2', name: 'Online Store' }] } };
   };
   const a = { id: 9, ...validar(bueno(), '7001').datos };
   const p = await publicarEnShopify(cfg, a, gql);
-  assert.deepEqual(pasos, ['productCreate', 'productVariantsBulkUpdate', 'publications', 'publishablePublish']);
+  assert.deepEqual(pasos, ['productCreate', 'productVariantsBulkUpdate', 'metafieldsSet', 'publications', 'publishablePublish']);
   assert.equal(p.url, 'https://sidonia.es/products/porsche-911-sc-1982');
 });
 
@@ -112,7 +120,7 @@ test('panel: con contraseña; aprobar publica y marca el anuncio', async () => {
   assert.equal((await atenderPanel({ method: 'GET', query: {}, headers: auth('mala') }, cfg, { db })).status, 401);
   const ok = await atenderPanel({ method: 'GET', query: {}, headers: auth('panel-secreto') }, cfg, { db });
   assert.equal(ok.status, 200);
-  assert.match(ok.body, /SIDONIA · CÍRCULO/);
+  assert.match(ok.body, /SIDONIA · ANUNCIOS DE DUEÑOS/);
   const llamadas = [];
   const db2 = async (fn, a) => { llamadas.push([fn, a]); return db(fn); };
   const gql = async (query) => (/productCreate/.test(query) ? { productCreate: { product: { id: 'P', handle: 'porsche', variants: { nodes: [] } }, userErrors: [] } } : /publications/.test(query) && !/publishablePublish/.test(query) ? { publications: { nodes: [] } } : {});
@@ -140,4 +148,12 @@ test('base de datos: un anuncio activo por persona', { skip: !CONN && 'sin PGTES
   assert.equal(JSON.parse(psql("select sidonia_anuncio_mio('7001')::text")).nota, 'Fotos con otros coches');
   assert.equal(nuevo().ok, true, 'tras un rechazo puede enviar otro');
   assert.equal(psql("select public from storage.buckets where id = 'anuncios'"), 't');
+  const mios = JSON.parse(psql("select sidonia_anuncios_mios('7001')::text"));
+  assert.deepEqual(mios.map((m) => m.estado), ['pendiente', 'rechazado'], 'su perfil: todos, el último primero');
+  assert.equal(mios[0].portada, '7001/k00-abcdefgh.jpg');
+  // Se puede volver a ejecutar, y acepta motos y profesionales
+  execFileSync('psql', [...args('sidonia_circulo'), '-f', fileURLToPath(new URL('../sql/circulo.sql', import.meta.url))], { encoding: 'utf8' });
+  const moto = JSON.stringify({ ...validar(bueno({ tipo: 'moto', vendedor_tipo: 'profesional', fotos: fotos(10, '7002') }), '7002').datos }).replace(/'/g, "''");
+  assert.equal(JSON.parse(psql(`select sidonia_anuncio_nuevo('7002', '${moto}'::jsonb)::text`)).ok, true);
+  assert.equal(psql("select tipo || ' ' || vendedor_tipo from anuncios where cliente = '7002'"), 'moto profesional');
 });

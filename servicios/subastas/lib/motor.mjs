@@ -13,7 +13,7 @@
  *   GET  registro?return_url=    → página del registro (nombre de usuario y condiciones), dentro del tema
  *   POST registro                → guarda el nombre y lleva a Stripe a guardar la tarjeta
  *   GET  registro/vuelta?session_id=&return_url= → marca la tarjeta como guardada y vuelve a la ficha
- *   api/anuncio…                 → anuncios «Del dueño» de particulares (ver circulo.mjs)
+ *   api/anuncio…                 → anuncios de dueños, gratis (ver circulo.mjs)
  */
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { rutasTienda } from './circulo.mjs';
@@ -193,7 +193,7 @@ export async function atender(req, cfg, deps) {
   }
 
   // Del dueño: anuncios gratis de particulares
-  if (ruta === 'api/anuncio' || ruta.startsWith('api/anuncio/')) {
+  if (ruta === 'api/anuncio' || ruta === 'api/anuncios' || ruta.startsWith('api/anuncio/')) {
     const r = await rutasTienda({ ruta, method: req.method, body }, cliente, cfg, deps);
     if (r) return r;
   }

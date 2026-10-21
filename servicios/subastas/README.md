@@ -1,4 +1,4 @@
-# Motor de Sidonia: «Del dueño» (anuncios gratis de particulares) y subastas
+# Motor de Sidonia: anuncios de dueños (gratis) y subastas
 
 Las pujas de verdad. El tema de Shopify ya tiene las pantallas (ficha, puja directa y máxima, registro, comentarios,
 «¡Has ganado!»); con el **modo demostración** apagado, en vez de simular habla con este motor a través de
@@ -50,14 +50,15 @@ Las pujas de verdad. El tema de Shopify ya tiene las pantallas (ficha, puja dire
    Si ya tenías el esquema de antes, ejecuta una vez `sql/actualizacion-2026-10-sincronizar.sql`.
 
 
-## «Del dueño»: anuncios gratis de particulares
+## Anuncios de dueños (gratis): coches, motos, barcos y casas
 
-Cualquiera con cuenta en Sidonia puede publicar **un anuncio gratis** (coche, barco o casa) desde
+Cualquiera con cuenta en Sidonia (particular o profesional) puede publicar **un anuncio gratis** (coche, moto, barco o casa) desde
 `sidonia.es/pages/publicar` (hay que iniciar sesión): tipo, lo básico, ficha técnica, descripción breve, historia, descripción mecánica, fotos
 (mínimo `CIRCULO_FOTOS_MIN`, 8 por defecto; máximo 30) y contacto. Las fotos se suben directas a Supabase Storage (cubo
 «anuncios») con permisos firmados por el servidor. El equipo lo revisa en el **panel** y, al aprobarlo, el motor crea
-la ficha en Shopify (plantilla «cars», etiquetas `particular`, `coche|barco|casa` y `vendedor-<perfil>`, metacampos
-`custom.vendedor_nombre`, `custom.vendedor_slug`, `custom.vendedor_telefono`, fotos y precio) y la publica en la tienda.
+la ficha en Shopify (plantilla «cars»; etiquetas `COCHES|MOTOS|BARCOS|CASAS`, así entra en sus colecciones, más `dueno`,
+`particular|profesional` y `vendedor-<perfil>`; metacampos `custom.vendedor_nombre`, `custom.vendedor_slug`,
+`custom.vendedor_telefono`, `custom.vendedor_tipo`, los de los filtros si se pueden, fotos y precio) y la publica en la tienda.
 
 Puesta en marcha:
 
@@ -66,13 +67,15 @@ Puesta en marcha:
    `write_publications` (además de `write_app_proxy`), publícala y acepta la actualización en la tienda.
 3. **Vercel › variables:** `SHOPIFY_TIENDA` (`xxxx.myshopify.com`), `SHOPIFY_CLIENT_ID` (ID de cliente de la app) y
    `ADMIN_CLAVE` (contraseña del panel). Redeploy.
-4. **Shopify:** página «Publicar» (plantilla `publicar`) y colección automática «Del dueño» (identificador `del-dueno`,
-   condición: etiqueta = `particular`, plantilla `circulo`). Más de un anuncio por persona: lo gestiona el equipo a mano.
+4. **Shopify (opcional):** sin crear nada, el formulario está en `/pages/vende-con-nosotros?view=publicar`, el perfil en
+   `?view=perfil` y cada vendedor en `/collections/all/vendedor-<perfil>?view=vendedor`. Para las motos, una colección
+   automática «Motos» (etiqueta = `MOTOS`). Más de un anuncio por persona: lo gestiona el equipo a mano.
 5. **Panel:** `https://<tu-servidor>.vercel.app/admin` (usuario: cualquiera; contraseña: `ADMIN_CLAVE`).
 
 | Ruta (detrás de `/apps/subastas`) | |
 | --- | --- |
 | `GET api/anuncio` | El anuncio activo (o el último) del cliente |
+| `GET api/anuncios` | Todos sus anuncios (su perfil) |
 | `POST api/anuncio/fotos` | `{ tipos: ['image/jpeg', …] }` → direcciones firmadas para subir cada foto |
 | `POST api/anuncio` | La solicitud completa → `pendiente` (o `{ error: 'limite' }` si ya tiene uno activo) |
 

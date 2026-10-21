@@ -1,4 +1,5 @@
--- SIDONIA · Círculo: anuncios que publica la comunidad (coches, barcos y casas), revisados por Sidonia.
+-- SIDONIA · Anuncios de dueños: coches, motos, barcos y casas que publican sus dueños (particulares o profesionales),
+-- revisados por Sidonia. Salen en la web con el resto, con «Dueño particular» o «Dueño profesional».
 --
 -- Cada cliente de Shopify (con su sesión iniciada) puede tener UN anuncio activo gratis: en revisión, aprobado o
 -- publicado. Si se lo rechazamos o lo retira, puede enviar otro. Las fotos van a Supabase Storage (cubo «anuncios»,
@@ -12,7 +13,7 @@ create table if not exists anuncios (
   cliente           text not null,                         -- id del cliente de Shopify
   estado            text not null default 'pendiente'
                     check (estado in ('pendiente', 'aprobado', 'rechazado', 'publicado', 'retirado')),
-  tipo              text not null check (tipo in ('coche', 'barco', 'casa')),
+  tipo              text not null check (tipo in ('coche', 'moto', 'barco', 'casa')),
   titulo            text not null,
   precio            bigint,                                -- euros; null = a consultar
   ubicacion         text not null default '',
@@ -22,7 +23,8 @@ create table if not exists anuncios (
   ficha             jsonb not null default '[]'::jsonb,    -- [["Año","1967"], ["Kilometraje","82.000 km"], …]
   fotos             jsonb not null default '[]'::jsonb,    -- rutas en el cubo «anuncios», la primera es la portada
   vendedor_nombre   text not null,                         -- el nombre que se enseña: «Enrique»
-  vendedor_slug     text not null,                         -- su perfil: /collections/circulo/vendedor-<slug>
+  vendedor_slug     text not null,                         -- su perfil: /collections/all/vendedor-<slug>?view=vendedor
+  vendedor_tipo     text not null default 'particular' check (vendedor_tipo in ('particular', 'profesional')),
   telefono          text not null,
   email             text not null default '',
   acepta_telefono   boolean not null default false,        -- ha aceptado que se vea su teléfono en el anuncio
@@ -31,6 +33,13 @@ create table if not exists anuncios (
   creado            timestamptz not null default now(),
   actualizado       timestamptz not null default now()
 );
+
+-- Si la tabla ya existía de antes: motos y particular/profesional
+alter table anuncios add column if not exists vendedor_tipo text not null default 'particular';
+alter table anuncios drop constraint if exists anuncios_tipo_check;
+alter table anuncios add constraint anuncios_tipo_check check (tipo in ('coche', 'moto', 'barco', 'casa'));
+alter table anuncios drop constraint if exists anuncios_vendedor_tipo_check;
+alter table anuncios add constraint anuncios_vendedor_tipo_check check (vendedor_tipo in ('particular', 'profesional'));
 
 -- Un anuncio activo por persona (gratis): la base de datos no deja tener dos a la vez
 create unique index if not exists anuncios_uno_activo on anuncios (cliente)
@@ -55,17 +64,24 @@ begin
     return jsonb_build_object('ok', false, 'error', 'limite', 'anuncio', sidonia_anuncio_mio(p_cliente));
   end if;
   insert into anuncios (cliente, tipo, titulo, precio, ubicacion, resumen, historia, mecanica, ficha, fotos,
-                        vendedor_nombre, vendedor_slug, telefono, email, acepta_telefono)
+                        vendedor_nombre, vendedor_slug, vendedor_tipo, telefono, email, acepta_telefono)
   values (p_cliente, p->>'tipo', left(p->>'titulo', 120), nullif(p->>'precio', '')::bigint, left(coalesce(p->>'ubicacion', ''), 120),
           left(coalesce(p->>'resumen', ''), 600), left(coalesce(p->>'historia', ''), 8000), left(coalesce(p->>'mecanica', ''), 6000),
           coalesce(p->'ficha', '[]'::jsonb), coalesce(p->'fotos', '[]'::jsonb),
-          left(p->>'vendedor_nombre', 60), p->>'vendedor_slug', left(p->>'telefono', 30), left(coalesce(p->>'email', ''), 160),
+          left(p->>'vendedor_nombre', 60), p->>'vendedor_slug', coalesce(p->>'vendedor_tipo', 'particular'), left(p->>'telefono', 30), left(coalesce(p->>'email', ''), 160),
           coalesce((p->>'acepta_telefono')::boolean, false))
   returning * into a;
   return jsonb_build_object('ok', true, 'anuncio', sidonia_anuncio_mio(p_cliente));
 exception when unique_violation then
   return jsonb_build_object('ok', false, 'error', 'limite', 'anuncio', sidonia_anuncio_mio(p_cliente));
 end $$;
+
+-- Todos los anuncios de un cliente (su perfil): el más reciente primero
+create or replace function sidonia_anuncios_mios(p_cliente text) returns jsonb language sql stable as $$
+  select coalesce(jsonb_agg(jsonb_build_object('id', id, 'estado', estado, 'tipo', tipo, 'titulo', titulo, 'precio', precio,
+           'nota', nota, 'producto', producto, 'creado', creado, 'portada', fotos->>0) order by creado desc), '[]'::jsonb)
+    from anuncios where cliente = p_cliente
+$$;
 
 -- Para el panel del equipo
 create or replace function sidonia_anuncios_lista(p_estado text default null) returns jsonb language sql stable as $$
