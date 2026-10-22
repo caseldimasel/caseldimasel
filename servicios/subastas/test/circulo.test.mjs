@@ -136,6 +136,34 @@ test('panel: con contraseña; aprobar publica y marca el anuncio', async () => {
   assert.deepEqual(llamadas.find((c) => c[0] === 'sidonia_anuncio_estado')[1], { p_id: 9, p_estado: 'publicado', p_nota: '', p_producto: 'porsche' });
 });
 
+test('avisos: email al equipo con cada anuncio (si hay Resend) y visitas de clientes', async () => {
+  const enviados = [];
+  const fetchFalso = async (url, o) => { enviados.push({ url, body: JSON.parse(o.body) }); return { ok: true, text: async () => '' }; };
+  const db = async (fn) => (fn === 'sidonia_anuncio_mio' ? null : fn === 'sidonia_visita' ? { ok: true, nuevo: true } : { ok: true, anuncio: { id: 1 } });
+  const cfgAvisos = { ...cfg, resendKey: 're_x', avisosEquipo: ['hola@sidonia.es'], avisosRemitente: 'Sidonia <avisos@sidonia.es>', avisosClientes: true };
+  await atender({ method: 'POST', ruta: 'api/anuncio', query: q(), body: bueno() }, cfgAvisos, { db, fetch: fetchFalso });
+  assert.equal(enviados.length, 1);
+  assert.match(enviados[0].body.subject, /Nuevo anuncio gratis: Porsche 911 SC 1982/);
+  assert.deepEqual(enviados[0].body.to, ['hola@sidonia.es']);
+  const v = await atender({ method: 'POST', ruta: 'api/visita', query: q(), body: { email: 'e@x.es', nombre: 'Enrique' } }, cfgAvisos, { db, fetch: fetchFalso });
+  assert.equal(JSON.parse(v.body).ok, true);
+  assert.match(enviados[1].body.subject, /Nuevo cliente en Sidonia: Enrique/);
+  // Sin Resend no se envía nada (y no falla)
+  await atender({ method: 'POST', ruta: 'api/anuncio', query: q(), body: bueno() }, cfg, { db, fetch: fetchFalso });
+  assert.equal(enviados.length, 2);
+  const sin = await atender({ method: 'POST', ruta: 'api/visita', query: q(''), body: {} }, cfg, { db });
+  assert.equal(JSON.parse(sin.body).error, 'login');
+});
+
+test('panel › clientes: quién se registra y quién entra', async () => {
+  const auth = { authorization: `Basic ${Buffer.from('equipo:panel-secreto').toString('base64')}` };
+  const db = async (fn) => (fn === 'sidonia_clientes_lista' ? { lista: [{ cliente: '1', email: 'e@x.es', nombre: 'Enrique', primera: '2026-10-22T09:00:00Z', ultima: '2026-10-22T10:00:00Z', visitas: 3 }], total: 1, nuevos_hoy: 1, hoy: 1, semana: 1 } : []);
+  const r = await atenderPanel({ method: 'GET', query: { estado: 'clientes' }, headers: auth }, cfg, { db });
+  assert.equal(r.status, 200);
+  assert.match(r.body, /Nuevos hoy/);
+  assert.match(r.body, /e@x\.es/);
+});
+
 // Contra un PostgreSQL de verdad (como test/sql.test.mjs)
 const CONN = process.env.PGTEST;
 test('base de datos: un anuncio activo por persona', { skip: !CONN && 'sin PGTEST' }, () => {
@@ -163,4 +191,11 @@ test('base de datos: un anuncio activo por persona', { skip: !CONN && 'sin PGTES
   const moto = JSON.stringify({ ...validar(bueno({ tipo: 'moto', vendedor_tipo: 'profesional', fotos: fotos(10, '7002') }), '7002').datos }).replace(/'/g, "''");
   assert.equal(JSON.parse(psql(`select sidonia_anuncio_nuevo('7002', '${moto}'::jsonb)::text`)).ok, true);
   assert.equal(psql("select tipo || ' ' || vendedor_tipo from anuncios where cliente = '7002'"), 'moto profesional');
+  // Clientes: la primera visita es «nuevo», las siguientes suman
+  assert.equal(JSON.parse(psql("select sidonia_visita('9', 'a@b.es', 'Ana')::text")).nuevo, true);
+  assert.equal(JSON.parse(psql("select sidonia_visita('9', '', '')::text")).nuevo, false);
+  const cl = JSON.parse(psql('select sidonia_clientes_lista()::text'));
+  assert.equal(cl.total, 1);
+  assert.equal(cl.lista[0].visitas, 2);
+  assert.equal(cl.lista[0].email, 'a@b.es', 'no se borra el email con una visita sin él');
 });

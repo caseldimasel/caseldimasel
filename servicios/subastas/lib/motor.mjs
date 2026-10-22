@@ -18,7 +18,7 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { rutasTienda } from './circulo.mjs';
 
-export const VERSION = 'anuncios-2026-10-21';
+export const VERSION = 'anuncios-2026-10-22';
 
 export function config(env = process.env) {
   return {
@@ -31,7 +31,12 @@ export function config(env = process.env) {
     prefijo: env.PROXY_PREFIJO || '/apps/subastas',
     shopifyTienda: (env.SHOPIFY_TIENDA || '').replace(/^https?:\/\//, '').replace(/\/$/, ''),   // xxxx.myshopify.com
     shopifyClientId: env.SHOPIFY_CLIENT_ID || '',    // ID de cliente de la app (para publicar fichas «Del dueño»)
-    adminClave: env.ADMIN_CLAVE || ''                // contraseña del panel /admin
+    adminClave: env.ADMIN_CLAVE || '',               // contraseña del panel /admin
+    // Avisos por email al equipo (opcional, con Resend; las mismas claves que el servidor de ofertas)
+    resendKey: env.RESEND_API_KEY || '',
+    avisosEquipo: String(env.AVISOS_EQUIPO || env.OFERTAS_EQUIPO || '').split(',').map((x) => x.trim()).filter(Boolean),
+    avisosRemitente: env.AVISOS_REMITENTE || env.OFERTAS_REMITENTE || 'Sidonia <avisos@sidonia.es>',
+    avisosClientes: env.AVISOS_CLIENTES === '1'      // también un email cuando alguien entra por primera vez
   };
 }
 
@@ -228,7 +233,7 @@ export async function atender(req, cfg, deps) {
   }
 
   // Del dueño: anuncios gratis de particulares
-  if (ruta === 'api/anuncio' || ruta === 'api/anuncios' || ruta.startsWith('api/anuncio/')) {
+  if (ruta === 'api/anuncio' || ruta === 'api/anuncios' || ruta === 'api/visita' || ruta.startsWith('api/anuncio/')) {
     const r = await rutasTienda({ ruta, method: req.method, body }, cliente, cfg, deps);
     if (r) return r;
   }

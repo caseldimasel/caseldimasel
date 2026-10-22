@@ -120,9 +120,47 @@ export async function rutasTienda({ ruta, method, body }, cliente, cfg, deps) {
   if (ruta === 'api/anuncio' && method === 'POST') {
     const v = validar(body, cliente);
     if (!v.ok) return json(400, v);
-    return json(200, await db('sidonia_anuncio_nuevo', { p_cliente: cliente, p: v.datos }));
+    const r = await db('sidonia_anuncio_nuevo', { p_cliente: cliente, p: v.datos });
+    if (r && r.ok) await avisarEquipo(cfg, `Nuevo anuncio gratis: ${v.datos.titulo}`, emailAnuncio(cfg, v.datos), deps.fetch).catch((e) => console.error(e));
+    return json(200, r);
+  }
+  // Quién entra con su cuenta (una vez por sesión del navegador): para el panel y, si se quiere, un email al equipo
+  if (ruta === 'api/visita' && method === 'POST') {
+    const email = texto(body.email, 160);
+    const nombre = texto(body.nombre, 80);
+    const r = await db('sidonia_visita', { p_cliente: cliente, p_email: email, p_nombre: nombre });
+    if (r && r.nuevo && cfg.avisosClientes) {
+      await avisarEquipo(cfg, `Nuevo cliente en Sidonia: ${nombre || email || cliente}`, `<p><b>${esc(nombre || 'Sin nombre')}</b> · ${esc(email || 'sin email')} ha entrado por primera vez con su cuenta.</p>`, deps.fetch).catch((e) => console.error(e));
+    }
+    return json(200, { ok: true });
   }
   return null;
+}
+
+/* ---------------------------------------------------------------------------- Avisos por email (Resend) */
+/** Email al equipo con Resend. Sin RESEND_API_KEY o sin AVISOS_EQUIPO no hace nada (el tema ya avisa por el formulario de contacto de Shopify). */
+export async function avisarEquipo(cfg, asunto, html, fetchImpl = fetch) {
+  if (!cfg.resendKey || !(cfg.avisosEquipo || []).length) return false;
+  const r = await fetchImpl('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${cfg.resendKey}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ from: cfg.avisosRemitente, to: cfg.avisosEquipo, subject: asunto, html })
+  });
+  if (!r.ok) throw new Error(`Resend ${r.status}: ${await r.text().catch(() => '')}`);
+  return true;
+}
+
+export function emailAnuncio(cfg, a) {
+  const precio = a.precio ? `${Number(a.precio).toLocaleString('es-ES')} €` : 'A consultar';
+  const panel = cfg.panelUrl || '';
+  return `<div style="font-family:system-ui,sans-serif;max-width:620px">
+<h2 style="margin:0 0 6px">${esc(a.titulo)} · ${esc(precio)}</h2>
+<p style="margin:0 0 14px;color:#555">${esc(a.tipo)} · ${esc(a.ubicacion)} · ${(a.fotos || []).length} fotos</p>
+<p><b>Lo vende:</b> ${esc(a.vendedor_nombre)} (${esc(a.vendedor_tipo || 'particular')}) · <a href="tel:${esc(a.telefono)}">${esc(a.telefono)}</a>${a.email ? ` · ${esc(a.email)}` : ''}</p>
+<p>${esc(a.resumen)}</p>
+<p>Revísalo y publícalo desde el panel: <b>/admin</b> del motor${panel ? ` (${esc(panel)})` : ''}.</p>
+${(a.fotos || []).slice(0, 4).map((f) => `<img src="${esc(urlFoto(cfg, f))}" width="140" style="border-radius:8px;margin:0 6px 6px 0">`).join('')}
+</div>`;
 }
 
 /* ---------------------------------------------------------------------------- Ficha en Shopify */
@@ -246,7 +284,7 @@ const ESTADOS = { pendiente: 'Por revisar', aprobado: 'Aprobado', publicado: 'Pu
 
 export function paginaPanel(cfg, lista, { estado = 'pendiente', aviso = '' } = {}) {
   const fmt = (n) => (n ? `${Number(n).toLocaleString('es-ES')} €` : 'A consultar');
-  const pestañas = Object.entries(ESTADOS).map(([k, v]) => `<a href="?estado=${k}" class="${k === estado ? 'on' : ''}">${v}</a>`).join('');
+  const pestañas = Object.entries(ESTADOS).map(([k, v]) => `<a href="?estado=${k}" class="${k === estado ? 'on' : ''}">${v}</a>`).join('') + '<a href="?estado=clientes">Clientes</a>';
   const tarjetas = lista.map((a) => `
   <article class="a">
     <div class="fotos">${(a.fotos || []).map((f, i) => `<a href="${esc(urlFoto(cfg, f))}" target="_blank"><img src="${esc(urlFoto(cfg, f))}" alt="" loading="lazy">${i === 0 ? '<b>Portada</b>' : ''}</a>`).join('')}</div>
@@ -308,6 +346,40 @@ ${tarjetas}
 }
 
 /** Contraseña del panel (usuario cualquiera, contraseña ADMIN_CLAVE) */
+/** Panel › Clientes: quién se ha registrado y quién ha entrado, y cuándo */
+export function paginaClientes(datos) {
+  const d = datos || {};
+  const fecha = (t) => (t ? new Date(t).toLocaleString('es-ES', { timeZone: 'Europe/Madrid', day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' }) : '');
+  const filas = (d.lista || []).map((c) => `<tr><td><b>${esc(c.nombre || '—')}</b><br><a href="mailto:${esc(c.email)}">${esc(c.email)}</a></td><td>${fecha(c.primera)}</td><td>${fecha(c.ultima)}</td><td>${Number(c.visitas) || 1}</td></tr>`).join('');
+  const pestañas = Object.entries(ESTADOS).map(([k, v]) => `<a href="?estado=${k}">${v}</a>`).join('') + '<a href="?estado=clientes" class="on">Clientes</a>';
+  return `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Clientes · Panel de Sidonia</title><meta name="robots" content="noindex">
+<style>
+  :root { font-family: system-ui, -apple-system, Segoe UI, sans-serif; color: #1a1a1a; background: #f6f5f2; }
+  body { max-width: 1100px; margin: 0 auto; padding: 24px 16px 80px; }
+  h1 { margin: 0; letter-spacing: .2em; font-size: 18px; }
+  nav { display: flex; gap: 6px; flex-wrap: wrap; margin: 18px 0; }
+  nav a { padding: 8px 14px; border: 1px solid #0002; border-radius: 99px; color: inherit; text-decoration: none; font-size: 14px; background: #fff; }
+  nav a.on { border-color: #1a1a1a; font-weight: 700; }
+  .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; margin-bottom: 18px; }
+  .kpi { padding: 14px 16px; border-radius: 16px; background: #fff; } .kpi b { display: block; font-size: 26px; } .kpi span { font-size: 13px; opacity: .6; }
+  table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 16px; overflow: hidden; font-size: 14px; }
+  th, td { padding: 10px 12px; border-bottom: 1px solid #0001; text-align: left; vertical-align: top; } th { font-weight: 600; opacity: .6; font-size: 12px; text-transform: uppercase; letter-spacing: .08em; }
+  a { color: inherit; } .nota { font-size: 13px; opacity: .6; }
+</style></head><body>
+<header><h1>SIDONIA · ANUNCIOS DE DUEÑOS</h1></header>
+<nav>${pestañas}</nav>
+<div class="kpis">
+  <div class="kpi"><b>${Number(d.nuevos_hoy) || 0}</b><span>Nuevos hoy</span></div>
+  <div class="kpi"><b>${Number(d.semana) || 0}</b><span>Nuevos esta semana</span></div>
+  <div class="kpi"><b>${Number(d.hoy) || 0}</b><span>Han entrado hoy</span></div>
+  <div class="kpi"><b>${Number(d.total) || 0}</b><span>Clientes en total</span></div>
+</div>
+<table><thead><tr><th>Cliente</th><th>Primera vez (registro)</th><th>Última vez</th><th>Visitas</th></tr></thead><tbody>${filas || '<tr><td colspan="4">Aún no ha entrado nadie con su cuenta.</td></tr>'}</tbody></table>
+<p class="nota">Se apunta cada vez que alguien entra en sidonia.es con su cuenta (una vez por sesión del navegador). La lista completa de clientes está en Shopify › Clientes.</p>
+</body></html>`;
+}
+
 export function panelAutorizado(headers, clave) {
   if (!clave) return false;
   const h = String(headers.authorization || '');
@@ -324,6 +396,7 @@ export async function atenderPanel(req, cfg, deps) {
     return { status: 401, headers: { 'WWW-Authenticate': 'Basic realm="Sidonia"', 'Content-Type': 'text/plain; charset=utf-8' }, body: 'Hace falta la contraseña del panel.' };
   }
   const { db } = deps;
+  if (req.query.estado === 'clientes') return html(paginaClientes(await db('sidonia_clientes_lista', { p_limite: 300 })));
   let aviso = '';
   let estado = ESTADOS[req.query.estado] ? req.query.estado : 'pendiente';
   if (req.method === 'POST') {

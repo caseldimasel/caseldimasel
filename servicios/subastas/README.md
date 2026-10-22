@@ -72,10 +72,23 @@ Puesta en marcha:
    automática «Motos» (etiqueta = `MOTOS`). Más de un anuncio por persona: lo gestiona el equipo a mano.
 5. **Panel:** `https://<tu-servidor>.vercel.app/admin` (usuario: cualquiera; contraseña: `ADMIN_CLAVE`).
 
+### Avisos al equipo
+
+- **Cada anuncio enviado llega al correo de la tienda** sin configurar nada: el tema lo manda también por el formulario
+  de contacto de Shopify (con todos los datos y los enlaces a las fotos). Si el motor falla, el anuncio llega igual y se
+  le dice a quien anuncia que le pediremos las fotos por WhatsApp.
+- **Con Resend** (opcional, las mismas claves que el servidor de ofertas) el motor manda además un email con fotos:
+  `RESEND_API_KEY`, `AVISOS_EQUIPO` (o `OFERTAS_EQUIPO`) y `AVISOS_REMITENTE` (o `OFERTAS_REMITENTE`).
+  Con `AVISOS_CLIENTES=1`, también un email cuando alguien entra por primera vez con su cuenta.
+- **Registros e inicios de sesión:** el tema apunta cada entrada con cuenta (una por sesión del navegador) y el panel
+  lo enseña en **/admin › Clientes** (nuevos hoy, esta semana, quién ha entrado y cuándo). Para un email por cada
+  registro sin servidor de correo: Shopify Flow › «Customer created» › «Send internal email».
+
 | Ruta (detrás de `/apps/subastas`) | |
 | --- | --- |
 | `GET api/anuncio` | El anuncio activo (o el último) del cliente |
 | `GET api/anuncios` | Todos sus anuncios (su perfil) |
+| `POST api/visita` | `{ email, nombre }`: apunta que ha entrado con su cuenta (panel › Clientes) |
 | `POST api/anuncio/fotos` | `{ tipos: ['image/jpeg', …] }` → direcciones firmadas para subir cada foto |
 | `POST api/anuncio` | La solicitud completa → `pendiente` (o `{ error: 'limite' }` si ya tiene uno activo) |
 

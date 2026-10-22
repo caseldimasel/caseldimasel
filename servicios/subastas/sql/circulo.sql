@@ -101,6 +101,39 @@ begin
   return jsonb_build_object('ok', found);
 end $$;
 
+-- Clientes que entran en la web con su cuenta (para el panel: quién se registra y quién entra, y cuándo)
+create table if not exists clientes (
+  cliente   text primary key,                 -- id del cliente de Shopify
+  email     text not null default '',
+  nombre    text not null default '',
+  primera   timestamptz not null default now(),   -- la primera vez que entra (≈ el registro)
+  ultima    timestamptz not null default now(),   -- la última vez
+  visitas   integer not null default 1            -- veces que ha entrado (una por sesión del navegador)
+);
+alter table clientes enable row level security;
+
+create or replace function sidonia_visita(p_cliente text, p_email text default '', p_nombre text default '') returns jsonb language plpgsql as $$
+declare nuevo boolean;
+begin
+  insert into clientes (cliente, email, nombre) values (p_cliente, left(coalesce(p_email, ''), 160), left(coalesce(p_nombre, ''), 80))
+  on conflict (cliente) do update set
+    ultima = now(), visitas = clientes.visitas + 1,
+    email = case when excluded.email <> '' then excluded.email else clientes.email end,
+    nombre = case when excluded.nombre <> '' then excluded.nombre else clientes.nombre end
+  returning (xmax = 0) into nuevo;
+  return jsonb_build_object('ok', true, 'nuevo', nuevo);
+end $$;
+
+create or replace function sidonia_clientes_lista(p_limite integer default 300) returns jsonb language sql stable as $$
+  with hoy as (select (date_trunc('day', now() at time zone 'Europe/Madrid') at time zone 'Europe/Madrid') as d)
+  select jsonb_build_object(
+    'lista', coalesce((select jsonb_agg(to_jsonb(c) order by c.ultima desc) from (select * from clientes order by ultima desc limit p_limite) c), '[]'::jsonb),
+    'total', (select count(*) from clientes),
+    'nuevos_hoy', (select count(*) from clientes, hoy where primera >= hoy.d),
+    'hoy', (select count(*) from clientes, hoy where ultima >= hoy.d),
+    'semana', (select count(*) from clientes where primera >= now() - interval '7 days'))
+$$;
+
 -- Cubo de fotos: público para leer (las fichas las enseñan), subir solo con permiso firmado del servidor
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 values ('anuncios', 'anuncios', true, 15728640, array['image/jpeg', 'image/png', 'image/webp'])
