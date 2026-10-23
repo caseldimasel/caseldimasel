@@ -223,13 +223,25 @@ export function shopifyAdmin(cfg, fetchImpl = fetch) {
     tokenCache = { token: d.access_token, hasta: Date.now() + (Number(d.expires_in) || 3600) * 1000, tienda: cfg.shopifyTienda };
     return d.access_token;
   };
-  return async (query, variables = {}) => {
+  const pedir = async (query, variables) => {
     const r = await fetchImpl(`https://${cfg.shopifyTienda}/admin/api/2025-01/graphql.json`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'X-Shopify-Access-Token': await tokenOk() },
       body: JSON.stringify({ query, variables })
     });
-    const d = await r.json().catch(() => ({}));
+    return { r, d: await r.json().catch(() => ({})) };
+  };
+  const denegado = (d) => JSON.stringify(d.errors || '').includes('ACCESS_DENIED');
+  return async (query, variables = {}) => {
+    let { r, d } = await pedir(query, variables);
+    // Permisos nuevos aceptados hace poco: el token guardado aún es el viejo. Se pide otro y se repite una vez.
+    if (denegado(d)) {
+      tokenCache = null;
+      ({ r, d } = await pedir(query, variables));
+      if (denegado(d)) {
+        throw new Error('La app de Shopify no tiene permiso para crear productos. En el Dev Dashboard, la versión activa tiene que tener los permisos write_products, read_publications y write_publications, y en Shopify admin › Apps › Sidonia Platform hay que aceptarlos.');
+      }
+    }
     if (!r.ok || d.errors) throw new Error(`Shopify ${r.status}: ${JSON.stringify(d.errors || d).slice(0, 400)}`);
     return d.data;
   };
