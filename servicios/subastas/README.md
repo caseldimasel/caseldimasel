@@ -2,7 +2,7 @@
 
 Las pujas de verdad. El tema de Shopify ya tiene las pantallas (ficha, puja directa y máxima, registro, comentarios,
 «¡Has ganado!»); con el **modo demostración** apagado, en vez de simular habla con este motor a través de
-`sidonia.es/apps/subastas/…`.
+`sidonia.es/apps/sidonia/…`.
 
 - **Base de datos (Supabase / PostgreSQL):** `sql/esquema.sql`. Toda la lógica de pujar está ahí y se resuelve
   bloqueando la subasta, de una puja en una: aunque pujen cientos de personas a la vez, ninguna se pisa (probado con
@@ -20,7 +20,7 @@ Las pujas de verdad. El tema de Shopify ya tiene las pantallas (ficha, puja dire
    valen; es secreta: solo va en Vercel). La URL es `https://<id-del-proyecto>.supabase.co`.
 2. **Stripe**: crea la cuenta de Sidonia y copia la *secret key* (empieza por `sk_test_` mientras pruebas).
 3. **App de Shopify** (Partners › Apps › Crear app). En *Configuración › Proxy de la app*: prefijo `apps`, subruta
-   `subastas`, URL `https://<tu-servidor>.vercel.app/proxy`. Instálala en la tienda y copia el *secreto de cliente*.
+   `sidonia`, URL `https://<tu-servidor>.vercel.app/proxy`. Instálala en la tienda y copia el *secreto de cliente*.
 4. **Vercel**: nuevo proyecto con este repositorio, *Root Directory* `servicios/subastas`, y las variables:
 
    | Variable | Qué es |
@@ -84,7 +84,7 @@ Puesta en marcha:
   lo enseña en **/admin › Clientes** (nuevos hoy, esta semana, quién ha entrado y cuándo). Para un email por cada
   registro sin servidor de correo: Shopify Flow › «Customer created» › «Send internal email».
 
-| Ruta (detrás de `/apps/subastas`) | |
+| Ruta (detrás de `/apps/sidonia`) | |
 | --- | --- |
 | `GET api/anuncio` | El anuncio activo (o el último) del cliente |
 | `GET api/anuncios` | Todos sus anuncios (su perfil) |
@@ -92,7 +92,7 @@ Puesta en marcha:
 | `POST api/anuncio/fotos` | `{ tipos: ['image/jpeg', …] }` → direcciones firmadas para subir cada foto |
 | `POST api/anuncio` | La solicitud completa → `pendiente` (o `{ error: 'limite' }` si ya tiene uno activo) |
 
-## Rutas (detrás de `/apps/subastas`)
+## Rutas (detrás de `/apps/sidonia`)
 
 | Ruta | |
 | --- | --- |

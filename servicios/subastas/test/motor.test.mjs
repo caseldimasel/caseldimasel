@@ -97,7 +97,7 @@ test('registro: nombre de usuario, Stripe y vuelta a la ficha', async () => {
   assert.equal(ok.headers.Location, 'https://checkout.stripe.com/c/pay/cs_1');
   const sesion = st.calls.find((c) => c[1] === 'checkout/sessions')[2];
   assert.equal(sesion.mode, 'setup');
-  assert.match(sesion.success_url, /^https:\/\/sidonia\.es\/apps\/subastas\/registro\/vuelta\?return_url=%2Fproducts%2Fporsche/);
+  assert.match(sesion.success_url, /^https:\/\/sidonia\.es\/apps\/sidonia\/registro\/vuelta\?return_url=%2Fproducts%2Fporsche/);
 
   st.sesion = { status: 'complete', customer: 'cus_1', metadata: { shopify_cliente: '7001' }, setup_intent: { payment_method: { card: { brand: 'visa', last4: '4242' } } } };
   const v = await atender({ method: 'GET', ruta: 'registro/vuelta', query: q({ session_id: 'cs_test_1', return_url: '/products/porsche' }) }, cfg, { db, stripe: st });
@@ -106,7 +106,7 @@ test('registro: nombre de usuario, Stripe y vuelta a la ficha', async () => {
 
   st.sesion = { ...st.sesion, metadata: { shopify_cliente: 'otro' } };
   const ajena = await atender({ method: 'GET', ruta: 'registro/vuelta', query: q({ session_id: 'cs_test_1', return_url: '/products/porsche' }) }, cfg, { db, stripe: st });
-  assert.match(ajena.headers.Location, /\/apps\/subastas\/registro/, 'la sesión de Stripe de otra persona no vale');
+  assert.match(ajena.headers.Location, /\/apps\/sidonia\/registro/, 'la sesión de Stripe de otra persona no vale');
 });
 
 test('volver solo a páginas de la tienda', async () => {

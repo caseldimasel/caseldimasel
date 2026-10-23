@@ -6,7 +6,7 @@ export default function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store');
   res.status(200).json({
     ok: true,
-    servicio: 'sidonia-subastas',
+    servicio: 'sidonia-platform',
     version: VERSION,
     claves: {
       SUPABASE_URL: tiene('SUPABASE_URL'),

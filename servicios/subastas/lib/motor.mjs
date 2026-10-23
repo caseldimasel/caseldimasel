@@ -1,10 +1,10 @@
-/* SIDONIA · Motor de subastas: la parte de servidor (sin dependencias).
+/* SIDONIA · Motor de Sidonia (anuncios, ofertas y pujas): la parte de servidor (sin dependencias).
  *
- * La web llama a sidonia.es/apps/subastas/… y Shopify (proxy de la app) reenvía la petición aquí añadiendo quién es
+ * La web llama a sidonia.es/apps/sidonia/… y Shopify (proxy de la app) reenvía la petición aquí añadiendo quién es
  * el cliente (logged_in_customer_id) y una firma. Comprobamos la firma con el secreto de la app, así nadie puede pujar
  * en nombre de otro. Las pujas se resuelven en la base de datos (sql/esquema.sql), de una en una.
  *
- * Rutas (detrás de /apps/subastas):
+ * Rutas (detrás de /apps/sidonia):
  *   GET  api/estado?h=a,b        → { ahora, subastas: [...] }
  *   POST api/pujar     { handle, importe, tipo, intento }
  *   POST api/comentar  { handle, texto, respuesta_a }
@@ -28,7 +28,7 @@ export function config(env = process.env) {
     stripeKey: env.STRIPE_SECRET_KEY || '',
     clave: env.SUBASTAS_CLAVE || '',                 // la misma que «Clave del motor» en los ajustes del tema
     tienda: (env.TIENDA_URL || 'https://sidonia.es').replace(/\/$/, ''),
-    prefijo: env.PROXY_PREFIJO || '/apps/subastas',
+    prefijo: env.PROXY_PREFIJO || '/apps/sidonia',
     shopifyTienda: (env.SHOPIFY_TIENDA || '').replace(/^https?:\/\//, '').replace(/\/$/, ''),   // xxxx.myshopify.com
     shopifyClientId: env.SHOPIFY_CLIENT_ID || '',    // ID de cliente de la app (para publicar fichas «Del dueño»)
     adminClave: env.ADMIN_CLAVE || '',               // contraseña del panel /admin
@@ -210,7 +210,7 @@ async function paginaConexion(query, cfg, { db, fetch: fetchImpl = fetch }) {
  * deps: { db(fn, args), stripe(method, path, body) } para poder probarlo sin servicios reales.
  */
 export async function atender(req, cfg, deps) {
-  // Página de comprobación: sidonia.es/apps/subastas/conexion (no enseña nada secreto)
+  // Página de comprobación: sidonia.es/apps/sidonia/conexion (no enseña nada secreto)
   if (String(req.ruta || '').replace(/^\/+|\/+$/g, '') === 'conexion') return paginaConexion(req.query, cfg, deps);
   if (!comprobarProxy(req.query, cfg.secreto)) return json(401, { ok: false, error: 'firma' });
   const cliente = req.query.logged_in_customer_id ? String(req.query.logged_in_customer_id) : null;
