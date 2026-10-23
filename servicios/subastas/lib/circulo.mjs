@@ -21,6 +21,7 @@
  * Un anuncio activo gratis por persona (lo garantiza la base de datos: sql/circulo.sql).
  */
 import { createHash } from 'node:crypto';
+import { rellenarPropietarios } from './propietarios.mjs';
 import { correoCambiosAprobados, correoCambiosRechazados, correoPublicado, correoRechazado, correoRecibido, enviarCorreo } from './correos.mjs';
 
 export const TIPOS = ['coche', 'moto', 'barco', 'casa'];
@@ -514,7 +515,8 @@ function formEditar(cfg, a) {
 export function paginaPanel(cfg, lista, { estado = 'pendiente', aviso = '' } = {}) {
   const fmt = (n) => (n ? `${Number(n).toLocaleString('es-ES')} €` : 'A consultar');
   const pestañas = Object.entries(ESTADOS).map(([k, v]) => `<a href="?estado=${k}" class="${k === estado ? 'on' : ''}">${v}</a>`).join('')
-    + `<a href="?estado=cambios" class="${estado === 'cambios' ? 'on' : ''}">Cambios</a><a href="?estado=clientes">Clientes</a>`;
+    + `<a href="?estado=cambios" class="${estado === 'cambios' ? 'on' : ''}">Cambios</a><a href="?estado=propietarios" class="${estado === 'propietarios' ? 'on' : ''}">Propietarios</a><a href="?estado=clientes">Clientes</a>`;
+  if (estado === 'propietarios') return paginaPanelHtml(pestañas, aviso, paginaPropietarios(cfg, lista));
   if (estado === 'cambios') return paginaPanelHtml(pestañas, aviso, lista.map((a) => tarjetaCambios(cfg, a)).join('') || '<p class="vacio">No hay cambios por revisar.</p>');
   const tarjetas = lista.map((a) => `
   <article class="a">
@@ -573,6 +575,27 @@ function tarjetaCambios(cfg, a) {
       </form>
     </div>
   </article>`;
+}
+
+/** Panel › Propietarios: sacar de cada historia el nombre del dueño de los coches de Sidonia (metacampo custom.propietario) */
+function paginaPropietarios(cfg, informe) {
+  const admin = (h) => `https://admin.shopify.com/store/${esc(String(cfg.shopifyTienda || '').replace('.myshopify.com', ''))}/products?query=${encodeURIComponent(h)}`;
+  const filas = (informe || []).map((r) => `<tr><td><a href="${esc(cfg.tienda)}/products/${esc(r.handle)}" target="_blank">${esc(r.titulo)}</a></td>
+    <td>${r.nombre ? `<b>${esc(r.nombre)}</b>` : '<span class="vacio">— (no lo nombra)</span>'}</td>
+    <td>${r.estado === 'nuevo' ? 'Puesto ahora' : r.estado === 'ya' ? 'Ya lo tenía' : `<a href="${admin(r.handle)}" target="_blank">Ponerlo a mano</a>`}</td></tr>`).join('');
+  const cuenta = (e) => (informe || []).filter((r) => r.estado === e).length;
+  return `<article class="a"><div class="cuerpo">
+    <h2>Propietarios de los coches de Sidonia</h2>
+    <p class="res">Lee la historia de cada producto de Sidonia y saca el nombre de su dueño («<i>Carlos</i> lleva toda la vida…»). Se lo pone
+      a los que aún no lo tienen; sale en la ficha («Propietario: Carlos · Venta gestionada por Sidonia») y en la tarjeta.
+      Si alguno no cuadra, cámbialo en Shopify › Productos › el coche › <b>Propietario</b>. Pásalo cuando subáis coches nuevos.</p>
+    <form method="post" class="acc">
+      <button name="accion" value="propietarios" class="si">Sacar los propietarios de las historias</button>
+      <label class="avisar"><input type="checkbox" name="sobrescribir" value="1"> Volver a sacarlos también en los que ya tienen (cambia lo puesto a mano)</label>
+    </form>
+    ${informe ? `<p class="meta">${cuenta('nuevo')} puestos ahora · ${cuenta('ya')} ya lo tenían · ${cuenta('sin')} sin nombre en la historia</p>
+      <table class="diff"><tr><th>Producto</th><th>Propietario</th><th></th></tr>${filas}</table>` : ''}
+  </div></article>`;
 }
 
 function paginaPanelHtml(pestañas, aviso, tarjetas) {
@@ -636,7 +659,7 @@ export function paginaClientes(datos) {
   const d = datos || {};
   const fecha = (t) => (t ? new Date(t).toLocaleString('es-ES', { timeZone: 'Europe/Madrid', day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' }) : '');
   const filas = (d.lista || []).map((c) => `<tr><td><b>${esc(c.nombre || '—')}</b><br><a href="mailto:${esc(c.email)}">${esc(c.email)}</a></td><td>${fecha(c.primera)}</td><td>${fecha(c.ultima)}</td><td>${Number(c.visitas) || 1}</td></tr>`).join('');
-  const pestañas = Object.entries(ESTADOS).map(([k, v]) => `<a href="?estado=${k}">${v}</a>`).join('') + '<a href="?estado=cambios">Cambios</a><a href="?estado=clientes" class="on">Clientes</a>';
+  const pestañas = Object.entries(ESTADOS).map(([k, v]) => `<a href="?estado=${k}">${v}</a>`).join('') + '<a href="?estado=cambios">Cambios</a><a href="?estado=propietarios">Propietarios</a><a href="?estado=clientes" class="on">Clientes</a>';
   return `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Clientes · Panel de Sidonia</title><meta name="robots" content="noindex">
 <style>
@@ -757,6 +780,21 @@ export async function atenderPanel(req, cfg, deps) {
       return ` El email no ha salido (${e.message}).`;
     }
   };
+  if (req.query.estado === 'propietarios') {
+    let informe = null;
+    let aviso = '';
+    if (req.method === 'POST' && req.body.accion === 'propietarios') {
+      try {
+        if (!cfg.shopifyTienda || !cfg.shopifyClientId) throw new Error('Faltan SHOPIFY_TIENDA y SHOPIFY_CLIENT_ID en Vercel.');
+        informe = await rellenarPropietarios(deps.gql || shopifyAdmin(cfg, deps.fetch), { sobrescribir: req.body.sobrescribir === '1' });
+        aviso = `Listo: ${informe.filter((r) => r.estado === 'nuevo').length} propietarios puestos.`;
+      } catch (e) {
+        console.error(e);
+        aviso = `Error: ${e.message}`;
+      }
+    }
+    return html(paginaPanel(cfg, informe, { estado: 'propietarios', aviso }));
+  }
   if (req.query.estado === 'cambios') {
     const tabla = deps.tabla || tablaAnuncios(cfg, deps.fetch);
     let aviso = '';

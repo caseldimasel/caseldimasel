@@ -103,8 +103,10 @@ Puesta en marcha:
   «Automóviles ARPI SL»), si vende como **particular o profesional** y una **descripción breve**. Se guarda en la tabla
   `perfiles` (api/perfil) y se ve en su perfil público y en la ficha de sus anuncios (api/perfil/publico, sin sesión).
   Al cambiar el nombre o el tipo, sus anuncios publicados se actualizan también en Shopify.
-- En la ficha de los coches de Sidonia sale **«Gestionado por Sidonia»** y, si se rellena el metacampo de producto
-  `custom.propietario` (texto de una línea), el nombre del propietario. Las tarjetas enseñan la ubicación
+- **Perfil de Sidonia:** `/collections/vendors?q=Sidonia&view=vendedor`, todos los productos con vendor «Sidonia».
+  En la ficha de cada uno: «Propietario: Carlos · Venta gestionada por Sidonia» (enlaza al perfil de Sidonia).
+- **Panel › Propietarios** saca el nombre del dueño de la historia de cada producto de Sidonia («Carlos lleva…») y lo
+  pone en el metacampo `custom.propietario` (lib/propietarios.mjs). Las tarjetas enseñan la ubicación
   (`custom.provincia`) y el dueño o propietario.
 
 ### Panel: editar y emails al dueño

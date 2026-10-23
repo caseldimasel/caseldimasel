@@ -207,7 +207,9 @@ export function createStore(profile = 'full', port = 4173) {
         all: col('all', 'Productos', products),
         subastas: col('subastas', 'Subastas', auctions, 'subastas'),
         // Handle real de la tienda (Sidonia-Shopify): mismo contenido que «coches»
-        'coches-en-venta': col('coches-en-venta', 'Coches en venta', cat('Coches'))
+        'coches-en-venta': col('coches-en-venta', 'Coches en venta', cat('Coches')),
+        // /collections/vendors?q=<marca o vendedor>: la colección automática de Shopify por «vendor»
+        vendors: col('vendors', '', products)
       }
     : { all: col('all', 'Productos', []) };
   const menus = full
@@ -437,6 +439,12 @@ export function createRenderer(store) {
       let c = Object.values(store.collections).find((x) => x.handle === m[1]);
       // /collections/<colección>/<etiqueta>: solo los productos con esa etiqueta (como en Shopify), p. ej. el perfil de un vendedor
       const tag = m[2] ? decodeURIComponent(m[2]) : '';
+      // Como Shopify: /collections/vendors?q=X → los productos con vendor X, y collection.current_vendor = X
+      if (c.handle === 'vendors') {
+        const v = String(q.q?.[0] || '');
+        const list = [...c.products].filter((p) => String(p.vendor || '').toLowerCase() === v.toLowerCase());
+        c = { ...c, title: v, current_vendor: v, products: Object.defineProperty(list, '__shopifyDrop', { value: true }), products_count: list.length, all_products_count: list.length };
+      }
       if (tag) {
         const list = [...c.products].filter((p) => (p.tags || []).map((t) => String(t).toLowerCase()).includes(tag.toLowerCase()));
         c = { ...c, products: Object.defineProperty(list, '__shopifyDrop', { value: true }), products_count: list.length, all_products_count: list.length };

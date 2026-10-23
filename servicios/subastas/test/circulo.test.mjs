@@ -370,3 +370,29 @@ test('perfil: al cambiar el nombre, sus anuncios publicados lo llevan también',
   assert.deepEqual(pasos, [['vendor', 'Automóviles ARPI SL'], ['metacampos', 'vendedor_nombre=Automóviles ARPI SL,vendedor_tipo=profesional']]);
   assert.deepEqual(cambios, [[9, { vendedor_nombre: 'Automóviles ARPI SL', vendedor_tipo: 'profesional' }]]);
 });
+
+test('propietarios: se sacan de la historia y se ponen a los que no lo tienen', async () => {
+  const { propietarioDeHistoria } = await import('../lib/propietarios.mjs');
+  assert.equal(propietarioDeHistoria('<h3>Historia</h3><p>Carlos lleva toda la vida rodeado de clásicos.</p><h3>Ficha técnica</h3><p>Pablo</p>'), 'Carlos');
+  assert.equal(propietarioDeHistoria('<p>Historia</p><p>Pau ya ha tenido cuatro Range Rover.</p>'), 'Pau');
+  assert.equal(propietarioDeHistoria('<p>Historia Se trata de un Mercedes de 1999.</p>'), '');
+  const auth = { authorization: `Basic ${Buffer.from('equipo:panel-secreto').toString('base64')}` };
+  const puestos = [];
+  const gql = async (query, v) => {
+    if (/metafieldDefinitionCreate/.test(query)) return { metafieldDefinitionCreate: { userErrors: [] } };
+    if (/products\(first: 100/.test(query)) {
+      assert.equal(v.q, "vendor:'Sidonia'");
+      return { products: { nodes: [
+        { id: 'P1', handle: 'porsche-912', title: 'Porsche 912', descriptionHtml: '<p>Historia Carlos lleva toda la vida…</p>', propietario: null },
+        { id: 'P2', handle: 'clio-v6', title: 'Clio V6', descriptionHtml: '<p>Historia Samuel siempre…</p>', propietario: { value: 'Samuel' } },
+        { id: 'P3', handle: 'supra', title: 'Supra', descriptionHtml: '<p>Historia Y es que pocas cosas…</p>', propietario: null }
+      ], pageInfo: { hasNextPage: false, endCursor: null } } };
+    }
+    puestos.push(...v.m.map((m) => `${m.ownerId}=${m.value}`));
+    return { metafieldsSet: { userErrors: [] } };
+  };
+  const r = await atenderPanel({ method: 'POST', query: { estado: 'propietarios' }, body: { accion: 'propietarios' }, headers: auth }, cfg, { db: async () => null, gql });
+  assert.deepEqual(puestos, ['P1=Carlos']);
+  assert.match(r.body, /1 puestos ahora · 1 ya lo tenían · 1 sin nombre en la historia/);
+  assert.match(r.body, /Listo: 1 propietarios puestos/);
+});
