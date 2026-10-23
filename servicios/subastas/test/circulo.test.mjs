@@ -311,3 +311,28 @@ test('panel › Cambios: antes y ahora; aprobar actualiza la ficha y el anuncio;
   assert.match(no.body, /No aprobados los cambios del anuncio #9/);
   assert.deepEqual(cambiado, { revision: null, revision_fecha: null });
 });
+
+test('reservado y vendido: etiqueta en la ficha; vendido libera su anuncio gratis', async () => {
+  for (const situacion of ['reservado', 'vendido', 'en_venta']) {
+    const llamadas = [];
+    const db = async (fn, a) => { llamadas.push([fn, a]); return fn === 'sidonia_anuncio_mio' ? { id: 9, estado: 'publicado', titulo: 'Porsche', producto: 'porsche' } : { ok: true }; };
+    const tags = [];
+    const gql = async (query, v) => {
+      if (/products\(first/.test(query)) return { products: { nodes: [{ id: 'gid://P/1', handle: 'porsche', variants: { nodes: [] }, media: { nodes: [] } }] } };
+      tags.push([/tagsAdd/.test(query) ? 'add' : 'remove', v.tags]);
+      return { tagsAdd: { userErrors: [] }, tagsRemove: { userErrors: [] } };
+    };
+    let cambio = null;
+    const r = JSON.parse((await atender({ method: 'POST', ruta: 'api/anuncio/situacion', query: q(), body: { situacion } }, cfg, { db, gql, tabla: { cambiar: async (id, c) => { cambio = c; } } })).body);
+    assert.deepEqual(r, { ok: true, situacion });
+    assert.equal(tags[0][0], 'remove');
+    if (situacion === 'en_venta') assert.equal(tags.length, 1);
+    else assert.deepEqual(tags[1], ['add', [situacion]]);
+    assert.deepEqual(cambio, { reservado: situacion === 'reservado' });
+    const estado = llamadas.find((c) => c[0] === 'sidonia_anuncio_estado');
+    if (situacion === 'vendido') assert.equal(estado[1].p_estado, 'vendido');
+    else assert.equal(estado, undefined);
+  }
+  const mal = await atender({ method: 'POST', ruta: 'api/anuncio/situacion', query: q(), body: { situacion: 'regalado' } }, cfg, { db: async () => null });
+  assert.equal(mal.status, 400);
+});

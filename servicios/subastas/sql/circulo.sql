@@ -12,7 +12,7 @@ create table if not exists anuncios (
   id                bigserial primary key,
   cliente           text not null,                         -- id del cliente de Shopify
   estado            text not null default 'pendiente'
-                    check (estado in ('pendiente', 'aprobado', 'rechazado', 'publicado', 'retirado')),
+                    check (estado in ('pendiente', 'aprobado', 'rechazado', 'publicado', 'vendido', 'retirado')),
   tipo              text not null check (tipo in ('coche', 'moto', 'barco', 'casa')),
   titulo            text not null,
   precio            bigint,                                -- euros; null = a consultar
@@ -43,6 +43,10 @@ alter table anuncios add constraint anuncios_vendedor_tipo_check check (vendedor
 -- Cambios que hace el dueño en un anuncio aprobado o publicado: quedan aquí hasta que el equipo los aprueba (panel › Cambios)
 alter table anuncios add column if not exists revision jsonb;
 alter table anuncios add column if not exists revision_fecha timestamptz;
+-- Vendido (deja de contar como su anuncio gratis: puede publicar otro) y reservado (sigue publicado, con la etiqueta)
+alter table anuncios drop constraint if exists anuncios_estado_check;
+alter table anuncios add constraint anuncios_estado_check check (estado in ('pendiente', 'aprobado', 'rechazado', 'publicado', 'vendido', 'retirado'));
+alter table anuncios add column if not exists reservado boolean not null default false;
 
 -- Un anuncio activo por persona (gratis): la base de datos no deja tener dos a la vez
 create unique index if not exists anuncios_uno_activo on anuncios (cliente)

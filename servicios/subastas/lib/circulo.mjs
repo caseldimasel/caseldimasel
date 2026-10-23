@@ -10,6 +10,8 @@
  *   POST api/anuncio/editar   { …lo mismo que al publicar } → { ok, revision }   por revisar: se cambia ya; aprobado o
  *                             publicado: los cambios quedan «por revisar» (panel › Cambios) hasta que el equipo los aprueba
  *   POST api/anuncio/eliminar → { ok }   lo retira (y archiva la ficha en Shopify): puede publicar otro
+ *   POST api/anuncio/situacion { situacion: 'en_venta' | 'reservado' | 'vendido' } → { ok }   la etiqueta de la ficha;
+ *                             vendido deja de contar como su anuncio gratis (puede publicar otro)
  * Panel del equipo (directo en Vercel, con contraseña): /admin → lista, editar, aprobar y publicar en Shopify, rechazar, retirar.
  * Al dueño le llegan emails (si hay Resend): recibido, publicado y no publicado con el motivo (lib/correos.mjs).
  *
@@ -23,6 +25,7 @@ export const VENDEDOR_TIPOS = ['particular', 'profesional'];
 export const FOTOS_MIN = Number(process.env.CIRCULO_FOTOS_MIN || 8);
 export const FOTOS_MAX = 30;
 const ACTIVOS = ['pendiente', 'aprobado', 'publicado'];
+const SITUACIONES = ['en_venta', 'reservado', 'vendido'];
 // Lo que el dueño puede cambiar de su anuncio (el slug de su perfil y su email no)
 export const CAMPOS_EDITABLES = ['tipo', 'titulo', 'precio', 'ubicacion', 'resumen', 'historia', 'mecanica', 'ficha', 'fotos', 'vendedor_nombre', 'vendedor_tipo', 'telefono', 'acepta_telefono'];
 const EXT = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' };
@@ -117,7 +120,14 @@ export async function rutasTienda({ ruta, method, body }, cliente, cfg, deps) {
   const json = (status, b) => ({ status, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }, body: JSON.stringify(b) });
   if (!cliente) return json(200, { ok: false, error: 'login' });
   const { db } = deps;
-  if (ruta === 'api/anuncio' && method === 'GET') return json(200, { ok: true, anuncio: await db('sidonia_anuncio_mio', { p_cliente: cliente }) });
+  if (ruta === 'api/anuncio' && method === 'GET') {
+    const mio = await db('sidonia_anuncio_mio', { p_cliente: cliente });
+    // Si está publicado: si lo tiene marcado como reservado (para sus botones)
+    if (mio && mio.estado === 'publicado') {
+      try { mio.reservado = Boolean((await (deps.tabla || tablaAnuncios(cfg, deps.fetch)).leer(`id=eq.${Number(mio.id)}&select=reservado`))[0]?.reservado); } catch (e) { /* sin la columna aún */ }
+    }
+    return json(200, { ok: true, anuncio: mio });
+  }
   if (ruta === 'api/anuncios' && method === 'GET') {
     const lista = await db('sidonia_anuncios_mios', { p_cliente: cliente });
     return json(200, { ok: true, anuncios: (lista || []).map((a) => ({ ...a, portada: a.portada ? urlFoto(cfg, a.portada) : '' })) });
@@ -171,6 +181,17 @@ export async function rutasTienda({ ruta, method, body }, cliente, cfg, deps) {
     await avisarEquipo(cfg, `Anuncio eliminado por su dueño: ${mio.titulo}`,
       `<p>El anuncio #${mio.id} «${esc(mio.titulo)}» lo ha eliminado su dueño.${mio.producto ? (archivado ? ' La ficha de Shopify se ha archivado.' : ' Archiva la ficha en Shopify › Productos.') : ''}</p>`, deps.fetch).catch((e) => console.error(e));
     return json(200, { ok: true, archivado });
+  }
+  // Reservado / vendido / otra vez en venta (solo un anuncio publicado)
+  if (ruta === 'api/anuncio/situacion' && method === 'POST') {
+    const situacion = String(body.situacion || '');
+    if (!SITUACIONES.includes(situacion)) return json(400, { ok: false, error: 'datos' });
+    const mio = await db('sidonia_anuncio_mio', { p_cliente: cliente });
+    if (!mio || mio.estado !== 'publicado' || !mio.producto) return json(200, { ok: false, error: 'sin-anuncio' });
+    await marcarSituacion(cfg, mio, situacion, deps);
+    await avisarEquipo(cfg, `${situacion === 'vendido' ? 'Vendido' : situacion === 'reservado' ? 'Reservado' : 'Otra vez en venta'}: ${mio.titulo}`,
+      `<p>El dueño del anuncio #${mio.id} «${esc(mio.titulo)}» lo ha marcado como ${situacion.replace('_', ' ')}.</p>`, deps.fetch).catch((e) => console.error(e));
+    return json(200, { ok: true, situacion });
   }
   // Quién entra con su cuenta (una vez por sesión del navegador): para el panel y, si se quiere, un email al equipo
   if (ruta === 'api/visita' && method === 'POST') {
@@ -359,6 +380,22 @@ export async function archivarEnShopify(handle, gql) {
   return true;
 }
 
+/** Reservado / vendido / en venta: la etiqueta de la ficha («reservado» o «vendido», como en los coches de Sidonia)
+ *  y el anuncio (vendido deja de contar como su anuncio gratis). Primero Shopify: si falla, no se cambia nada. */
+export async function marcarSituacion(cfg, a, situacion, deps) {
+  const gql = deps.gql || shopifyAdmin(cfg, deps.fetch);
+  const p = await productoPorHandle(a.producto, gql);
+  await gql(`mutation($id: ID!, $tags: [String!]!) { tagsRemove(id: $id, tags: $tags) { userErrors { field message } } }`, { id: p.id, tags: ['reservado', 'vendido', 'Reservado', 'Vendido'] });
+  if (situacion !== 'en_venta') {
+    const t = await gql(`mutation($id: ID!, $tags: [String!]!) { tagsAdd(id: $id, tags: $tags) { userErrors { field message } } }`, { id: p.id, tags: [situacion] });
+    const errs = t.tagsAdd.userErrors;
+    if (errs.length) throw new Error(`Shopify: ${errs.map((e) => e.message).join(' · ')}`);
+  }
+  const tabla = deps.tabla || tablaAnuncios(cfg, deps.fetch);
+  if (situacion === 'vendido') await deps.db('sidonia_anuncio_estado', { p_id: a.id, p_estado: 'vendido', p_nota: '', p_producto: null });
+  await tabla.cambiar(a.id, { reservado: situacion === 'reservado' });
+}
+
 /** Aplica a la ficha publicada los cambios aprobados: textos, precio, metacampos y, si han cambiado, las fotos */
 export async function actualizarEnShopify(cfg, a, fotosCambiadas, gql) {
   const p = await productoPorHandle(a.producto, gql);
@@ -386,7 +423,7 @@ export async function actualizarEnShopify(cfg, a, fotosCambiadas, gql) {
 }
 
 /* ---------------------------------------------------------------------------- Panel del equipo */
-const ESTADOS = { pendiente: 'Por revisar', aprobado: 'Aprobado', publicado: 'Publicado', rechazado: 'Rechazado', retirado: 'Retirado' };
+const ESTADOS = { pendiente: 'Por revisar', aprobado: 'Aprobado', publicado: 'Publicado', vendido: 'Vendido', rechazado: 'Rechazado', retirado: 'Retirado' };
 
 /** «Editar» en el panel: todos los textos, la ficha, el vendedor y las fotos (quitar y elegir portada) */
 function formEditar(cfg, a) {
@@ -446,7 +483,7 @@ export function paginaPanel(cfg, lista, { estado = 'pendiente', aviso = '' } = {
         <input type="hidden" name="id" value="${a.id}">
         ${['pendiente', 'aprobado'].includes(a.estado) ? '<button name="accion" value="publicar" class="si">Aprobar y publicar en Shopify</button>' : ''}
         ${a.estado === 'pendiente' ? '<textarea name="nota" rows="2" placeholder="Motivo si lo rechazas: le llega al dueño por email (p. ej. «Las fotos tienen poca luz: ¿puedes hacer otras de día?»)"></textarea><button name="accion" value="rechazar" class="no">Rechazar</button>' : ''}
-        ${a.estado === 'publicado' ? '<button name="accion" value="retirar" class="no">Marcar como retirado</button>' : ''}
+        ${a.estado === 'publicado' ? `${a.reservado ? '<button name="accion" value="en_venta">Quitar «Reservado»</button>' : '<button name="accion" value="reservado">Reservado</button>'}<button name="accion" value="vendido">Vendido</button><button name="accion" value="retirar" class="no">Marcar como retirado</button>` : ''}
         ${['pendiente', 'aprobado'].includes(a.estado) ? `<label class="avisar"><input type="checkbox" name="avisar" value="1" checked> Avisar al dueño por email${a.email ? ` (${esc(a.email)})` : ' (no tenemos su email)'}</label>` : ''}
       </form>
     </div>
@@ -706,6 +743,10 @@ export async function atenderPanel(req, cfg, deps) {
         const motivo = texto(req.body.nota, 1500);
         await db('sidonia_anuncio_estado', { p_id: id, p_estado: 'rechazado', p_nota: motivo, p_producto: null });
         aviso = `Rechazado el anuncio #${id}.` + await correo(correoRechazado(cfg, a, motivo));
+      } else if (SITUACIONES.includes(accion) && a.estado === 'publicado' && a.producto) {
+        await marcarSituacion(cfg, a, accion, { ...deps, db });
+        aviso = `Anuncio #${id}: ${accion === 'vendido' ? 'vendido' : accion === 'reservado' ? 'reservado' : 'otra vez en venta'} (también en la ficha de la tienda).`;
+        if (accion === 'vendido') estado = 'vendido';
       } else if (accion === 'retirar') {
         await db('sidonia_anuncio_estado', { p_id: id, p_estado: 'retirado', p_nota: '', p_producto: null });
         aviso = `Retirado el anuncio #${id}. Recuerda archivar el producto en Shopify.`;

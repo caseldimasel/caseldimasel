@@ -91,7 +91,10 @@ Puesta en marcha:
   **panel › Cambios** (antes y ahora, fotos incluidas): «Aprobar cambios» actualiza el anuncio y su ficha de Shopify;
   «No aprobar» lo deja como estaba. Al dueño le llega un email en los dos casos.
 - **Eliminar:** el anuncio pasa a «Retirado», su ficha de Shopify se archiva y puede publicar otro.
-- Necesita las columnas `revision` y `revision_fecha`: ejecuta otra vez `sql/circulo.sql` en Supabase › SQL Editor
+- **En venta / Reservado / Vendido** (anuncio publicado; el dueño en su anuncio y el equipo en el panel): pone la
+  etiqueta `reservado` o `vendido` a la ficha (la misma que en los coches de Sidonia). Vendido deja de contar como su
+  anuncio gratis (puede publicar otro) y sale en panel › Vendido.
+- Necesita las columnas `revision`, `revision_fecha` y `reservado` y el estado «vendido»: ejecuta otra vez `sql/circulo.sql` en Supabase › SQL Editor
   (no borra nada).
 
 ### Panel: editar y emails al dueño
