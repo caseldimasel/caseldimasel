@@ -90,6 +90,21 @@ export function leerDatos(datos, firma, clave, ahora = Date.now()) {
   return d;
 }
 
+/**
+ * Cliente firmado por el tema: con las cuentas de cliente nuevas, Shopify no siempre pasa logged_in_customer_id por el
+ * proxy. El tema (Liquid, en el servidor de Shopify) firma «<id>.<t>» con la clave del motor (SUBASTAS_CLAVE) y lo manda
+ * como ?c=<id>&ct=<t>&cf=<firma>. Vale 7 días. Devuelve el id o null.
+ */
+export function clienteFirmado(q, clave, ahora = Date.now()) {
+  const c = String(q.c || ''), t = String(q.ct || ''), f = String(q.cf || '');
+  if (!clave || !/^\d{1,20}$/.test(c) || !/^\d{9,11}$/.test(t) || !/^[0-9a-f]{64}$/i.test(f)) return null;
+  const a = createHmac('sha256', clave).update(`${c}.${t}`).digest();
+  const b = Buffer.from(f, 'hex');
+  if (a.length !== b.length || !timingSafeEqual(a, b)) return null;
+  const edad = ahora / 1000 - Number(t);
+  return edad > -600 && edad < 7 * 86400 ? c : null;
+}
+
 /* ---------------------------------------------------------------------------- Base de datos (Supabase) */
 export function supabase(cfg, fetchImpl = fetch) {
   return async (fn, args) => {
@@ -215,8 +230,10 @@ export async function atender(req, cfg, deps) {
   // Página de comprobación: sidonia.es/apps/sidonia/conexion (no enseña nada secreto)
   if (String(req.ruta || '').replace(/^\/+|\/+$/g, '') === 'conexion') return paginaConexion(req.query, cfg, deps);
   if (!comprobarProxy(req.query, cfg.secreto)) return json(401, { ok: false, error: 'firma' });
-  const cliente = req.query.logged_in_customer_id ? String(req.query.logged_in_customer_id) : null;
   const ruta = String(req.ruta || '').replace(/^\/+|\/+$/g, '');
+  const cliente = req.query.logged_in_customer_id ? String(req.query.logged_in_customer_id) : clienteFirmado(req.query, cfg.clave);
+  // El tema mandó quién es, pero la firma no cuadra: la «Clave del motor» del tema no es la SUBASTAS_CLAVE de Vercel
+  if (!cliente && req.query.cf) return json(200, { ok: false, error: 'clave', detalle: 'clave-del-motor' });
   const body = req.body || {};
   const { db } = deps;
 

@@ -163,3 +163,17 @@ test('sincronizar: la subasta sale de la ficha de Shopify, firmada por el tema',
   assert.equal(mal.status, 400);
   assert.equal(db.calls.length, 1);
 });
+
+test('cliente firmado por el tema cuando Shopify no pasa logged_in_customer_id', async () => {
+  const t = ahora();
+  const cf = createHmac('sha256', CLAVE).update(`7001.${t}`).digest('hex');
+  const db = fakeDb();
+  db.mio = null;
+  const bien = await atender({ method: 'GET', ruta: 'api/anuncio', query: q({ c: '7001', ct: t, cf }, '') }, cfg, { db: async (fn, a) => (db.calls.push([fn, a]), null) });
+  assert.equal(JSON.parse(bien.body).ok, true);
+  assert.deepEqual(db.calls[0], ['sidonia_anuncio_mio', { p_cliente: '7001' }]);
+  const otro = await atender({ method: 'GET', ruta: 'api/anuncio', query: q({ c: '7002', ct: t, cf }, '') }, cfg, { db });
+  assert.deepEqual(JSON.parse(otro.body), { ok: false, error: 'clave', detalle: 'clave-del-motor' }, 'no vale para otro cliente');
+  const sin = await atender({ method: 'GET', ruta: 'api/anuncio', query: q({}, '') }, cfg, { db });
+  assert.equal(JSON.parse(sin.body).error, 'login');
+});
