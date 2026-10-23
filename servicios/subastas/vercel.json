@@ -9,6 +9,16 @@
       "destination": "/api/admin"
     },
     {
+      "source": "/:ruta*",
+      "has": [
+        {
+          "type": "query",
+          "key": "signature"
+        }
+      ],
+      "destination": "/api/proxy?ruta=:ruta*"
+    },
+    {
       "source": "/",
       "destination": "/api/inicio"
     }

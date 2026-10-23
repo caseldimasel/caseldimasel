@@ -1,5 +1,6 @@
 /* SIDONIA · Punto de entrada en Vercel. vercel.json manda /proxy/<ruta> aquí (?ruta=<ruta>).
- * En la app de Shopify, el proxy es: prefijo «apps», subruta «subastas», URL https://<este-servidor>/proxy
+ * En la app de Shopify, el proxy es: prefijo «apps», subruta «sidonia», URL https://<este-servidor>/proxy
+ * (también vale https://<este-servidor> a secas: vercel.json manda aquí cualquier petición firmada por Shopify).
  */
 import { atender, codigoError, config, stripe, supabase } from '../lib/motor.mjs';
 
@@ -7,7 +8,8 @@ export default async function handler(req, res) {
   const cfg = config();
   const url = new URL(req.url, 'https://x');
   const query = Object.fromEntries(url.searchParams);
-  const ruta = query.ruta || '';
+  // Sin barras sobrantes: así da igual si en Shopify la URL del proxy acaba en /proxy, /proxy/ o en la raíz del dominio
+  const ruta = String(query.ruta || '').replace(/^\/+|\/+$/g, '');
   delete query.ruta;
   let body = req.body || {};
   if (typeof body === 'string') {
