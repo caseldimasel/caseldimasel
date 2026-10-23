@@ -1,0 +1,866 @@
+/* SIDONIA · Anuncios de dueños: coches, motos, barcos y casas que publica su dueño (particular o profesional), gratis
+ * y revisados por Sidonia. Salen en la web con el resto («Dueño particular» / «Dueño profesional»).
+ *
+ * Desde la tienda (proxy de la app, con la sesión del cliente; ver motor.mjs):
+ *   GET  api/anuncio          → { ok, anuncio }   su anuncio activo (o el último), o null
+ *   GET  api/anuncios         → { ok, anuncios }  todos los suyos (su perfil)
+ *   POST api/anuncio/fotos    { tipos: ['image/jpeg', …] } → { ok, subidas: [{ ruta, url }] }   permisos para subir fotos
+ *   POST api/anuncio          { tipo, titulo, precio, … }  → { ok, anuncio } | { ok: false, error, campo }
+ *   GET  api/anuncio/editar   → { ok, anuncio }   su anuncio activo completo (con fotos_url) para editarlo
+ *   POST api/anuncio/editar   { …lo mismo que al publicar } → { ok, revision }   por revisar: se cambia ya; aprobado o
+ *                             publicado: los cambios quedan «por revisar» (panel › Cambios) hasta que el equipo los aprueba
+ *   POST api/anuncio/eliminar → { ok }   lo retira (y archiva la ficha en Shopify): puede publicar otro
+ *   GET  api/perfil           → { ok, perfil }   su perfil (nombre, tipo, descripción, foto)
+ *   POST api/perfil           { nombre, tipo, descripcion, foto } → { ok, perfil }
+ *   GET  api/perfil/publico?slug=…  → { ok, perfil }   sin sesión: lo que se enseña en su perfil público y sus anuncios
+ *   POST api/anuncio/situacion { situacion: 'en_venta' | 'reservado' | 'vendido' } → { ok }   la etiqueta de la ficha;
+ *                             vendido deja de contar como su anuncio gratis (puede publicar otro)
+ * Panel del equipo (directo en Vercel, con contraseña): /admin → lista, editar, aprobar y publicar en Shopify, rechazar, retirar.
+ * Al dueño le llegan emails (si hay Resend): recibido, publicado y no publicado con el motivo (lib/correos.mjs).
+ *
+ * Un anuncio activo gratis por persona (lo garantiza la base de datos: sql/circulo.sql).
+ */
+import { createHash } from 'node:crypto';
+import { rellenarPropietarios } from './propietarios.mjs';
+import { correoCambiosAprobados, correoCambiosRechazados, correoPublicado, correoRechazado, correoRecibido, enviarCorreo } from './correos.mjs';
+
+export const TIPOS = ['coche', 'moto', 'barco', 'casa'];
+export const VENDEDOR_TIPOS = ['particular', 'profesional'];
+export const FOTOS_MIN = Number(process.env.CIRCULO_FOTOS_MIN || 8);
+export const FOTOS_MAX = 30;
+const ACTIVOS = ['pendiente', 'aprobado', 'publicado'];
+const SITUACIONES = ['en_venta', 'reservado', 'vendido'];
+// Lo que el dueño puede cambiar de su anuncio (el slug de su perfil y su email no)
+export const CAMPOS_EDITABLES = ['tipo', 'titulo', 'precio', 'ubicacion', 'resumen', 'historia', 'mecanica', 'ficha', 'fotos', 'vendedor_nombre', 'vendedor_tipo', 'telefono', 'acepta_telefono'];
+const EXT = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' };
+
+const texto = (v, max) => String(v ?? '').replace(/\r\n?/g, '\n').replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g, '').trim().slice(0, max);
+export const esc = (t) => String(t ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+/** El perfil público del vendedor: «enrique-4f2a» (nombre + 4 letras fijas por cliente, para que no se repitan) */
+export function slugVendedor(nombre, cliente) {
+  const base = String(nombre).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 30) || 'vendedor';
+  return `${base}-${createHash('sha256').update(`sidonia:${cliente}`).digest('hex').slice(0, 4)}`;
+}
+
+/** Teléfono: solo dígitos y «+» delante; España por defecto (9 cifras → +34) */
+export function telefono(v) {
+  let t = String(v ?? '').replace(/[^\d+]/g, '');
+  if (t.startsWith('00')) t = `+${t.slice(2)}`;
+  if (/^[6789]\d{8}$/.test(t)) t = `+34${t}`;
+  return /^\+\d{9,15}$/.test(t) ? t : '';
+}
+
+/** Revisa la solicitud. Devuelve { ok: true, datos } o { ok: false, error, campo } */
+export function validar(b, cliente) {
+  const fallo = (campo, error = 'datos') => ({ ok: false, error, campo });
+  const tipo = String(b.tipo || '');
+  if (!TIPOS.includes(tipo)) return fallo('tipo');
+  const titulo = texto(b.titulo, 120);
+  if (titulo.length < 4) return fallo('titulo');
+  let precio = null;
+  if (b.precio !== '' && b.precio != null && !b.precio_consultar) {
+    precio = Math.round(Number(String(b.precio).replace(/[.\s€]/g, '').replace(',', '.')));
+    if (!(precio > 0) || precio > 1e9) return fallo('precio');
+  }
+  const ubicacion = texto(b.ubicacion, 120);
+  if (ubicacion.length < 2) return fallo('ubicacion');
+  const resumen = texto(b.resumen, 600);
+  if (resumen.length < 20) return fallo('resumen');
+  const historia = texto(b.historia, 8000);
+  if (historia.length < 150) return fallo('historia');
+  const mecanica = texto(b.mecanica, 6000);
+  if (mecanica.length < 40) return fallo('mecanica');
+  const ficha = (Array.isArray(b.ficha) ? b.ficha : [])
+    .map((f) => [texto(Array.isArray(f) ? f[0] : '', 40), texto(Array.isArray(f) ? f[1] : '', 160)])
+    .filter(([k, v]) => k && v).slice(0, 40);
+  if (ficha.length < 3) return fallo('ficha');
+  const fotos = (Array.isArray(b.fotos) ? b.fotos : []).map(String);
+  const propia = new RegExp(`^${String(cliente).replace(/\W/g, '')}/[a-z0-9-]{8,64}\\.(jpg|png|webp)$`);
+  if (fotos.length < FOTOS_MIN || fotos.length > FOTOS_MAX || !fotos.every((f) => propia.test(f)) || new Set(fotos).size !== fotos.length) return fallo('fotos');
+  const vendedor_tipo = String(b.vendedor_tipo || '');
+  if (!VENDEDOR_TIPOS.includes(vendedor_tipo)) return fallo('vendedor_tipo');
+  const vendedor_nombre = texto(b.vendedor_nombre, 40).replace(/[<>]/g, '');
+  if (vendedor_nombre.length < 2) return fallo('vendedor_nombre');
+  const tel = telefono(b.telefono);
+  if (!tel) return fallo('telefono');
+  if (!b.acepta_telefono) return fallo('acepta_telefono');
+  if (!b.condiciones) return fallo('condiciones');
+  return {
+    ok: true,
+    datos: {
+      tipo, titulo, precio, ubicacion, resumen, historia, mecanica, ficha, fotos,
+      vendedor_nombre, vendedor_slug: slugVendedor(vendedor_nombre, cliente), vendedor_tipo, telefono: tel,
+      email: texto(b.email, 160), acepta_telefono: true
+    }
+  };
+}
+
+/* ---------------------------------------------------------------------------- Fotos (Supabase Storage) */
+export const urlFoto = (cfg, ruta) => `${cfg.supabaseUrl}/storage/v1/object/public/anuncios/${ruta}`;
+
+/** Permisos para subir: una dirección firmada por foto, dentro de la carpeta del cliente */
+export async function permisosSubida(cfg, cliente, tipos, fetchImpl = fetch) {
+  const lista = (Array.isArray(tipos) ? tipos : []).slice(0, FOTOS_MAX);
+  if (!lista.length || !lista.every((t) => EXT[t])) return { ok: false, error: 'tipo' };
+  const carpeta = String(cliente).replace(/\W/g, '');
+  const subidas = await Promise.all(lista.map(async (t) => {
+    const ruta = `${carpeta}/${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}.${EXT[t]}`;
+    const r = await fetchImpl(`${cfg.supabaseUrl}/storage/v1/object/upload/sign/anuncios/${ruta}`, {
+      method: 'POST',
+      headers: { apikey: cfg.supabaseKey, ...(cfg.supabaseKey.startsWith('sb_') ? {} : { Authorization: `Bearer ${cfg.supabaseKey}` }), 'Content-Type': 'application/json' },
+      body: '{}',
+      signal: AbortSignal.timeout(8000)
+    });
+    if (!r.ok) throw new Error(`Storage ${r.status}: ${await r.text().catch(() => '')}`);
+    const d = await r.json();
+    return { ruta, url: `${cfg.supabaseUrl}/storage/v1${d.url}` };
+  }));
+  return { ok: true, subidas };
+}
+
+/* ---------------------------------------------------------------------------- Rutas de la tienda */
+export async function rutasTienda({ ruta, method, body }, cliente, cfg, deps) {
+  const json = (status, b) => ({ status, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }, body: JSON.stringify(b) });
+  // Perfil público (sin sesión): foto, nombre, tipo y descripción de un vendedor, por el slug de sus anuncios
+  if (ruta === 'api/perfil/publico' && method === 'GET') {
+    const slug = String(body.slug || '').toLowerCase().replace(/[^a-z0-9-]/g, '').slice(0, 80);
+    if (!slug) return json(400, { ok: false, error: 'datos' });
+    const [p] = await (deps.perfiles || tablaAnuncios(cfg, deps.fetch, 'perfiles')).leer(`slug=eq.${slug}&limit=1`).catch(() => []);
+    return { ...json(200, { ok: true, perfil: perfilPublico(cfg, p) || null }), headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=60' } };
+  }
+  if (!cliente) return json(200, { ok: false, error: 'login' });
+  const { db } = deps;
+  if (ruta === 'api/anuncio' && method === 'GET') {
+    const mio = await db('sidonia_anuncio_mio', { p_cliente: cliente });
+    // Si está publicado: si lo tiene marcado como reservado (para sus botones)
+    if (mio && mio.estado === 'publicado') {
+      try { mio.reservado = Boolean((await (deps.tabla || tablaAnuncios(cfg, deps.fetch)).leer(`id=eq.${Number(mio.id)}&select=reservado`))[0]?.reservado); } catch (e) { /* sin la columna aún */ }
+    }
+    return json(200, { ok: true, anuncio: mio });
+  }
+  if (ruta === 'api/anuncios' && method === 'GET') {
+    const lista = await db('sidonia_anuncios_mios', { p_cliente: cliente });
+    return json(200, { ok: true, anuncios: (lista || []).map((a) => ({ ...a, portada: a.portada ? urlFoto(cfg, a.portada) : '' })) });
+  }
+  if (ruta === 'api/anuncio/fotos' && method === 'POST') {
+    const mio = await db('sidonia_anuncio_mio', { p_cliente: cliente });
+    // Al editar su anuncio sí puede subir fotos nuevas; para uno nuevo, solo si no tiene otro activo
+    if (!body.editar && mio && ACTIVOS.includes(mio.estado)) return json(200, { ok: false, error: 'limite', anuncio: mio });
+    return json(200, await (deps.subidas || permisosSubida)(cfg, cliente, body.tipos));
+  }
+  if (ruta === 'api/anuncio' && method === 'POST') {
+    const v = validar(body, cliente);
+    if (!v.ok) return json(400, v);
+    const r = await db('sidonia_anuncio_nuevo', { p_cliente: cliente, p: v.datos });
+    if (r && r.ok) {
+      await avisarEquipo(cfg, `Nuevo anuncio gratis: ${v.datos.titulo}`, emailAnuncio(cfg, v.datos), deps.fetch).catch((e) => console.error(e));
+      const c = correoRecibido(cfg, v.datos);
+      await enviarCorreo(cfg, v.datos.email, c.asunto, c.html, deps.fetch).catch((e) => console.error(e));
+    }
+    return json(200, r);
+  }
+  // Editar su anuncio
+  if (ruta === 'api/anuncio/editar') {
+    const tabla = deps.tabla || tablaAnuncios(cfg, deps.fetch);
+    const [a] = await tabla.leer(`cliente=eq.${encodeURIComponent(cliente)}&estado=in.(${ACTIVOS.join(',')})&order=creado.desc&limit=1`);
+    if (!a) return json(200, { ok: false, error: 'sin-anuncio' });
+    if (method === 'GET') {
+      const actual = { ...a, ...(a.revision || {}) };
+      return json(200, { ok: true, anuncio: { ...actual, id: a.id, estado: a.estado, producto: a.producto, revision: Boolean(a.revision), fotos_url: (actual.fotos || []).map((f) => urlFoto(cfg, f)) } });
+    }
+    const v = validar(body, cliente);
+    if (!v.ok) return json(400, v);
+    const cambios = Object.fromEntries(CAMPOS_EDITABLES.map((k) => [k, v.datos[k]]));
+    // Por revisar: aún no se ve en la tienda, se cambia directamente. Aprobado o publicado: el equipo revisa los cambios.
+    const revision = a.estado !== 'pendiente';
+    await tabla.cambiar(a.id, revision ? { revision: cambios, revision_fecha: new Date().toISOString() } : { ...cambios, revision: null, actualizado: new Date().toISOString() });
+    await avisarEquipo(cfg, revision ? `Cambios por revisar: ${cambios.titulo}` : `Anuncio editado: ${cambios.titulo}`,
+      `<p>${esc(a.vendedor_nombre)} ha editado su anuncio #${a.id}${revision ? '. Revisa los cambios en el panel › Cambios.' : ' (aún por revisar).'}</p>`, deps.fetch).catch((e) => console.error(e));
+    return json(200, { ok: true, revision });
+  }
+  // Eliminar su anuncio: deja de verse y puede publicar otro
+  if (ruta === 'api/anuncio/eliminar' && method === 'POST') {
+    const mio = await db('sidonia_anuncio_mio', { p_cliente: cliente });
+    if (!mio || !ACTIVOS.includes(mio.estado)) return json(200, { ok: false, error: 'sin-anuncio' });
+    await db('sidonia_anuncio_estado', { p_id: mio.id, p_estado: 'retirado', p_nota: 'Eliminado por el dueño', p_producto: null });
+    await (deps.tabla || tablaAnuncios(cfg, deps.fetch)).cambiar(mio.id, { revision: null }).catch((e) => console.error(e));
+    let archivado = false;
+    if (mio.producto && cfg.shopifyTienda && cfg.shopifyClientId) {
+      try { archivado = await archivarEnShopify(mio.producto, deps.gql || shopifyAdmin(cfg, deps.fetch)); } catch (e) { console.error(e); }
+    }
+    await avisarEquipo(cfg, `Anuncio eliminado por su dueño: ${mio.titulo}`,
+      `<p>El anuncio #${mio.id} «${esc(mio.titulo)}» lo ha eliminado su dueño.${mio.producto ? (archivado ? ' La ficha de Shopify se ha archivado.' : ' Archiva la ficha en Shopify › Productos.') : ''}</p>`, deps.fetch).catch((e) => console.error(e));
+    return json(200, { ok: true, archivado });
+  }
+  // Su perfil: nombre (persona o negocio), particular o profesional, descripción breve y foto o logo
+  if (ruta === 'api/perfil') {
+    const perfiles = deps.perfiles || tablaAnuncios(cfg, deps.fetch, 'perfiles');
+    const [actual] = await perfiles.leer(`cliente=eq.${encodeURIComponent(cliente)}&limit=1`);
+    if (method === 'GET') return json(200, { ok: true, perfil: actual ? { ...perfilPublico(cfg, actual), ruta_foto: actual.foto } : null });
+    const nombre = texto(body.nombre, 60).replace(/[<>]/g, '');
+    if (nombre.length < 2) return json(400, { ok: false, error: 'datos', campo: 'nombre' });
+    const foto = String(body.foto || '');
+    const propia = new RegExp(`^${String(cliente).replace(/\W/g, '')}/[a-z0-9-]{8,64}\\.(jpg|png|webp)$`);
+    if (foto && !propia.test(foto)) return json(400, { ok: false, error: 'datos', campo: 'foto' });
+    // El slug: el de sus anuncios (para que su perfil público sea el mismo), o uno nuevo
+    let slug = actual?.slug;
+    if (!slug) {
+      const [ultimo] = await (deps.tabla || tablaAnuncios(cfg, deps.fetch)).leer(`cliente=eq.${encodeURIComponent(cliente)}&select=vendedor_slug&order=creado.desc&limit=1`).catch(() => []);
+      slug = ultimo?.vendedor_slug || slugVendedor(nombre, cliente);
+    }
+    const p = await perfiles.guardar({
+      cliente, slug, nombre, tipo: body.tipo === 'profesional' ? 'profesional' : 'particular',
+      descripcion: texto(body.descripcion, 600), foto, actualizado: new Date().toISOString()
+    }, 'cliente');
+    // Sus anuncios publicados llevan el nombre y el tipo nuevos (tarjetas, ficha y su perfil público)
+    if (cfg.shopifyTienda && cfg.shopifyClientId) {
+      try { await nombreEnSusAnuncios(cfg, cliente, p, deps); } catch (e) { console.error(e); }
+    }
+    return json(200, { ok: true, perfil: perfilPublico(cfg, p) });
+  }
+  // Reservado / vendido / otra vez en venta (solo un anuncio publicado)
+  if (ruta === 'api/anuncio/situacion' && method === 'POST') {
+    const situacion = String(body.situacion || '');
+    if (!SITUACIONES.includes(situacion)) return json(400, { ok: false, error: 'datos' });
+    const mio = await db('sidonia_anuncio_mio', { p_cliente: cliente });
+    if (!mio || mio.estado !== 'publicado' || !mio.producto) return json(200, { ok: false, error: 'sin-anuncio' });
+    await marcarSituacion(cfg, mio, situacion, deps);
+    await avisarEquipo(cfg, `${situacion === 'vendido' ? 'Vendido' : situacion === 'reservado' ? 'Reservado' : 'Otra vez en venta'}: ${mio.titulo}`,
+      `<p>El dueño del anuncio #${mio.id} «${esc(mio.titulo)}» lo ha marcado como ${situacion.replace('_', ' ')}.</p>`, deps.fetch).catch((e) => console.error(e));
+    return json(200, { ok: true, situacion });
+  }
+  // Quién entra con su cuenta (una vez por sesión del navegador): para el panel y, si se quiere, un email al equipo
+  if (ruta === 'api/visita' && method === 'POST') {
+    const email = texto(body.email, 160);
+    const nombre = texto(body.nombre, 80);
+    const r = await db('sidonia_visita', { p_cliente: cliente, p_email: email, p_nombre: nombre });
+    if (r && r.nuevo && cfg.avisosClientes) {
+      await avisarEquipo(cfg, `Nuevo cliente en Sidonia: ${nombre || email || cliente}`, `<p><b>${esc(nombre || 'Sin nombre')}</b> · ${esc(email || 'sin email')} ha entrado por primera vez con su cuenta.</p>`, deps.fetch).catch((e) => console.error(e));
+    }
+    return json(200, { ok: true });
+  }
+  return null;
+}
+
+/* ---------------------------------------------------------------------------- Avisos por email (Resend) */
+/** Email al equipo con Resend. Sin RESEND_API_KEY o sin AVISOS_EQUIPO no hace nada (el tema ya avisa por el formulario de contacto de Shopify). */
+export async function avisarEquipo(cfg, asunto, html, fetchImpl = fetch) {
+  if (!cfg.resendKey || !(cfg.avisosEquipo || []).length) return false;
+  const r = await fetchImpl('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${cfg.resendKey}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ from: cfg.avisosRemitente, to: cfg.avisosEquipo, subject: asunto, html }),
+    signal: AbortSignal.timeout(5000)
+  });
+  if (!r.ok) throw new Error(`Resend ${r.status}: ${await r.text().catch(() => '')}`);
+  return true;
+}
+
+export function emailAnuncio(cfg, a) {
+  const precio = a.precio ? `${Number(a.precio).toLocaleString('es-ES')} €` : 'A consultar';
+  const panel = cfg.panelUrl || '';
+  return `<div style="font-family:system-ui,sans-serif;max-width:620px">
+<h2 style="margin:0 0 6px">${esc(a.titulo)} · ${esc(precio)}</h2>
+<p style="margin:0 0 14px;color:#555">${esc(a.tipo)} · ${esc(a.ubicacion)} · ${(a.fotos || []).length} fotos</p>
+<p><b>Lo vende:</b> ${esc(a.vendedor_nombre)} (${esc(a.vendedor_tipo || 'particular')}) · <a href="tel:${esc(a.telefono)}">${esc(a.telefono)}</a>${a.email ? ` · ${esc(a.email)}` : ''}</p>
+<p>${esc(a.resumen)}</p>
+<p>Revísalo y publícalo desde el panel: <b>/admin</b> del motor${panel ? ` (${esc(panel)})` : ''}.</p>
+${(a.fotos || []).slice(0, 4).map((f) => `<img src="${esc(urlFoto(cfg, f))}" width="140" style="border-radius:8px;margin:0 6px 6px 0">`).join('')}
+</div>`;
+}
+
+/* ---------------------------------------------------------------------------- Ficha en Shopify */
+const parrafos = (t) => t.split(/\n{2,}|\n/).map((p) => p.trim()).filter(Boolean).map((p) => `<p>${esc(p)}</p>`).join('');
+
+/** La descripción con el formato de las fichas de Sidonia (historia, ficha técnica y ubicación) */
+export function descripcionHtml(a) {
+  const mec = a.tipo === 'casa' ? 'Estado y reformas' : 'Mecánica y estado';
+  return [
+    parrafos(a.resumen),
+    '<h3>Historia</h3>', parrafos(a.historia),
+    `<h3>${mec}</h3>`, parrafos(a.mecanica),
+    '<h3>Ficha técnica</h3>', `<ul>${(a.ficha || []).map(([k, v]) => `<li>${esc(k)}: ${esc(v)}</li>`).join('')}</ul>`,
+    '<h3>Ubicación</h3>', `<p>${esc(a.ubicacion)}</p>`
+  ].join('\n');
+}
+
+/* En la tienda, como las fichas de Sidonia: etiqueta de categoría en mayúsculas (COCHES, MOTOS, BARCOS, CASAS: así entran
+ * en sus colecciones) y, además, «dueno» (anuncio de un dueño), «particular» o «profesional» y su perfil «vendedor-…». */
+const CATEGORIA = { coche: ['COCHES', 'Cars'], moto: ['MOTOS', 'Motorcycles'], barco: ['BARCOS', 'Boats'], casa: ['CASAS', 'Real Estate'] };
+
+export function productoShopify(cfg, a) {
+  const [categoria, productType] = CATEGORIA[a.tipo] || CATEGORIA.coche;
+  const vendedorTipo = a.vendedor_tipo === 'profesional' ? 'profesional' : 'particular';
+  return {
+    product: {
+      title: a.titulo,
+      descriptionHtml: descripcionHtml(a),
+      vendor: a.vendedor_nombre,
+      productType,
+      tags: [categoria, 'dueno', vendedorTipo, `vendedor-${a.vendedor_slug}`],
+      templateSuffix: 'cars',
+      status: 'ACTIVE',
+      metafields: [
+        { namespace: 'custom', key: 'vendedor_nombre', type: 'single_line_text_field', value: a.vendedor_nombre },
+        { namespace: 'custom', key: 'vendedor_slug', type: 'single_line_text_field', value: a.vendedor_slug },
+        { namespace: 'custom', key: 'vendedor_telefono', type: 'single_line_text_field', value: a.telefono },
+        { namespace: 'custom', key: 'vendedor_tipo', type: 'single_line_text_field', value: vendedorTipo },
+        { namespace: 'custom', key: 'anuncio_id', type: 'single_line_text_field', value: String(a.id) }
+      ]
+    },
+    media: (a.fotos || []).map((f, i) => ({ originalSource: urlFoto(cfg, f), mediaContentType: 'IMAGE', alt: i === 0 ? a.titulo : `${a.titulo} · foto ${i + 1}` }))
+  };
+}
+
+/** Admin API de Shopify con la app de Sidonia (Dev Dashboard): token por «client credentials», dura 24 h */
+let tokenCache = null;
+export function shopifyAdmin(cfg, fetchImpl = fetch) {
+  const tokenOk = async () => {
+    if (tokenCache && tokenCache.hasta > Date.now() + 60e3 && tokenCache.tienda === cfg.shopifyTienda) return tokenCache.token;
+    const r = await fetchImpl(`https://${cfg.shopifyTienda}/admin/oauth/access_token`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({ grant_type: 'client_credentials', client_id: cfg.shopifyClientId, client_secret: cfg.secreto }).toString()
+    });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok || !d.access_token) throw new Error(`Shopify token ${r.status}: ${JSON.stringify(d).slice(0, 300)}`);
+    tokenCache = { token: d.access_token, hasta: Date.now() + (Number(d.expires_in) || 3600) * 1000, tienda: cfg.shopifyTienda };
+    return d.access_token;
+  };
+  const pedir = async (query, variables) => {
+    const r = await fetchImpl(`https://${cfg.shopifyTienda}/admin/api/2025-01/graphql.json`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Shopify-Access-Token': await tokenOk() },
+      body: JSON.stringify({ query, variables })
+    });
+    return { r, d: await r.json().catch(() => ({})) };
+  };
+  const denegado = (d) => JSON.stringify(d.errors || '').includes('ACCESS_DENIED');
+  return async (query, variables = {}) => {
+    let { r, d } = await pedir(query, variables);
+    // Permisos nuevos aceptados hace poco: el token guardado aún es el viejo. Se pide otro y se repite una vez.
+    if (denegado(d)) {
+      tokenCache = null;
+      ({ r, d } = await pedir(query, variables));
+      if (denegado(d)) {
+        throw new Error('La app de Shopify no tiene permiso para crear productos. En el Dev Dashboard, la versión activa tiene que tener los permisos write_products, read_publications y write_publications, y en Shopify admin › Apps › Sidonia Platform hay que aceptarlos.');
+      }
+    }
+    if (!r.ok || d.errors) throw new Error(`Shopify ${r.status}: ${JSON.stringify(d.errors || d).slice(0, 400)}`);
+    return d.data;
+  };
+}
+
+/** Los metacampos de los filtros, sacados de la ficha técnica y la ubicación */
+export function metacamposFiltros(a) {
+  const ficha = Object.fromEntries((a.ficha || []).map(([k, v]) => [String(k).toLowerCase(), String(v)]));
+  const out = [];
+  const poner = (key, value) => { if (value) out.push({ namespace: 'custom', key, type: 'single_line_text_field', value: String(value).slice(0, 100) }); };
+  poner('provincia', a.ubicacion);
+  poner('marca', ficha.marca);
+  poner('ano', (ficha['año'] || ficha.ano || '').match(/\d{4}/)?.[0]);
+  poner('combustible', ficha.combustible && ficha.combustible.charAt(0).toUpperCase() + ficha.combustible.slice(1));
+  return out;
+}
+
+/** Crea la ficha en Shopify (producto activo, con fotos, precio y en la tienda online). Devuelve { handle, url } */
+export async function publicarEnShopify(cfg, a, gql) {
+  const { product, media } = productoShopify(cfg, a);
+  const c = await gql(`mutation($product: ProductCreateInput!, $media: [CreateMediaInput!]) {
+    productCreate(product: $product, media: $media) { product { id handle onlineStoreUrl variants(first: 1) { nodes { id } } } userErrors { field message } }
+  }`, { product, media });
+  const errs = c.productCreate.userErrors;
+  if (errs.length) throw new Error(`Shopify: ${errs.map((e) => e.message).join(' · ')}`);
+  const p = c.productCreate.product;
+  const v = p.variants.nodes[0];
+  if (v) {
+    const u = await gql(`mutation($productId: ID!, $variants: [ProductVariantsBulkInput!]!) {
+      productVariantsBulkUpdate(productId: $productId, variants: $variants) { userErrors { field message } }
+    }`, { productId: p.id, variants: [{ id: v.id, price: String(a.precio || 0), inventoryPolicy: 'CONTINUE' }] });
+    const ue = u.productVariantsBulkUpdate.userErrors;
+    if (ue.length) throw new Error(`Shopify precio: ${ue.map((e) => e.message).join(' · ')}`);
+  }
+  // Filtros de la tienda (marca, año, combustible, provincia): si los metacampos de la tienda tienen otro tipo, se deja
+  try {
+    const mf = metacamposFiltros(a).map((m) => ({ ...m, ownerId: p.id }));
+    if (mf.length) await gql(`mutation($m: [MetafieldsSetInput!]!) { metafieldsSet(metafields: $m) { userErrors { field message } } }`, { m: mf });
+  } catch (e) { /* no es imprescindible */ }
+  // En la tienda online (canal de venta)
+  const pubs = await gql('{ publications(first: 20) { nodes { id name } } }');
+  const tienda = pubs.publications.nodes.find((n) => /online store|tienda online/i.test(n.name)) || pubs.publications.nodes[0];
+  if (tienda) {
+    const pr = await gql(`mutation($id: ID!, $input: [PublicationInput!]!) { publishablePublish(id: $id, input: $input) { userErrors { field message } } }`,
+      { id: p.id, input: [{ publicationId: tienda.id }] });
+    const pe = pr.publishablePublish.userErrors;
+    if (pe.length) throw new Error(`Shopify canal: ${pe.map((e) => e.message).join(' · ')}`);
+  }
+  return { handle: p.handle, url: `${cfg.tienda}/products/${p.handle}` };
+}
+
+/** El producto de Shopify de un anuncio (por su handle): id, variante y fotos */
+async function productoPorHandle(handle, gql) {
+  const d = await gql(`query($q: String!) { products(first: 1, query: $q) { nodes { id handle variants(first: 1) { nodes { id } } media(first: 60) { nodes { id } } } } }`,
+    { q: `handle:${handle}` });
+  const p = d.products.nodes.find((n) => n.handle === handle);
+  if (!p) throw new Error(`No encuentro en Shopify el producto «${handle}».`);
+  return p;
+}
+
+/** Archiva la ficha (deja de verse en la tienda, se puede recuperar en Shopify › Productos) */
+export async function archivarEnShopify(handle, gql) {
+  const p = await productoPorHandle(handle, gql);
+  const u = await gql(`mutation($product: ProductUpdateInput!) { productUpdate(product: $product) { userErrors { field message } } }`,
+    { product: { id: p.id, status: 'ARCHIVED' } });
+  const errs = u.productUpdate.userErrors;
+  if (errs.length) throw new Error(`Shopify: ${errs.map((e) => e.message).join(' · ')}`);
+  return true;
+}
+
+/** Reservado / vendido / en venta: la etiqueta de la ficha («reservado» o «vendido», como en los coches de Sidonia)
+ *  y el anuncio (vendido deja de contar como su anuncio gratis). Primero Shopify: si falla, no se cambia nada. */
+export async function marcarSituacion(cfg, a, situacion, deps) {
+  const gql = deps.gql || shopifyAdmin(cfg, deps.fetch);
+  const p = await productoPorHandle(a.producto, gql);
+  await gql(`mutation($id: ID!, $tags: [String!]!) { tagsRemove(id: $id, tags: $tags) { userErrors { field message } } }`, { id: p.id, tags: ['reservado', 'vendido', 'Reservado', 'Vendido'] });
+  if (situacion !== 'en_venta') {
+    const t = await gql(`mutation($id: ID!, $tags: [String!]!) { tagsAdd(id: $id, tags: $tags) { userErrors { field message } } }`, { id: p.id, tags: [situacion] });
+    const errs = t.tagsAdd.userErrors;
+    if (errs.length) throw new Error(`Shopify: ${errs.map((e) => e.message).join(' · ')}`);
+  }
+  const tabla = deps.tabla || tablaAnuncios(cfg, deps.fetch);
+  if (situacion === 'vendido') await deps.db('sidonia_anuncio_estado', { p_id: a.id, p_estado: 'vendido', p_nota: '', p_producto: null });
+  await tabla.cambiar(a.id, { reservado: situacion === 'reservado' });
+}
+
+/** Cambia el nombre del vendedor (y si es particular o profesional) en las fichas de sus anuncios publicados o vendidos */
+async function nombreEnSusAnuncios(cfg, cliente, perfil, deps) {
+  const tabla = deps.tabla || tablaAnuncios(cfg, deps.fetch);
+  const suyos = await tabla.leer(`cliente=eq.${encodeURIComponent(cliente)}&estado=in.(publicado,vendido)&select=id,producto,vendedor_nombre,vendedor_tipo`);
+  const gql = deps.gql || shopifyAdmin(cfg, deps.fetch);
+  for (const a of suyos.filter((x) => x.producto)) {
+    if (a.vendedor_nombre === perfil.nombre && a.vendedor_tipo === perfil.tipo) continue;
+    const p = await productoPorHandle(a.producto, gql);
+    await gql(`mutation($product: ProductUpdateInput!) { productUpdate(product: $product) { userErrors { field message } } }`, { product: { id: p.id, vendor: perfil.nombre } });
+    await gql(`mutation($m: [MetafieldsSetInput!]!) { metafieldsSet(metafields: $m) { userErrors { field message } } }`, { m: [
+      { ownerId: p.id, namespace: 'custom', key: 'vendedor_nombre', type: 'single_line_text_field', value: perfil.nombre },
+      { ownerId: p.id, namespace: 'custom', key: 'vendedor_tipo', type: 'single_line_text_field', value: perfil.tipo }
+    ] });
+    await tabla.cambiar(a.id, { vendedor_nombre: perfil.nombre, vendedor_tipo: perfil.tipo });
+  }
+}
+
+/** Aplica a la ficha publicada los cambios aprobados: textos, precio, metacampos y, si han cambiado, las fotos */
+export async function actualizarEnShopify(cfg, a, fotosCambiadas, gql) {
+  const p = await productoPorHandle(a.producto, gql);
+  const { product, media } = productoShopify(cfg, a);
+  delete product.status;
+  const u = await gql(`mutation($product: ProductUpdateInput!) { productUpdate(product: $product) { userErrors { field message } } }`, { product: { ...product, id: p.id } });
+  const errs = u.productUpdate.userErrors;
+  if (errs.length) throw new Error(`Shopify: ${errs.map((e) => e.message).join(' · ')}`);
+  const v = p.variants.nodes[0];
+  if (v) {
+    await gql(`mutation($productId: ID!, $variants: [ProductVariantsBulkInput!]!) {
+      productVariantsBulkUpdate(productId: $productId, variants: $variants) { userErrors { field message } }
+    }`, { productId: p.id, variants: [{ id: v.id, price: String(a.precio || 0) }] });
+  }
+  try {
+    const mf = metacamposFiltros(a).map((m) => ({ ...m, ownerId: p.id }));
+    if (mf.length) await gql(`mutation($m: [MetafieldsSetInput!]!) { metafieldsSet(metafields: $m) { userErrors { field message } } }`, { m: mf });
+  } catch (e) { /* no es imprescindible */ }
+  if (fotosCambiadas) {
+    const viejas = p.media.nodes.map((m) => m.id);
+    await gql(`mutation($productId: ID!, $media: [CreateMediaInput!]!) { productCreateMedia(productId: $productId, media: $media) { mediaUserErrors { field message } } }`, { productId: p.id, media });
+    if (viejas.length) await gql(`mutation($productId: ID!, $mediaIds: [ID!]!) { productDeleteMedia(productId: $productId, mediaIds: $mediaIds) { mediaUserErrors { field message } } }`, { productId: p.id, mediaIds: viejas });
+  }
+  return { url: `${cfg.tienda}/products/${p.handle}` };
+}
+
+/* ---------------------------------------------------------------------------- Panel del equipo */
+const ESTADOS = { pendiente: 'Por revisar', aprobado: 'Aprobado', publicado: 'Publicado', vendido: 'Vendido', rechazado: 'Rechazado', retirado: 'Retirado' };
+
+/** «Editar» en el panel: todos los textos, la ficha, el vendedor y las fotos (quitar y elegir portada) */
+function formEditar(cfg, a) {
+  const campo = (nombre, etiqueta, valor, extra = '') => `<label>${etiqueta}<input name="${nombre}" value="${esc(valor ?? '')}" ${extra}></label>`;
+  const area = (nombre, etiqueta, valor, filas) => `<label>${etiqueta}<textarea name="${nombre}" rows="${filas}">${esc(valor ?? '')}</textarea></label>`;
+  const opciones = (lista, actual, nombres) => lista.map((v) => `<option value="${v}"${v === actual ? ' selected' : ''}>${nombres[v] || v}</option>`).join('');
+  const fotos = (a.fotos || []).map((f, i) => `<div class="efoto"><img src="${esc(urlFoto(cfg, f))}" alt="" loading="lazy">
+      <span><input type="radio" name="portada" value="${i}"${i === 0 ? ' checked' : ''}> Portada</span>
+      <span><input type="checkbox" name="quitar" value="${i}"> Quitar</span></div>`).join('');
+  return `<details class="editar"><summary>Editar antes de publicar</summary>
+    <form method="post">
+      <input type="hidden" name="id" value="${a.id}">
+      <div class="fila">
+        <label>Tipo<select name="tipo">${opciones(TIPOS, a.tipo, { coche: 'Coche', moto: 'Moto', barco: 'Barco', casa: 'Casa' })}</select></label>
+        ${campo('titulo', 'Título', a.titulo, 'required minlength="4" maxlength="120"')}
+        ${campo('precio', 'Precio (€) <small>vacío = a consultar</small>', a.precio || '', 'inputmode="numeric"')}
+        ${campo('ubicacion', 'Ubicación', a.ubicacion)}
+      </div>
+      ${area('resumen', 'Descripción breve', a.resumen, 2)}
+      ${area('historia', 'Su historia', a.historia, 7)}
+      ${area('mecanica', a.tipo === 'casa' ? 'Estado y reformas' : 'Mecánica y estado', a.mecanica, 4)}
+      ${area('ficha', 'Ficha técnica <small>una línea por dato: «Año: 1987»</small>', (a.ficha || []).map(([k, v]) => `${k}: ${v}`).join('\n'), 6)}
+      <div class="fila">
+        ${campo('vendedor_nombre', 'Nombre del vendedor', a.vendedor_nombre)}
+        <label>Vende como<select name="vendedor_tipo">${opciones(VENDEDOR_TIPOS, a.vendedor_tipo, { particular: 'Particular', profesional: 'Profesional' })}</select></label>
+        ${campo('telefono', 'Teléfono', a.telefono)}
+      </div>
+      <label>Fotos <small>elige la portada o quita las que no valgan</small></label>
+      <div class="efotos">${fotos}</div>
+      <div><button name="accion" value="guardar" class="si">Guardar cambios</button></div>
+    </form>
+  </details>`;
+}
+
+export function paginaPanel(cfg, lista, { estado = 'pendiente', aviso = '' } = {}) {
+  const fmt = (n) => (n ? `${Number(n).toLocaleString('es-ES')} €` : 'A consultar');
+  const pestañas = Object.entries(ESTADOS).map(([k, v]) => `<a href="?estado=${k}" class="${k === estado ? 'on' : ''}">${v}</a>`).join('')
+    + `<a href="?estado=cambios" class="${estado === 'cambios' ? 'on' : ''}">Cambios</a><a href="?estado=propietarios" class="${estado === 'propietarios' ? 'on' : ''}">Propietarios</a><a href="?estado=clientes">Clientes</a>`;
+  if (estado === 'propietarios') return paginaPanelHtml(pestañas, aviso, paginaPropietarios(cfg, lista));
+  if (estado === 'cambios') return paginaPanelHtml(pestañas, aviso, lista.map((a) => tarjetaCambios(cfg, a)).join('') || '<p class="vacio">No hay cambios por revisar.</p>');
+  const tarjetas = lista.map((a) => `
+  <article class="a">
+    <div class="fotos">${(a.fotos || []).map((f, i) => `<a href="${esc(urlFoto(cfg, f))}" target="_blank"><img src="${esc(urlFoto(cfg, f))}" alt="" loading="lazy">${i === 0 ? '<b>Portada</b>' : ''}</a>`).join('')}</div>
+    <div class="cuerpo">
+      <p class="meta">#${a.id} · ${esc(a.tipo)} · ${new Date(a.creado).toLocaleString('es-ES', { timeZone: 'Europe/Madrid' })} · <span class="est est-${esc(a.estado)}">${esc(ESTADOS[a.estado] || a.estado)}</span></p>
+      <h2>${esc(a.titulo)} <small>${fmt(a.precio)} · ${esc(a.ubicacion)}</small></h2>
+      <p class="vend">Lo vende <b>${esc(a.vendedor_nombre)}</b> (${a.vendedor_tipo === 'profesional' ? 'profesional' : 'particular'}) · <a href="tel:${esc(a.telefono)}">${esc(a.telefono)}</a>${a.email ? ` · ${esc(a.email)}` : ''} · ${(a.fotos || []).length} fotos</p>
+      <p class="res">${esc(a.resumen)}</p>
+      <details><summary>Historia, mecánica y ficha técnica</summary>
+        <h3>Historia</h3>${parrafos(a.historia)}
+        <h3>${a.tipo === 'casa' ? 'Estado y reformas' : 'Mecánica y estado'}</h3>${parrafos(a.mecanica)}
+        <h3>Ficha técnica</h3><table>${(a.ficha || []).map(([k, v]) => `<tr><th>${esc(k)}</th><td>${esc(v)}</td></tr>`).join('')}</table>
+      </details>
+      ${a.nota ? `<p class="nota">Nota: ${esc(a.nota)}</p>` : ''}
+      ${a.producto ? `<p><a href="${esc(cfg.tienda)}/products/${esc(a.producto)}" target="_blank">Ver la ficha en la tienda →</a></p>` : ''}
+      ${['pendiente', 'aprobado'].includes(a.estado) ? formEditar(cfg, a) : ''}
+      <form method="post" class="acc">
+        <input type="hidden" name="id" value="${a.id}">
+        ${['pendiente', 'aprobado'].includes(a.estado) ? '<button name="accion" value="publicar" class="si">Aprobar y publicar en Shopify</button>' : ''}
+        ${a.estado === 'pendiente' ? '<textarea name="nota" rows="2" placeholder="Motivo si lo rechazas: le llega al dueño por email (p. ej. «Las fotos tienen poca luz: ¿puedes hacer otras de día?»)"></textarea><button name="accion" value="rechazar" class="no">Rechazar</button>' : ''}
+        ${a.estado === 'publicado' ? `${a.reservado ? '<button name="accion" value="en_venta">Quitar «Reservado»</button>' : '<button name="accion" value="reservado">Reservado</button>'}<button name="accion" value="vendido">Vendido</button><button name="accion" value="retirar" class="no">Marcar como retirado</button>` : ''}
+        ${['pendiente', 'aprobado'].includes(a.estado) ? `<label class="avisar"><input type="checkbox" name="avisar" value="1" checked> Avisar al dueño por email${a.email ? ` (${esc(a.email)})` : ' (no tenemos su email)'}</label>` : ''}
+      </form>
+    </div>
+  </article>`).join('') || '<p class="vacio">No hay anuncios aquí.</p>';
+  return paginaPanelHtml(pestañas, aviso, tarjetas);
+}
+
+/** Panel › Cambios: lo que el dueño ha editado de un anuncio aprobado o publicado, antes y ahora, para aprobarlo o no */
+const ETIQUETAS = { tipo: 'Tipo', titulo: 'Título', precio: 'Precio', ubicacion: 'Ubicación', resumen: 'Descripción breve', historia: 'Su historia', mecanica: 'Mecánica y estado', ficha: 'Ficha técnica', vendedor_nombre: 'Nombre', vendedor_tipo: 'Vende como', telefono: 'Teléfono' };
+function tarjetaCambios(cfg, a) {
+  const r = a.revision || {};
+  const ver = (k, v) => {
+    if (k === 'precio') return v ? `${Number(v).toLocaleString('es-ES')} €` : 'A consultar';
+    if (k === 'ficha') return (v || []).map(([x, y]) => `${esc(x)}: ${esc(y)}`).join('<br>');
+    return esc(v ?? '').replace(/\n/g, '<br>');
+  };
+  const filas = Object.keys(ETIQUETAS).filter((k) => k in r && JSON.stringify(r[k] ?? null) !== JSON.stringify(a[k] ?? null))
+    .map((k) => `<tr><th>${ETIQUETAS[k]}</th><td class="antes">${ver(k, a[k])}</td><td class="ahora">${ver(k, r[k])}</td></tr>`).join('');
+  const tiras = (lista) => `<div class="fotos">${(lista || []).map((f, i) => `<a href="${esc(urlFoto(cfg, f))}" target="_blank"><img src="${esc(urlFoto(cfg, f))}" alt="" loading="lazy">${i === 0 ? '<b>Portada</b>' : ''}</a>`).join('')}</div>`;
+  const fotos = JSON.stringify(r.fotos || []) !== JSON.stringify(a.fotos || []) ? `<h3>Fotos antes</h3>${tiras(a.fotos)}<h3>Fotos ahora</h3>${tiras(r.fotos)}` : '';
+  return `
+  <article class="a">
+    <div class="cuerpo">
+      <p class="meta">#${a.id} · ${esc(a.tipo)} · <span class="est est-${esc(a.estado)}">${esc(ESTADOS[a.estado] || a.estado)}</span> · cambios del ${a.revision_fecha ? new Date(a.revision_fecha).toLocaleString('es-ES', { timeZone: 'Europe/Madrid' }) : '—'}</p>
+      <h2>${esc(a.titulo)} <small>· ${esc(a.vendedor_nombre)} · ${esc(a.email || '')}</small></h2>
+      ${a.producto ? `<p><a href="${esc(cfg.tienda)}/products/${esc(a.producto)}" target="_blank">Ver la ficha en la tienda →</a></p>` : ''}
+      ${filas ? `<table class="diff"><tr><th></th><th>Antes</th><th>Ahora</th></tr>${filas}</table>` : (fotos ? '' : '<p class="vacio">Sin cambios en los textos.</p>')}
+      ${fotos}
+      <form method="post" class="acc">
+        <input type="hidden" name="id" value="${a.id}">
+        <button name="accion" value="aplicar" class="si">Aprobar cambios${a.estado === 'publicado' ? ' y actualizar la ficha' : ''}</button>
+        <textarea name="nota" rows="2" placeholder="Motivo si no los apruebas: le llega al dueño por email"></textarea><button name="accion" value="descartar" class="no">No aprobar</button>
+        <label class="avisar"><input type="checkbox" name="avisar" value="1" checked> Avisar al dueño por email${a.email ? ` (${esc(a.email)})` : ' (no tenemos su email)'}</label>
+      </form>
+    </div>
+  </article>`;
+}
+
+/** Panel › Propietarios: sacar de cada historia el nombre del dueño de los coches de Sidonia (metacampo custom.propietario) */
+function paginaPropietarios(cfg, informe) {
+  const admin = (h) => `https://admin.shopify.com/store/${esc(String(cfg.shopifyTienda || '').replace('.myshopify.com', ''))}/products?query=${encodeURIComponent(h)}`;
+  const filas = (informe || []).map((r) => `<tr><td><a href="${esc(cfg.tienda)}/products/${esc(r.handle)}" target="_blank">${esc(r.titulo)}</a></td>
+    <td>${r.nombre ? `<b>${esc(r.nombre)}</b>` : '<span class="vacio">— (no lo nombra)</span>'}</td>
+    <td>${r.estado === 'nuevo' ? 'Puesto ahora' : r.estado === 'ya' ? 'Ya lo tenía' : `<a href="${admin(r.handle)}" target="_blank">Ponerlo a mano</a>`}</td></tr>`).join('');
+  const cuenta = (e) => (informe || []).filter((r) => r.estado === e).length;
+  return `<article class="a"><div class="cuerpo">
+    <h2>Propietarios de los coches de Sidonia</h2>
+    <p class="res">Lee la historia de cada producto de Sidonia y saca el nombre de su dueño («<i>Carlos</i> lleva toda la vida…»). Se lo pone
+      a los que aún no lo tienen; sale en la ficha («Propietario: Carlos · Venta gestionada por Sidonia») y en la tarjeta.
+      Si alguno no cuadra, cámbialo en Shopify › Productos › el coche › <b>Propietario</b>. Pásalo cuando subáis coches nuevos.</p>
+    <form method="post" class="acc">
+      <button name="accion" value="propietarios" class="si">Sacar los propietarios de las historias</button>
+      <label class="avisar"><input type="checkbox" name="sobrescribir" value="1"> Volver a sacarlos también en los que ya tienen (cambia lo puesto a mano)</label>
+    </form>
+    ${informe ? `<p class="meta">${cuenta('nuevo')} puestos ahora · ${cuenta('ya')} ya lo tenían · ${cuenta('sin')} sin nombre en la historia</p>
+      <table class="diff"><tr><th>Producto</th><th>Propietario</th><th></th></tr>${filas}</table>` : ''}
+  </div></article>`;
+}
+
+function paginaPanelHtml(pestañas, aviso, tarjetas) {
+  return `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Anuncios de dueños · Panel de Sidonia</title><meta name="robots" content="noindex">
+<style>
+  :root { color-scheme: light; font-family: system-ui, -apple-system, Segoe UI, sans-serif; color: #1a1a1a; background: #f6f5f2; }
+  body { max-width: 1100px; margin: 0 auto; padding: 24px 16px 80px; }
+  header { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+  h1 { margin: 0; letter-spacing: .2em; font-size: 18px; }
+  nav { display: flex; gap: 6px; flex-wrap: wrap; margin: 18px 0; }
+  nav a { padding: 8px 14px; border: 1px solid #0002; border-radius: 99px; color: inherit; text-decoration: none; font-size: 14px; background: #fff; }
+  nav a.on { border-color: #1a1a1a; font-weight: 700; }
+  .aviso { padding: 12px 16px; border-radius: 12px; background: #e6f4ec; color: #1f7a4d; font-weight: 600; }
+  .aviso.mal { background: #fde8ea; color: #a2121f; }
+  .a { display: grid; gap: 14px; margin: 18px 0; padding: 16px; border-radius: 18px; background: #fff; box-shadow: 0 1px 2px #0000000d; }
+  .fotos { display: flex; gap: 8px; overflow-x: auto; }
+  .fotos a { position: relative; flex: none; }
+  .fotos img { width: 150px; height: 112px; object-fit: cover; border-radius: 10px; display: block; }
+  .fotos b { position: absolute; left: 6px; top: 6px; padding: 2px 8px; border-radius: 99px; background: #fff; font-size: 11px; }
+  h2 { margin: 0; font-size: 20px; } h2 small { font-weight: 400; opacity: .6; font-size: 14px; }
+  .meta, .vend { margin: 0; font-size: 13px; opacity: .75; } .res { margin: 0; }
+  .est { padding: 1px 8px; border-radius: 99px; background: #eee; } .est-pendiente { background: #fff3cd; } .est-publicado { background: #e6f4ec; } .est-rechazado { background: #fde8ea; }
+  details summary { cursor: pointer; font-weight: 600; } details h3 { font-size: 14px; margin: 14px 0 4px; } details p { margin: 0 0 8px; line-height: 1.5; }
+  table { border-collapse: collapse; font-size: 14px; } th { text-align: left; padding: 3px 12px 3px 0; opacity: .6; font-weight: 400; }
+  .nota { color: #a2121f; }
+  .acc { display: flex; gap: 8px; flex-wrap: wrap; }
+  .acc textarea[name=nota] { flex: 1; min-width: 220px; padding: 10px 12px; border: 1px solid #0003; border-radius: 10px; font: inherit; resize: vertical; }
+  .avisar { flex-basis: 100%; font-size: 13px; opacity: .8; display: flex; gap: 6px; align-items: center; }
+  .editar { border: 1px solid #0002; border-radius: 14px; padding: 10px 14px; }
+  .a { grid-template-columns: minmax(0, 1fr); } .cuerpo { min-width: 0; }
+  .diff { width: 100%; font-size: 14px; table-layout: fixed; overflow-wrap: anywhere; } .diff th, .diff td { vertical-align: top; padding: 8px 10px; border-top: 1px solid #0001; text-align: left; }
+  .diff th:first-child { width: 130px; } .diff .antes { background: #fdf0f1; color: #6b1a22; } .diff .ahora { background: #edf7f0; color: #14532d; }
+  .a h3 { font-size: 14px; margin: 12px 0 6px; }
+  .editar summary { font-weight: 700; }
+  .editar form { display: grid; gap: 12px; margin-top: 12px; }
+  .editar .fila { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); }
+  .editar label { display: grid; gap: 4px; font-size: 13px; font-weight: 600; }
+  .editar input, .editar textarea, .editar select { padding: 9px 11px; border: 1px solid #0003; border-radius: 10px; font: inherit; font-weight: 400; background: #fff; }
+  .editar textarea { resize: vertical; line-height: 1.45; }
+  .editar .efotos { display: flex; gap: 8px; flex-wrap: wrap; }
+  .editar .efoto { width: 120px; font-weight: 400; font-size: 12px; }
+  .editar .efoto img { width: 120px; height: 90px; object-fit: cover; border-radius: 8px; display: block; }
+  .editar .efoto span { display: flex; gap: 4px; align-items: center; }
+  .editar small { font-weight: 400; opacity: .6; }
+  button { padding: 10px 16px; border-radius: 99px; border: 1px solid #1a1a1a; background: #fff; font: inherit; font-weight: 700; cursor: pointer; }
+  button.si { background: #1a1a1a; color: #fff; } button.no { border-color: #a2121f; color: #a2121f; }
+  .vacio { opacity: .6; }
+</style></head><body>
+<header><h1>SIDONIA · ANUNCIOS DE DUEÑOS</h1><span>Panel del equipo</span></header>
+${aviso ? `<p class="aviso${aviso.startsWith('Error') ? ' mal' : ''}">${esc(aviso)}</p>` : ''}
+<nav>${pestañas}</nav>
+${tarjetas}
+<script>document.querySelectorAll('form.acc').forEach((f) => f.addEventListener('submit', (e) => { const b = e.submitter; if (b && b.value === 'publicar' && !confirm('¿Aprobar y crear la ficha en Shopify?')) return e.preventDefault(); if (b && b.value === 'rechazar' && !confirm('¿Rechazar este anuncio?')) return e.preventDefault(); if (b && b.value === 'descartar' && !confirm('¿No aprobar estos cambios?')) return e.preventDefault(); if (b) setTimeout(() => { b.disabled = true; b.textContent = 'Un momento…'; }, 0); }));</script>
+</body></html>`;
+}
+
+/** Contraseña del panel (usuario cualquiera, contraseña ADMIN_CLAVE) */
+/** Panel › Clientes: quién se ha registrado y quién ha entrado, y cuándo */
+export function paginaClientes(datos) {
+  const d = datos || {};
+  const fecha = (t) => (t ? new Date(t).toLocaleString('es-ES', { timeZone: 'Europe/Madrid', day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' }) : '');
+  const filas = (d.lista || []).map((c) => `<tr><td><b>${esc(c.nombre || '—')}</b><br><a href="mailto:${esc(c.email)}">${esc(c.email)}</a></td><td>${fecha(c.primera)}</td><td>${fecha(c.ultima)}</td><td>${Number(c.visitas) || 1}</td></tr>`).join('');
+  const pestañas = Object.entries(ESTADOS).map(([k, v]) => `<a href="?estado=${k}">${v}</a>`).join('') + '<a href="?estado=cambios">Cambios</a><a href="?estado=propietarios">Propietarios</a><a href="?estado=clientes" class="on">Clientes</a>';
+  return `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Clientes · Panel de Sidonia</title><meta name="robots" content="noindex">
+<style>
+  :root { font-family: system-ui, -apple-system, Segoe UI, sans-serif; color: #1a1a1a; background: #f6f5f2; }
+  body { max-width: 1100px; margin: 0 auto; padding: 24px 16px 80px; }
+  h1 { margin: 0; letter-spacing: .2em; font-size: 18px; }
+  nav { display: flex; gap: 6px; flex-wrap: wrap; margin: 18px 0; }
+  nav a { padding: 8px 14px; border: 1px solid #0002; border-radius: 99px; color: inherit; text-decoration: none; font-size: 14px; background: #fff; }
+  nav a.on { border-color: #1a1a1a; font-weight: 700; }
+  .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; margin-bottom: 18px; }
+  .kpi { padding: 14px 16px; border-radius: 16px; background: #fff; } .kpi b { display: block; font-size: 26px; } .kpi span { font-size: 13px; opacity: .6; }
+  table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 16px; overflow: hidden; font-size: 14px; }
+  th, td { padding: 10px 12px; border-bottom: 1px solid #0001; text-align: left; vertical-align: top; } th { font-weight: 600; opacity: .6; font-size: 12px; text-transform: uppercase; letter-spacing: .08em; }
+  a { color: inherit; } .nota { font-size: 13px; opacity: .6; }
+</style></head><body>
+<header><h1>SIDONIA · ANUNCIOS DE DUEÑOS</h1></header>
+<nav>${pestañas}</nav>
+<div class="kpis">
+  <div class="kpi"><b>${Number(d.nuevos_hoy) || 0}</b><span>Nuevos hoy</span></div>
+  <div class="kpi"><b>${Number(d.semana) || 0}</b><span>Nuevos esta semana</span></div>
+  <div class="kpi"><b>${Number(d.hoy) || 0}</b><span>Han entrado hoy</span></div>
+  <div class="kpi"><b>${Number(d.total) || 0}</b><span>Clientes en total</span></div>
+</div>
+<table><thead><tr><th>Cliente</th><th>Primera vez (registro)</th><th>Última vez</th><th>Visitas</th></tr></thead><tbody>${filas || '<tr><td colspan="4">Aún no ha entrado nadie con su cuenta.</td></tr>'}</tbody></table>
+<p class="nota">Se apunta cada vez que alguien entra en sidonia.es con su cuenta (una vez por sesión del navegador). La lista completa de clientes está en Shopify › Clientes.</p>
+</body></html>`;
+}
+
+export function panelAutorizado(headers, clave) {
+  if (!clave) return false;
+  const h = String(headers.authorization || '');
+  if (!h.startsWith('Basic ')) return false;
+  const [, pass = ''] = Buffer.from(h.slice(6), 'base64').toString('utf8').split(/:(.*)/s);
+  const a = createHash('sha256').update(pass).digest();
+  const b = createHash('sha256').update(clave).digest();
+  return a.equals(b);
+}
+
+/** Lo que el equipo cambia en «Editar» (solo anuncios por revisar o aprobados). Devuelve los campos o { error }. */
+export function leerEdicion(b, a) {
+  const tipo = TIPOS.includes(b.tipo) ? b.tipo : a.tipo;
+  const titulo = texto(b.titulo, 120);
+  if (titulo.length < 4) return { error: 'El título es demasiado corto.' };
+  const precio = String(b.precio || '').replace(/\D/g, '');
+  const ficha = texto(b.ficha, 3000).split('\n').map((l) => l.split(/:(.*)/s).map((x) => x.trim())).filter(([k, v]) => k && v).slice(0, 40).map(([k, v]) => [k.slice(0, 40), v.slice(0, 120)]);
+  // Fotos: se pueden quitar y elegir la portada; nunca añadir rutas nuevas desde aquí
+  const actuales = Array.isArray(a.fotos) ? a.fotos : [];
+  const quitar = new Set([].concat(b.quitar || []).map(Number));
+  let fotos = actuales.filter((_, i) => !quitar.has(i));
+  const portada = actuales[Number(b.portada)];
+  if (portada && fotos.includes(portada)) fotos = [portada, ...fotos.filter((f) => f !== portada)];
+  if (!fotos.length) return { error: 'Tiene que quedar al menos una foto.' };
+  const tel = texto(b.telefono, 30);
+  if (tel.replace(/\D/g, '').length < 9) return { error: 'Revisa el teléfono.' };
+  return {
+    tipo, titulo, precio: precio ? Number(precio) : null, ubicacion: texto(b.ubicacion, 80), resumen: texto(b.resumen, 600),
+    historia: texto(b.historia, 8000), mecanica: texto(b.mecanica, 5000), ficha, fotos,
+    vendedor_nombre: texto(b.vendedor_nombre, 60) || a.vendedor_nombre, vendedor_tipo: VENDEDOR_TIPOS.includes(b.vendedor_tipo) ? b.vendedor_tipo : a.vendedor_tipo,
+    telefono: tel, actualizado: new Date().toISOString()
+  };
+}
+
+/** La tabla anuncios de Supabase por REST, con la clave de servicio: leer (filtro de PostgREST) y cambiar un anuncio */
+export function tablaAnuncios(cfg, fetchImpl = fetch, nombreTabla = 'anuncios') {
+  const cabeceras = { apikey: cfg.supabaseKey, ...(cfg.supabaseKey.startsWith('sb_') ? {} : { Authorization: `Bearer ${cfg.supabaseKey}` }), 'Content-Type': 'application/json' };
+  const fallo = async (r) => {
+    const t = (await r.text().catch(() => '')).slice(0, 200);
+    // Falta la columna «revision» o la tabla «perfiles»: hay que volver a ejecutar sql/circulo.sql
+    throw new Error(/revision|reservado|perfiles/.test(t) ? 'Falta actualizar la base de datos: ejecuta otra vez sql/circulo.sql en Supabase › SQL Editor.' : `Supabase ${r.status}: ${t}`);
+  };
+  return {
+    async leer(filtro) {
+      const r = await fetchImpl(`${cfg.supabaseUrl}/rest/v1/${nombreTabla}?${/(^|&)select=/.test(filtro) ? '' : 'select=*&'}${filtro}`, { headers: cabeceras, signal: AbortSignal.timeout(8000) });
+      if (!r.ok) await fallo(r);
+      return r.json();
+    },
+    async cambiar(id, cambios) {
+      const r = await fetchImpl(`${cfg.supabaseUrl}/rest/v1/${nombreTabla}?id=eq.${Number(id)}`, {
+        method: 'PATCH', headers: { ...cabeceras, Prefer: 'return=minimal' }, body: JSON.stringify(cambios), signal: AbortSignal.timeout(8000)
+      });
+      if (!r.ok) await fallo(r);
+    },
+    // Crear o cambiar una fila por su clave (perfiles: cliente)
+    async guardar(fila, clave) {
+      const r = await fetchImpl(`${cfg.supabaseUrl}/rest/v1/${nombreTabla}?on_conflict=${clave}`, {
+        method: 'POST', headers: { ...cabeceras, Prefer: 'resolution=merge-duplicates,return=representation' }, body: JSON.stringify(fila), signal: AbortSignal.timeout(8000)
+      });
+      if (!r.ok) await fallo(r);
+      return (await r.json())[0];
+    }
+  };
+}
+
+/** Lo público de un perfil: lo que se enseña en su página y en sus anuncios (sin el id del cliente) */
+export const perfilPublico = (cfg, p) => p && ({
+  slug: p.slug, nombre: p.nombre, tipo: p.tipo === 'profesional' ? 'profesional' : 'particular', descripcion: p.descripcion || '',
+  foto: p.foto ? urlFoto(cfg, p.foto) : ''
+});
+
+/** Guarda los cambios de un anuncio (panel › Editar) */
+export const guardarAnuncio = (cfg, id, cambios, fetchImpl = fetch) => tablaAnuncios(cfg, fetchImpl).cambiar(id, cambios);
+
+export async function atenderPanel(req, cfg, deps) {
+  const html = (body, status = 200) => ({ status, headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' }, body });
+  if (!panelAutorizado(req.headers || {}, cfg.adminClave)) {
+    return { status: 401, headers: { 'WWW-Authenticate': 'Basic realm="Sidonia"', 'Content-Type': 'text/plain; charset=utf-8' }, body: 'Hace falta la contraseña del panel.' };
+  }
+  const { db } = deps;
+  if (req.query.estado === 'clientes') return html(paginaClientes(await db('sidonia_clientes_lista', { p_limite: 300 })));
+  // Email al dueño: el aviso del panel dice si ha salido, si falta Resend o si ha fallado
+  const correoAlDueno = async (a, avisar, c) => {
+    if (!avisar) return '';
+    if (!a.email) return ' Sin email del dueño: no se le ha avisado.';
+    try {
+      return (await enviarCorreo(cfg, a.email, c.asunto, c.html, deps.fetch)) ? ` Email enviado a ${a.email}.` : ' No se ha enviado el email: falta RESEND_API_KEY en Vercel.';
+    } catch (e) {
+      console.error(e);
+      return ` El email no ha salido (${e.message}).`;
+    }
+  };
+  if (req.query.estado === 'propietarios') {
+    let informe = null;
+    let aviso = '';
+    if (req.method === 'POST' && req.body.accion === 'propietarios') {
+      try {
+        if (!cfg.shopifyTienda || !cfg.shopifyClientId) throw new Error('Faltan SHOPIFY_TIENDA y SHOPIFY_CLIENT_ID en Vercel.');
+        informe = await rellenarPropietarios(deps.gql || shopifyAdmin(cfg, deps.fetch), { sobrescribir: req.body.sobrescribir === '1' });
+        aviso = `Listo: ${informe.filter((r) => r.estado === 'nuevo').length} propietarios puestos.`;
+      } catch (e) {
+        console.error(e);
+        aviso = `Error: ${e.message}`;
+      }
+    }
+    return html(paginaPanel(cfg, informe, { estado: 'propietarios', aviso }));
+  }
+  if (req.query.estado === 'cambios') {
+    const tabla = deps.tabla || tablaAnuncios(cfg, deps.fetch);
+    let aviso = '';
+    if (req.method === 'POST') {
+      try {
+        const [a] = await tabla.leer(`id=eq.${Number(req.body.id)}`);
+        if (!a || !a.revision) throw new Error('Ese anuncio ya no tiene cambios por revisar.');
+        const avisar = req.body.avisar === '1';
+        if (req.body.accion === 'aplicar') {
+          const nuevo = { ...a, ...a.revision };
+          let url = '';
+          // Primero la ficha de Shopify: si falla, los cambios siguen por revisar
+          if (a.estado === 'publicado' && a.producto) {
+            url = (await actualizarEnShopify(cfg, nuevo, JSON.stringify(a.fotos) !== JSON.stringify(nuevo.fotos), deps.gql || shopifyAdmin(cfg, deps.fetch))).url;
+          }
+          await tabla.cambiar(a.id, { ...a.revision, revision: null, revision_fecha: null, actualizado: new Date().toISOString() });
+          aviso = `Cambios aprobados en el anuncio #${a.id}${url ? ' y actualizada su ficha en la tienda' : ''}.` + await correoAlDueno(nuevo, avisar, correoCambiosAprobados(cfg, nuevo, url));
+        } else if (req.body.accion === 'descartar') {
+          await tabla.cambiar(a.id, { revision: null, revision_fecha: null });
+          aviso = `No aprobados los cambios del anuncio #${a.id}: sigue como estaba.` + await correoAlDueno(a, avisar, correoCambiosRechazados(cfg, a, texto(req.body.nota, 1500)));
+        }
+      } catch (e) {
+        console.error(e);
+        aviso = `Error: ${e.message}`;
+      }
+    }
+    let lista = [];
+    try { lista = await tabla.leer('revision=not.is.null&order=revision_fecha.desc'); } catch (e) { aviso = aviso || `Error: ${e.message}`; }
+    return html(paginaPanel(cfg, lista, { estado: 'cambios', aviso }));
+  }
+  let aviso = '';
+  let estado = ESTADOS[req.query.estado] ? req.query.estado : 'pendiente';
+  if (req.method === 'POST') {
+    const id = Number(req.body.id);
+    const accion = String(req.body.accion || '');
+    const a = id ? await db('sidonia_anuncio_uno', { p_id: id }) : null;
+    try {
+      if (!a) throw new Error('No encuentro ese anuncio.');
+      const correo = (c) => correoAlDueno(a, req.body.avisar === '1', c);
+      if (accion === 'guardar') {
+        const cambios = leerEdicion(req.body, a);
+        if (cambios.error) throw new Error(cambios.error);
+        await (deps.guardar || guardarAnuncio)(cfg, id, cambios);
+        aviso = `Guardados los cambios del anuncio #${id}.`;
+      } else if (accion === 'publicar') {
+        const p = await publicarEnShopify(cfg, a, deps.gql || shopifyAdmin(cfg));
+        await db('sidonia_anuncio_estado', { p_id: id, p_estado: 'publicado', p_nota: '', p_producto: p.handle });
+        aviso = `Publicado: ${p.url}.` + await correo(correoPublicado(cfg, a, p.url));
+        estado = 'publicado';
+      } else if (accion === 'rechazar') {
+        const motivo = texto(req.body.nota, 1500);
+        await db('sidonia_anuncio_estado', { p_id: id, p_estado: 'rechazado', p_nota: motivo, p_producto: null });
+        aviso = `Rechazado el anuncio #${id}.` + await correo(correoRechazado(cfg, a, motivo));
+      } else if (SITUACIONES.includes(accion) && a.estado === 'publicado' && a.producto) {
+        await marcarSituacion(cfg, a, accion, { ...deps, db });
+        aviso = `Anuncio #${id}: ${accion === 'vendido' ? 'vendido' : accion === 'reservado' ? 'reservado' : 'otra vez en venta'} (también en la ficha de la tienda).`;
+        if (accion === 'vendido') estado = 'vendido';
+      } else if (accion === 'retirar') {
+        await db('sidonia_anuncio_estado', { p_id: id, p_estado: 'retirado', p_nota: '', p_producto: null });
+        aviso = `Retirado el anuncio #${id}. Recuerda archivar el producto en Shopify.`;
+      }
+    } catch (e) {
+      console.error(e);
+      aviso = `Error: ${e.message}`;
+    }
+  }
+  const lista = await db('sidonia_anuncios_lista', { p_estado: estado });
+  return html(paginaPanel(cfg, lista || [], { estado, aviso }));
+}

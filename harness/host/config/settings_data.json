@@ -1,0 +1,13 @@
+/*
+ * Ajustes del anfitrión de pruebas. apply-kit.mjs NUNCA modifica este archivo:
+ * la prueba de integración comprueba que sale idéntico.
+ */
+{
+  "current": {
+    "logo_width": 120,
+    "sections": {}
+  },
+  "presets": {
+    "Default": {}
+  }
+}
