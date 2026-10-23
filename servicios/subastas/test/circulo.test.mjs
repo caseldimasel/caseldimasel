@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { atender, codigoError, config, firmaProxy } from '../lib/motor.mjs';
-import { atenderPanel, descripcionHtml, metacamposFiltros, permisosSubida, productoShopify, publicarEnShopify, slugVendedor, telefono, validar } from '../lib/circulo.mjs';
+import { atenderPanel, leerEdicion, descripcionHtml, metacamposFiltros, permisosSubida, productoShopify, publicarEnShopify, slugVendedor, telefono, validar } from '../lib/circulo.mjs';
 
 const SECRETO = 'secreto-de-la-app';
 const cfg = config({ SHOPIFY_APP_SECRET: SECRETO, SUPABASE_URL: 'https://x.supabase.co', SUPABASE_SERVICE_KEY: 'sb_secret_x', TIENDA_URL: 'https://sidonia.es', SHOPIFY_TIENDA: 'sidonia.myshopify.com', SHOPIFY_CLIENT_ID: 'cid', ADMIN_CLAVE: 'panel-secreto' });
@@ -142,9 +142,12 @@ test('avisos: email al equipo con cada anuncio (si hay Resend) y visitas de clie
   const db = async (fn) => (fn === 'sidonia_anuncio_mio' ? null : fn === 'sidonia_visita' ? { ok: true, nuevo: true } : { ok: true, anuncio: { id: 1 } });
   const cfgAvisos = { ...cfg, resendKey: 're_x', avisosEquipo: ['hola@sidonia.es'], avisosRemitente: 'Sidonia <avisos@sidonia.es>', avisosClientes: true };
   await atender({ method: 'POST', ruta: 'api/anuncio', query: q(), body: bueno() }, cfgAvisos, { db, fetch: fetchFalso });
-  assert.equal(enviados.length, 1);
+  assert.equal(enviados.length, 2, 'al equipo y al dueño');
   assert.match(enviados[0].body.subject, /Nuevo anuncio gratis: Porsche 911 SC 1982/);
   assert.deepEqual(enviados[0].body.to, ['hola@sidonia.es']);
+  assert.match(enviados[1].body.subject, /Hemos recibido tu anuncio: Porsche 911 SC 1982/);
+  assert.deepEqual(enviados[1].body.to, ['e@x.es']);
+  enviados.shift();
   const v = await atender({ method: 'POST', ruta: 'api/visita', query: q(), body: { email: 'e@x.es', nombre: 'Enrique' } }, cfgAvisos, { db, fetch: fetchFalso });
   assert.equal(JSON.parse(v.body).ok, true);
   assert.match(enviados[1].body.subject, /Nuevo cliente en Sidonia: Enrique/);
@@ -198,4 +201,41 @@ test('base de datos: un anuncio activo por persona', { skip: !CONN && 'sin PGTES
   assert.equal(cl.total, 1);
   assert.equal(cl.lista[0].visitas, 2);
   assert.equal(cl.lista[0].email, 'a@b.es', 'no se borra el email con una visita sin él');
+});
+
+test('panel: editar antes de publicar (textos, ficha, fotos) y emails al dueño', async () => {
+  const auth = { authorization: `Basic ${Buffer.from('equipo:panel-secreto').toString('base64')}` };
+  const a = { id: 9, ...validar(bueno(), '7001').datos, estado: 'pendiente' };
+  const e = leerEdicion({ tipo: 'coche', titulo: 'Porsche 911 SC Targa 1982', precio: '62.500', ubicacion: 'Sevilla', resumen: 'r', historia: 'h', mecanica: 'm',
+    ficha: 'Marca: Porsche\nAño: 1982\nsin dos puntos\nColor: Rojo: Guards', vendedor_nombre: 'Enrique', vendedor_tipo: 'profesional', telefono: '+34612345678', quitar: ['0', '1'], portada: '3' }, a);
+  assert.equal(e.titulo, 'Porsche 911 SC Targa 1982');
+  assert.equal(e.precio, 62500);
+  assert.deepEqual(e.ficha, [['Marca', 'Porsche'], ['Año', '1982'], ['Color', 'Rojo: Guards']]);
+  assert.equal(e.fotos.length, 8);
+  assert.equal(e.fotos[0], a.fotos[3], 'la portada elegida va primera');
+  assert.equal(leerEdicion({ titulo: 'Porsche', telefono: '612345678', quitar: a.fotos.map((_, i) => String(i)) }, a).error, 'Tiene que quedar al menos una foto.');
+  assert.equal(leerEdicion({ titulo: 'Porsche', precio: '', telefono: '612345678' }, a).precio, null);
+
+  let guardado = null;
+  const db = async (fn) => (fn === 'sidonia_anuncios_lista' ? [a] : fn === 'sidonia_anuncio_uno' ? a : { ok: true });
+  const g = await atenderPanel({ method: 'POST', query: {}, body: { id: '9', accion: 'guardar', titulo: 'Nuevo título', telefono: '612345678' }, headers: auth }, cfg, { db, guardar: async (c, id, x) => { guardado = { id, x }; } });
+  assert.match(g.body, /Guardados los cambios del anuncio #9/);
+  assert.equal(guardado.id, 9);
+  assert.equal(guardado.x.titulo, 'Nuevo título');
+  assert.match(g.body, /Editar antes de publicar/);
+
+  const enviados = [];
+  const fetchFalso = async (url, o) => { enviados.push(JSON.parse(o.body)); return { ok: true, text: async () => '' }; };
+  const cfgR = { ...cfg, resendKey: 're_x', avisosRemitente: 'Sidonia <hola@sidonia.es>' };
+  const r = await atenderPanel({ method: 'POST', query: {}, body: { id: '9', accion: 'rechazar', nota: 'Las fotos tienen poca luz.', avisar: '1' }, headers: auth }, cfgR, { db, fetch: fetchFalso });
+  assert.match(r.body, /Email enviado a e@x\.es/);
+  assert.match(enviados[0].subject, /Sobre tu anuncio en Sidonia/);
+  assert.match(enviados[0].html, /Las fotos tienen poca luz\./);
+  const gql = async (query) => (/productCreate/.test(query) ? { productCreate: { product: { id: 'P', handle: 'porsche', variants: { nodes: [] } }, userErrors: [] } } : /publications/.test(query) && !/publishablePublish/.test(query) ? { publications: { nodes: [] } } : {});
+  const p = await atenderPanel({ method: 'POST', query: {}, body: { id: '9', accion: 'publicar', avisar: '1' }, headers: auth }, cfgR, { db, gql, fetch: fetchFalso });
+  assert.match(p.body, /Email enviado/);
+  assert.match(enviados[1].subject, /¡Enhorabuena!/);
+  assert.match(enviados[1].html, /https:\/\/sidonia\.es\/products\/porsche/);
+  const sin = await atenderPanel({ method: 'POST', query: {}, body: { id: '9', accion: 'rechazar', nota: 'x', avisar: '1' }, headers: auth }, cfg, { db });
+  assert.match(sin.body, /falta RESEND_API_KEY/);
 });

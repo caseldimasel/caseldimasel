@@ -6,11 +6,13 @@
  *   GET  api/anuncios         → { ok, anuncios }  todos los suyos (su perfil)
  *   POST api/anuncio/fotos    { tipos: ['image/jpeg', …] } → { ok, subidas: [{ ruta, url }] }   permisos para subir fotos
  *   POST api/anuncio          { tipo, titulo, precio, … }  → { ok, anuncio } | { ok: false, error, campo }
- * Panel del equipo (directo en Vercel, con contraseña): /admin → lista, aprobar y publicar en Shopify, rechazar, retirar.
+ * Panel del equipo (directo en Vercel, con contraseña): /admin → lista, editar, aprobar y publicar en Shopify, rechazar, retirar.
+ * Al dueño le llegan emails (si hay Resend): recibido, publicado y no publicado con el motivo (lib/correos.mjs).
  *
  * Un anuncio activo gratis por persona (lo garantiza la base de datos: sql/circulo.sql).
  */
 import { createHash } from 'node:crypto';
+import { correoPublicado, correoRechazado, correoRecibido, enviarCorreo } from './correos.mjs';
 
 export const TIPOS = ['coche', 'moto', 'barco', 'casa'];
 export const VENDEDOR_TIPOS = ['particular', 'profesional'];
@@ -122,7 +124,11 @@ export async function rutasTienda({ ruta, method, body }, cliente, cfg, deps) {
     const v = validar(body, cliente);
     if (!v.ok) return json(400, v);
     const r = await db('sidonia_anuncio_nuevo', { p_cliente: cliente, p: v.datos });
-    if (r && r.ok) await avisarEquipo(cfg, `Nuevo anuncio gratis: ${v.datos.titulo}`, emailAnuncio(cfg, v.datos), deps.fetch).catch((e) => console.error(e));
+    if (r && r.ok) {
+      await avisarEquipo(cfg, `Nuevo anuncio gratis: ${v.datos.titulo}`, emailAnuncio(cfg, v.datos), deps.fetch).catch((e) => console.error(e));
+      const c = correoRecibido(cfg, v.datos);
+      await enviarCorreo(cfg, v.datos.email, c.asunto, c.html, deps.fetch).catch((e) => console.error(e));
+    }
     return json(200, r);
   }
   // Quién entra con su cuenta (una vez por sesión del navegador): para el panel y, si se quiere, un email al equipo
@@ -296,6 +302,39 @@ export async function publicarEnShopify(cfg, a, gql) {
 /* ---------------------------------------------------------------------------- Panel del equipo */
 const ESTADOS = { pendiente: 'Por revisar', aprobado: 'Aprobado', publicado: 'Publicado', rechazado: 'Rechazado', retirado: 'Retirado' };
 
+/** «Editar» en el panel: todos los textos, la ficha, el vendedor y las fotos (quitar y elegir portada) */
+function formEditar(cfg, a) {
+  const campo = (nombre, etiqueta, valor, extra = '') => `<label>${etiqueta}<input name="${nombre}" value="${esc(valor ?? '')}" ${extra}></label>`;
+  const area = (nombre, etiqueta, valor, filas) => `<label>${etiqueta}<textarea name="${nombre}" rows="${filas}">${esc(valor ?? '')}</textarea></label>`;
+  const opciones = (lista, actual, nombres) => lista.map((v) => `<option value="${v}"${v === actual ? ' selected' : ''}>${nombres[v] || v}</option>`).join('');
+  const fotos = (a.fotos || []).map((f, i) => `<div class="efoto"><img src="${esc(urlFoto(cfg, f))}" alt="" loading="lazy">
+      <span><input type="radio" name="portada" value="${i}"${i === 0 ? ' checked' : ''}> Portada</span>
+      <span><input type="checkbox" name="quitar" value="${i}"> Quitar</span></div>`).join('');
+  return `<details class="editar"><summary>Editar antes de publicar</summary>
+    <form method="post">
+      <input type="hidden" name="id" value="${a.id}">
+      <div class="fila">
+        <label>Tipo<select name="tipo">${opciones(TIPOS, a.tipo, { coche: 'Coche', moto: 'Moto', barco: 'Barco', casa: 'Casa' })}</select></label>
+        ${campo('titulo', 'Título', a.titulo, 'required minlength="4" maxlength="120"')}
+        ${campo('precio', 'Precio (€) <small>vacío = a consultar</small>', a.precio || '', 'inputmode="numeric"')}
+        ${campo('ubicacion', 'Ubicación', a.ubicacion)}
+      </div>
+      ${area('resumen', 'Descripción breve', a.resumen, 2)}
+      ${area('historia', 'Su historia', a.historia, 7)}
+      ${area('mecanica', a.tipo === 'casa' ? 'Estado y reformas' : 'Mecánica y estado', a.mecanica, 4)}
+      ${area('ficha', 'Ficha técnica <small>una línea por dato: «Año: 1987»</small>', (a.ficha || []).map(([k, v]) => `${k}: ${v}`).join('\n'), 6)}
+      <div class="fila">
+        ${campo('vendedor_nombre', 'Nombre del vendedor', a.vendedor_nombre)}
+        <label>Vende como<select name="vendedor_tipo">${opciones(VENDEDOR_TIPOS, a.vendedor_tipo, { particular: 'Particular', profesional: 'Profesional' })}</select></label>
+        ${campo('telefono', 'Teléfono', a.telefono)}
+      </div>
+      <label>Fotos <small>elige la portada o quita las que no valgan</small></label>
+      <div class="efotos">${fotos}</div>
+      <div><button name="accion" value="guardar" class="si">Guardar cambios</button></div>
+    </form>
+  </details>`;
+}
+
 export function paginaPanel(cfg, lista, { estado = 'pendiente', aviso = '' } = {}) {
   const fmt = (n) => (n ? `${Number(n).toLocaleString('es-ES')} €` : 'A consultar');
   const pestañas = Object.entries(ESTADOS).map(([k, v]) => `<a href="?estado=${k}" class="${k === estado ? 'on' : ''}">${v}</a>`).join('') + '<a href="?estado=clientes">Clientes</a>';
@@ -314,11 +353,13 @@ export function paginaPanel(cfg, lista, { estado = 'pendiente', aviso = '' } = {
       </details>
       ${a.nota ? `<p class="nota">Nota: ${esc(a.nota)}</p>` : ''}
       ${a.producto ? `<p><a href="${esc(cfg.tienda)}/products/${esc(a.producto)}" target="_blank">Ver la ficha en la tienda →</a></p>` : ''}
+      ${['pendiente', 'aprobado'].includes(a.estado) ? formEditar(cfg, a) : ''}
       <form method="post" class="acc">
         <input type="hidden" name="id" value="${a.id}">
         ${['pendiente', 'aprobado'].includes(a.estado) ? '<button name="accion" value="publicar" class="si">Aprobar y publicar en Shopify</button>' : ''}
-        ${a.estado === 'pendiente' ? '<input name="nota" placeholder="Motivo si lo rechazas (lo verá el vendedor)"><button name="accion" value="rechazar" class="no">Rechazar</button>' : ''}
+        ${a.estado === 'pendiente' ? '<textarea name="nota" rows="2" placeholder="Motivo si lo rechazas: le llega al dueño por email (p. ej. «Las fotos tienen poca luz: ¿puedes hacer otras de día?»)"></textarea><button name="accion" value="rechazar" class="no">Rechazar</button>' : ''}
         ${a.estado === 'publicado' ? '<button name="accion" value="retirar" class="no">Marcar como retirado</button>' : ''}
+        ${['pendiente', 'aprobado'].includes(a.estado) ? `<label class="avisar"><input type="checkbox" name="avisar" value="1" checked> Avisar al dueño por email${a.email ? ` (${esc(a.email)})` : ' (no tenemos su email)'}</label>` : ''}
       </form>
     </div>
   </article>`).join('') || '<p class="vacio">No hay anuncios aquí.</p>';
@@ -346,7 +387,20 @@ export function paginaPanel(cfg, lista, { estado = 'pendiente', aviso = '' } = {
   table { border-collapse: collapse; font-size: 14px; } th { text-align: left; padding: 3px 12px 3px 0; opacity: .6; font-weight: 400; }
   .nota { color: #a2121f; }
   .acc { display: flex; gap: 8px; flex-wrap: wrap; }
-  .acc input[name=nota] { flex: 1; min-width: 200px; padding: 10px 12px; border: 1px solid #0003; border-radius: 10px; font: inherit; }
+  .acc textarea[name=nota] { flex: 1; min-width: 220px; padding: 10px 12px; border: 1px solid #0003; border-radius: 10px; font: inherit; resize: vertical; }
+  .avisar { flex-basis: 100%; font-size: 13px; opacity: .8; display: flex; gap: 6px; align-items: center; }
+  .editar { border: 1px solid #0002; border-radius: 14px; padding: 10px 14px; }
+  .editar summary { font-weight: 700; }
+  .editar form { display: grid; gap: 12px; margin-top: 12px; }
+  .editar .fila { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); }
+  .editar label { display: grid; gap: 4px; font-size: 13px; font-weight: 600; }
+  .editar input, .editar textarea, .editar select { padding: 9px 11px; border: 1px solid #0003; border-radius: 10px; font: inherit; font-weight: 400; background: #fff; }
+  .editar textarea { resize: vertical; line-height: 1.45; }
+  .editar .efotos { display: flex; gap: 8px; flex-wrap: wrap; }
+  .editar .efoto { width: 120px; font-weight: 400; font-size: 12px; }
+  .editar .efoto img { width: 120px; height: 90px; object-fit: cover; border-radius: 8px; display: block; }
+  .editar .efoto span { display: flex; gap: 4px; align-items: center; }
+  .editar small { font-weight: 400; opacity: .6; }
   button { padding: 10px 16px; border-radius: 99px; border: 1px solid #1a1a1a; background: #fff; font: inherit; font-weight: 700; cursor: pointer; }
   button.si { background: #1a1a1a; color: #fff; } button.no { border-color: #a2121f; color: #a2121f; }
   .vacio { opacity: .6; }
@@ -355,7 +409,7 @@ export function paginaPanel(cfg, lista, { estado = 'pendiente', aviso = '' } = {
 ${aviso ? `<p class="aviso${aviso.startsWith('Error') ? ' mal' : ''}">${esc(aviso)}</p>` : ''}
 <nav>${pestañas}</nav>
 ${tarjetas}
-<script>document.querySelectorAll('form.acc').forEach((f) => f.addEventListener('submit', (e) => { const b = e.submitter; if (b && b.value === 'publicar' && !confirm('¿Aprobar y crear la ficha en Shopify?')) e.preventDefault(); if (b) setTimeout(() => { b.disabled = true; b.textContent = 'Un momento…'; }, 0); }));</script>
+<script>document.querySelectorAll('form.acc').forEach((f) => f.addEventListener('submit', (e) => { const b = e.submitter; if (b && b.value === 'publicar' && !confirm('¿Aprobar y crear la ficha en Shopify?')) return e.preventDefault(); if (b && b.value === 'rechazar' && !confirm('¿Rechazar este anuncio?')) return e.preventDefault(); if (b) setTimeout(() => { b.disabled = true; b.textContent = 'Un momento…'; }, 0); }));</script>
 </body></html>`;
 }
 
@@ -404,6 +458,41 @@ export function panelAutorizado(headers, clave) {
   return a.equals(b);
 }
 
+/** Lo que el equipo cambia en «Editar» (solo anuncios por revisar o aprobados). Devuelve los campos o { error }. */
+export function leerEdicion(b, a) {
+  const tipo = TIPOS.includes(b.tipo) ? b.tipo : a.tipo;
+  const titulo = texto(b.titulo, 120);
+  if (titulo.length < 4) return { error: 'El título es demasiado corto.' };
+  const precio = String(b.precio || '').replace(/\D/g, '');
+  const ficha = texto(b.ficha, 3000).split('\n').map((l) => l.split(/:(.*)/s).map((x) => x.trim())).filter(([k, v]) => k && v).slice(0, 40).map(([k, v]) => [k.slice(0, 40), v.slice(0, 120)]);
+  // Fotos: se pueden quitar y elegir la portada; nunca añadir rutas nuevas desde aquí
+  const actuales = Array.isArray(a.fotos) ? a.fotos : [];
+  const quitar = new Set([].concat(b.quitar || []).map(Number));
+  let fotos = actuales.filter((_, i) => !quitar.has(i));
+  const portada = actuales[Number(b.portada)];
+  if (portada && fotos.includes(portada)) fotos = [portada, ...fotos.filter((f) => f !== portada)];
+  if (!fotos.length) return { error: 'Tiene que quedar al menos una foto.' };
+  const tel = texto(b.telefono, 30);
+  if (tel.replace(/\D/g, '').length < 9) return { error: 'Revisa el teléfono.' };
+  return {
+    tipo, titulo, precio: precio ? Number(precio) : null, ubicacion: texto(b.ubicacion, 80), resumen: texto(b.resumen, 600),
+    historia: texto(b.historia, 8000), mecanica: texto(b.mecanica, 5000), ficha, fotos,
+    vendedor_nombre: texto(b.vendedor_nombre, 60) || a.vendedor_nombre, vendedor_tipo: VENDEDOR_TIPOS.includes(b.vendedor_tipo) ? b.vendedor_tipo : a.vendedor_tipo,
+    telefono: tel, actualizado: new Date().toISOString()
+  };
+}
+
+/** Guarda los cambios de un anuncio en Supabase (tabla anuncios, con la clave de servicio) */
+export async function guardarAnuncio(cfg, id, cambios, fetchImpl = fetch) {
+  const r = await fetchImpl(`${cfg.supabaseUrl}/rest/v1/anuncios?id=eq.${Number(id)}`, {
+    method: 'PATCH',
+    headers: { apikey: cfg.supabaseKey, ...(cfg.supabaseKey.startsWith('sb_') ? {} : { Authorization: `Bearer ${cfg.supabaseKey}` }), 'Content-Type': 'application/json', Prefer: 'return=minimal' },
+    body: JSON.stringify(cambios),
+    signal: AbortSignal.timeout(8000)
+  });
+  if (!r.ok) throw new Error(`Supabase ${r.status}: ${(await r.text().catch(() => '')).slice(0, 200)}`);
+}
+
 export async function atenderPanel(req, cfg, deps) {
   const html = (body, status = 200) => ({ status, headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' }, body });
   if (!panelAutorizado(req.headers || {}, cfg.adminClave)) {
@@ -419,14 +508,32 @@ export async function atenderPanel(req, cfg, deps) {
     const a = id ? await db('sidonia_anuncio_uno', { p_id: id }) : null;
     try {
       if (!a) throw new Error('No encuentro ese anuncio.');
-      if (accion === 'publicar') {
+      const avisar = req.body.avisar === '1';
+      // Email al dueño: lo dice el aviso del panel (enviado, sin Resend o error)
+      const correo = async (c) => {
+        if (!avisar) return '';
+        if (!a.email) return ' Sin email del dueño: no se le ha avisado.';
+        try {
+          return (await enviarCorreo(cfg, a.email, c.asunto, c.html, deps.fetch)) ? ` Email enviado a ${a.email}.` : ' No se ha enviado el email: falta RESEND_API_KEY en Vercel.';
+        } catch (e) {
+          console.error(e);
+          return ` El email no ha salido (${e.message}).`;
+        }
+      };
+      if (accion === 'guardar') {
+        const cambios = leerEdicion(req.body, a);
+        if (cambios.error) throw new Error(cambios.error);
+        await (deps.guardar || guardarAnuncio)(cfg, id, cambios);
+        aviso = `Guardados los cambios del anuncio #${id}.`;
+      } else if (accion === 'publicar') {
         const p = await publicarEnShopify(cfg, a, deps.gql || shopifyAdmin(cfg));
         await db('sidonia_anuncio_estado', { p_id: id, p_estado: 'publicado', p_nota: '', p_producto: p.handle });
-        aviso = `Publicado: ${p.url}`;
+        aviso = `Publicado: ${p.url}.` + await correo(correoPublicado(cfg, a, p.url));
         estado = 'publicado';
       } else if (accion === 'rechazar') {
-        await db('sidonia_anuncio_estado', { p_id: id, p_estado: 'rechazado', p_nota: texto(req.body.nota, 300), p_producto: null });
-        aviso = `Rechazado el anuncio #${id}.`;
+        const motivo = texto(req.body.nota, 1500);
+        await db('sidonia_anuncio_estado', { p_id: id, p_estado: 'rechazado', p_nota: motivo, p_producto: null });
+        aviso = `Rechazado el anuncio #${id}.` + await correo(correoRechazado(cfg, a, motivo));
       } else if (accion === 'retirar') {
         await db('sidonia_anuncio_estado', { p_id: id, p_estado: 'retirado', p_nota: '', p_producto: null });
         aviso = `Retirado el anuncio #${id}. Recuerda archivar el producto en Shopify.`;

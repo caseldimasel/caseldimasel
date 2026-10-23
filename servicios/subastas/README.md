@@ -84,6 +84,16 @@ Puesta en marcha:
   lo enseña en **/admin › Clientes** (nuevos hoy, esta semana, quién ha entrado y cuándo). Para un email por cada
   registro sin servidor de correo: Shopify Flow › «Customer created» › «Send internal email».
 
+### Panel: editar y emails al dueño
+
+- **Editar antes de publicar** (anuncios por revisar o aprobados): título, precio, ubicación, textos, ficha técnica
+  (una línea por dato, «Año: 1987»), vendedor, teléfono y fotos (quitar y elegir portada). «Guardar cambios» y después
+  «Aprobar y publicar». Se guarda directamente en la tabla `anuncios` con la clave de servicio (no hace falta SQL nuevo).
+- **Emails al dueño** (lib/correos.mjs, con Resend): «Hemos recibido tu anuncio» al enviarlo, «¡Enhorabuena!» con el
+  enlace al publicarlo y «Aún no podemos publicarlo» con el motivo que escribas al rechazarlo. En el panel se puede
+  desmarcar «Avisar al dueño por email». Hace falta `RESEND_API_KEY` y `AVISOS_REMITENTE` con un dominio verificado en
+  Resend (por ejemplo `Sidonia <hola@sidonia.es>`); sin Resend el panel dice que no se ha enviado.
+
 | Ruta (detrás de `/apps/sidonia`) | |
 | --- | --- |
 | `GET api/anuncio` | El anuncio activo (o el último) del cliente |
