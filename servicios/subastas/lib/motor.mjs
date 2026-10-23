@@ -101,7 +101,8 @@ export function supabase(cfg, fetchImpl = fetch) {
         ...(cfg.supabaseKey.startsWith('sb_') ? {} : { Authorization: `Bearer ${cfg.supabaseKey}` }),
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify(args)
+      body: JSON.stringify(args),
+      signal: AbortSignal.timeout(8000)   // si Supabase no responde, mejor un error claro en segundos que la tienda esperando
     });
     if (!r.ok) throw new Error(`Supabase ${fn} ${r.status}: ${await r.text().catch(() => '')}`);
     return r.json();
@@ -157,6 +158,7 @@ function paginaRegistro({ error = '', alias = '', volver = '/', accion }) {
 /** Qué ha fallado, en una palabra que se puede enseñar (sin datos secretos): para el mensaje del formulario */
 export function codigoError(e) {
   const m = String((e && e.message) || e);
+  if (e && (e.name === 'TimeoutError' || e.name === 'AbortError')) return 'base-lenta';
   if (/sidonia_anuncio|relation "anuncios"|anuncios_/.test(m)) return 'anuncios-sql';
   if (/Storage|bucket/i.test(m)) return 'anuncios-fotos';
   if (/Supabase/.test(m)) return 'base-de-datos';

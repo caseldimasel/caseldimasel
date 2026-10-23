@@ -93,7 +93,8 @@ export async function permisosSubida(cfg, cliente, tipos, fetchImpl = fetch) {
     const r = await fetchImpl(`${cfg.supabaseUrl}/storage/v1/object/upload/sign/anuncios/${ruta}`, {
       method: 'POST',
       headers: { apikey: cfg.supabaseKey, ...(cfg.supabaseKey.startsWith('sb_') ? {} : { Authorization: `Bearer ${cfg.supabaseKey}` }), 'Content-Type': 'application/json' },
-      body: '{}'
+      body: '{}',
+      signal: AbortSignal.timeout(8000)
     });
     if (!r.ok) throw new Error(`Storage ${r.status}: ${await r.text().catch(() => '')}`);
     const d = await r.json();
@@ -144,7 +145,8 @@ export async function avisarEquipo(cfg, asunto, html, fetchImpl = fetch) {
   const r = await fetchImpl('https://api.resend.com/emails', {
     method: 'POST',
     headers: { Authorization: `Bearer ${cfg.resendKey}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ from: cfg.avisosRemitente, to: cfg.avisosEquipo, subject: asunto, html })
+    body: JSON.stringify({ from: cfg.avisosRemitente, to: cfg.avisosEquipo, subject: asunto, html }),
+    signal: AbortSignal.timeout(5000)
   });
   if (!r.ok) throw new Error(`Resend ${r.status}: ${await r.text().catch(() => '')}`);
   return true;
