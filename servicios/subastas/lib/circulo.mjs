@@ -513,7 +513,8 @@ function paginaPanelHtml(pestañas, aviso, tarjetas) {
   .acc textarea[name=nota] { flex: 1; min-width: 220px; padding: 10px 12px; border: 1px solid #0003; border-radius: 10px; font: inherit; resize: vertical; }
   .avisar { flex-basis: 100%; font-size: 13px; opacity: .8; display: flex; gap: 6px; align-items: center; }
   .editar { border: 1px solid #0002; border-radius: 14px; padding: 10px 14px; }
-  .diff { width: 100%; font-size: 14px; } .diff th, .diff td { vertical-align: top; padding: 8px 10px; border-top: 1px solid #0001; text-align: left; }
+  .a { grid-template-columns: minmax(0, 1fr); } .cuerpo { min-width: 0; }
+  .diff { width: 100%; font-size: 14px; table-layout: fixed; overflow-wrap: anywhere; } .diff th, .diff td { vertical-align: top; padding: 8px 10px; border-top: 1px solid #0001; text-align: left; }
   .diff th:first-child { width: 130px; } .diff .antes { background: #fdf0f1; color: #6b1a22; } .diff .ahora { background: #edf7f0; color: #14532d; }
   .a h3 { font-size: 14px; margin: 12px 0 6px; }
   .editar summary { font-weight: 700; }
