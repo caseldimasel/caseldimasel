@@ -40,6 +40,9 @@ alter table anuncios drop constraint if exists anuncios_tipo_check;
 alter table anuncios add constraint anuncios_tipo_check check (tipo in ('coche', 'moto', 'barco', 'casa'));
 alter table anuncios drop constraint if exists anuncios_vendedor_tipo_check;
 alter table anuncios add constraint anuncios_vendedor_tipo_check check (vendedor_tipo in ('particular', 'profesional'));
+-- Cambios que hace el dueño en un anuncio aprobado o publicado: quedan aquí hasta que el equipo los aprueba (panel › Cambios)
+alter table anuncios add column if not exists revision jsonb;
+alter table anuncios add column if not exists revision_fecha timestamptz;
 
 -- Un anuncio activo por persona (gratis): la base de datos no deja tener dos a la vez
 create unique index if not exists anuncios_uno_activo on anuncios (cliente)

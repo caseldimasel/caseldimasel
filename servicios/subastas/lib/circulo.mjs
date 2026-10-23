@@ -6,18 +6,25 @@
  *   GET  api/anuncios         → { ok, anuncios }  todos los suyos (su perfil)
  *   POST api/anuncio/fotos    { tipos: ['image/jpeg', …] } → { ok, subidas: [{ ruta, url }] }   permisos para subir fotos
  *   POST api/anuncio          { tipo, titulo, precio, … }  → { ok, anuncio } | { ok: false, error, campo }
+ *   GET  api/anuncio/editar   → { ok, anuncio }   su anuncio activo completo (con fotos_url) para editarlo
+ *   POST api/anuncio/editar   { …lo mismo que al publicar } → { ok, revision }   por revisar: se cambia ya; aprobado o
+ *                             publicado: los cambios quedan «por revisar» (panel › Cambios) hasta que el equipo los aprueba
+ *   POST api/anuncio/eliminar → { ok }   lo retira (y archiva la ficha en Shopify): puede publicar otro
  * Panel del equipo (directo en Vercel, con contraseña): /admin → lista, editar, aprobar y publicar en Shopify, rechazar, retirar.
  * Al dueño le llegan emails (si hay Resend): recibido, publicado y no publicado con el motivo (lib/correos.mjs).
  *
  * Un anuncio activo gratis por persona (lo garantiza la base de datos: sql/circulo.sql).
  */
 import { createHash } from 'node:crypto';
-import { correoPublicado, correoRechazado, correoRecibido, enviarCorreo } from './correos.mjs';
+import { correoCambiosAprobados, correoCambiosRechazados, correoPublicado, correoRechazado, correoRecibido, enviarCorreo } from './correos.mjs';
 
 export const TIPOS = ['coche', 'moto', 'barco', 'casa'];
 export const VENDEDOR_TIPOS = ['particular', 'profesional'];
 export const FOTOS_MIN = Number(process.env.CIRCULO_FOTOS_MIN || 8);
 export const FOTOS_MAX = 30;
+const ACTIVOS = ['pendiente', 'aprobado', 'publicado'];
+// Lo que el dueño puede cambiar de su anuncio (el slug de su perfil y su email no)
+export const CAMPOS_EDITABLES = ['tipo', 'titulo', 'precio', 'ubicacion', 'resumen', 'historia', 'mecanica', 'ficha', 'fotos', 'vendedor_nombre', 'vendedor_tipo', 'telefono', 'acepta_telefono'];
 const EXT = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' };
 
 const texto = (v, max) => String(v ?? '').replace(/\r\n?/g, '\n').replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g, '').trim().slice(0, max);
@@ -117,7 +124,8 @@ export async function rutasTienda({ ruta, method, body }, cliente, cfg, deps) {
   }
   if (ruta === 'api/anuncio/fotos' && method === 'POST') {
     const mio = await db('sidonia_anuncio_mio', { p_cliente: cliente });
-    if (mio && ['pendiente', 'aprobado', 'publicado'].includes(mio.estado)) return json(200, { ok: false, error: 'limite', anuncio: mio });
+    // Al editar su anuncio sí puede subir fotos nuevas; para uno nuevo, solo si no tiene otro activo
+    if (!body.editar && mio && ACTIVOS.includes(mio.estado)) return json(200, { ok: false, error: 'limite', anuncio: mio });
     return json(200, await (deps.subidas || permisosSubida)(cfg, cliente, body.tipos));
   }
   if (ruta === 'api/anuncio' && method === 'POST') {
@@ -130,6 +138,39 @@ export async function rutasTienda({ ruta, method, body }, cliente, cfg, deps) {
       await enviarCorreo(cfg, v.datos.email, c.asunto, c.html, deps.fetch).catch((e) => console.error(e));
     }
     return json(200, r);
+  }
+  // Editar su anuncio
+  if (ruta === 'api/anuncio/editar') {
+    const tabla = deps.tabla || tablaAnuncios(cfg, deps.fetch);
+    const [a] = await tabla.leer(`cliente=eq.${encodeURIComponent(cliente)}&estado=in.(${ACTIVOS.join(',')})&order=creado.desc&limit=1`);
+    if (!a) return json(200, { ok: false, error: 'sin-anuncio' });
+    if (method === 'GET') {
+      const actual = { ...a, ...(a.revision || {}) };
+      return json(200, { ok: true, anuncio: { ...actual, id: a.id, estado: a.estado, producto: a.producto, revision: Boolean(a.revision), fotos_url: (actual.fotos || []).map((f) => urlFoto(cfg, f)) } });
+    }
+    const v = validar(body, cliente);
+    if (!v.ok) return json(400, v);
+    const cambios = Object.fromEntries(CAMPOS_EDITABLES.map((k) => [k, v.datos[k]]));
+    // Por revisar: aún no se ve en la tienda, se cambia directamente. Aprobado o publicado: el equipo revisa los cambios.
+    const revision = a.estado !== 'pendiente';
+    await tabla.cambiar(a.id, revision ? { revision: cambios, revision_fecha: new Date().toISOString() } : { ...cambios, revision: null, actualizado: new Date().toISOString() });
+    await avisarEquipo(cfg, revision ? `Cambios por revisar: ${cambios.titulo}` : `Anuncio editado: ${cambios.titulo}`,
+      `<p>${esc(a.vendedor_nombre)} ha editado su anuncio #${a.id}${revision ? '. Revisa los cambios en el panel › Cambios.' : ' (aún por revisar).'}</p>`, deps.fetch).catch((e) => console.error(e));
+    return json(200, { ok: true, revision });
+  }
+  // Eliminar su anuncio: deja de verse y puede publicar otro
+  if (ruta === 'api/anuncio/eliminar' && method === 'POST') {
+    const mio = await db('sidonia_anuncio_mio', { p_cliente: cliente });
+    if (!mio || !ACTIVOS.includes(mio.estado)) return json(200, { ok: false, error: 'sin-anuncio' });
+    await db('sidonia_anuncio_estado', { p_id: mio.id, p_estado: 'retirado', p_nota: 'Eliminado por el dueño', p_producto: null });
+    await (deps.tabla || tablaAnuncios(cfg, deps.fetch)).cambiar(mio.id, { revision: null }).catch((e) => console.error(e));
+    let archivado = false;
+    if (mio.producto && cfg.shopifyTienda && cfg.shopifyClientId) {
+      try { archivado = await archivarEnShopify(mio.producto, deps.gql || shopifyAdmin(cfg, deps.fetch)); } catch (e) { console.error(e); }
+    }
+    await avisarEquipo(cfg, `Anuncio eliminado por su dueño: ${mio.titulo}`,
+      `<p>El anuncio #${mio.id} «${esc(mio.titulo)}» lo ha eliminado su dueño.${mio.producto ? (archivado ? ' La ficha de Shopify se ha archivado.' : ' Archiva la ficha en Shopify › Productos.') : ''}</p>`, deps.fetch).catch((e) => console.error(e));
+    return json(200, { ok: true, archivado });
   }
   // Quién entra con su cuenta (una vez por sesión del navegador): para el panel y, si se quiere, un email al equipo
   if (ruta === 'api/visita' && method === 'POST') {
@@ -299,6 +340,51 @@ export async function publicarEnShopify(cfg, a, gql) {
   return { handle: p.handle, url: `${cfg.tienda}/products/${p.handle}` };
 }
 
+/** El producto de Shopify de un anuncio (por su handle): id, variante y fotos */
+async function productoPorHandle(handle, gql) {
+  const d = await gql(`query($q: String!) { products(first: 1, query: $q) { nodes { id handle variants(first: 1) { nodes { id } } media(first: 60) { nodes { id } } } } }`,
+    { q: `handle:${handle}` });
+  const p = d.products.nodes.find((n) => n.handle === handle);
+  if (!p) throw new Error(`No encuentro en Shopify el producto «${handle}».`);
+  return p;
+}
+
+/** Archiva la ficha (deja de verse en la tienda, se puede recuperar en Shopify › Productos) */
+export async function archivarEnShopify(handle, gql) {
+  const p = await productoPorHandle(handle, gql);
+  const u = await gql(`mutation($product: ProductUpdateInput!) { productUpdate(product: $product) { userErrors { field message } } }`,
+    { product: { id: p.id, status: 'ARCHIVED' } });
+  const errs = u.productUpdate.userErrors;
+  if (errs.length) throw new Error(`Shopify: ${errs.map((e) => e.message).join(' · ')}`);
+  return true;
+}
+
+/** Aplica a la ficha publicada los cambios aprobados: textos, precio, metacampos y, si han cambiado, las fotos */
+export async function actualizarEnShopify(cfg, a, fotosCambiadas, gql) {
+  const p = await productoPorHandle(a.producto, gql);
+  const { product, media } = productoShopify(cfg, a);
+  delete product.status;
+  const u = await gql(`mutation($product: ProductUpdateInput!) { productUpdate(product: $product) { userErrors { field message } } }`, { product: { ...product, id: p.id } });
+  const errs = u.productUpdate.userErrors;
+  if (errs.length) throw new Error(`Shopify: ${errs.map((e) => e.message).join(' · ')}`);
+  const v = p.variants.nodes[0];
+  if (v) {
+    await gql(`mutation($productId: ID!, $variants: [ProductVariantsBulkInput!]!) {
+      productVariantsBulkUpdate(productId: $productId, variants: $variants) { userErrors { field message } }
+    }`, { productId: p.id, variants: [{ id: v.id, price: String(a.precio || 0) }] });
+  }
+  try {
+    const mf = metacamposFiltros(a).map((m) => ({ ...m, ownerId: p.id }));
+    if (mf.length) await gql(`mutation($m: [MetafieldsSetInput!]!) { metafieldsSet(metafields: $m) { userErrors { field message } } }`, { m: mf });
+  } catch (e) { /* no es imprescindible */ }
+  if (fotosCambiadas) {
+    const viejas = p.media.nodes.map((m) => m.id);
+    await gql(`mutation($productId: ID!, $media: [CreateMediaInput!]!) { productCreateMedia(productId: $productId, media: $media) { mediaUserErrors { field message } } }`, { productId: p.id, media });
+    if (viejas.length) await gql(`mutation($productId: ID!, $mediaIds: [ID!]!) { productDeleteMedia(productId: $productId, mediaIds: $mediaIds) { mediaUserErrors { field message } } }`, { productId: p.id, mediaIds: viejas });
+  }
+  return { url: `${cfg.tienda}/products/${p.handle}` };
+}
+
 /* ---------------------------------------------------------------------------- Panel del equipo */
 const ESTADOS = { pendiente: 'Por revisar', aprobado: 'Aprobado', publicado: 'Publicado', rechazado: 'Rechazado', retirado: 'Retirado' };
 
@@ -337,7 +423,9 @@ function formEditar(cfg, a) {
 
 export function paginaPanel(cfg, lista, { estado = 'pendiente', aviso = '' } = {}) {
   const fmt = (n) => (n ? `${Number(n).toLocaleString('es-ES')} €` : 'A consultar');
-  const pestañas = Object.entries(ESTADOS).map(([k, v]) => `<a href="?estado=${k}" class="${k === estado ? 'on' : ''}">${v}</a>`).join('') + '<a href="?estado=clientes">Clientes</a>';
+  const pestañas = Object.entries(ESTADOS).map(([k, v]) => `<a href="?estado=${k}" class="${k === estado ? 'on' : ''}">${v}</a>`).join('')
+    + `<a href="?estado=cambios" class="${estado === 'cambios' ? 'on' : ''}">Cambios</a><a href="?estado=clientes">Clientes</a>`;
+  if (estado === 'cambios') return paginaPanelHtml(pestañas, aviso, lista.map((a) => tarjetaCambios(cfg, a)).join('') || '<p class="vacio">No hay cambios por revisar.</p>');
   const tarjetas = lista.map((a) => `
   <article class="a">
     <div class="fotos">${(a.fotos || []).map((f, i) => `<a href="${esc(urlFoto(cfg, f))}" target="_blank"><img src="${esc(urlFoto(cfg, f))}" alt="" loading="lazy">${i === 0 ? '<b>Portada</b>' : ''}</a>`).join('')}</div>
@@ -363,6 +451,41 @@ export function paginaPanel(cfg, lista, { estado = 'pendiente', aviso = '' } = {
       </form>
     </div>
   </article>`).join('') || '<p class="vacio">No hay anuncios aquí.</p>';
+  return paginaPanelHtml(pestañas, aviso, tarjetas);
+}
+
+/** Panel › Cambios: lo que el dueño ha editado de un anuncio aprobado o publicado, antes y ahora, para aprobarlo o no */
+const ETIQUETAS = { tipo: 'Tipo', titulo: 'Título', precio: 'Precio', ubicacion: 'Ubicación', resumen: 'Descripción breve', historia: 'Su historia', mecanica: 'Mecánica y estado', ficha: 'Ficha técnica', vendedor_nombre: 'Nombre', vendedor_tipo: 'Vende como', telefono: 'Teléfono' };
+function tarjetaCambios(cfg, a) {
+  const r = a.revision || {};
+  const ver = (k, v) => {
+    if (k === 'precio') return v ? `${Number(v).toLocaleString('es-ES')} €` : 'A consultar';
+    if (k === 'ficha') return (v || []).map(([x, y]) => `${esc(x)}: ${esc(y)}`).join('<br>');
+    return esc(v ?? '').replace(/\n/g, '<br>');
+  };
+  const filas = Object.keys(ETIQUETAS).filter((k) => k in r && JSON.stringify(r[k] ?? null) !== JSON.stringify(a[k] ?? null))
+    .map((k) => `<tr><th>${ETIQUETAS[k]}</th><td class="antes">${ver(k, a[k])}</td><td class="ahora">${ver(k, r[k])}</td></tr>`).join('');
+  const tiras = (lista) => `<div class="fotos">${(lista || []).map((f, i) => `<a href="${esc(urlFoto(cfg, f))}" target="_blank"><img src="${esc(urlFoto(cfg, f))}" alt="" loading="lazy">${i === 0 ? '<b>Portada</b>' : ''}</a>`).join('')}</div>`;
+  const fotos = JSON.stringify(r.fotos || []) !== JSON.stringify(a.fotos || []) ? `<h3>Fotos antes</h3>${tiras(a.fotos)}<h3>Fotos ahora</h3>${tiras(r.fotos)}` : '';
+  return `
+  <article class="a">
+    <div class="cuerpo">
+      <p class="meta">#${a.id} · ${esc(a.tipo)} · <span class="est est-${esc(a.estado)}">${esc(ESTADOS[a.estado] || a.estado)}</span> · cambios del ${a.revision_fecha ? new Date(a.revision_fecha).toLocaleString('es-ES', { timeZone: 'Europe/Madrid' }) : '—'}</p>
+      <h2>${esc(a.titulo)} <small>· ${esc(a.vendedor_nombre)} · ${esc(a.email || '')}</small></h2>
+      ${a.producto ? `<p><a href="${esc(cfg.tienda)}/products/${esc(a.producto)}" target="_blank">Ver la ficha en la tienda →</a></p>` : ''}
+      ${filas ? `<table class="diff"><tr><th></th><th>Antes</th><th>Ahora</th></tr>${filas}</table>` : (fotos ? '' : '<p class="vacio">Sin cambios en los textos.</p>')}
+      ${fotos}
+      <form method="post" class="acc">
+        <input type="hidden" name="id" value="${a.id}">
+        <button name="accion" value="aplicar" class="si">Aprobar cambios${a.estado === 'publicado' ? ' y actualizar la ficha' : ''}</button>
+        <textarea name="nota" rows="2" placeholder="Motivo si no los apruebas: le llega al dueño por email"></textarea><button name="accion" value="descartar" class="no">No aprobar</button>
+        <label class="avisar"><input type="checkbox" name="avisar" value="1" checked> Avisar al dueño por email${a.email ? ` (${esc(a.email)})` : ' (no tenemos su email)'}</label>
+      </form>
+    </div>
+  </article>`;
+}
+
+function paginaPanelHtml(pestañas, aviso, tarjetas) {
   return `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Anuncios de dueños · Panel de Sidonia</title><meta name="robots" content="noindex">
 <style>
@@ -390,6 +513,9 @@ export function paginaPanel(cfg, lista, { estado = 'pendiente', aviso = '' } = {
   .acc textarea[name=nota] { flex: 1; min-width: 220px; padding: 10px 12px; border: 1px solid #0003; border-radius: 10px; font: inherit; resize: vertical; }
   .avisar { flex-basis: 100%; font-size: 13px; opacity: .8; display: flex; gap: 6px; align-items: center; }
   .editar { border: 1px solid #0002; border-radius: 14px; padding: 10px 14px; }
+  .diff { width: 100%; font-size: 14px; } .diff th, .diff td { vertical-align: top; padding: 8px 10px; border-top: 1px solid #0001; text-align: left; }
+  .diff th:first-child { width: 130px; } .diff .antes { background: #fdf0f1; color: #6b1a22; } .diff .ahora { background: #edf7f0; color: #14532d; }
+  .a h3 { font-size: 14px; margin: 12px 0 6px; }
   .editar summary { font-weight: 700; }
   .editar form { display: grid; gap: 12px; margin-top: 12px; }
   .editar .fila { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); }
@@ -409,7 +535,7 @@ export function paginaPanel(cfg, lista, { estado = 'pendiente', aviso = '' } = {
 ${aviso ? `<p class="aviso${aviso.startsWith('Error') ? ' mal' : ''}">${esc(aviso)}</p>` : ''}
 <nav>${pestañas}</nav>
 ${tarjetas}
-<script>document.querySelectorAll('form.acc').forEach((f) => f.addEventListener('submit', (e) => { const b = e.submitter; if (b && b.value === 'publicar' && !confirm('¿Aprobar y crear la ficha en Shopify?')) return e.preventDefault(); if (b && b.value === 'rechazar' && !confirm('¿Rechazar este anuncio?')) return e.preventDefault(); if (b) setTimeout(() => { b.disabled = true; b.textContent = 'Un momento…'; }, 0); }));</script>
+<script>document.querySelectorAll('form.acc').forEach((f) => f.addEventListener('submit', (e) => { const b = e.submitter; if (b && b.value === 'publicar' && !confirm('¿Aprobar y crear la ficha en Shopify?')) return e.preventDefault(); if (b && b.value === 'rechazar' && !confirm('¿Rechazar este anuncio?')) return e.preventDefault(); if (b && b.value === 'descartar' && !confirm('¿No aprobar estos cambios?')) return e.preventDefault(); if (b) setTimeout(() => { b.disabled = true; b.textContent = 'Un momento…'; }, 0); }));</script>
 </body></html>`;
 }
 
@@ -419,7 +545,7 @@ export function paginaClientes(datos) {
   const d = datos || {};
   const fecha = (t) => (t ? new Date(t).toLocaleString('es-ES', { timeZone: 'Europe/Madrid', day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' }) : '');
   const filas = (d.lista || []).map((c) => `<tr><td><b>${esc(c.nombre || '—')}</b><br><a href="mailto:${esc(c.email)}">${esc(c.email)}</a></td><td>${fecha(c.primera)}</td><td>${fecha(c.ultima)}</td><td>${Number(c.visitas) || 1}</td></tr>`).join('');
-  const pestañas = Object.entries(ESTADOS).map(([k, v]) => `<a href="?estado=${k}">${v}</a>`).join('') + '<a href="?estado=clientes" class="on">Clientes</a>';
+  const pestañas = Object.entries(ESTADOS).map(([k, v]) => `<a href="?estado=${k}">${v}</a>`).join('') + '<a href="?estado=cambios">Cambios</a><a href="?estado=clientes" class="on">Clientes</a>';
   return `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Clientes · Panel de Sidonia</title><meta name="robots" content="noindex">
 <style>
@@ -482,16 +608,31 @@ export function leerEdicion(b, a) {
   };
 }
 
-/** Guarda los cambios de un anuncio en Supabase (tabla anuncios, con la clave de servicio) */
-export async function guardarAnuncio(cfg, id, cambios, fetchImpl = fetch) {
-  const r = await fetchImpl(`${cfg.supabaseUrl}/rest/v1/anuncios?id=eq.${Number(id)}`, {
-    method: 'PATCH',
-    headers: { apikey: cfg.supabaseKey, ...(cfg.supabaseKey.startsWith('sb_') ? {} : { Authorization: `Bearer ${cfg.supabaseKey}` }), 'Content-Type': 'application/json', Prefer: 'return=minimal' },
-    body: JSON.stringify(cambios),
-    signal: AbortSignal.timeout(8000)
-  });
-  if (!r.ok) throw new Error(`Supabase ${r.status}: ${(await r.text().catch(() => '')).slice(0, 200)}`);
+/** La tabla anuncios de Supabase por REST, con la clave de servicio: leer (filtro de PostgREST) y cambiar un anuncio */
+export function tablaAnuncios(cfg, fetchImpl = fetch) {
+  const cabeceras = { apikey: cfg.supabaseKey, ...(cfg.supabaseKey.startsWith('sb_') ? {} : { Authorization: `Bearer ${cfg.supabaseKey}` }), 'Content-Type': 'application/json' };
+  const fallo = async (r) => {
+    const t = (await r.text().catch(() => '')).slice(0, 200);
+    // Falta la columna «revision»: hay que volver a ejecutar sql/circulo.sql
+    throw new Error(/revision/.test(t) ? 'Falta actualizar la base de datos: ejecuta otra vez sql/circulo.sql en Supabase › SQL Editor.' : `Supabase ${r.status}: ${t}`);
+  };
+  return {
+    async leer(filtro) {
+      const r = await fetchImpl(`${cfg.supabaseUrl}/rest/v1/anuncios?select=*&${filtro}`, { headers: cabeceras, signal: AbortSignal.timeout(8000) });
+      if (!r.ok) await fallo(r);
+      return r.json();
+    },
+    async cambiar(id, cambios) {
+      const r = await fetchImpl(`${cfg.supabaseUrl}/rest/v1/anuncios?id=eq.${Number(id)}`, {
+        method: 'PATCH', headers: { ...cabeceras, Prefer: 'return=minimal' }, body: JSON.stringify(cambios), signal: AbortSignal.timeout(8000)
+      });
+      if (!r.ok) await fallo(r);
+    }
+  };
 }
+
+/** Guarda los cambios de un anuncio (panel › Editar) */
+export const guardarAnuncio = (cfg, id, cambios, fetchImpl = fetch) => tablaAnuncios(cfg, fetchImpl).cambiar(id, cambios);
 
 export async function atenderPanel(req, cfg, deps) {
   const html = (body, status = 200) => ({ status, headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' }, body });
@@ -500,6 +641,47 @@ export async function atenderPanel(req, cfg, deps) {
   }
   const { db } = deps;
   if (req.query.estado === 'clientes') return html(paginaClientes(await db('sidonia_clientes_lista', { p_limite: 300 })));
+  // Email al dueño: el aviso del panel dice si ha salido, si falta Resend o si ha fallado
+  const correoAlDueno = async (a, avisar, c) => {
+    if (!avisar) return '';
+    if (!a.email) return ' Sin email del dueño: no se le ha avisado.';
+    try {
+      return (await enviarCorreo(cfg, a.email, c.asunto, c.html, deps.fetch)) ? ` Email enviado a ${a.email}.` : ' No se ha enviado el email: falta RESEND_API_KEY en Vercel.';
+    } catch (e) {
+      console.error(e);
+      return ` El email no ha salido (${e.message}).`;
+    }
+  };
+  if (req.query.estado === 'cambios') {
+    const tabla = deps.tabla || tablaAnuncios(cfg, deps.fetch);
+    let aviso = '';
+    if (req.method === 'POST') {
+      try {
+        const [a] = await tabla.leer(`id=eq.${Number(req.body.id)}`);
+        if (!a || !a.revision) throw new Error('Ese anuncio ya no tiene cambios por revisar.');
+        const avisar = req.body.avisar === '1';
+        if (req.body.accion === 'aplicar') {
+          const nuevo = { ...a, ...a.revision };
+          let url = '';
+          // Primero la ficha de Shopify: si falla, los cambios siguen por revisar
+          if (a.estado === 'publicado' && a.producto) {
+            url = (await actualizarEnShopify(cfg, nuevo, JSON.stringify(a.fotos) !== JSON.stringify(nuevo.fotos), deps.gql || shopifyAdmin(cfg, deps.fetch))).url;
+          }
+          await tabla.cambiar(a.id, { ...a.revision, revision: null, revision_fecha: null, actualizado: new Date().toISOString() });
+          aviso = `Cambios aprobados en el anuncio #${a.id}${url ? ' y actualizada su ficha en la tienda' : ''}.` + await correoAlDueno(nuevo, avisar, correoCambiosAprobados(cfg, nuevo, url));
+        } else if (req.body.accion === 'descartar') {
+          await tabla.cambiar(a.id, { revision: null, revision_fecha: null });
+          aviso = `No aprobados los cambios del anuncio #${a.id}: sigue como estaba.` + await correoAlDueno(a, avisar, correoCambiosRechazados(cfg, a, texto(req.body.nota, 1500)));
+        }
+      } catch (e) {
+        console.error(e);
+        aviso = `Error: ${e.message}`;
+      }
+    }
+    let lista = [];
+    try { lista = await tabla.leer('revision=not.is.null&order=revision_fecha.desc'); } catch (e) { aviso = aviso || `Error: ${e.message}`; }
+    return html(paginaPanel(cfg, lista, { estado: 'cambios', aviso }));
+  }
   let aviso = '';
   let estado = ESTADOS[req.query.estado] ? req.query.estado : 'pendiente';
   if (req.method === 'POST') {
@@ -508,18 +690,7 @@ export async function atenderPanel(req, cfg, deps) {
     const a = id ? await db('sidonia_anuncio_uno', { p_id: id }) : null;
     try {
       if (!a) throw new Error('No encuentro ese anuncio.');
-      const avisar = req.body.avisar === '1';
-      // Email al dueño: lo dice el aviso del panel (enviado, sin Resend o error)
-      const correo = async (c) => {
-        if (!avisar) return '';
-        if (!a.email) return ' Sin email del dueño: no se le ha avisado.';
-        try {
-          return (await enviarCorreo(cfg, a.email, c.asunto, c.html, deps.fetch)) ? ` Email enviado a ${a.email}.` : ' No se ha enviado el email: falta RESEND_API_KEY en Vercel.';
-        } catch (e) {
-          console.error(e);
-          return ` El email no ha salido (${e.message}).`;
-        }
-      };
+      const correo = (c) => correoAlDueno(a, req.body.avisar === '1', c);
       if (accion === 'guardar') {
         const cambios = leerEdicion(req.body, a);
         if (cambios.error) throw new Error(cambios.error);

@@ -88,3 +88,31 @@ export function correoRechazado(cfg, a, motivo) {
     })
   };
 }
+
+/** «Tus cambios ya se ven» (el equipo aprueba lo que el dueño editó) */
+export function correoCambiosAprobados(cfg, a, url) {
+  return {
+    asunto: `Tus cambios ya están en Sidonia: ${a.titulo}`,
+    html: plantilla(cfg, a, {
+      antetitulo: 'Cambios aprobados',
+      titulo: `${a.vendedor_nombre}, ya hemos actualizado tu anuncio`,
+      cuerpo: parrafos(`Hemos revisado los cambios de «${a.titulo}» y ya se ven en tu anuncio.`),
+      boton: url ? 'Ver mi anuncio' : 'Ver mi perfil', enlace: url || `${cfg.tienda}/pages/vende-con-nosotros?view=perfil`
+    })
+  };
+}
+
+/** «No hemos aplicado tus cambios» con el motivo (el anuncio sigue como estaba) */
+export function correoCambiosRechazados(cfg, a, motivo) {
+  return {
+    asunto: `Sobre los cambios de tu anuncio: ${a.titulo}`,
+    html: plantilla(cfg, a, {
+      antetitulo: 'Tus cambios',
+      titulo: `${a.vendedor_nombre}, no hemos aplicado tus cambios`,
+      cuerpo: parrafos(`Hemos revisado los cambios de «${a.titulo}» y, de momento, no podemos aplicarlos. Tu anuncio sigue como estaba.`)
+        + (motivo ? `<div style="margin:0 0 16px;padding:14px 16px;border-radius:12px;background:#f6f5f2">${parrafos(motivo)}</div>` : '')
+        + parrafos('Puedes volver a editarlo cuando quieras. Si tienes cualquier duda, escríbenos.'),
+      boton: 'Editar mi anuncio', enlace: `${cfg.tienda}/pages/vende-con-nosotros?view=publicar`
+    })
+  };
+}

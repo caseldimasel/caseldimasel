@@ -239,3 +239,75 @@ test('panel: editar antes de publicar (textos, ficha, fotos) y emails al dueño'
   const sin = await atenderPanel({ method: 'POST', query: {}, body: { id: '9', accion: 'rechazar', nota: 'x', avisar: '1' }, headers: auth }, cfg, { db });
   assert.match(sin.body, /falta RESEND_API_KEY/);
 });
+
+test('el dueño edita su anuncio: por revisar se cambia ya; publicado, los cambios esperan al equipo', async () => {
+  const base = { id: 9, cliente: '7001', ...validar(bueno(), '7001').datos, producto: 'porsche', revision: null };
+  const pruebas = [['pendiente', false], ['publicado', true]];
+  for (const [estado, conRevision] of pruebas) {
+    const cambios = [];
+    const tabla = { leer: async () => [{ ...base, estado }], cambiar: async (id, c) => { cambios.push([id, c]); } };
+    const db = async () => null;
+    const g = JSON.parse((await atender({ method: 'GET', ruta: 'api/anuncio/editar', query: q(), body: {} }, cfg, { db, tabla })).body);
+    assert.equal(g.anuncio.titulo, 'Porsche 911 SC 1982');
+    assert.equal(g.anuncio.fotos_url.length, 10);
+    assert.match(g.anuncio.fotos_url[0], /^https:\/\/x\.supabase\.co\/storage\/v1\/object\/public\/anuncios\/7001\//);
+    const r = JSON.parse((await atender({ method: 'POST', ruta: 'api/anuncio/editar', query: q(), body: bueno({ titulo: 'Porsche 911 SC Targa 1982' }) }, cfg, { db, tabla })).body);
+    assert.deepEqual(r, { ok: true, revision: conRevision });
+    const [id, c] = cambios[0];
+    assert.equal(id, 9);
+    if (conRevision) {
+      assert.equal(c.revision.titulo, 'Porsche 911 SC Targa 1982');
+      assert.equal(c.titulo, undefined, 'lo publicado no cambia hasta que se aprueba');
+    } else {
+      assert.equal(c.titulo, 'Porsche 911 SC Targa 1982');
+      assert.equal(c.revision, null);
+    }
+    assert.equal((c.revision || c).vendedor_slug, undefined, 'el perfil del vendedor no cambia');
+  }
+  const sin = JSON.parse((await atender({ method: 'POST', ruta: 'api/anuncio/editar', query: q(), body: bueno() }, cfg, { db: async () => null, tabla: { leer: async () => [] } })).body);
+  assert.equal(sin.error, 'sin-anuncio');
+});
+
+test('el dueño elimina su anuncio: se retira, se archiva en Shopify y puede publicar otro', async () => {
+  const llamadas = [];
+  const db = async (fn, a) => { llamadas.push([fn, a]); return fn === 'sidonia_anuncio_mio' ? { id: 9, estado: 'publicado', titulo: 'Porsche', producto: 'porsche' } : { ok: true }; };
+  const gqls = [];
+  const gql = async (query, v) => { gqls.push(v); return /products\(first/.test(query) ? { products: { nodes: [{ id: 'gid://P/1', handle: 'porsche', variants: { nodes: [] }, media: { nodes: [] } }] } } : { productUpdate: { userErrors: [] } }; };
+  const r = JSON.parse((await atender({ method: 'POST', ruta: 'api/anuncio/eliminar', query: q(), body: {} }, cfg, { db, gql, tabla: { cambiar: async () => {} } })).body);
+  assert.deepEqual(r, { ok: true, archivado: true });
+  assert.deepEqual(llamadas.find((c) => c[0] === 'sidonia_anuncio_estado')[1], { p_id: 9, p_estado: 'retirado', p_nota: 'Eliminado por el dueño', p_producto: null });
+  assert.deepEqual(gqls[1], { product: { id: 'gid://P/1', status: 'ARCHIVED' } });
+  // Con un anuncio activo puede pedir fotos solo para editar
+  const dbActivo = async (fn) => (fn === 'sidonia_anuncio_mio' ? { id: 9, estado: 'publicado' } : null);
+  const nuevo = JSON.parse((await atender({ method: 'POST', ruta: 'api/anuncio/fotos', query: q(), body: { tipos: ['image/jpeg'] } }, cfg, { db: dbActivo, subidas: async () => ({ ok: true, subidas: [] }) })).body);
+  assert.equal(nuevo.error, 'limite');
+  const editar = JSON.parse((await atender({ method: 'POST', ruta: 'api/anuncio/fotos', query: q(), body: { tipos: ['image/jpeg'], editar: true } }, cfg, { db: dbActivo, subidas: async () => ({ ok: true, subidas: [] }) })).body);
+  assert.equal(editar.ok, true);
+});
+
+test('panel › Cambios: antes y ahora; aprobar actualiza la ficha y el anuncio; no aprobar lo deja como estaba', async () => {
+  const auth = { authorization: `Basic ${Buffer.from('equipo:panel-secreto').toString('base64')}` };
+  const a = { id: 9, cliente: '7001', ...validar(bueno(), '7001').datos, estado: 'publicado', producto: 'porsche', revision_fecha: new Date().toISOString() };
+  a.revision = { ...Object.fromEntries(['tipo', 'titulo', 'precio', 'ubicacion', 'resumen', 'historia', 'mecanica', 'ficha', 'fotos', 'vendedor_nombre', 'vendedor_tipo', 'telefono', 'acepta_telefono'].map((k) => [k, a[k]])), titulo: 'Porsche 911 SC Targa', precio: 60000 };
+  let cambiado = null;
+  const tabla = { leer: async () => [a], cambiar: async (id, c) => { cambiado = c; } };
+  const lista = await atenderPanel({ method: 'GET', query: { estado: 'cambios' }, headers: auth }, cfg, { db: async () => null, tabla });
+  assert.match(lista.body, /class="antes">Porsche 911 SC 1982<\/td><td class="ahora">Porsche 911 SC Targa<\/td>/);
+  assert.match(lista.body, /65\.000 €<\/td><td class="ahora">60\.000 €/);
+  assert.doesNotMatch(lista.body, /<th>Ubicación<\/th>/, 'solo lo que cambia');
+  const pasos = [];
+  const gql = async (query, v) => {
+    pasos.push(query.match(/(productUpdate|productVariantsBulkUpdate|metafieldsSet|productCreateMedia|productDeleteMedia|products\(first)/)[1]);
+    if (/products\(first/.test(query)) return { products: { nodes: [{ id: 'gid://P/1', handle: 'porsche', variants: { nodes: [{ id: 'gid://V/1' }] }, media: { nodes: [{ id: 'gid://M/1' }] } }] } };
+    if (/productUpdate/.test(query)) { assert.equal(v.product.title, 'Porsche 911 SC Targa'); return { productUpdate: { userErrors: [] } }; }
+    return {};
+  };
+  const ok = await atenderPanel({ method: 'POST', query: { estado: 'cambios' }, body: { id: '9', accion: 'aplicar' }, headers: auth }, cfg, { db: async () => null, tabla, gql });
+  assert.match(ok.body, /Cambios aprobados en el anuncio #9 y actualizada su ficha en la tienda/);
+  assert.deepEqual(pasos, ['products(first', 'productUpdate', 'productVariantsBulkUpdate', 'metafieldsSet'], 'las fotos no han cambiado: no se tocan');
+  assert.equal(cambiado.titulo, 'Porsche 911 SC Targa');
+  assert.equal(cambiado.revision, null);
+  const no = await atenderPanel({ method: 'POST', query: { estado: 'cambios' }, body: { id: '9', accion: 'descartar', nota: 'El precio no cuadra' }, headers: auth }, cfg, { db: async () => null, tabla });
+  assert.match(no.body, /No aprobados los cambios del anuncio #9/);
+  assert.deepEqual(cambiado, { revision: null, revision_fecha: null });
+});

@@ -84,6 +84,16 @@ Puesta en marcha:
   lo enseña en **/admin › Clientes** (nuevos hoy, esta semana, quién ha entrado y cuándo). Para un email por cada
   registro sin servidor de correo: Shopify Flow › «Customer created» › «Send internal email».
 
+### El dueño edita o elimina su anuncio
+
+- **Editar** (en «Anuncia gratis» o en su perfil › «Editar o eliminar»): el mismo formulario con sus datos y fotos. Si
+  el anuncio aún está por revisar, se cambia directamente. Si ya está aprobado o publicado, los cambios quedan en
+  **panel › Cambios** (antes y ahora, fotos incluidas): «Aprobar cambios» actualiza el anuncio y su ficha de Shopify;
+  «No aprobar» lo deja como estaba. Al dueño le llega un email en los dos casos.
+- **Eliminar:** el anuncio pasa a «Retirado», su ficha de Shopify se archiva y puede publicar otro.
+- Necesita las columnas `revision` y `revision_fecha`: ejecuta otra vez `sql/circulo.sql` en Supabase › SQL Editor
+  (no borra nada).
+
 ### Panel: editar y emails al dueño
 
 - **Editar antes de publicar** (anuncios por revisar o aprobados): título, precio, ubicación, textos, ficha técnica
