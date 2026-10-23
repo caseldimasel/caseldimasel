@@ -20,6 +20,8 @@ export default async function handler(req, res) {
     res.status(r.status).send(r.body);
   } catch (e) {
     console.error(e);
-    res.status(500).json({ ok: false, error: 'servidor', detalle: codigoError(e) });
+    // 200 con ok:false: si se responde 500, Shopify (proxy de la app) cambia la respuesta por su página de error y la
+    // tienda no ve qué ha fallado. Así el formulario enseña el motivo (p. ej. «anuncios-sql»).
+    res.status(200).json({ ok: false, error: 'servidor', detalle: codigoError(e) });
   }
 }
