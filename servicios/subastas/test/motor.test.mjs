@@ -177,3 +177,20 @@ test('cliente firmado por el tema cuando Shopify no pasa logged_in_customer_id',
   const sin = await atender({ method: 'GET', ruta: 'api/anuncio', query: q({}, '') }, cfg, { db });
   assert.equal(JSON.parse(sin.body).error, 'login');
 });
+
+test('directo (sin proxy): solo anuncios y con el cliente firmado por el tema', async () => {
+  const t = ahora();
+  const cf = createHmac('sha256', CLAVE).update(`7001.${t}`).digest('hex');
+  const llamadas = [];
+  const db = async (fn, a) => (llamadas.push([fn, a]), null);
+  const bien = await atender({ method: 'GET', ruta: 'api/anuncio', query: { c: '7001', ct: t, cf }, directo: true }, cfg, { db });
+  assert.equal(JSON.parse(bien.body).ok, true);
+  assert.deepEqual(llamadas[0], ['sidonia_anuncio_mio', { p_cliente: '7001' }]);
+  const sin = await atender({ method: 'GET', ruta: 'api/anuncio', query: {}, directo: true }, cfg, { db });
+  assert.equal(JSON.parse(sin.body).error, 'login');
+  const pujar = await atender({ method: 'POST', ruta: 'api/pujar', query: { c: '7001', ct: t, cf }, body: { handle: 'x', importe: 1 }, directo: true }, cfg, { db });
+  assert.equal(pujar.status, 404, 'las pujas siguen necesitando el proxy de Shopify');
+  const fingido = await atender({ method: 'GET', ruta: 'api/anuncio', query: { logged_in_customer_id: '9', c: '7001', ct: t, cf }, directo: true }, cfg, { db });
+  assert.deepEqual(llamadas.at(-1), ['sidonia_anuncio_mio', { p_cliente: '7001' }], 'en directo no vale logged_in_customer_id');
+  assert.equal(JSON.parse(fingido.body).ok, true);
+});

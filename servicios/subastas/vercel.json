@@ -5,6 +5,10 @@
       "destination": "/api/proxy?ruta=:ruta*"
     },
     {
+      "source": "/tienda/:ruta*",
+      "destination": "/api/tienda?ruta=:ruta*"
+    },
+    {
       "source": "/admin",
       "destination": "/api/admin"
     },

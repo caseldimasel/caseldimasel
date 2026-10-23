@@ -229,9 +229,12 @@ async function paginaConexion(query, cfg, { db, fetch: fetchImpl = fetch }) {
 export async function atender(req, cfg, deps) {
   // Página de comprobación: sidonia.es/apps/sidonia/conexion (no enseña nada secreto)
   if (String(req.ruta || '').replace(/^\/+|\/+$/g, '') === 'conexion') return paginaConexion(req.query, cfg, deps);
-  if (!comprobarProxy(req.query, cfg.secreto)) return json(401, { ok: false, error: 'firma' });
   const ruta = String(req.ruta || '').replace(/^\/+|\/+$/g, '');
-  const cliente = req.query.logged_in_customer_id ? String(req.query.logged_in_customer_id) : clienteFirmado(req.query, cfg.clave);
+  // Directo (sin el proxy de Shopify, /tienda/…): solo los anuncios de dueños, y quien es lo dice la firma del tema
+  if (req.directo) {
+    if (!/^api\/(anuncio|anuncios|visita)(\/|$)/.test(ruta)) return json(404, { ok: false, error: 'ruta' });
+  } else if (!comprobarProxy(req.query, cfg.secreto)) return json(401, { ok: false, error: 'firma' });
+  const cliente = !req.directo && req.query.logged_in_customer_id ? String(req.query.logged_in_customer_id) : clienteFirmado(req.query, cfg.clave);
   // El tema mandó quién es, pero la firma no cuadra: la «Clave del motor» del tema no es la SUBASTAS_CLAVE de Vercel
   if (!cliente && req.query.cf) return json(200, { ok: false, error: 'clave', detalle: 'clave-del-motor' });
   const body = req.body || {};
