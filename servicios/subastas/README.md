@@ -97,6 +97,16 @@ Puesta en marcha:
 - Necesita las columnas `revision`, `revision_fecha` y `reservado` y el estado «vendido»: ejecuta otra vez `sql/circulo.sql` en Supabase › SQL Editor
   (no borra nada).
 
+### Perfil del vendedor
+
+- En **Mi perfil › Editar perfil** cada uno pone su **foto o logo**, el **nombre** que se ve (persona o negocio:
+  «Automóviles ARPI SL»), si vende como **particular o profesional** y una **descripción breve**. Se guarda en la tabla
+  `perfiles` (api/perfil) y se ve en su perfil público y en la ficha de sus anuncios (api/perfil/publico, sin sesión).
+  Al cambiar el nombre o el tipo, sus anuncios publicados se actualizan también en Shopify.
+- En la ficha de los coches de Sidonia sale **«Gestionado por Sidonia»** y, si se rellena el metacampo de producto
+  `custom.propietario` (texto de una línea), el nombre del propietario. Las tarjetas enseñan la ubicación
+  (`custom.provincia`) y el dueño o propietario.
+
 ### Panel: editar y emails al dueño
 
 - **Editar antes de publicar** (anuncios por revisar o aprobados): título, precio, ubicación, textos, ficha técnica

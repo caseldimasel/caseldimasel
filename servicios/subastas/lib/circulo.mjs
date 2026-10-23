@@ -10,6 +10,9 @@
  *   POST api/anuncio/editar   { …lo mismo que al publicar } → { ok, revision }   por revisar: se cambia ya; aprobado o
  *                             publicado: los cambios quedan «por revisar» (panel › Cambios) hasta que el equipo los aprueba
  *   POST api/anuncio/eliminar → { ok }   lo retira (y archiva la ficha en Shopify): puede publicar otro
+ *   GET  api/perfil           → { ok, perfil }   su perfil (nombre, tipo, descripción, foto)
+ *   POST api/perfil           { nombre, tipo, descripcion, foto } → { ok, perfil }
+ *   GET  api/perfil/publico?slug=…  → { ok, perfil }   sin sesión: lo que se enseña en su perfil público y sus anuncios
  *   POST api/anuncio/situacion { situacion: 'en_venta' | 'reservado' | 'vendido' } → { ok }   la etiqueta de la ficha;
  *                             vendido deja de contar como su anuncio gratis (puede publicar otro)
  * Panel del equipo (directo en Vercel, con contraseña): /admin → lista, editar, aprobar y publicar en Shopify, rechazar, retirar.
@@ -118,6 +121,13 @@ export async function permisosSubida(cfg, cliente, tipos, fetchImpl = fetch) {
 /* ---------------------------------------------------------------------------- Rutas de la tienda */
 export async function rutasTienda({ ruta, method, body }, cliente, cfg, deps) {
   const json = (status, b) => ({ status, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }, body: JSON.stringify(b) });
+  // Perfil público (sin sesión): foto, nombre, tipo y descripción de un vendedor, por el slug de sus anuncios
+  if (ruta === 'api/perfil/publico' && method === 'GET') {
+    const slug = String(body.slug || '').toLowerCase().replace(/[^a-z0-9-]/g, '').slice(0, 80);
+    if (!slug) return json(400, { ok: false, error: 'datos' });
+    const [p] = await (deps.perfiles || tablaAnuncios(cfg, deps.fetch, 'perfiles')).leer(`slug=eq.${slug}&limit=1`).catch(() => []);
+    return { ...json(200, { ok: true, perfil: perfilPublico(cfg, p) || null }), headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=60' } };
+  }
   if (!cliente) return json(200, { ok: false, error: 'login' });
   const { db } = deps;
   if (ruta === 'api/anuncio' && method === 'GET') {
@@ -181,6 +191,32 @@ export async function rutasTienda({ ruta, method, body }, cliente, cfg, deps) {
     await avisarEquipo(cfg, `Anuncio eliminado por su dueño: ${mio.titulo}`,
       `<p>El anuncio #${mio.id} «${esc(mio.titulo)}» lo ha eliminado su dueño.${mio.producto ? (archivado ? ' La ficha de Shopify se ha archivado.' : ' Archiva la ficha en Shopify › Productos.') : ''}</p>`, deps.fetch).catch((e) => console.error(e));
     return json(200, { ok: true, archivado });
+  }
+  // Su perfil: nombre (persona o negocio), particular o profesional, descripción breve y foto o logo
+  if (ruta === 'api/perfil') {
+    const perfiles = deps.perfiles || tablaAnuncios(cfg, deps.fetch, 'perfiles');
+    const [actual] = await perfiles.leer(`cliente=eq.${encodeURIComponent(cliente)}&limit=1`);
+    if (method === 'GET') return json(200, { ok: true, perfil: actual ? { ...perfilPublico(cfg, actual), ruta_foto: actual.foto } : null });
+    const nombre = texto(body.nombre, 60).replace(/[<>]/g, '');
+    if (nombre.length < 2) return json(400, { ok: false, error: 'datos', campo: 'nombre' });
+    const foto = String(body.foto || '');
+    const propia = new RegExp(`^${String(cliente).replace(/\W/g, '')}/[a-z0-9-]{8,64}\\.(jpg|png|webp)$`);
+    if (foto && !propia.test(foto)) return json(400, { ok: false, error: 'datos', campo: 'foto' });
+    // El slug: el de sus anuncios (para que su perfil público sea el mismo), o uno nuevo
+    let slug = actual?.slug;
+    if (!slug) {
+      const [ultimo] = await (deps.tabla || tablaAnuncios(cfg, deps.fetch)).leer(`cliente=eq.${encodeURIComponent(cliente)}&select=vendedor_slug&order=creado.desc&limit=1`).catch(() => []);
+      slug = ultimo?.vendedor_slug || slugVendedor(nombre, cliente);
+    }
+    const p = await perfiles.guardar({
+      cliente, slug, nombre, tipo: body.tipo === 'profesional' ? 'profesional' : 'particular',
+      descripcion: texto(body.descripcion, 600), foto, actualizado: new Date().toISOString()
+    }, 'cliente');
+    // Sus anuncios publicados llevan el nombre y el tipo nuevos (tarjetas, ficha y su perfil público)
+    if (cfg.shopifyTienda && cfg.shopifyClientId) {
+      try { await nombreEnSusAnuncios(cfg, cliente, p, deps); } catch (e) { console.error(e); }
+    }
+    return json(200, { ok: true, perfil: perfilPublico(cfg, p) });
   }
   // Reservado / vendido / otra vez en venta (solo un anuncio publicado)
   if (ruta === 'api/anuncio/situacion' && method === 'POST') {
@@ -394,6 +430,23 @@ export async function marcarSituacion(cfg, a, situacion, deps) {
   const tabla = deps.tabla || tablaAnuncios(cfg, deps.fetch);
   if (situacion === 'vendido') await deps.db('sidonia_anuncio_estado', { p_id: a.id, p_estado: 'vendido', p_nota: '', p_producto: null });
   await tabla.cambiar(a.id, { reservado: situacion === 'reservado' });
+}
+
+/** Cambia el nombre del vendedor (y si es particular o profesional) en las fichas de sus anuncios publicados o vendidos */
+async function nombreEnSusAnuncios(cfg, cliente, perfil, deps) {
+  const tabla = deps.tabla || tablaAnuncios(cfg, deps.fetch);
+  const suyos = await tabla.leer(`cliente=eq.${encodeURIComponent(cliente)}&estado=in.(publicado,vendido)&select=id,producto,vendedor_nombre,vendedor_tipo`);
+  const gql = deps.gql || shopifyAdmin(cfg, deps.fetch);
+  for (const a of suyos.filter((x) => x.producto)) {
+    if (a.vendedor_nombre === perfil.nombre && a.vendedor_tipo === perfil.tipo) continue;
+    const p = await productoPorHandle(a.producto, gql);
+    await gql(`mutation($product: ProductUpdateInput!) { productUpdate(product: $product) { userErrors { field message } } }`, { product: { id: p.id, vendor: perfil.nombre } });
+    await gql(`mutation($m: [MetafieldsSetInput!]!) { metafieldsSet(metafields: $m) { userErrors { field message } } }`, { m: [
+      { ownerId: p.id, namespace: 'custom', key: 'vendedor_nombre', type: 'single_line_text_field', value: perfil.nombre },
+      { ownerId: p.id, namespace: 'custom', key: 'vendedor_tipo', type: 'single_line_text_field', value: perfil.tipo }
+    ] });
+    await tabla.cambiar(a.id, { vendedor_nombre: perfil.nombre, vendedor_tipo: perfil.tipo });
+  }
 }
 
 /** Aplica a la ficha publicada los cambios aprobados: textos, precio, metacampos y, si han cambiado, las fotos */
@@ -647,27 +700,41 @@ export function leerEdicion(b, a) {
 }
 
 /** La tabla anuncios de Supabase por REST, con la clave de servicio: leer (filtro de PostgREST) y cambiar un anuncio */
-export function tablaAnuncios(cfg, fetchImpl = fetch) {
+export function tablaAnuncios(cfg, fetchImpl = fetch, nombreTabla = 'anuncios') {
   const cabeceras = { apikey: cfg.supabaseKey, ...(cfg.supabaseKey.startsWith('sb_') ? {} : { Authorization: `Bearer ${cfg.supabaseKey}` }), 'Content-Type': 'application/json' };
   const fallo = async (r) => {
     const t = (await r.text().catch(() => '')).slice(0, 200);
-    // Falta la columna «revision»: hay que volver a ejecutar sql/circulo.sql
-    throw new Error(/revision/.test(t) ? 'Falta actualizar la base de datos: ejecuta otra vez sql/circulo.sql en Supabase › SQL Editor.' : `Supabase ${r.status}: ${t}`);
+    // Falta la columna «revision» o la tabla «perfiles»: hay que volver a ejecutar sql/circulo.sql
+    throw new Error(/revision|reservado|perfiles/.test(t) ? 'Falta actualizar la base de datos: ejecuta otra vez sql/circulo.sql en Supabase › SQL Editor.' : `Supabase ${r.status}: ${t}`);
   };
   return {
     async leer(filtro) {
-      const r = await fetchImpl(`${cfg.supabaseUrl}/rest/v1/anuncios?select=*&${filtro}`, { headers: cabeceras, signal: AbortSignal.timeout(8000) });
+      const r = await fetchImpl(`${cfg.supabaseUrl}/rest/v1/${nombreTabla}?${/(^|&)select=/.test(filtro) ? '' : 'select=*&'}${filtro}`, { headers: cabeceras, signal: AbortSignal.timeout(8000) });
       if (!r.ok) await fallo(r);
       return r.json();
     },
     async cambiar(id, cambios) {
-      const r = await fetchImpl(`${cfg.supabaseUrl}/rest/v1/anuncios?id=eq.${Number(id)}`, {
+      const r = await fetchImpl(`${cfg.supabaseUrl}/rest/v1/${nombreTabla}?id=eq.${Number(id)}`, {
         method: 'PATCH', headers: { ...cabeceras, Prefer: 'return=minimal' }, body: JSON.stringify(cambios), signal: AbortSignal.timeout(8000)
       });
       if (!r.ok) await fallo(r);
+    },
+    // Crear o cambiar una fila por su clave (perfiles: cliente)
+    async guardar(fila, clave) {
+      const r = await fetchImpl(`${cfg.supabaseUrl}/rest/v1/${nombreTabla}?on_conflict=${clave}`, {
+        method: 'POST', headers: { ...cabeceras, Prefer: 'resolution=merge-duplicates,return=representation' }, body: JSON.stringify(fila), signal: AbortSignal.timeout(8000)
+      });
+      if (!r.ok) await fallo(r);
+      return (await r.json())[0];
     }
   };
 }
+
+/** Lo público de un perfil: lo que se enseña en su página y en sus anuncios (sin el id del cliente) */
+export const perfilPublico = (cfg, p) => p && ({
+  slug: p.slug, nombre: p.nombre, tipo: p.tipo === 'profesional' ? 'profesional' : 'particular', descripcion: p.descripcion || '',
+  foto: p.foto ? urlFoto(cfg, p.foto) : ''
+});
 
 /** Guarda los cambios de un anuncio (panel › Editar) */
 export const guardarAnuncio = (cfg, id, cambios, fetchImpl = fetch) => tablaAnuncios(cfg, fetchImpl).cambiar(id, cambios);

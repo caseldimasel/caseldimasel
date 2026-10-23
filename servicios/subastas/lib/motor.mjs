@@ -232,7 +232,7 @@ export async function atender(req, cfg, deps) {
   const ruta = String(req.ruta || '').replace(/^\/+|\/+$/g, '');
   // Directo (sin el proxy de Shopify, /tienda/…): solo los anuncios de dueños, y quien es lo dice la firma del tema
   if (req.directo) {
-    if (!/^api\/(anuncio|anuncios|visita)(\/|$)/.test(ruta)) return json(404, { ok: false, error: 'ruta' });
+    if (!/^api\/(anuncio|anuncios|visita|perfil)(\/|$)/.test(ruta)) return json(404, { ok: false, error: 'ruta' });
   } else if (!comprobarProxy(req.query, cfg.secreto)) return json(401, { ok: false, error: 'firma' });
   const cliente = !req.directo && req.query.logged_in_customer_id ? String(req.query.logged_in_customer_id) : clienteFirmado(req.query, cfg.clave);
   // El tema mandó quién es, pero la firma no cuadra: la «Clave del motor» del tema no es la SUBASTAS_CLAVE de Vercel
@@ -255,8 +255,8 @@ export async function atender(req, cfg, deps) {
   }
 
   // Del dueño: anuncios gratis de particulares
-  if (ruta === 'api/anuncio' || ruta === 'api/anuncios' || ruta === 'api/visita' || ruta.startsWith('api/anuncio/')) {
-    const r = await rutasTienda({ ruta, method: req.method, body }, cliente, cfg, deps);
+  if (ruta === 'api/anuncio' || ruta === 'api/anuncios' || ruta === 'api/visita' || ruta.startsWith('api/anuncio/') || ruta === 'api/perfil' || ruta === 'api/perfil/publico') {
+    const r = await rutasTienda({ ruta, method: req.method, body: req.method === 'GET' ? { ...req.query } : body }, cliente, cfg, deps);
     if (r) return r;
   }
 

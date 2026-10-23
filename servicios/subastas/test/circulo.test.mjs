@@ -336,3 +336,37 @@ test('reservado y vendido: etiqueta en la ficha; vendido libera su anuncio grati
   const mal = await atender({ method: 'POST', ruta: 'api/anuncio/situacion', query: q(), body: { situacion: 'regalado' } }, cfg, { db: async () => null });
   assert.equal(mal.status, 400);
 });
+
+test('perfil del vendedor: lo edita él; el público se ve sin sesión y sin su id', async () => {
+  let guardado = null;
+  const perfiles = { leer: async (f) => (/slug=eq\.pablo-1a2b/.test(f) || (guardado && /cliente=eq/.test(f)) ? [guardado || { cliente: '7001', slug: 'pablo-1a2b', nombre: 'Pablo', tipo: 'particular', descripcion: '', foto: '' }] : []),
+    guardar: async (fila) => { guardado = fila; return fila; } };
+  const tabla = { leer: async () => [{ vendedor_slug: 'pablo-1a2b' }] };
+  const r = JSON.parse((await atender({ method: 'POST', ruta: 'api/perfil', query: q(), body: { nombre: 'Automóviles ARPI SL', tipo: 'profesional', descripcion: 'Compraventa en Madrid desde 1985.', foto: '7001/abcdefgh-logo1.jpg' } }, cfg, { db: async () => null, perfiles, tabla })).body);
+  assert.equal(r.ok, true);
+  assert.equal(guardado.slug, 'pablo-1a2b', 'el mismo perfil que el de sus anuncios');
+  assert.equal(r.perfil.nombre, 'Automóviles ARPI SL');
+  assert.equal(r.perfil.tipo, 'profesional');
+  assert.match(r.perfil.foto, /\/storage\/v1\/object\/public\/anuncios\/7001\/abcdefgh-logo1\.jpg$/);
+  const ajena = await atender({ method: 'POST', ruta: 'api/perfil', query: q(), body: { nombre: 'X Y', foto: '9999/abcdefgh-otro1.jpg' } }, cfg, { db: async () => null, perfiles, tabla });
+  assert.equal(JSON.parse(ajena.body).campo, 'foto', 'solo fotos suyas');
+  const pub = JSON.parse((await atender({ method: 'GET', ruta: 'api/perfil/publico', query: { slug: 'pablo-1a2b' }, directo: true }, cfg, { db: async () => null, perfiles })).body);
+  assert.equal(pub.perfil.nombre, 'Automóviles ARPI SL');
+  assert.equal(pub.perfil.cliente, undefined, 'sin el id del cliente');
+});
+
+test('perfil: al cambiar el nombre, sus anuncios publicados lo llevan también', async () => {
+  const pasos = [];
+  const gql = async (query, v) => {
+    if (/products\(first/.test(query)) return { products: { nodes: [{ id: 'gid://P/1', handle: 'porsche', variants: { nodes: [] }, media: { nodes: [] } }] } };
+    pasos.push(/productUpdate/.test(query) ? ['vendor', v.product.vendor] : ['metacampos', v.m.map((m) => `${m.key}=${m.value}`).join(',')]);
+    return { productUpdate: { userErrors: [] }, metafieldsSet: { userErrors: [] } };
+  };
+  const cambios = [];
+  const tabla = { leer: async () => [{ id: 9, producto: 'porsche', vendedor_nombre: 'Pablo', vendedor_tipo: 'particular' }, { id: 3, producto: '' }], cambiar: async (id, c) => cambios.push([id, c]) };
+  const perfiles = { leer: async () => [{ cliente: '7001', slug: 'pablo-1a2b' }], guardar: async (f) => f };
+  const r = JSON.parse((await atender({ method: 'POST', ruta: 'api/perfil', query: q(), body: { nombre: 'Automóviles ARPI SL', tipo: 'profesional' } }, cfg, { db: async () => null, perfiles, tabla, gql })).body);
+  assert.equal(r.ok, true);
+  assert.deepEqual(pasos, [['vendor', 'Automóviles ARPI SL'], ['metacampos', 'vendedor_nombre=Automóviles ARPI SL,vendedor_tipo=profesional']]);
+  assert.deepEqual(cambios, [[9, { vendedor_nombre: 'Automóviles ARPI SL', vendedor_tipo: 'profesional' }]]);
+});

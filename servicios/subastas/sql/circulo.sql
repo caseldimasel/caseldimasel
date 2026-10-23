@@ -48,6 +48,19 @@ alter table anuncios drop constraint if exists anuncios_estado_check;
 alter table anuncios add constraint anuncios_estado_check check (estado in ('pendiente', 'aprobado', 'rechazado', 'publicado', 'vendido', 'retirado'));
 alter table anuncios add column if not exists reservado boolean not null default false;
 
+-- Perfil de cada vendedor: nombre que se enseña (persona o negocio), particular o profesional, descripción y foto/logo.
+-- Lo edita él desde «Mi perfil» y se ve en su perfil público y en sus anuncios.
+create table if not exists perfiles (
+  cliente      text primary key,                      -- id del cliente de Shopify
+  slug         text unique,                           -- el de sus anuncios: /collections/all/vendedor-<slug>?view=vendedor
+  nombre       text not null default '',
+  tipo         text not null default 'particular' check (tipo in ('particular', 'profesional')),
+  descripcion  text not null default '',
+  foto         text not null default '',              -- ruta en el cubo «anuncios»
+  actualizado  timestamptz not null default now()
+);
+alter table perfiles enable row level security;
+
 -- Un anuncio activo por persona (gratis): la base de datos no deja tener dos a la vez
 create unique index if not exists anuncios_uno_activo on anuncios (cliente)
   where estado in ('pendiente', 'aprobado', 'publicado');
