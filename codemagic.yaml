@@ -1,0 +1,85 @@
+# SIDONIA · Compilar y publicar la app (carpeta app/) en Codemagic: https://codemagic.io (con Mac en la nube: no hace
+# falta tener Mac). Cómo conectarlo, paso a paso: app/README.md.
+#
+# Grupo de variables «sidonia_firebase» (Codemagic › Team settings › Environment variables), marcadas como secretas:
+#   GOOGLE_SERVICES_JSON        el google-services.json de Firebase (Android), en base64
+#   GOOGLE_SERVICE_INFO_PLIST   el GoogleService-Info.plist de Firebase (iPhone), en base64
+# Grupo «sidonia_google_play»: GCLOUD_SERVICE_ACCOUNT_CREDENTIALS (la cuenta de servicio de Google Play, el JSON).
+# Firma: Android → Code signing identities › Android keystores › «sidonia_keystore»;
+#        iPhone  → Team settings › Integrations › App Store Connect › clave «Sidonia».
+
+definitions:
+  comunes: &comunes
+    max_build_duration: 60
+    instance_type: mac_mini_m2
+    working_directory: app
+
+workflows:
+  android:
+    name: Sidonia · Android (Google Play)
+    <<: *comunes
+    environment:
+      groups:
+        - sidonia_firebase
+        - sidonia_google_play
+      android_signing:
+        - sidonia_keystore
+      node: 22
+      java: 21
+      vars:
+        APP_VERSION: 1.0.0
+    scripts:
+      - name: Dependencias
+        script: npm install --no-audit --no-fund
+      - name: Pruebas de los parches nativos
+        script: npm test
+      - name: Proyecto de Android (icono, Firebase, permisos, firma y versión)
+        script: npm run nativo -- android
+      - name: Compilar el .aab
+        script: cd android && ./gradlew bundleRelease
+    artifacts:
+      - android/app/build/outputs/**/*.aab
+    publishing:
+      google_play:
+        credentials: $GCLOUD_SERVICE_ACCOUNT_CREDENTIALS
+        track: internal          # prueba interna: la ves tú antes que nadie; luego se pasa a producción en Play Console
+        submit_as_draft: true
+
+  ios:
+    name: Sidonia · iPhone y iPad (App Store)
+    <<: *comunes
+    integrations:
+      app_store_connect: Sidonia
+    environment:
+      groups:
+        - sidonia_firebase
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: es.sidonia.app
+      node: 22
+      xcode: latest
+      cocoapods: default
+      vars:
+        APP_VERSION: 1.0.0
+    scripts:
+      - name: Dependencias
+        script: |
+          npm install --no-audit --no-fund
+          gem list -i xcodeproj >/dev/null || gem install xcodeproj
+      - name: Pruebas de los parches nativos
+        script: npm test
+      - name: Proyecto de iPhone (icono, Firebase, permisos, avisos y versión)
+        script: |
+          npm run nativo -- ios
+          ruby scripts/ios.rb
+          cd ios/App && pod install
+      - name: Firma (perfiles de App Store)
+        script: xcode-project use-profiles
+      - name: Compilar el .ipa
+        script: xcode-project build-ipa --workspace ios/App/App.xcworkspace --scheme App
+    artifacts:
+      - build/ios/ipa/*.ipa
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true   # te llega a TestFlight en el iPad/iPhone para probarla antes de enviarla a revisión

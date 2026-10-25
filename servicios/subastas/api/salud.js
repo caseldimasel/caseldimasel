@@ -28,7 +28,8 @@ export default async function handler(req, res) {
       TIENDA_URL: tiene('TIENDA_URL'),
       SHOPIFY_TIENDA: tiene('SHOPIFY_TIENDA'),
       SHOPIFY_CLIENT_ID: tiene('SHOPIFY_CLIENT_ID'),
-      ADMIN_CLAVE: tiene('ADMIN_CLAVE')
+      ADMIN_CLAVE: tiene('ADMIN_CLAVE'),
+      FIREBASE_SERVICE_ACCOUNT: Boolean(config().firebase)   // avisos al móvil de la app (válida, no solo puesta)
     }
   };
   if (new URL(req.url, 'https://x').searchParams.get('prueba')) {

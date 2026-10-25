@@ -61,6 +61,18 @@ create table if not exists perfiles (
 );
 alter table perfiles enable row level security;
 
+-- Móviles con la app de Sidonia, para mandarles avisos (lib/avisos.mjs): el token de Firebase de cada móvil y, si ha
+-- iniciado sesión, de qué cliente es («Tu anuncio ya está publicado»). Solo lo lee y escribe el servidor.
+create table if not exists dispositivos (
+  token       text primary key,
+  plataforma  text not null default 'otra',            -- ios · android
+  cliente     text,                                    -- id del cliente de Shopify (si ha iniciado sesión)
+  creado      timestamptz not null default now(),
+  visto       timestamptz not null default now()
+);
+create index if not exists dispositivos_cliente on dispositivos (cliente);
+alter table dispositivos enable row level security;
+
 -- Un anuncio activo por persona (gratis): la base de datos no deja tener dos a la vez
 create unique index if not exists anuncios_uno_activo on anuncios (cliente)
   where estado in ('pendiente', 'aprobado', 'publicado');

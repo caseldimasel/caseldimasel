@@ -127,6 +127,18 @@ Puesta en marcha:
 | `POST api/anuncio/fotos` | `{ tipos: ['image/jpeg', …] }` → direcciones firmadas para subir cada foto |
 | `POST api/anuncio` | La solicitud completa → `pendiente` (o `{ error: 'limite' }` si ya tiene uno activo) |
 
+### Avisos al móvil (app de las tiendas)
+
+La app de iPhone y Android (carpeta `app/` del repositorio, con su guía) guarda cada móvil con
+`POST api/push/registrar { token, plataforma }`. Se puede llamar sin sesión; si el cliente ha entrado, va con su firma.
+El móvil queda en la tabla `dispositivos`, que crea `sql/circulo.sql`. Desde aquí se mandan con Firebase (`lib/avisos.mjs`):
+
+- **al dueño**, cuando el panel publica o rechaza su anuncio, o aprueba sus cambios (si está marcado «Avisar al dueño»);
+- **a todos los que tienen la app** (tema `novedades`), desde el panel › **Avisos**.
+
+Variable en Vercel: `FIREBASE_SERVICE_ACCOUNT`, con el JSON de la cuenta de servicio de Firebase (tal cual o en
+base64). `GET /api/salud` dice si es válida.
+
 ## Rutas (detrás de `/apps/sidonia`)
 
 | Ruta | |

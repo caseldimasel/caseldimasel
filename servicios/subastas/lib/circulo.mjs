@@ -22,6 +22,7 @@
  */
 import { createHash } from 'node:crypto';
 import { rellenarPropietarios } from './propietarios.mjs';
+import { avisarCliente, avisarTodos, avisoCambios, avisoPublicado, avisoRechazado } from './avisos.mjs';
 import { correoCambiosAprobados, correoCambiosRechazados, correoPublicado, correoRechazado, correoRecibido, enviarCorreo } from './correos.mjs';
 
 export const TIPOS = ['coche', 'moto', 'barco', 'casa'];
@@ -515,7 +516,7 @@ function formEditar(cfg, a) {
 export function paginaPanel(cfg, lista, { estado = 'pendiente', aviso = '' } = {}) {
   const fmt = (n) => (n ? `${Number(n).toLocaleString('es-ES')} €` : 'A consultar');
   const pestañas = Object.entries(ESTADOS).map(([k, v]) => `<a href="?estado=${k}" class="${k === estado ? 'on' : ''}">${v}</a>`).join('')
-    + `<a href="?estado=cambios" class="${estado === 'cambios' ? 'on' : ''}">Cambios</a><a href="?estado=propietarios" class="${estado === 'propietarios' ? 'on' : ''}">Propietarios</a><a href="?estado=clientes">Clientes</a>`;
+    + `<a href="?estado=cambios" class="${estado === 'cambios' ? 'on' : ''}">Cambios</a><a href="?estado=propietarios" class="${estado === 'propietarios' ? 'on' : ''}">Propietarios</a><a href="?estado=clientes">Clientes</a><a href="?estado=avisos">Avisos</a>`;
   if (estado === 'propietarios') return paginaPanelHtml(pestañas, aviso, paginaPropietarios(cfg, lista));
   if (estado === 'cambios') return paginaPanelHtml(pestañas, aviso, lista.map((a) => tarjetaCambios(cfg, a)).join('') || '<p class="vacio">No hay cambios por revisar.</p>');
   const tarjetas = lista.map((a) => `
@@ -659,7 +660,7 @@ export function paginaClientes(datos) {
   const d = datos || {};
   const fecha = (t) => (t ? new Date(t).toLocaleString('es-ES', { timeZone: 'Europe/Madrid', day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' }) : '');
   const filas = (d.lista || []).map((c) => `<tr><td><b>${esc(c.nombre || '—')}</b><br><a href="mailto:${esc(c.email)}">${esc(c.email)}</a></td><td>${fecha(c.primera)}</td><td>${fecha(c.ultima)}</td><td>${Number(c.visitas) || 1}</td></tr>`).join('');
-  const pestañas = Object.entries(ESTADOS).map(([k, v]) => `<a href="?estado=${k}">${v}</a>`).join('') + '<a href="?estado=cambios">Cambios</a><a href="?estado=propietarios">Propietarios</a><a href="?estado=clientes" class="on">Clientes</a>';
+  const pestañas = Object.entries(ESTADOS).map(([k, v]) => `<a href="?estado=${k}">${v}</a>`).join('') + '<a href="?estado=cambios">Cambios</a><a href="?estado=propietarios">Propietarios</a><a href="?estado=clientes" class="on">Clientes</a><a href="?estado=avisos">Avisos</a>';
   return `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Clientes · Panel de Sidonia</title><meta name="robots" content="noindex">
 <style>
@@ -686,6 +687,23 @@ export function paginaClientes(datos) {
 <table><thead><tr><th>Cliente</th><th>Primera vez (registro)</th><th>Última vez</th><th>Visitas</th></tr></thead><tbody>${filas || '<tr><td colspan="4">Aún no ha entrado nadie con su cuenta.</td></tr>'}</tbody></table>
 <p class="nota">Se apunta cada vez que alguien entra en sidonia.es con su cuenta (una vez por sesión del navegador). La lista completa de clientes está en Shopify › Clientes.</p>
 </body></html>`;
+}
+
+/** Panel › Avisos: mandar un aviso al móvil a todos los que tienen la app (coche nuevo, bajada de precio…) */
+export function paginaAvisos(cfg, aviso = '') {
+  const pestañas = Object.entries(ESTADOS).map(([k, v]) => `<a href="?estado=${k}">${v}</a>`).join('') + '<a href="?estado=cambios">Cambios</a><a href="?estado=propietarios">Propietarios</a><a href="?estado=clientes">Clientes</a><a href="?estado=avisos" class="on">Avisos</a>';
+  const formulario = `<article class="a"><div class="cuerpo">
+    <h2>Aviso a todos los que tienen la app</h2>
+    <p class="meta">Les llega como notificación al móvil y, al tocarla, se abre la página del enlace. Úsalo con cabeza: un aviso a la semana como mucho.</p>
+    ${cfg.firebase ? '' : '<p class="nota">Aún no se puede mandar: falta FIREBASE_SERVICE_ACCOUNT en Vercel (ver app/README.md).</p>'}
+    <form method="post" class="editar" style="border:0;padding:0"><div class="fila" style="grid-template-columns:minmax(0,1fr)">
+      <label>Título <input name="titulo" maxlength="120" required placeholder="Acaba de llegar: Alfa Romeo Giulia GT 1967"></label>
+      <label>Texto <textarea name="texto" rows="2" maxlength="400" required placeholder="Rosso Alfa, restaurado y con toda su historia. Míralo antes que nadie."></textarea></label>
+      <label>Enlace <input name="url" value="/" placeholder="/products/alfa-romeo-giulia-gt-1967"></label>
+      <label>Foto (opcional) <small>la URL de una imagen, se ve en grande en la notificación</small><input name="imagen" placeholder="https://cdn.shopify.com/…"></label>
+    </div><div><button class="si" onclick="return confirm('¿Mandar este aviso a todos los que tienen la app?')">Mandar aviso</button></div></form>
+  </div></article>`;
+  return paginaPanelHtml(pestañas, aviso, formulario);
 }
 
 export function panelAutorizado(headers, clave) {
@@ -727,8 +745,8 @@ export function tablaAnuncios(cfg, fetchImpl = fetch, nombreTabla = 'anuncios') 
   const cabeceras = { apikey: cfg.supabaseKey, ...(cfg.supabaseKey.startsWith('sb_') ? {} : { Authorization: `Bearer ${cfg.supabaseKey}` }), 'Content-Type': 'application/json' };
   const fallo = async (r) => {
     const t = (await r.text().catch(() => '')).slice(0, 200);
-    // Falta la columna «revision» o la tabla «perfiles»: hay que volver a ejecutar sql/circulo.sql
-    throw new Error(/revision|reservado|perfiles/.test(t) ? 'Falta actualizar la base de datos: ejecuta otra vez sql/circulo.sql en Supabase › SQL Editor.' : `Supabase ${r.status}: ${t}`);
+    // Falta la columna «revision» o las tablas «perfiles» o «dispositivos»: hay que volver a ejecutar sql/circulo.sql
+    throw new Error(/revision|reservado|perfiles|dispositivos/.test(t) ? 'Falta actualizar la base de datos: ejecuta otra vez sql/circulo.sql en Supabase › SQL Editor.' : `Supabase ${r.status}: ${t}`);
   };
   return {
     async leer(filtro) {
@@ -742,7 +760,11 @@ export function tablaAnuncios(cfg, fetchImpl = fetch, nombreTabla = 'anuncios') 
       });
       if (!r.ok) await fallo(r);
     },
-    // Crear o cambiar una fila por su clave (perfiles: cliente)
+    async borrar(filtro) {
+      const r = await fetchImpl(`${cfg.supabaseUrl}/rest/v1/${nombreTabla}?${filtro}`, { method: 'DELETE', headers: { ...cabeceras, Prefer: 'return=minimal' }, signal: AbortSignal.timeout(8000) });
+      if (!r.ok) await fallo(r);
+    },
+    // Crear o cambiar una fila por su clave (perfiles: cliente; dispositivos: token)
     async guardar(fila, clave) {
       const r = await fetchImpl(`${cfg.supabaseUrl}/rest/v1/${nombreTabla}?on_conflict=${clave}`, {
         method: 'POST', headers: { ...cabeceras, Prefer: 'resolution=merge-duplicates,return=representation' }, body: JSON.stringify(fila), signal: AbortSignal.timeout(8000)
@@ -780,6 +802,36 @@ export async function atenderPanel(req, cfg, deps) {
       return ` El email no ha salido (${e.message}).`;
     }
   };
+  // Aviso al móvil del dueño (si tiene la app): el texto que se añade al aviso del panel
+  const avisoMovil = async (a, datos) => {
+    if (!cfg.firebase || !a.cliente) return '';
+    try {
+      const n = await avisarCliente(cfg, { fetch: deps.fetch || fetch, dispositivos: deps.dispositivos }, a.cliente, datos);
+      return n ? ` Aviso enviado a su móvil.` : '';
+    } catch (e) {
+      console.error(e);
+      return '';
+    }
+  };
+  if (req.query.estado === 'avisos') {
+    let aviso = '';
+    if (req.method === 'POST') {
+      const titulo = texto(req.body.titulo, 120);
+      const cuerpo = texto(req.body.texto, 400);
+      const url = String(req.body.url || '/').trim();
+      try {
+        if (!cfg.firebase) throw new Error('Falta FIREBASE_SERVICE_ACCOUNT en Vercel.');
+        if (!titulo || !cuerpo) throw new Error('Pon un título y un texto.');
+        if (!/^(\/|https:\/\/(www\.)?sidonia\.es\/)/.test(url)) throw new Error('El enlace tiene que ser de sidonia.es (o empezar por /).');
+        await avisarTodos(cfg, { fetch: deps.fetch || fetch }, { titulo, texto: cuerpo, url, imagen: String(req.body.imagen || '').trim() });
+        aviso = `Aviso enviado a todos los que tienen la app: «${titulo}».`;
+      } catch (e) {
+        console.error(e);
+        aviso = `Error: ${e.message}`;
+      }
+    }
+    return html(paginaAvisos(cfg, aviso));
+  }
   if (req.query.estado === 'propietarios') {
     let informe = null;
     let aviso = '';
@@ -811,7 +863,7 @@ export async function atenderPanel(req, cfg, deps) {
             url = (await actualizarEnShopify(cfg, nuevo, JSON.stringify(a.fotos) !== JSON.stringify(nuevo.fotos), deps.gql || shopifyAdmin(cfg, deps.fetch))).url;
           }
           await tabla.cambiar(a.id, { ...a.revision, revision: null, revision_fecha: null, actualizado: new Date().toISOString() });
-          aviso = `Cambios aprobados en el anuncio #${a.id}${url ? ' y actualizada su ficha en la tienda' : ''}.` + await correoAlDueno(nuevo, avisar, correoCambiosAprobados(cfg, nuevo, url));
+          aviso = `Cambios aprobados en el anuncio #${a.id}${url ? ' y actualizada su ficha en la tienda' : ''}.` + await correoAlDueno(nuevo, avisar, correoCambiosAprobados(cfg, nuevo, url)) + (avisar ? await avisoMovil(nuevo, avisoCambios(nuevo, url)) : '');
         } else if (req.body.accion === 'descartar') {
           await tabla.cambiar(a.id, { revision: null, revision_fecha: null });
           aviso = `No aprobados los cambios del anuncio #${a.id}: sigue como estaba.` + await correoAlDueno(a, avisar, correoCambiosRechazados(cfg, a, texto(req.body.nota, 1500)));
@@ -834,6 +886,7 @@ export async function atenderPanel(req, cfg, deps) {
     try {
       if (!a) throw new Error('No encuentro ese anuncio.');
       const correo = (c) => correoAlDueno(a, req.body.avisar === '1', c);
+      const movil = async (x, datos) => (req.body.avisar === '1' ? avisoMovil(x, datos) : '');
       if (accion === 'guardar') {
         const cambios = leerEdicion(req.body, a);
         if (cambios.error) throw new Error(cambios.error);
@@ -842,12 +895,12 @@ export async function atenderPanel(req, cfg, deps) {
       } else if (accion === 'publicar') {
         const p = await publicarEnShopify(cfg, a, deps.gql || shopifyAdmin(cfg));
         await db('sidonia_anuncio_estado', { p_id: id, p_estado: 'publicado', p_nota: '', p_producto: p.handle });
-        aviso = `Publicado: ${p.url}.` + await correo(correoPublicado(cfg, a, p.url));
+        aviso = `Publicado: ${p.url}.` + await correo(correoPublicado(cfg, a, p.url)) + await movil(a, avisoPublicado(a, p.url));
         estado = 'publicado';
       } else if (accion === 'rechazar') {
         const motivo = texto(req.body.nota, 1500);
         await db('sidonia_anuncio_estado', { p_id: id, p_estado: 'rechazado', p_nota: motivo, p_producto: null });
-        aviso = `Rechazado el anuncio #${id}.` + await correo(correoRechazado(cfg, a, motivo));
+        aviso = `Rechazado el anuncio #${id}.` + await correo(correoRechazado(cfg, a, motivo)) + await movil(a, avisoRechazado(a));
       } else if (SITUACIONES.includes(accion) && a.estado === 'publicado' && a.producto) {
         await marcarSituacion(cfg, a, accion, { ...deps, db });
         aviso = `Anuncio #${id}: ${accion === 'vendido' ? 'vendido' : accion === 'reservado' ? 'reservado' : 'otra vez en venta'} (también en la ficha de la tienda).`;

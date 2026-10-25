@@ -14,11 +14,13 @@
  *   POST registro                → guarda el nombre y lleva a Stripe a guardar la tarjeta
  *   GET  registro/vuelta?session_id=&return_url= → marca la tarjeta como guardada y vuelve a la ficha
  *   api/anuncio…                 → anuncios de dueños, gratis (ver circulo.mjs)
+ *   POST api/push/registrar { token, plataforma } → el móvil de la app, para los avisos (ver avisos.mjs)
  */
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { rutasTienda } from './circulo.mjs';
+import { cuentaFirebase, registrarDispositivo } from './avisos.mjs';
 
-export const VERSION = 'anuncios-2026-10-22';
+export const VERSION = 'app-2026-10-25';
 
 export function config(env = process.env) {
   return {
@@ -36,7 +38,8 @@ export function config(env = process.env) {
     resendKey: env.RESEND_API_KEY || '',
     avisosEquipo: String(env.AVISOS_EQUIPO || env.OFERTAS_EQUIPO || '').split(',').map((x) => x.trim()).filter(Boolean),
     avisosRemitente: env.AVISOS_REMITENTE || env.OFERTAS_REMITENTE || 'Sidonia <avisos@sidonia.es>',
-    avisosClientes: env.AVISOS_CLIENTES === '1'      // también un email cuando alguien entra por primera vez
+    avisosClientes: env.AVISOS_CLIENTES === '1',     // también un email cuando alguien entra por primera vez
+    firebase: cuentaFirebase(env.FIREBASE_SERVICE_ACCOUNT)   // avisos al móvil de la app (lib/avisos.mjs)
   };
 }
 
@@ -232,7 +235,7 @@ export async function atender(req, cfg, deps) {
   const ruta = String(req.ruta || '').replace(/^\/+|\/+$/g, '');
   // Directo (sin el proxy de Shopify, /tienda/…): solo los anuncios de dueños, y quien es lo dice la firma del tema
   if (req.directo) {
-    if (!/^api\/(anuncio|anuncios|visita|perfil)(\/|$)/.test(ruta)) return json(404, { ok: false, error: 'ruta' });
+    if (!/^api\/(anuncio|anuncios|visita|perfil|push)(\/|$)/.test(ruta)) return json(404, { ok: false, error: 'ruta' });
   } else if (!comprobarProxy(req.query, cfg.secreto)) return json(401, { ok: false, error: 'firma' });
   const cliente = !req.directo && req.query.logged_in_customer_id ? String(req.query.logged_in_customer_id) : clienteFirmado(req.query, cfg.clave);
   // El tema mandó quién es, pero la firma no cuadra: la «Clave del motor» del tema no es la SUBASTAS_CLAVE de Vercel
@@ -252,6 +255,11 @@ export async function atender(req, cfg, deps) {
       p_handle: d.handle, p_titulo: d.titulo, p_inicio: new Date(d.inicio * 1000).toISOString(), p_fin: new Date(d.fin * 1000).toISOString(),
       p_salida: d.salida, p_reserva: d.reserva, p_version: d.t, p_cliente: cliente
     }));
+  }
+
+  // App: guardar el móvil para mandarle avisos (con o sin sesión)
+  if (ruta === 'api/push/registrar' && req.method === 'POST') {
+    return json(200, await registrarDispositivo(cfg, { fetch: deps.fetch || fetch, dispositivos: deps.dispositivos }, body, cliente));
   }
 
   // Del dueño: anuncios gratis de particulares
