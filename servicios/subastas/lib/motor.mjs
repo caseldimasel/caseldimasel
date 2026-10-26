@@ -16,13 +16,15 @@
  *   api/anuncio…                 → anuncios de dueños, gratis (ver circulo.mjs)
  *   POST api/push/registrar { token, plataforma } → el móvil de la app, para los avisos (ver avisos.mjs)
  *   api/alertas…                 → alertas de búsqueda «Avísame cuando entre uno así» (ver alertas.mjs)
+ *   POST api/evento { tipo, … }  → estadísticas de la web: visitas, fichas vistas, contactos, me gusta… (estadisticas.mjs)
  */
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { rutasTienda } from './circulo.mjs';
 import { cuentaFirebase, registrarDispositivo } from './avisos.mjs';
 import { revisarAlertas, rutasAlertas } from './alertas.mjs';
+import { registrarEvento } from './estadisticas.mjs';
 
-export const VERSION = 'alertas-2026-10-26';
+export const VERSION = 'estadisticas-2026-10-26';
 
 export function config(env = process.env) {
   return {
@@ -238,7 +240,7 @@ export async function atender(req, cfg, deps) {
   const ruta = String(req.ruta || '').replace(/^\/+|\/+$/g, '');
   // Directo (sin el proxy de Shopify, /tienda/…): solo los anuncios de dueños, y quien es lo dice la firma del tema
   if (req.directo) {
-    if (!/^api\/(anuncio|anuncios|visita|perfil|push|alertas)(\/|$)/.test(ruta)) return json(404, { ok: false, error: 'ruta' });
+    if (!/^api\/(anuncio|anuncios|visita|perfil|push|alertas|evento)(\/|$)/.test(ruta)) return json(404, { ok: false, error: 'ruta' });
   } else if (!comprobarProxy(req.query, cfg.secreto)) return json(401, { ok: false, error: 'firma' });
   const cliente = !req.directo && req.query.logged_in_customer_id ? String(req.query.logged_in_customer_id) : clienteFirmado(req.query, cfg.clave);
   // El tema mandó quién es, pero la firma no cuadra: la «Clave del motor» del tema no es la SUBASTAS_CLAVE de Vercel
@@ -263,6 +265,16 @@ export async function atender(req, cfg, deps) {
   // App: guardar el móvil para mandarle avisos (con o sin sesión)
   if (ruta === 'api/push/registrar' && req.method === 'POST') {
     return json(200, await registrarDispositivo(cfg, { fetch: deps.fetch || fetch, dispositivos: deps.dispositivos }, body, cliente));
+  }
+
+  // Estadísticas: lo que pasa en la web (con o sin sesión; nunca falla hacia la web)
+  if (ruta === 'api/evento' && req.method === 'POST') {
+    try {
+      return json(200, await registrarEvento(db, body, cliente, req.headers || {}));
+    } catch (e) {
+      console.error(e);
+      return json(200, { ok: false });
+    }
   }
 
   // Alertas de búsqueda: el repaso diario (solo el cron de Vercel, con CRON_SECRET) y las del cliente

@@ -24,6 +24,7 @@ import { createHash } from 'node:crypto';
 import { rellenarPropietarios } from './propietarios.mjs';
 import { rellenarUbicaciones } from './ubicaciones.mjs';
 import { avisarCliente, avisarTodos, avisoCambios, avisoPublicado, avisoRechazado } from './avisos.mjs';
+import { paginaEstadisticas } from './estadisticas.mjs';
 import { correoCambiosAprobados, correoCambiosRechazados, correoPublicado, correoRechazado, correoRecibido, enviarCorreo } from './correos.mjs';
 
 export const TIPOS = ['coche', 'moto', 'barco', 'casa'];
@@ -479,7 +480,7 @@ export async function actualizarEnShopify(cfg, a, fotosCambiadas, gql) {
 }
 
 /* ---------------------------------------------------------------------------- Panel del equipo */
-const ESTADOS = { pendiente: 'Por revisar', aprobado: 'Aprobado', publicado: 'Publicado', vendido: 'Vendido', rechazado: 'Rechazado', retirado: 'Retirado' };
+export const ESTADOS = { pendiente: 'Por revisar', aprobado: 'Aprobado', publicado: 'Publicado', vendido: 'Vendido', rechazado: 'Rechazado', retirado: 'Retirado' };
 
 /** «Editar» en el panel: todos los textos, la ficha, el vendedor y las fotos (quitar y elegir portada) */
 function formEditar(cfg, a) {
@@ -516,7 +517,7 @@ function formEditar(cfg, a) {
 
 export function paginaPanel(cfg, lista, { estado = 'pendiente', aviso = '' } = {}) {
   const fmt = (n) => (n ? `${Number(n).toLocaleString('es-ES')} €` : 'A consultar');
-  const pestañas = Object.entries(ESTADOS).map(([k, v]) => `<a href="?estado=${k}" class="${k === estado ? 'on' : ''}">${v}</a>`).join('')
+  const pestañas = '<a href="?estado=estadisticas">Estadísticas</a>' + Object.entries(ESTADOS).map(([k, v]) => `<a href="?estado=${k}" class="${k === estado ? 'on' : ''}">${v}</a>`).join('')
     + `<a href="?estado=cambios" class="${estado === 'cambios' ? 'on' : ''}">Cambios</a><a href="?estado=propietarios" class="${estado === 'propietarios' ? 'on' : ''}">Propietarios</a><a href="?estado=ubicaciones" class="${estado === 'ubicaciones' ? 'on' : ''}">Ubicaciones</a><a href="?estado=clientes">Clientes</a><a href="?estado=avisos">Avisos</a>`;
   if (estado === 'propietarios') return paginaPanelHtml(pestañas, aviso, paginaPropietarios(cfg, lista));
   if (estado === 'ubicaciones') return paginaPanelHtml(pestañas, aviso, paginaUbicaciones(cfg, lista));
@@ -684,7 +685,7 @@ export function paginaClientes(datos) {
   const d = datos || {};
   const fecha = (t) => (t ? new Date(t).toLocaleString('es-ES', { timeZone: 'Europe/Madrid', day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' }) : '');
   const filas = (d.lista || []).map((c) => `<tr><td><b>${esc(c.nombre || '—')}</b><br><a href="mailto:${esc(c.email)}">${esc(c.email)}</a></td><td>${fecha(c.primera)}</td><td>${fecha(c.ultima)}</td><td>${Number(c.visitas) || 1}</td></tr>`).join('');
-  const pestañas = Object.entries(ESTADOS).map(([k, v]) => `<a href="?estado=${k}">${v}</a>`).join('') + '<a href="?estado=cambios">Cambios</a><a href="?estado=propietarios">Propietarios</a><a href="?estado=ubicaciones">Ubicaciones</a><a href="?estado=clientes" class="on">Clientes</a><a href="?estado=avisos">Avisos</a>';
+  const pestañas = '<a href="?estado=estadisticas">Estadísticas</a>' + Object.entries(ESTADOS).map(([k, v]) => `<a href="?estado=${k}">${v}</a>`).join('') + '<a href="?estado=cambios">Cambios</a><a href="?estado=propietarios">Propietarios</a><a href="?estado=ubicaciones">Ubicaciones</a><a href="?estado=clientes" class="on">Clientes</a><a href="?estado=avisos">Avisos</a>';
   return `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Clientes · Panel de Sidonia</title><meta name="robots" content="noindex">
 <style>
@@ -709,13 +710,13 @@ export function paginaClientes(datos) {
   <div class="kpi"><b>${Number(d.total) || 0}</b><span>Clientes en total</span></div>
 </div>
 <table><thead><tr><th>Cliente</th><th>Primera vez (registro)</th><th>Última vez</th><th>Visitas</th></tr></thead><tbody>${filas || '<tr><td colspan="4">Aún no ha entrado nadie con su cuenta.</td></tr>'}</tbody></table>
-<p class="nota">Se apunta cada vez que alguien entra en sidonia.es con su cuenta (una vez por sesión del navegador). La lista completa de clientes está en Shopify › Clientes.</p>
+<p class="nota">Son las personas con cuenta en Sidonia: «Primera vez» es cuando se registraron (o entraron por primera vez con su cuenta), «Última vez» cuando entraron por última vez y «Visitas» cuántas veces han entrado (una por sesión del navegador). Quien entra sin cuenta no sale aquí: eso está en <a href="?estado=estadisticas">Estadísticas</a>. La lista completa de clientes está en Shopify › Clientes.</p>
 </body></html>`;
 }
 
 /** Panel › Avisos: mandar un aviso al móvil a todos los que tienen la app (coche nuevo, bajada de precio…) */
 export function paginaAvisos(cfg, aviso = '') {
-  const pestañas = Object.entries(ESTADOS).map(([k, v]) => `<a href="?estado=${k}">${v}</a>`).join('') + '<a href="?estado=cambios">Cambios</a><a href="?estado=propietarios">Propietarios</a><a href="?estado=ubicaciones">Ubicaciones</a><a href="?estado=clientes">Clientes</a><a href="?estado=avisos" class="on">Avisos</a>';
+  const pestañas = '<a href="?estado=estadisticas">Estadísticas</a>' + Object.entries(ESTADOS).map(([k, v]) => `<a href="?estado=${k}">${v}</a>`).join('') + '<a href="?estado=cambios">Cambios</a><a href="?estado=propietarios">Propietarios</a><a href="?estado=ubicaciones">Ubicaciones</a><a href="?estado=clientes">Clientes</a><a href="?estado=avisos" class="on">Avisos</a>';
   const formulario = `<article class="a"><div class="cuerpo">
     <h2>Aviso a todos los que tienen la app</h2>
     <p class="meta">Les llega como notificación al móvil y, al tocarla, se abre la página del enlace. Úsalo con cabeza: un aviso a la semana como mucho.</p>
@@ -815,6 +816,12 @@ export async function atenderPanel(req, cfg, deps) {
   }
   const { db } = deps;
   if (req.query.estado === 'clientes') return html(paginaClientes(await db('sidonia_clientes_lista', { p_limite: 300 })));
+  if (req.query.estado === 'estadisticas') {
+    const dias = [7, 30, 90, 365].includes(Number(req.query.dias)) ? Number(req.query.dias) : 30;
+    let datos = null, error = '';
+    try { datos = await db('sidonia_estadisticas', { p_dias: dias }); } catch (e) { error = String(e.message || e); }
+    return html(paginaEstadisticas(datos, { dias, error, tienda: cfg.tienda }));
+  }
   // Email al dueño: el aviso del panel dice si ha salido, si falta Resend o si ha fallado
   const correoAlDueno = async (a, avisar, c) => {
     if (!avisar) return '';

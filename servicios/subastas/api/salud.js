@@ -50,7 +50,9 @@ export default async function handler(req, res) {
         if (!r.ok) throw new Error(`Storage bucket ${r.status}`);
       }),
       // La tabla de las alertas de búsqueda (sql/circulo.sql)
-      alertas: await medir(async () => { await tablaAnuncios(cfg, fetch, 'alertas').leer('select=id&limit=1'); })
+      alertas: await medir(async () => { await tablaAnuncios(cfg, fetch, 'alertas').leer('select=id&limit=1'); }),
+      // Las estadísticas de la web (sql/estadisticas.sql)
+      estadisticas: await medir(async () => { await db('sidonia_estadisticas', { p_dias: 1 }); })
     };
     salida.ok = salida.supabase.anuncios.ok && salida.supabase.fotos.ok;
   }

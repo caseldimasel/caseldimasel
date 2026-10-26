@@ -155,6 +155,16 @@ Para ponerlo en marcha:
    el cron). Sin ella, el repaso no se hace.
 3. La app de Shopify necesita `read_products` (ya lo tiene para publicar).
 
+### Estadísticas (panel › Estadísticas)
+
+La web apunta, sin datos personales, lo que pasa: visitas (con de dónde vienen: Instagram, Google, WhatsApp…), fichas
+vistas, contactos (WhatsApp, llamada, email, o «les pedimos la cuenta»), me gusta, compartidos, búsquedas, alertas y
+ofertas (`snippets/sidonia-estadisticas.liquid` del tema → `POST /tienda/api/evento`). El panel lo resume por periodo
+(7 días, 30 días, 3 meses, 1 año), comparando con el periodo anterior, con la gráfica por día y la tabla por anuncio.
+
+Para ponerlo en marcha: Supabase › SQL Editor, ejecuta `sql/estadisticas.sql` (se puede repetir). Se cuenta desde ese
+momento. `/api/salud?prueba=1` dice si está (`estadisticas: ok`). Código: `lib/estadisticas.mjs`.
+
 ## Rutas (detrás de `/apps/sidonia`)
 
 | Ruta | |
