@@ -108,6 +108,9 @@ Puesta en marcha:
 - **Panel › Propietarios** saca el nombre del dueño de la historia de cada producto de Sidonia («Carlos lleva…») y lo
   pone en el metacampo `custom.propietario` (lib/propietarios.mjs). Las tarjetas enseñan la ubicación
   (`custom.provincia`) y el dueño o propietario.
+- **Panel › Ubicaciones** lee la descripción de cada producto («📍 Ubicación: Pozuelo de Alarcón»), saca la provincia
+  (Madrid) y la pone en `custom.provincia` (la tarjeta y el filtro «Localización») y como etiqueta del producto
+  (lib/ubicaciones.mjs). Los anuncios gratis ya la llevan al publicarse.
 
 ### Panel: editar y emails al dueño
 

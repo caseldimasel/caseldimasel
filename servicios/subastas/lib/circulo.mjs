@@ -22,6 +22,7 @@
  */
 import { createHash } from 'node:crypto';
 import { rellenarPropietarios } from './propietarios.mjs';
+import { rellenarUbicaciones } from './ubicaciones.mjs';
 import { avisarCliente, avisarTodos, avisoCambios, avisoPublicado, avisoRechazado } from './avisos.mjs';
 import { correoCambiosAprobados, correoCambiosRechazados, correoPublicado, correoRechazado, correoRecibido, enviarCorreo } from './correos.mjs';
 
@@ -516,8 +517,9 @@ function formEditar(cfg, a) {
 export function paginaPanel(cfg, lista, { estado = 'pendiente', aviso = '' } = {}) {
   const fmt = (n) => (n ? `${Number(n).toLocaleString('es-ES')} €` : 'A consultar');
   const pestañas = Object.entries(ESTADOS).map(([k, v]) => `<a href="?estado=${k}" class="${k === estado ? 'on' : ''}">${v}</a>`).join('')
-    + `<a href="?estado=cambios" class="${estado === 'cambios' ? 'on' : ''}">Cambios</a><a href="?estado=propietarios" class="${estado === 'propietarios' ? 'on' : ''}">Propietarios</a><a href="?estado=clientes">Clientes</a><a href="?estado=avisos">Avisos</a>`;
+    + `<a href="?estado=cambios" class="${estado === 'cambios' ? 'on' : ''}">Cambios</a><a href="?estado=propietarios" class="${estado === 'propietarios' ? 'on' : ''}">Propietarios</a><a href="?estado=ubicaciones" class="${estado === 'ubicaciones' ? 'on' : ''}">Ubicaciones</a><a href="?estado=clientes">Clientes</a><a href="?estado=avisos">Avisos</a>`;
   if (estado === 'propietarios') return paginaPanelHtml(pestañas, aviso, paginaPropietarios(cfg, lista));
+  if (estado === 'ubicaciones') return paginaPanelHtml(pestañas, aviso, paginaUbicaciones(cfg, lista));
   if (estado === 'cambios') return paginaPanelHtml(pestañas, aviso, lista.map((a) => tarjetaCambios(cfg, a)).join('') || '<p class="vacio">No hay cambios por revisar.</p>');
   const tarjetas = lista.map((a) => `
   <article class="a">
@@ -599,6 +601,28 @@ function paginaPropietarios(cfg, informe) {
   </div></article>`;
 }
 
+/** Panel › Ubicaciones: la ubicación de cada producto sacada de su descripción, para la tarjeta y el filtro */
+function paginaUbicaciones(cfg, informe) {
+  const admin = (h) => `https://admin.shopify.com/store/${esc(String(cfg.shopifyTienda || '').replace('.myshopify.com', ''))}/products?query=${encodeURIComponent(h)}`;
+  const filas = (informe || []).map((r) => `<tr><td><a href="${esc(cfg.tienda)}/products/${esc(r.handle)}" target="_blank">${esc(r.titulo)}</a></td>
+    <td>${r.provincia ? `<b>${esc(r.provincia)}</b>${r.sitio && r.sitio !== r.provincia ? ` <small>(${esc(r.sitio)})</small>` : ''}` : '<span class="vacio">— (la descripción no lo dice)</span>'}</td>
+    <td>${r.estado === 'nuevo' ? 'Puesta ahora' : r.estado === 'ya' ? 'Ya la tenía' : `<a href="${admin(r.handle)}" target="_blank">Ponerla a mano</a>`}</td></tr>`).join('');
+  const cuenta = (e) => (informe || []).filter((r) => r.estado === e).length;
+  return `<article class="a"><div class="cuerpo">
+    <h2>Ubicación de cada anuncio</h2>
+    <p class="res">Lee la descripción de cada producto («📍 Ubicación: Pozuelo de Alarcón») y saca la provincia (Madrid). Se la pone a los
+      que aún no la tienen: sale en la tarjeta («📍 Madrid») y en el filtro «Localización», y se añade como etiqueta del producto.
+      Si alguna no cuadra, cámbiala en Shopify › Productos › el anuncio › <b>Provincia</b>. Pásalo cuando subáis anuncios nuevos.</p>
+    <form method="post" class="acc">
+      <button name="accion" value="ubicaciones" class="si">Poner las ubicaciones</button>
+      <label class="avisar"><input type="checkbox" name="etiqueta" value="1" checked> Ponerla también como etiqueta del producto (por ejemplo «Madrid»)</label>
+      <label class="avisar"><input type="checkbox" name="sobrescribir" value="1"> Volver a sacarla también en los que ya la tienen (cambia lo puesto a mano)</label>
+    </form>
+    ${informe ? `<p class="meta">${cuenta('nuevo')} puestas ahora · ${cuenta('ya')} ya la tenían · ${cuenta('sin')} sin ubicación en la descripción</p>
+      <table class="diff"><tr><th>Producto</th><th>Ubicación</th><th></th></tr>${filas}</table>` : ''}
+  </div></article>`;
+}
+
 function paginaPanelHtml(pestañas, aviso, tarjetas) {
   return `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Anuncios de dueños · Panel de Sidonia</title><meta name="robots" content="noindex">
@@ -660,7 +684,7 @@ export function paginaClientes(datos) {
   const d = datos || {};
   const fecha = (t) => (t ? new Date(t).toLocaleString('es-ES', { timeZone: 'Europe/Madrid', day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' }) : '');
   const filas = (d.lista || []).map((c) => `<tr><td><b>${esc(c.nombre || '—')}</b><br><a href="mailto:${esc(c.email)}">${esc(c.email)}</a></td><td>${fecha(c.primera)}</td><td>${fecha(c.ultima)}</td><td>${Number(c.visitas) || 1}</td></tr>`).join('');
-  const pestañas = Object.entries(ESTADOS).map(([k, v]) => `<a href="?estado=${k}">${v}</a>`).join('') + '<a href="?estado=cambios">Cambios</a><a href="?estado=propietarios">Propietarios</a><a href="?estado=clientes" class="on">Clientes</a><a href="?estado=avisos">Avisos</a>';
+  const pestañas = Object.entries(ESTADOS).map(([k, v]) => `<a href="?estado=${k}">${v}</a>`).join('') + '<a href="?estado=cambios">Cambios</a><a href="?estado=propietarios">Propietarios</a><a href="?estado=ubicaciones">Ubicaciones</a><a href="?estado=clientes" class="on">Clientes</a><a href="?estado=avisos">Avisos</a>';
   return `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Clientes · Panel de Sidonia</title><meta name="robots" content="noindex">
 <style>
@@ -691,7 +715,7 @@ export function paginaClientes(datos) {
 
 /** Panel › Avisos: mandar un aviso al móvil a todos los que tienen la app (coche nuevo, bajada de precio…) */
 export function paginaAvisos(cfg, aviso = '') {
-  const pestañas = Object.entries(ESTADOS).map(([k, v]) => `<a href="?estado=${k}">${v}</a>`).join('') + '<a href="?estado=cambios">Cambios</a><a href="?estado=propietarios">Propietarios</a><a href="?estado=clientes">Clientes</a><a href="?estado=avisos" class="on">Avisos</a>';
+  const pestañas = Object.entries(ESTADOS).map(([k, v]) => `<a href="?estado=${k}">${v}</a>`).join('') + '<a href="?estado=cambios">Cambios</a><a href="?estado=propietarios">Propietarios</a><a href="?estado=ubicaciones">Ubicaciones</a><a href="?estado=clientes">Clientes</a><a href="?estado=avisos" class="on">Avisos</a>';
   const formulario = `<article class="a"><div class="cuerpo">
     <h2>Aviso a todos los que tienen la app</h2>
     <p class="meta">Les llega como notificación al móvil y, al tocarla, se abre la página del enlace. Úsalo con cabeza: un aviso a la semana como mucho.</p>
@@ -846,6 +870,21 @@ export async function atenderPanel(req, cfg, deps) {
       }
     }
     return html(paginaPanel(cfg, informe, { estado: 'propietarios', aviso }));
+  }
+  if (req.query.estado === 'ubicaciones') {
+    let informe = null;
+    let aviso = '';
+    if (req.method === 'POST' && req.body.accion === 'ubicaciones') {
+      try {
+        if (!cfg.shopifyTienda || !cfg.shopifyClientId) throw new Error('Faltan SHOPIFY_TIENDA y SHOPIFY_CLIENT_ID en Vercel.');
+        informe = await rellenarUbicaciones(deps.gql || shopifyAdmin(cfg, deps.fetch), { sobrescribir: req.body.sobrescribir === '1', etiqueta: req.body.etiqueta === '1' });
+        aviso = `Listo: ${informe.filter((r) => r.estado === 'nuevo').length} ubicaciones puestas.`;
+      } catch (e) {
+        console.error(e);
+        aviso = `Error: ${e.message}`;
+      }
+    }
+    return html(paginaPanel(cfg, informe, { estado: 'ubicaciones', aviso }));
   }
   if (req.query.estado === 'cambios') {
     const tabla = deps.tabla || tablaAnuncios(cfg, deps.fetch);
