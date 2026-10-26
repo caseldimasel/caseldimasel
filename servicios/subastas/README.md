@@ -70,7 +70,9 @@ Puesta en marcha:
 4. **Shopify (opcional):** sin crear nada, el formulario está en `/pages/vende-con-nosotros?view=publicar`, el perfil en
    `?view=perfil` y cada vendedor en `/collections/all/vendedor-<perfil>?view=vendedor`. Para las motos, una colección
    automática «Motos» (etiqueta = `MOTOS`). Más de un anuncio por persona: lo gestiona el equipo a mano.
-5. **Panel:** `https://<tu-servidor>.vercel.app/admin` (usuario: cualquiera; contraseña: `ADMIN_CLAVE`).
+5. **Panel:** `https://<tu-servidor>.vercel.app/admin`. Se entra con el código `ADMIN_PIN` (5 cifras, en Vercel) o con
+   `ADMIN_CLAVE`; la sesión se queda guardada 180 días en ese dispositivo. Tras 5 fallos seguidos se bloquea 15 minutos
+   (tabla `panel_intentos`, en `sql/operaciones.sql`).
 
 ### Avisos al equipo
 

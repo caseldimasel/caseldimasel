@@ -30,6 +30,7 @@ export default async function handler(req, res) {
       SHOPIFY_TIENDA: tiene('SHOPIFY_TIENDA'),
       SHOPIFY_CLIENT_ID: tiene('SHOPIFY_CLIENT_ID'),
       ADMIN_CLAVE: tiene('ADMIN_CLAVE'),
+      ADMIN_PIN: Boolean(config().adminPin),   // código de entrada al panel (4 a 8 cifras)
       FIREBASE_SERVICE_ACCOUNT: Boolean(config().firebase),  // avisos al móvil de la app (válida, no solo puesta)
       RESEND_API_KEY: tiene('RESEND_API_KEY'),
       CRON_SECRET: tiene('CRON_SECRET')                      // el repaso diario de las alertas de búsqueda

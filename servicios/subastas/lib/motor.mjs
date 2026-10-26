@@ -38,6 +38,7 @@ export function config(env = process.env) {
     shopifyTienda: (env.SHOPIFY_TIENDA || '').replace(/^https?:\/\//, '').replace(/\/$/, ''),   // xxxx.myshopify.com
     shopifyClientId: env.SHOPIFY_CLIENT_ID || '',    // ID de cliente de la app (para publicar fichas «Del dueño»)
     adminClave: env.ADMIN_CLAVE || '',               // contraseña del panel /admin
+    adminPin: /^\d{4,8}$/.test(String(env.ADMIN_PIN || '').trim()) ? String(env.ADMIN_PIN).trim() : '',   // código corto para entrar al panel
     // Avisos por email al equipo (opcional, con Resend; las mismas claves que el servidor de ofertas)
     resendKey: env.RESEND_API_KEY || '',
     avisosEquipo: String(env.AVISOS_EQUIPO || env.OFERTAS_EQUIPO || '').split(',').map((x) => x.trim()).filter(Boolean),

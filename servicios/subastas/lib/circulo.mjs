@@ -28,6 +28,7 @@ import { avisarCliente, avisarTodos, avisoCambios, avisoPublicado, avisoRechazad
 import { navPanel, paginaEstadisticas, ponerContadores } from './estadisticas.mjs';
 import { rutasOperaciones } from './operaciones.mjs';
 import { rutasFichas } from './fichas.mjs';
+import { cookieFuera, cookieSesion, intentarEntrar, paginaEntrar, sesionValida } from './acceso.mjs';
 import { csvClientes, paginaAnuncio, paginaCliente, paginaClientesCrm } from './crm.mjs';
 import { correoCambiosAprobados, correoCambiosRechazados, correoPublicado, correoRechazado, correoRecibido, enviarCorreo } from './correos.mjs';
 
@@ -705,6 +706,7 @@ function paginaHerramientas() {
   return h('?estado=ubicaciones', 'Ubicaciones', 'Pone a cada producto de la tienda su provincia (para la tarjeta y el filtro «Localización»), sacada de la descripción.')
     + h('?estado=propietarios', 'Propietario en las fichas', 'Saca de la historia de cada coche de Sidonia el nombre de su dueño, para enseñarlo en la ficha («Propietario: Carlos»).')
     + h('?estado=avisos', 'Avisos al móvil', 'Manda una notificación a todos los que tienen la app (un coche nuevo, una bajada de precio…).')
+    + h('?salir=1', 'Cerrar sesión', 'Sale del panel en este dispositivo (la próxima vez pedirá el código).')
     + h('?estado=importar', 'Importar Excel de ventas', 'Mete en Ventas el Excel de coches vendidos, con precios y comisiones. Se puede repetir: lo que ya está se pone al día.');
 }
 
@@ -807,8 +809,20 @@ export async function atenderPanel(req, cfg, deps) {
   const html = (body, status = 200) => ({ status, headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' }, body });
   // El icono y el manifiesto para la pantalla de inicio: el móvil los pide sin la contraseña
   if (req.query.recurso) return recursoPanel(String(req.query.recurso));
-  if (!panelAutorizado(req.headers || {}, cfg.adminClave)) {
-    return { status: 401, headers: { 'WWW-Authenticate': 'Basic realm="Sidonia"', 'Content-Type': 'text/plain; charset=utf-8' }, body: 'Hace falta la contraseña del panel.' };
+  // Entrar: con la sesión guardada (código de 5 cifras, lib/acceso.mjs) o con usuario y contraseña del navegador
+  const sinCache = { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' };
+  if (req.query.salir) return { status: 302, headers: { Location: '?', 'Set-Cookie': cookieFuera(), 'Cache-Control': 'no-store' }, body: '' };
+  if (!sesionValida(req.headers || {}, cfg.adminClave) && !panelAutorizado(req.headers || {}, cfg.adminClave)) {
+    if (!cfg.adminClave) return { status: 401, headers: sinCache, body: paginaEntrar({ error: 'El panel aún no tiene contraseña: pon ADMIN_CLAVE (y ADMIN_PIN) en Vercel.' }) };
+    if (req.method === 'POST' && req.body && req.body.codigo !== undefined) {
+      const r = await intentarEntrar(req.body.codigo, req.headers || {}, cfg, deps);
+      if (r.ok) {
+        const vuelta = Object.entries(req.query || {}).filter(([k]) => k !== 'salir').map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`).join('&');
+        return { status: 303, headers: { Location: `?${vuelta}`, 'Set-Cookie': cookieSesion(cfg.adminClave), 'Cache-Control': 'no-store' }, body: '' };
+      }
+      return { status: 401, headers: sinCache, body: paginaEntrar({ error: r.error, largo: cfg.adminPin ? cfg.adminPin.length : 99 }) };
+    }
+    return { status: 401, headers: sinCache, body: paginaEntrar({ largo: cfg.adminPin ? cfg.adminPin.length : 99 }) };
   }
   const { db } = deps;
   // Cuántos anuncios hay por revisar: el número rojo de «Anuncios» y la lista de tareas de la portada
