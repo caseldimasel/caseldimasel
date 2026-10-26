@@ -24,6 +24,7 @@ export default async function handler(req, res) {
       SUPABASE_URL: tiene('SUPABASE_URL'),
       SUPABASE_SERVICE_KEY: tiene('SUPABASE_SERVICE_KEY'),
       STRIPE_SECRET_KEY: tiene('STRIPE_SECRET_KEY'),
+      STRIPE_WEBHOOK_SECRET: tiene('STRIPE_WEBHOOK_SECRET'),
       SHOPIFY_APP_SECRET: tiene('SHOPIFY_APP_SECRET'),
       SUBASTAS_CLAVE: tiene('SUBASTAS_CLAVE'),
       TIENDA_URL: tiene('TIENDA_URL'),

@@ -203,6 +203,17 @@ cada anuncio paga al mes según cuántos tenga activos a la vez (la tarifa se ca
 - Clientes › Propietarios: solo los dueños de las ventas gestionadas.
 - Base de datos: ejecuta `sql/comunidad.sql` en Supabase (los anuncios ya publicados reciben un mes gratis desde ese día).
 
+**Pago con tarjeta (Stripe), se renueva solo cada mes.** Cada anuncio tiene su enlace de pago firmado
+(`/tienda/pagar?a=…&f=…`): va en los emails, en «Mi perfil › Pago y renovación» y se copia o manda por WhatsApp desde
+el panel. Crea una suscripción mensual al precio de la tarifa; si le queda tiempo gratis o pagado, el primer cobro es
+cuando se acaba. Cada cobro de Stripe llega a `/api/stripe`, se apunta en pagos y alarga el anuncio. Al venderse o
+retirarse, la renovación se cancela sola. Con la renovación activa, el mismo enlace lleva al portal de Stripe (cambiar
+tarjeta o cancelar). Cada día (cron) se recuerda el pago a quien le caduca y, si se pide en la tarifa, se retiran los caducados.
+- Vercel: `STRIPE_SECRET_KEY` (ya estaba) y `STRIPE_WEBHOOK_SECRET`.
+- Stripe › Desarrolladores › Webhooks: `https://<servidor>/api/stripe` con checkout.session.completed, invoice.paid,
+  invoice.payment_failed, customer.subscription.updated y customer.subscription.deleted.
+- Stripe › Configuración › Facturación › Portal de clientes: guardarlo una vez (para cambiar tarjeta o cancelar).
+
 ## Rutas (detrás de `/apps/sidonia`)
 
 | Ruta | |

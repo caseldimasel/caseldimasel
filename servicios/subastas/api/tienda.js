@@ -25,7 +25,7 @@ export default async function handler(req, res) {
   delete query.ruta;
   let body = req.body || {};
   if (typeof body === 'string') {
-    try { body = JSON.parse(body); } catch (e) { body = {}; }
+    try { body = JSON.parse(body); } catch (e) { body = Object.fromEntries(new URLSearchParams(body)); }
   }
   try {
     const r = await atender({ method: req.method, ruta, query, body, directo: true, headers: req.headers }, cfg, { db: supabase(cfg) });

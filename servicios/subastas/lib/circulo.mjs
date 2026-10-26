@@ -28,7 +28,7 @@ import { avisarCliente, avisarTodos, avisoCambios, avisoPublicado, avisoRechazad
 import { navPanel, paginaEstadisticas, ponerContadores } from './estadisticas.mjs';
 import { rutasOperaciones } from './operaciones.mjs';
 import { rutasFichas } from './fichas.mjs';
-import { altaComunidad, rutasComunidad } from './comunidad.mjs';
+import { altaComunidad, cancelarRenovacion, enlacePago, rutasComunidad } from './comunidad.mjs';
 import { cookieFuera, cookieSesion, intentarEntrar, paginaEntrar, sesionValida } from './acceso.mjs';
 import { csvClientes, paginaAnuncio, paginaCliente, paginaClientesCrm } from './crm.mjs';
 import { correoCambiosAprobados, correoCambiosRechazados, correoPublicado, correoRechazado, correoRecibido, enviarCorreo } from './correos.mjs';
@@ -150,7 +150,8 @@ export async function rutasTienda({ ruta, method, body }, cliente, cfg, deps) {
   }
   if (ruta === 'api/anuncios' && method === 'GET') {
     const lista = await db('sidonia_anuncios_mios', { p_cliente: cliente });
-    return json(200, { ok: true, anuncios: (lista || []).map((a) => ({ ...a, portada: a.portada ? urlFoto(cfg, a.portada) : '' })) });
+    // Con el enlace para pagar (o gestionar la renovación) de cada anuncio activo
+    return json(200, { ok: true, anuncios: (lista || []).map((a) => ({ ...a, portada: a.portada ? urlFoto(cfg, a.portada) : '', pago_url: ACTIVOS.includes(a.estado) ? enlacePago(cfg, a.id) : '' })) });
   }
   if (ruta === 'api/anuncio/fotos' && method === 'POST') {
     const mio = await db('sidonia_anuncio_mio', { p_cliente: cliente });
@@ -194,6 +195,7 @@ export async function rutasTienda({ ruta, method, body }, cliente, cfg, deps) {
     if (!mio || !ACTIVOS.includes(mio.estado)) return json(200, { ok: false, error: 'sin-anuncio' });
     await db('sidonia_anuncio_estado', { p_id: mio.id, p_estado: 'retirado', p_nota: 'Eliminado por el dueño', p_producto: null });
     await (deps.tabla || tablaAnuncios(cfg, deps.fetch)).cambiar(mio.id, { revision: null }).catch((e) => console.error(e));
+    await cancelarRenovacion(cfg, deps, mio.id);
     let archivado = false;
     if (mio.producto && cfg.shopifyTienda && cfg.shopifyClientId) {
       try { archivado = await archivarEnShopify(mio.producto, deps.gql || shopifyAdmin(cfg, deps.fetch)); } catch (e) { console.error(e); }
@@ -235,6 +237,7 @@ export async function rutasTienda({ ruta, method, body }, cliente, cfg, deps) {
     const mio = await db('sidonia_anuncio_mio', { p_cliente: cliente });
     if (!mio || mio.estado !== 'publicado' || !mio.producto) return json(200, { ok: false, error: 'sin-anuncio' });
     await marcarSituacion(cfg, mio, situacion, deps);
+    if (situacion === 'vendido') await cancelarRenovacion(cfg, deps, mio.id);
     await avisarEquipo(cfg, `${situacion === 'vendido' ? 'Vendido' : situacion === 'reservado' ? 'Reservado' : 'Otra vez en venta'}: ${mio.titulo}`,
       `<p>El dueño del anuncio #${mio.id} «${esc(mio.titulo)}» lo ha marcado como ${situacion.replace('_', ' ')}.</p>`, deps.fetch).catch((e) => console.error(e));
     return json(200, { ok: true, situacion });
@@ -1008,10 +1011,12 @@ export async function atenderPanel(req, cfg, deps) {
       } else if (SITUACIONES.includes(accion) && a.estado === 'publicado' && a.producto) {
         await marcarSituacion(cfg, a, accion, { ...deps, db });
         aviso = `Anuncio #${id}: ${accion === 'vendido' ? 'vendido' : accion === 'reservado' ? 'reservado' : 'otra vez en venta'} (también en la ficha de la tienda).`;
+        if (accion === 'vendido' && await cancelarRenovacion(cfg, deps, id)) aviso += ' Cancelada su renovación: no se le volverá a cobrar.';
         if (accion === 'vendido') estado = 'vendido';
       } else if (accion === 'retirar') {
         await db('sidonia_anuncio_estado', { p_id: id, p_estado: 'retirado', p_nota: '', p_producto: null });
         aviso = `Retirado el anuncio #${id}. Recuerda archivar el producto en Shopify.`;
+        if (await cancelarRenovacion(cfg, deps, id)) aviso += ' Cancelada su renovación: no se le volverá a cobrar.';
       }
     } catch (e) {
       console.error(e);
