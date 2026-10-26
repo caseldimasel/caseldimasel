@@ -1,7 +1,7 @@
 /* SIDONIA · Panel › Anuncios › En la web: todos los anuncios de la tienda (los de Sidonia y los de los dueños), con su
  * venta del centro operativo, y un editor para cambiarlos sin entrar en Shopify.
  *
- *   ?estado=fichas[&ver=en_venta|reservado|vendido|oculto|todo]   la lista
+ *   ?estado=fichas[&de=gestion|comunidad][&ver=en_venta|reservado|vendido|oculto|todo]   la lista
  *   ?estado=ficha&h=<handle>                                     editar uno: título, precio, precio anterior, en venta /
  *                                                                reservado / vendido, visible u oculto, tipo, ubicación,
  *                                                                propietario, etiquetas y descripción
@@ -29,7 +29,8 @@ const CONSULTA = `query($despues: String) { products(first: 100, after: $despues
     variants(first: 1) { nodes { id price compareAtPrice } }
     provincia: metafield(namespace: "custom", key: "provincia") { value }
     propietario: metafield(namespace: "custom", key: "propietario") { value }
-    vendedor: metafield(namespace: "custom", key: "vendedor_nombre") { value } }
+    vendedor: metafield(namespace: "custom", key: "vendedor_nombre") { value }
+    anuncio: metafield(namespace: "custom", key: "anuncio_id") { value } }
   pageInfo { hasNextPage endCursor } } }`;
 
 /** Todos los anuncios de la tienda, ya listos para el panel */
@@ -44,7 +45,9 @@ export async function leerFichas(gql) {
         id: p.id, handle: p.handle, titulo: p.title, status: p.status, tipo: p.productType || '', vendor: p.vendor || '', tags: p.tags || [], creado: p.createdAt,
         descripcion: p.descriptionHtml || '', foto: p.featuredImage?.url || '', fotos: (p.images?.nodes || []).map((i) => i.url),
         variante: v.id || '', precio: Number(v.price) || 0, precio_antes: Number(v.compareAtPrice) || 0,
-        provincia: p.provincia?.value || '', propietario: p.propietario?.value || p.vendedor?.value || '', situacion: situacion(p)
+        provincia: p.provincia?.value || '', propietario: p.propietario?.value || p.vendedor?.value || '', situacion: situacion(p),
+        // De la comunidad (lo puso su dueño: se cobra por meses) o de gestión de venta (Sidonia, con comisión)
+        comunidad: (p.tags || []).some((t) => String(t).toLowerCase() === 'dueno') || Boolean(p.anuncio?.value), anuncio: Number(p.anuncio?.value) || null
       });
     }
     despues = d.products.pageInfo.hasNextPage && out.length < 2000 ? d.products.pageInfo.endCursor : null;
@@ -63,10 +66,12 @@ const CSS = `
   @media (max-width: 700px) { td.foto { position: static !important; box-shadow: none !important; } .fila-ficha td:nth-child(2) { position: sticky; left: 0; background: var(--caja); } }`;
 
 /* ---------------------------------------------------------------------------- La lista */
-export function paginaFichas(fichas, ops, { ver = 'todo', aviso = '', error = '', tienda = 'https://sidonia.es' } = {}) {
+export function paginaFichas(todas, ops, { ver = 'todo', de = 'todos', aviso = '', error = '', tienda = 'https://sidonia.es' } = {}) {
   const ventas = new Map(ops.filter((o) => o.handle).map((o) => [o.handle, o]));
+  const fichas = todas.filter((f) => de === 'todos' || (de === 'comunidad') === f.comunidad);
   const cuenta = (k) => (k === 'todo' ? fichas.length : fichas.filter((f) => f.situacion === k).length);
   const lista = fichas.filter((f) => ver === 'todo' || f.situacion === ver);
+  const origenes = { todos: ['Todos', todas.length], gestion: ['Gestión de venta', todas.filter((f) => !f.comunidad).length], comunidad: ['Comunidad', todas.filter((f) => f.comunidad).length] };
   const filtros = { todo: 'Todos', en_venta: 'En venta', reservado: 'Reservados', vendido: 'Vendidos', oculto: 'Ocultos' };
   const filas = lista.map((f) => {
     const v = ventas.get(f.handle);
@@ -74,10 +79,10 @@ export function paginaFichas(fichas, ops, { ver = 'todo', aviso = '', error = ''
     return `<tr class="fila-ficha" data-q="${esc(q)}" onclick="if(!event.target.closest('a'))location.href='?estado=ficha&h=${encodeURIComponent(f.handle)}'">
       <td class="foto">${f.foto ? `<img class="mini" src="${esc(foto(f.foto))}" alt="" loading="lazy">` : '<span class="mini"></span>'}</td>
       <td class="izq"><b>${esc(f.titulo)}</b><span class="sub">${esc([f.tipo, f.provincia].filter(Boolean).join(' · ') || '—')} · <a href="${esc(tienda)}/products/${esc(f.handle)}" target="_blank" rel="noopener">ver en la web</a></span></td>
-      <td class="izq">${pill(f.situacion)}</td>
+      <td class="izq">${pill(f.situacion)}<span class="sub">${f.comunidad ? 'Comunidad' : 'Gestión de venta'}</span></td>
       <td class="izq">${esc(f.propietario || v?.propietario_nombre || '—')}</td>
       <td>${euros(f.precio)}${f.precio_antes > f.precio ? `<span class="sub" style="text-decoration:line-through">${euros(f.precio_antes)}</span>` : ''}</td>
-      <td class="izq">${v ? `<a href="?estado=operacion&id=${v.id}">Venta${v.comision ? ` · ${euros(v.comision)}` : ''}</a>` : `<a href="?estado=operacion&de=${encodeURIComponent(f.handle)}" class="sub">+ Crear venta</a>`}</td>
+      <td class="izq">${v ? `<a href="?estado=operacion&id=${v.id}">Venta${v.comision ? ` · ${euros(v.comision)}` : ''}</a>` : f.comunidad ? (f.anuncio ? `<a href="?estado=cobrar&id=${f.anuncio}">Cobros ›</a>` : '<span class="sub">Comunidad</span>') : `<a href="?estado=operacion&de=${encodeURIComponent(f.handle)}" class="sub">+ Crear venta</a>`}</td>
       <td><a href="?estado=ficha&h=${encodeURIComponent(f.handle)}">Editar ›</a></td></tr>`;
   }).join('');
   return marco('Anuncios en la web', 'fichas', `
@@ -88,17 +93,18 @@ ${error ? `<p class="aviso mal">No se han podido leer los anuncios de la tienda:
   <div class="kpi"><span>En venta</span><b>${fmt(cuenta('en_venta'))}</b><small>${euros(fichas.filter((f) => f.situacion === 'en_venta').reduce((s, f) => s + n(f.precio), 0))} en total</small></div>
   <div class="kpi"><span>Reservados</span><b>${fmt(cuenta('reservado'))}</b></div>
   <div class="kpi"><span>Vendidos</span><b>${fmt(cuenta('vendido'))}</b></div>
-  <div class="kpi"><span>Sin venta</span><b>${fmt(fichas.filter((f) => !ventas.has(f.handle)).length)}</b><small>sin ficha en el centro operativo</small></div>
+  <div class="kpi"><span>Gestión sin venta</span><b>${fmt(fichas.filter((f) => !f.comunidad && !ventas.has(f.handle)).length)}</b><small>sin ficha en el centro operativo</small></div>
 </div>
+<div class="per">${Object.entries(origenes).map(([k, [t, c]]) => `<a href="?estado=fichas&de=${k}" class="${k === de ? 'on' : ''}">${t} <small>${fmt(c)}</small></a>`).join('')}</div>
 <div class="barra">
-  <div class="per" style="margin:0">${Object.entries(filtros).map(([k, t]) => `<a href="?estado=fichas&ver=${k}" class="${k === ver ? 'on' : ''}">${t} <small>${fmt(cuenta(k))}</small></a>`).join('')}</div>
+  <div class="per" style="margin:0">${Object.entries(filtros).map(([k, t]) => `<a href="?estado=fichas&de=${de}&ver=${k}" class="${k === ver ? 'on' : ''}">${t} <small>${fmt(cuenta(k))}</small></a>`).join('')}</div>
   <input type="search" placeholder="Buscar coche, propietario, provincia…" oninput="const q=this.value.trim().toLowerCase().normalize('NFD').replace(/[\\u0300-\\u036f]/g,'');document.querySelectorAll('tr[data-q]').forEach((tr)=>{tr.hidden=q&&!tr.dataset.q.includes(q)})">
 </div>
 <div class="card"><div class="tabla"><table>
   <thead><tr><th class="izq"></th><th class="izq">Anuncio</th><th class="izq">Estado</th><th class="izq">Propietario</th><th>Precio</th><th class="izq">Venta</th><th></th></tr></thead>
   <tbody>${filas || '<tr><td colspan="7" class="vacio">No hay anuncios aquí.</td></tr>'}</tbody>
 </table></div></div>
-<p class="nota">Pulsa en uno para cambiarlo (título, precio, reservado o vendido, ubicación, propietario, descripción…). Los cambios se ven en la web al momento.</p>`, CSS);
+<p class="nota">Pulsa en uno para cambiarlo (título, precio, reservado o vendido, ubicación, propietario, descripción…). Los cambios se ven en la web al momento. Gestión de venta: los que vende Sidonia con comisión (Ventas). Comunidad: los que pone cada dueño y paga por meses (Cobros comunidad).</p>`, CSS);
 }
 
 /* ---------------------------------------------------------------------------- Editar uno */
@@ -230,5 +236,6 @@ export async function rutasFichas(req, cfg, deps, html) {
     return html(paginaFicha(f, venta, { aviso, tienda: cfg.tienda, tiendaAdmin }));
   }
   const ver = ['todo', 'en_venta', 'reservado', 'vendido', 'oculto'].includes(req.query.ver) ? req.query.ver : 'todo';
-  return html(paginaFichas(fichas, await leerOps(), { ver, error, tienda: cfg.tienda }));
+  const de = ['todos', 'gestion', 'comunidad'].includes(req.query.de) ? req.query.de : 'todos';
+  return html(paginaFichas(fichas, await leerOps(), { ver, de, error, tienda: cfg.tienda }));
 }

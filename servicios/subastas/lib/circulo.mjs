@@ -28,6 +28,7 @@ import { avisarCliente, avisarTodos, avisoCambios, avisoPublicado, avisoRechazad
 import { navPanel, paginaEstadisticas, ponerContadores } from './estadisticas.mjs';
 import { rutasOperaciones } from './operaciones.mjs';
 import { rutasFichas } from './fichas.mjs';
+import { altaComunidad, rutasComunidad } from './comunidad.mjs';
 import { cookieFuera, cookieSesion, intentarEntrar, paginaEntrar, sesionValida } from './acceso.mjs';
 import { csvClientes, paginaAnuncio, paginaCliente, paginaClientesCrm } from './crm.mjs';
 import { correoCambiosAprobados, correoCambiosRechazados, correoPublicado, correoRechazado, correoRecibido, enviarCorreo } from './correos.mjs';
@@ -844,6 +845,8 @@ export async function atenderPanel(req, cfg, deps) {
   if (['ventas', 'operacion', 'importar', 'duenos', 'enlazar'].includes(seccion)) {
     return rutasOperaciones({ ...req, query: { ...req.query, estado: seccion } }, cfg, { ...deps, tareas }, html);
   }
+  // Anuncios › Cobros y Clientes › Anunciantes: los anuncios de la comunidad, lo que pagan y lo que llevan gastado (comunidad.mjs)
+  if (['cobros', 'cobrar', 'tarifa', 'anunciantes', 'anunciante'].includes(seccion)) return rutasComunidad({ ...req, query: { ...req.query, estado: seccion } }, cfg, deps, html);
   if (seccion === 'herramientas') return html(paginaPanelHtml(navPanel('herramientas'), '', paginaHerramientas()));
   // Clientes (CRM): la lista con lo que hace cada uno, un cliente, o quién está interesado en un anuncio (crm.mjs)
   if (req.query.estado === 'clientes') {
@@ -996,7 +999,7 @@ export async function atenderPanel(req, cfg, deps) {
       } else if (accion === 'publicar') {
         const p = await publicarEnShopify(cfg, a, deps.gql || shopifyAdmin(cfg));
         await db('sidonia_anuncio_estado', { p_id: id, p_estado: 'publicado', p_nota: '', p_producto: p.handle });
-        aviso = `Publicado: ${p.url}.` + await correo(correoPublicado(cfg, a, p.url)) + await movil(a, avisoPublicado(a, p.url));
+        aviso = `Publicado: ${p.url}.` + await altaComunidad(cfg, deps, a) + await correo(correoPublicado(cfg, a, p.url)) + await movil(a, avisoPublicado(a, p.url));
         estado = 'publicado';
       } else if (accion === 'rechazar') {
         const motivo = texto(req.body.nota, 1500);

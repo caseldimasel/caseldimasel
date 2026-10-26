@@ -192,6 +192,17 @@ descargable en CSV. Pulsando en uno: su ficha completa con su historial. En Esta
 entrar con su cuenta, en el mismo navegador, también se le cuenta. Código: `lib/crm.mjs`; base de datos:
 `sql/estadisticas.sql` (funciones `sidonia_crm_*`). Recuerda tenerlo en la política de privacidad de la web.
 
+### Comunidad: anuncios de pago por meses (panel › Anuncios › Cobros comunidad)
+Hay dos tipos de anuncio: los de **gestión de venta** (Sidonia lo vende y cobra comisión: Ventas) y los de la
+**comunidad** (cada dueño pone el suyo y paga por meses). El primer anuncio de cada persona es gratis un mes; después
+cada anuncio paga al mes según cuántos tenga activos a la vez (la tarifa se cambia en Cobros › Cambiar la tarifa).
+- Al publicar un anuncio: si es el primero de esa persona, se le apunta el mes gratis; si no, queda «por cobrar».
+- Cobros: lo que entra cada mes, lo previsto, lo pendiente, lo que caduca pronto y cada anuncio. En cada uno se apunta
+  el pago (meses, importe, Bizum/transferencia…), se le recuerda por email o se retira de la web si no renueva.
+- Clientes › Anunciantes: cada persona con sus anuncios y su histórico de pagos (lo que lleva gastado).
+- Clientes › Propietarios: solo los dueños de las ventas gestionadas.
+- Base de datos: ejecuta `sql/comunidad.sql` en Supabase (los anuncios ya publicados reciben un mes gratis desde ese día).
+
 ## Rutas (detrás de `/apps/sidonia`)
 
 | Ruta | |

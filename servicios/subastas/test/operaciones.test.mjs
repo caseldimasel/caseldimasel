@@ -159,7 +159,7 @@ test('panel: la portada es Ventas; añadir, editar, importar (vista previa) y Pr
   assert.ok(!operaciones.filas.some((o) => o.estado === 'captacion'));
   const duenos = await atenderPanel({ method: 'GET', query: { estado: 'duenos' }, headers: auth }, cfg, deps);
   assert.match(duenos.body, /Carlos/);
-  assert.match(duenos.body, /Ana/);
+  assert.doesNotMatch(duenos.body, /Ana/, 'los de la comunidad van en Anunciantes');
   const malo = await atenderPanel({ method: 'POST', query: { estado: 'importar' }, body: { accion: 'ver', archivo: Buffer.from('hola').toString('base64') }, headers: auth }, cfg, deps);
   assert.match(malo.body, /no se ha podido leer el Excel/);
 });

@@ -573,20 +573,20 @@ export function paginaPropietarios(lista, { error = '' } = {}) {
     <td class="izq">${p.tipo.map((t) => `<span class="sub">${esc(t)}</span>`).join('')}</td>
     <td class="izq">${p.cosas.map((c) => `<div style="margin:0 0 4px"><a href="${c.enlace}">${esc(c.titulo)}</a> <span class="pill ${esc(c.clase)}">${esc(c.estado)}</span></div>`).join('')}</td>
     <td>${fmt(p.vendidos)}</td><td>${p.facturado ? euros(p.facturado) : '—'}</td></tr>`).join('');
-  return marco('Propietarios', 'duenos', `
+  return marco('Propietarios · gestión de venta', 'duenos', `
 ${error ? `<p class="aviso mal">${esc(error)}</p>` : ''}
 <div class="kpis">
-  <div class="kpi"><b>${fmt(lista.length)}</b><span>Propietarios</span><small>de ventas gestionadas y anuncios</small></div>
-  <div class="kpi"><b>${fmt(lista.filter((p) => p.tipo.includes('Venta gestionada')).length)}</b><span>Con venta gestionada</span></div>
-  <div class="kpi"><b>${fmt(lista.filter((p) => p.tipo.some((t) => t.startsWith('Anuncio'))).length)}</b><span>Con anuncio en Sidonia</span></div>
+  <div class="kpi"><b>${fmt(lista.length)}</b><span>Propietarios</span><small>de ventas gestionadas</small></div>
+  <div class="kpi"><b>${fmt(lista.filter((p) => p.cosas.some((c) => !c.vendido)).length)}</b><span>Con algo en venta</span></div>
+  <div class="kpi"><b>${euros(lista.reduce((s, p) => s + n(p.facturado), 0))}</b><span>Vendido por ellos</span></div>
   <div class="kpi"><b>${fmt(lista.filter((p) => p.cosas.length > 1).length)}</b><span>Repiten</span><small>más de un vehículo</small></div>
 </div>
 <div class="barra"><input type="search" placeholder="Buscar propietario, teléfono o coche…" oninput="const q=this.value.trim().toLowerCase().normalize('NFD').replace(/[\\u0300-\\u036f]/g,'');document.querySelectorAll('tr[data-q]').forEach((tr)=>{tr.hidden=q&&!tr.dataset.q.includes(q)})"></div>
 <div class="card"><div class="tabla"><table>
   <thead><tr><th class="izq">Propietario</th><th class="izq">Cómo vende</th><th class="izq">Sus vehículos</th><th>Vendidos</th><th>Vendido por</th></tr></thead>
-  <tbody>${filas || '<tr><td colspan="5" class="vacio">Aún no hay propietarios: ponlos en cada venta (Ventas › la venta › Propietario) o llegarán con los anuncios gratis.</td></tr>'}</tbody>
+  <tbody>${filas || '<tr><td colspan="5" class="vacio">Aún no hay propietarios: ponlos en cada venta (Ventas › la venta › Propietario).</td></tr>'}</tbody>
 </table></div></div>
-<p class="nota">Junta a la misma persona por su email, su teléfono o su nombre. Los de las ventas se ponen en Ventas (cada venta tiene su propietario); los de los anuncios gratis vienen del formulario «Anuncia gratis».</p>`);
+<p class="nota">Los dueños de lo que vende Sidonia con gestión de venta (comisión). Junta a la misma persona por su email, su teléfono o su nombre; se ponen en Ventas (cada venta tiene su propietario). Los que anuncian por su cuenta están en Clientes › Anunciantes.</p>`);
 }
 
 /* ---------------------------------------------------------------------------- Rutas del panel */
@@ -728,11 +728,11 @@ export async function rutasOperaciones(req, cfg, deps, html) {
     return html(paginaEnlazar(ops, productos, { aviso, error, tienda: cfg.tienda }));
   }
 
+  // Propietarios de las ventas gestionadas (con comisión); los de la comunidad están en Clientes › Anunciantes
   if (estado === 'duenos') {
-    let ops = [], anuncios = [], error = '';
+    let ops = [], error = '';
     try { ops = await t.leer('select=*&limit=5000'); } catch (e) { error = 'Las ventas aún no están: ejecuta sql/operaciones.sql en Supabase › SQL Editor.'; }
-    try { anuncios = await (deps.tabla || tablaAnuncios(cfg, deps.fetch)).leer('select=id,tipo,titulo,precio,estado,vendedor_nombre,vendedor_tipo,telefono,email,creado&order=creado.desc&limit=5000'); } catch (e) { error ||= e.message; }
-    return html(paginaPropietarios(propietarios(ops, anuncios), { error }));
+    return html(paginaPropietarios(propietarios(ops, []), { error }));
   }
 
   // Ventas
