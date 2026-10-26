@@ -19,6 +19,8 @@ import { leerXlsx } from './xlsx.mjs';
 
 export const ESTADOS_OP = { captacion: 'Captación', en_venta: 'En venta', reservado: 'Reservado', vendido: 'Vendido', retirado: 'Retirado' };
 export const MODALIDADES = { gestion: 'Venta gestionada', encargo: 'Encargo', subasta: 'Subasta', particular: 'Anuncio de particular' };
+/** El comercial de Sidonia: las comisiones de comercial del Excel son suyas */
+export const COMERCIAL = 'Hugo';
 export const TIPOS_OP = { coche: 'Coche', moto: 'Moto', barco: 'Barco', casa: 'Casa', otro: 'Otro' };
 const CAMPOS = ['tipo', 'titulo', 'handle', 'estado', 'modalidad', 'propietario_nombre', 'propietario_email', 'propietario_telefono', 'comprador_nombre', 'comprador_email',
   'comprador_telefono', 'precio_anunciado', 'precio_venta', 'comision', 'comision_comercial', 'comercial', 'fecha_alta', 'fecha_venta', 'notas'];
@@ -105,6 +107,7 @@ export function detectarOperaciones(libro) {
             precio_venta: vendido ? precio : null,
             comision: cols.comision !== undefined && numero(f[cols.comision]) ? redondo(numero(f[cols.comision])) : null,
             comision_comercial: cols.comision_comercial !== undefined && numero(f[cols.comision_comercial]) ? redondo(numero(f[cols.comision_comercial])) : null,
+            comercial: cols.comision_comercial !== undefined && numero(f[cols.comision_comercial]) ? COMERCIAL : null,
             propietario_nombre: propietarioHoja || null,
             comprador_nombre: encargo ? capital(quien(titulo).replace(/\s+\d+$/, '')) : null,
             notas: (cols.notas || []).map(([k, h]) => (String(f[k] ?? '').trim() ? `${h}: ${String(f[k]).trim()}` : '')).filter(Boolean).join(' · ') || null
@@ -224,8 +227,8 @@ export function resumen(ops) {
   }
   const comerciales = {};
   for (const o of vendidos.filter((x) => x.comercial)) {
-    comerciales[o.comercial] ||= { comercial: o.comercial, n: 0, comision: 0 };
-    comerciales[o.comercial].n += 1; comerciales[o.comercial].comision += n(o.comision_comercial);
+    comerciales[o.comercial] ||= { comercial: o.comercial, n: 0, comision: 0, sobre: 0 };
+    comerciales[o.comercial].n += 1; comerciales[o.comercial].comision += n(o.comision_comercial); comerciales[o.comercial].sobre += n(o.comision);
   }
   return {
     vendidos: vendidos.length, ventas: ventas.length, encargos: encargos.length, facturado, comision, comercial, neto: comision - comercial,
@@ -236,9 +239,13 @@ export function resumen(ops) {
     diasMedios: tiempos.length ? Math.round(tiempos.reduce((s, d) => s + d, 0) / tiempos.length) : null, conTiempos: tiempos.length,
     descuento: descuentos.length ? (descuentos.reduce((s, d) => s + d, 0) / descuentos.length) * 100 : null,
     marcas: Object.values(marcas).sort((a, b) => b.n - a.n || b.facturado - a.facturado).slice(0, 10),
-    comerciales: Object.values(comerciales).sort((a, b) => b.comision - a.comision)
+    // pct: lo que se lleva el comercial sobre la comisión de Sidonia (su parte del beneficio)
+    comerciales: Object.values(comerciales).map((c) => ({ ...c, pct: c.sobre ? (c.comision / c.sobre) * 100 : 0 })).sort((a, b) => b.comision - a.comision)
   };
 }
+
+/** Lo que se lleva el comercial sobre la comisión de Sidonia (%), o null */
+export const pctComercial = (o) => (n(o.comision) && n(o.comision_comercial) ? (o.comision_comercial / o.comision) * 100 : null);
 
 /* ---------------------------------------------------------------------------- Páginas */
 export const marco = (titulo, on, cuerpo, extraCss = '') => `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
@@ -261,6 +268,7 @@ export const marco = (titulo, on, cuerpo, extraCss = '') => `<!doctype html><htm
   form.op .ancho { grid-column: 1 / -1; } form.op .acc { grid-column: 1 / -1; display: flex; gap: 10px; flex-wrap: wrap; }
   tr[data-q] { cursor: pointer; } tr[data-q]:hover td { background: #00000005; }
   .kpi b { font-size: clamp(22px, 1.2rem + .8vw, 28px); white-space: nowrap; }
+  .bars li { grid-template-columns: 190px 1fr 90px; } .bars .bl .sub { display: block; }
   .tareas { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 14px; } .tareas a { padding: 8px 14px; border-radius: 99px; background: #fff3d6; color: #8a5a00; text-decoration: none; font-size: 14px; font-weight: 600; }
   ${extraCss}
 </style></head><body>
@@ -288,12 +296,12 @@ export function paginaVentas(ops, { ver = 'todo', aviso = '', error = '', tienda
       <td class="izq">${esc(o.comprador_nombre || '—')}${o.comprador_telefono ? `<span class="sub">${esc(o.comprador_telefono)}</span>` : ''}</td>
       <td>${o.estado === 'vendido' ? euros(o.precio_venta) : euros(o.precio_anunciado)}${o.estado === 'vendido' && n(o.precio_anunciado) ? `<span class="sub">salía a ${euros(o.precio_anunciado)}</span>` : ''}</td>
       <td>${euros(o.comision)}${pct != null ? `<span class="sub">${pct.toLocaleString('es-ES', { maximumFractionDigits: 1 })} %</span>` : ''}</td>
-      <td>${n(o.comision_comercial) ? euros(o.comision_comercial) : '—'}${o.comercial ? `<span class="sub">${esc(o.comercial)}</span>` : ''}</td>
+      <td>${n(o.comision_comercial) ? euros(o.comision_comercial) : '—'}${o.comercial || n(o.comision_comercial) ? `<span class="sub">${esc(o.comercial || '')}${pctComercial(o) != null ? ` · ${pctComercial(o).toLocaleString('es-ES', { maximumFractionDigits: 1 })} % del beneficio` : ''}</span>` : ''}</td>
       <td>${o.fecha_alta ? new Date(o.fecha_alta).toLocaleDateString('es-ES') : '—'}</td>
       <td>${o.fecha_venta ? new Date(o.fecha_venta).toLocaleDateString('es-ES') : '—'}${d != null ? `<span class="sub">${d} días</span>` : ''}</td></tr>`;
   }).join('');
   const marcas = r.marcas.length ? `<ul class="bars">${r.marcas.map((m) => `<li><span class="bl">${esc(m.marca)}</span><span class="bb"><i style="width:${((m.n / r.marcas[0].n) * 100).toFixed(1)}%"></i></span><b>${fmt(m.n)}</b></li>`).join('')}</ul>` : '<p class="vacio">Aún sin ventas.</p>';
-  const comerciales = r.comerciales.length ? `<ul class="bars">${r.comerciales.map((c) => `<li><span class="bl">${esc(c.comercial)}</span><span class="bb"><i style="width:${((c.comision / r.comerciales[0].comision) * 100 || 0).toFixed(1)}%"></i></span><b>${euros(c.comision)}</b></li>`).join('')}</ul>` : '<p class="vacio">Pon el nombre del comercial en cada venta para verlo aquí.</p>';
+  const comerciales = r.comerciales.length ? `<ul class="bars">${r.comerciales.map((c) => `<li><span class="bl">${esc(c.comercial)}<span class="sub">${fmt(c.n)} ${c.n === 1 ? 'venta' : 'ventas'} · ${c.pct.toLocaleString('es-ES', { maximumFractionDigits: 1 })} % del beneficio de media</span></span><span class="bb"><i style="width:${((c.comision / r.comerciales[0].comision) * 100 || 0).toFixed(1)}%"></i></span><b>${euros(c.comision)}</b></li>`).join('')}</ul>` : '<p class="vacio">Pon el nombre del comercial en cada venta para verlo aquí.</p>';
   return marco('Ventas', 'ventas', `
 ${aviso ? `<p class="aviso${/^Error/.test(aviso) ? ' mal' : ''}">${esc(aviso)}</p>` : ''}
 ${errorSql(error)}
@@ -302,7 +310,7 @@ ${tareas.length ? `<div class="tareas">${tareas.map(([t, href]) => `<a href="${h
   <div class="kpi"><b>${fmt(r.vendidos)}</b><span>Vendidos</span><small>${fmt(r.ventas)} ventas · ${fmt(r.encargos)} encargos</small></div>
   <div class="kpi"><b>${euros(r.facturado)}</b><span>Vendido en total</span><small>ticket medio ${euros(r.ticket)}</small></div>
   <div class="kpi"><b>${euros(r.comision)}</b><span>Comisión Sidonia</span><small>${r.pct.toLocaleString('es-ES', { maximumFractionDigits: 1 })} % de media</small></div>
-  <div class="kpi"><b>${euros(r.comercial)}</b><span>Comisión comerciales</span><small>neto Sidonia ${euros(r.neto)}</small></div>
+  <div class="kpi"><b>${euros(r.comercial)}</b><span>Comisión comerciales</span><small>${r.comerciales.length === 1 ? `para ${esc(r.comerciales[0].comercial)} · ` : ''}neto Sidonia ${euros(r.neto)}</small></div>
   <div class="kpi"><b>${fmt(r.enVenta)}</b><span>En venta ahora</span><small>${euros(r.valorEnVenta)} · comisión prevista ${euros(r.comisionPrevista)}</small></div>
   <div class="kpi"><b>${r.diasMedios == null ? '—' : fmt(r.diasMedios)}</b><span>Días hasta vender</span><small>${r.conTiempos ? `de media, en ${fmt(r.conTiempos)} ventas con fechas` : 'pon las fechas para verlo'}</small></div>
   <div class="kpi"><b>${r.descuento == null ? '—' : `${r.descuento.toLocaleString('es-ES', { maximumFractionDigits: 1 })} %`}</b><span>Rebaja media</span><small>del precio de salida al de venta</small></div>
@@ -362,12 +370,27 @@ ${aviso ? `<p class="aviso${/^Error/.test(aviso) ? ' mal' : ''}">${esc(aviso)}</
     ${campo('precio_anunciado', 'Precio de salida (€)', 'number', ' step="any" min="0"')}${campo('precio_venta', 'Precio de venta (€)', 'number', ' step="any" min="0"')}
     ${campo('comision', 'Comisión Sidonia (€)', 'number', ' step="any" min="0"')}
     <label>o la comisión en %<input name="comision_pct" type="number" step="any" min="0" max="100" value="${esc(pct)}" placeholder="6"><small>Si pones el %, se calcula el importe con el precio de venta (o el de salida).</small></label>
-    ${campo('comision_comercial', 'Comisión del comercial (€)', 'number', ' step="any" min="0"')}${campo('comercial', 'Comercial')}
+    ${campo('comercial', 'Comercial', 'text', ` placeholder="${COMERCIAL}"`)}
+    ${campo('comision_comercial', 'Comisión del comercial (€)', 'number', ' step="any" min="0"')}
+    <label>% del comercial sobre la comisión de Sidonia<input name="comercial_pct" type="number" step="any" min="0" max="100" value="${esc(pctComercial(v) != null ? pctComercial(v).toFixed(2) : '')}" placeholder="25"><small>Su parte del beneficio: con un 25 %, de cada 1.000 € de comisión se lleva 250 €.</small></label>
   </fieldset>
   <fieldset><legend>Fechas</legend>
     ${campo('fecha_alta', 'Se anunció', 'date')}${campo('fecha_venta', 'Se vendió', 'date')}
     <label class="ancho">Notas<textarea name="notas" rows="3">${esc(v.notas || '')}</textarea></label>
   </fieldset>
+  <script>
+    // Al cambiar un %, se calcula el importe (y al revés)
+    (() => {
+      const f = document.currentScript.closest('form');
+      const num = (x) => parseFloat(String(f[x].value).replace(',', '.')) || 0;
+      const base = () => num('precio_venta') || num('precio_anunciado');
+      const r2 = (x) => (Math.round(x * 100) / 100).toString();
+      f.comision_pct.addEventListener('input', () => { if (base() && num('comision_pct')) f.comision.value = r2(base() * num('comision_pct') / 100); f.comercial_pct.dispatchEvent(new Event('input')); });
+      f.comision.addEventListener('input', () => { if (base()) f.comision_pct.value = num('comision') ? r2(num('comision') / base() * 100) : ''; if (num('comercial_pct')) f.comision_comercial.value = r2(num('comision') * num('comercial_pct') / 100); });
+      f.comercial_pct.addEventListener('input', () => { if (num('comision') && f.comercial_pct.value !== '') f.comision_comercial.value = r2(num('comision') * num('comercial_pct') / 100); });
+      f.comision_comercial.addEventListener('input', () => { f.comercial_pct.value = num('comision') && num('comision_comercial') ? r2(num('comision_comercial') / num('comision') * 100) : ''; });
+    })();
+  </script>
   <div class="acc"><button class="boton" name="accion" value="guardar">Guardar</button>
     ${v.id ? '<button class="boton rojo" name="accion" value="borrar" onclick="return confirm(\'¿Borrar esta venta del panel?\')">Borrar</button>' : ''}
     <a class="boton claro" href="?estado=ventas">Cancelar</a></div>
@@ -393,6 +416,9 @@ export function leerOperacion(body) {
   const pct = numero(body.comision_pct);
   const base = c.precio_venta ?? c.precio_anunciado;
   if ((c.comision == null) && pct != null && pct > 0 && base) c.comision = redondo((base * pct) / 100);
+  const pctCom = numero(body.comercial_pct);
+  if (c.comision_comercial == null && pctCom != null && pctCom > 0 && c.comision) c.comision_comercial = redondo((c.comision * pctCom) / 100);
+  if (c.comision_comercial && !c.comercial) c.comercial = COMERCIAL;
   if (c.estado === 'vendido' && !c.fecha_venta && body.fecha_venta === undefined) c.fecha_venta = new Date().toISOString().slice(0, 10);
   return { cambios: c };
 }
@@ -493,7 +519,7 @@ export async function importar(t, nuevas, existentes) {
     if (ya) {
       const cambios = {};
       for (const k of ['estado', 'precio_anunciado', 'precio_venta', 'comision', 'comision_comercial']) if (datos[k] != null && datos[k] !== ya[k]) cambios[k] = datos[k];
-      for (const k of ['propietario_nombre', 'comprador_nombre', 'notas']) if (datos[k] && !ya[k]) cambios[k] = datos[k];
+      for (const k of ['propietario_nombre', 'comprador_nombre', 'notas', 'comercial']) if (datos[k] && !ya[k]) cambios[k] = datos[k];
       if (Object.keys(cambios).length) { await t.cambiar(ya.id, { ...cambios, actualizado: new Date().toISOString() }); puestas += 1; }
     } else {
       await t.guardar({ ...datos, origen: 'excel' }, 'id');
@@ -519,7 +545,7 @@ export async function rutasOperaciones(req, cfg, deps, html) {
     }
     if (!ops.length) return html(paginaImportar({ aviso: 'Error: no he encontrado ninguna tabla con «Coche/Modelo» y «Precio» en ese Excel.' }));
     let existentes = [];
-    try { existentes = await t.leer('select=id,ref,estado,precio_anunciado,precio_venta,comision,comision_comercial,propietario_nombre,comprador_nombre,notas&limit=5000'); } catch (e) {
+    try { existentes = await t.leer('select=id,ref,estado,precio_anunciado,precio_venta,comision,comision_comercial,comercial,propietario_nombre,comprador_nombre,notas&limit=5000'); } catch (e) {
       return html(paginaImportar({ aviso: `Error: ${/operaciones|relation|schema/.test(e.message) ? 'falta ejecutar sql/operaciones.sql en Supabase › SQL Editor.' : e.message}` }));
     }
     if (b.accion !== 'importar') {

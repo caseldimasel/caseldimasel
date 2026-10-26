@@ -88,7 +88,7 @@ test('números del centro operativo', () => {
   assert.deepEqual([r.enVenta, r.valorEnVenta, r.comisionPrevista, r.captacion, r.diasMedios], [1, 49000, 2940, 1, 60]);
   assert.equal(r.descuento.toFixed(1), '5.0');
   assert.deepEqual(r.marcas, [{ marca: 'Porsche', n: 1, facturado: 76000, comision: 4560 }]);
-  assert.deepEqual(r.comerciales, [{ comercial: 'Quique', n: 1, comision: 1140 }]);
+  assert.deepEqual(r.comerciales, [{ comercial: 'Quique', n: 1, comision: 1140, sobre: 4560, pct: 25 }]);
 });
 
 test('formulario: limpio, comisión por % y handle desde la URL', () => {
@@ -175,4 +175,21 @@ test('enlazar: lo vendido o archivado en la tienda se pone igual aquí', () => {
   const r = emparejar([{ id: 1, titulo: 'BMW 2002 1973', estado: 'en_venta', handle: 'bmw-2002' }, { id: 2, titulo: 'SAAB 900 1992', estado: 'en_venta' }],
     [{ handle: 'bmw-2002', title: 'BMW 2002 1973', tags: ['Vendido'] }, { handle: 'saab', title: 'SAAB 900 1992', status: 'ARCHIVED', createdAt: '2025-01-01T00:00:00Z' }]);
   assert.deepEqual(r.map((x) => [x.id, x.cambios.estado]), [[1, 'vendido'], [2, 'retirado']]);
+});
+
+test('comercial: Hugo en las del Excel con comisión de comercial, y su % sobre la comisión de Sidonia', async () => {
+  const { COMERCIAL, pctComercial } = await import('../lib/operaciones.mjs');
+  assert.equal(COMERCIAL, 'Hugo');
+  const ops = detectarOperaciones(leerXlsx(xlsx()));
+  assert.deepEqual(ops.map((o) => o.comercial), [null, 'Hugo', null], 'solo donde hay comisión de comercial');
+  assert.equal(pctComercial({ comision: 850, comision_comercial: 212.5 }), 25);
+  // Formulario: el % del comercial calcula su parte; sin nombre, es Hugo
+  const { cambios } = leerOperacion({ titulo: 'X', precio_venta: '50000', comision: '3000', comercial_pct: '30' });
+  assert.deepEqual([cambios.comision_comercial, cambios.comercial], [900, 'Hugo']);
+  const r = resumen([{ titulo: 'A', estado: 'vendido', precio_venta: 50000, comision: 3000, comision_comercial: 900, comercial: 'Hugo' }, { titulo: 'B', estado: 'vendido', precio_venta: 20000, comision: 1000, comision_comercial: 200, comercial: 'Hugo' }]);
+  assert.deepEqual(r.comerciales.map((c) => [c.comercial, c.n, c.comision, c.sobre, c.pct.toFixed(1)]), [['Hugo', 2, 1100, 4000, '27.5']]);
+  // Volver a importar pone a Hugo en las que no tenían comercial
+  const t = { filas: [{ id: 1, ref: ops[1].ref, estado: 'en_venta', comision_comercial: 212.5, comercial: null }], async cambiar(id, c) { Object.assign(this.filas[0], c); }, async guardar() {} };
+  await importar(t, [ops[1]], t.filas);
+  assert.equal(t.filas[0].comercial, 'Hugo');
 });

@@ -54,7 +54,7 @@ test('panel › Estadísticas: con contraseña, y elige el periodo', async () =>
   let pedido = null;
   const r = await atenderPanel({ method: 'GET', query: { estado: 'estadisticas', dias: '7' }, body: {}, headers: auth }, cfg, { db: async (fn, a) => { pedido = [fn, a]; return datos; } });
   assert.deepEqual(pedido, ['sidonia_estadisticas', { p_dias: 7 }]);
-  assert.match(r.body, /Estadísticas · Panel de Sidonia/);
+  assert.match(r.body, /Estadísticas web · Panel de Sidonia/);
   const sin = await atenderPanel({ method: 'GET', query: { estado: 'estadisticas' }, body: {}, headers: {} }, cfg, { db: async () => datos });
   assert.equal(sin.status, 401);
 });

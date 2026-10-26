@@ -44,7 +44,7 @@ export const SECCIONES = [
   ['pendiente', 'Anuncios', [['pendiente', 'Por revisar'], ['cambios', 'Cambios'], ['aprobado', 'Aprobados'], ['publicado', 'Publicados'], ['vendido', 'Vendidos'], ['cancelados', 'Cancelados']], ['rechazado', 'retirado']],
   ['clientes', 'Clientes', [], ['cliente']],
   ['duenos', 'Propietarios', [], []],
-  ['estadisticas', 'Web', [], ['anuncio']],
+  ['estadisticas', 'Estadísticas web', [], ['anuncio']],
   ['herramientas', 'Herramientas', [['ubicaciones', 'Ubicaciones'], ['propietarios', 'Propietario en las fichas'], ['avisos', 'Avisos al móvil']], []]
 ];
 let contadores = {};
@@ -191,7 +191,7 @@ export function paginaEstadisticas(datos, { dias = 30, error = '', tienda = 'htt
     : '<p class="vacio">Aún nadie ha buscado nada.</p>';
 
   return `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Estadísticas · Panel de Sidonia</title><meta name="robots" content="noindex">
+<title>Estadísticas web · Panel de Sidonia</title><meta name="robots" content="noindex">
 <style>${ESTILO}</style></head><body>
 <header><h1>SIDONIA · PANEL</h1></header>
 ${pestañas}
