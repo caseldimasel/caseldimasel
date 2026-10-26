@@ -25,6 +25,7 @@ import { rellenarPropietarios } from './propietarios.mjs';
 import { rellenarUbicaciones } from './ubicaciones.mjs';
 import { avisarCliente, avisarTodos, avisoCambios, avisoPublicado, avisoRechazado } from './avisos.mjs';
 import { paginaEstadisticas } from './estadisticas.mjs';
+import { csvClientes, paginaAnuncio, paginaCliente, paginaClientesCrm } from './crm.mjs';
 import { correoCambiosAprobados, correoCambiosRechazados, correoPublicado, correoRechazado, correoRecibido, enviarCorreo } from './correos.mjs';
 
 export const TIPOS = ['coche', 'moto', 'barco', 'casa'];
@@ -815,7 +816,28 @@ export async function atenderPanel(req, cfg, deps) {
     return { status: 401, headers: { 'WWW-Authenticate': 'Basic realm="Sidonia"', 'Content-Type': 'text/plain; charset=utf-8' }, body: 'Hace falta la contraseña del panel.' };
   }
   const { db } = deps;
-  if (req.query.estado === 'clientes') return html(paginaClientes(await db('sidonia_clientes_lista', { p_limite: 300 })));
+  // Clientes (CRM): la lista con lo que hace cada uno, un cliente, o quién está interesado en un anuncio (crm.mjs)
+  if (req.query.estado === 'clientes') {
+    const dias = [7, 30, 90, 365, 3650].includes(Number(req.query.dias)) ? Number(req.query.dias) : 30;
+    let crm = null;
+    try { crm = await db('sidonia_crm_clientes', { p_dias: dias }); } catch (e) { console.error(e); }
+    // Sin sql/estadisticas.sql todavía: la lista de siempre (quién se registra y cuándo entra)
+    if (!crm || !Array.isArray(crm.lista)) return html(paginaClientes(await db('sidonia_clientes_lista', { p_limite: 300 })));
+    if (req.query.csv) {
+      return { status: 200, headers: { 'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': `attachment; filename="clientes-sidonia-${dias}-dias.csv"`, 'Cache-Control': 'no-store' }, body: csvClientes(crm) };
+    }
+    return html(paginaClientesCrm(crm, { dias }));
+  }
+  if (req.query.estado === 'cliente' && req.query.id) {
+    let d = null, error = '';
+    try { d = await db('sidonia_crm_cliente', { p_cliente: String(req.query.id).slice(0, 30) }); } catch (e) { error = String(e.message || e); }
+    return html(paginaCliente(d, { tienda: cfg.tienda, error }));
+  }
+  if (req.query.estado === 'anuncio' && req.query.h) {
+    let d = null, error = '';
+    try { d = await db('sidonia_crm_anuncio', { p_handle: String(req.query.h).slice(0, 160) }); } catch (e) { error = String(e.message || e); }
+    return html(paginaAnuncio(d, { tienda: cfg.tienda, error }));
+  }
   if (req.query.estado === 'estadisticas') {
     const dias = [7, 30, 90, 365].includes(Number(req.query.dias)) ? Number(req.query.dias) : 30;
     let datos = null, error = '';

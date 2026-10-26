@@ -89,3 +89,90 @@ test('base de datos: apunta y resume', { skip: !CONN && 'sin PGTEST' }, () => {
   assert.deepEqual(e.origenes, [{ origen: 'instagram', n: 1 }]);
   assert.equal(e.movil, 1);
 });
+
+/* ---------------------------------------------------------------------------- Clientes (CRM) */
+import { csvClientes, hace, paginaAnuncio, paginaCliente, paginaClientesCrm, temperatura } from '../lib/crm.mjs';
+
+const AHORA = Date.parse('2026-10-26T12:00:00Z');
+const crm = {
+  dias: 30, total: 3, nuevos: 2, activos: 2,
+  lista: [
+    { cliente: '7', email: 'ana@correo.es', nombre: 'Ana', primera: '2026-10-20T10:00:00Z', vistas: 12, anuncios: 4, likes: 2, contactos: 1, quiso_contactar: 1, ofertas: 0, busquedas: 3, alertas: 1, actividad: '2026-10-26T09:00:00Z', ultimo_contacto: '2026-10-25T10:00:00Z', le_interesa: 'BMW 2002', le_interesa_handle: 'bmw', puntos: 40 },
+    { cliente: '8', email: '=cmd@x.es', nombre: 'Luis; "El Rápido"', primera: '2026-10-01T10:00:00Z', vistas: 3, likes: 1, puntos: 6, actividad: '2026-10-10T09:00:00Z' },
+    { cliente: '9', email: 'c@x.es', nombre: '', primera: '2026-09-01T10:00:00Z', puntos: 0 }
+  ]
+};
+
+test('crm: temperatura y «hace cuánto»', () => {
+  assert.deepEqual(temperatura(crm.lista[0], AHORA), ['caliente', 'Caliente']);
+  assert.deepEqual(temperatura(crm.lista[1], AHORA), ['templado', 'Templado']);
+  assert.deepEqual(temperatura(crm.lista[2], AHORA), ['frio', 'Frío']);
+  assert.deepEqual(temperatura({ puntos: 2, ultimo_contacto: '2026-09-01T00:00:00Z' }, AHORA)[0], 'frio', 'contactó hace mucho');
+  assert.equal(hace('2026-10-26T09:00:00Z', AHORA), 'hace 3 h');
+  assert.equal(hace('2026-10-24T12:00:00Z', AHORA), 'hace 2 días');
+});
+
+test('crm: la lista, el CSV (Excel, sin fórmulas), un cliente y los interesados de un anuncio', () => {
+  const h = paginaClientesCrm(crm, { dias: 30, ahora: AHORA });
+  assert.match(h, /<span class="temp caliente">Caliente<\/span>/);
+  assert.match(h, /\?estado=anuncio&h=bmw">BMW 2002/);
+  assert.match(h, /<b>1<\/b><span>Calientes/);
+  assert.match(h, /csv=1/);
+  const csv = csvClientes(crm, AHORA);
+  assert.ok(csv.startsWith('﻿email;nombre;interes'));
+  assert.match(csv, /ana@correo\.es;Ana;Caliente;12;4;2;1;1;0;3;1;BMW 2002/);
+  assert.match(csv, /"'=cmd@x\.es";"Luis; ""El Rápido"""/);
+  const c = paginaCliente({ cliente: { cliente: '7', email: 'ana@correo.es', nombre: 'Ana', primera: '2026-10-20T10:00:00Z', visitas: 3 }, resumen: { vistas: 5, likes: 1, contactos: 1, ultima: '2026-10-26T09:00:00Z' },
+    anuncios: [{ handle: 'bmw', titulo: 'BMW 2002', vistas: 4, like: true, contactos: 1, ofertas: 0, ultima: '2026-10-26T09:00:00Z' }], busquedas: [{ q: 'bmw e30', n: 2 }], alertas: [{ nombre: 'BMW · hasta 30.000 €', avisos: 2, creada: '2026-10-21T10:00:00Z' }],
+    historial: [{ tipo: 'contacto', canal: 'whatsapp', handle: 'bmw', titulo: 'BMW 2002', creado: '2026-10-25T10:00:00Z' }, { tipo: 'busqueda', q: 'bmw e30', creado: '2026-10-24T10:00:00Z' }] }, { ahora: AHORA });
+  assert.match(c, /Ana <span class="temp caliente">/);
+  assert.match(c, /mailto:ana@correo\.es\?subject=Sobre%20el%20BMW%202002/);
+  assert.match(c, /Escribió por WhatsApp · <a href="https:\/\/sidonia\.es\/products\/bmw"/);
+  assert.match(c, /Buscó «bmw e30»/);
+  assert.match(c, /BMW · hasta 30\.000 €/);
+  assert.match(paginaCliente({ cliente: null }), /No hemos encontrado/);
+  const a = paginaAnuncio({ handle: 'bmw', titulo: 'BMW 2002', total: { vistas: 50, personas: 30, likes: 4, contactos: 2 }, interesados: [{ cliente: '7', email: 'ana@correo.es', nombre: 'Ana', vistas: 4, like: true, contactos: 1, ultima: '2026-10-26T09:00:00Z' }, { cliente: '9', email: 'c@x.es', vistas: 1 }] }, { ahora: AHORA });
+  assert.match(a, /Escribir a los 2 interesados/);
+  assert.match(a, /bcc=ana%40correo\.es%2Cc%40x\.es/);
+});
+
+test('panel: Clientes con lo que hace cada uno (y CSV); sin el SQL nuevo, la lista de siempre', async () => {
+  const cfg = config({ ADMIN_CLAVE: 'panel' });
+  const auth = { authorization: 'Basic ' + Buffer.from('equipo:panel').toString('base64') };
+  const pedidos = [];
+  const db = async (fn, a) => { pedidos.push([fn, a]); return fn === 'sidonia_crm_clientes' ? crm : fn === 'sidonia_crm_cliente' ? { cliente: { cliente: '7', email: 'ana@correo.es' } } : { handle: 'bmw', interesados: [] }; };
+  assert.match((await atenderPanel({ method: 'GET', query: { estado: 'clientes', dias: '90' }, headers: auth }, cfg, { db })).body, /Descargar CSV/);
+  assert.deepEqual(pedidos[0], ['sidonia_crm_clientes', { p_dias: 90 }]);
+  const csv = await atenderPanel({ method: 'GET', query: { estado: 'clientes', csv: '1' }, headers: auth }, cfg, { db });
+  assert.match(csv.headers['Content-Type'], /text\/csv/);
+  assert.match(csv.headers['Content-Disposition'], /clientes-sidonia-30-dias\.csv/);
+  await atenderPanel({ method: 'GET', query: { estado: 'cliente', id: '7' }, headers: auth }, cfg, { db });
+  assert.deepEqual(pedidos.at(-1), ['sidonia_crm_cliente', { p_cliente: '7' }]);
+  await atenderPanel({ method: 'GET', query: { estado: 'anuncio', h: 'bmw' }, headers: auth }, cfg, { db });
+  assert.deepEqual(pedidos.at(-1), ['sidonia_crm_anuncio', { p_handle: 'bmw' }]);
+  const viejo = await atenderPanel({ method: 'GET', query: { estado: 'clientes' }, headers: auth }, cfg, { db: async (fn) => { if (fn === 'sidonia_crm_clientes') throw new Error('function sidonia_crm_clientes does not exist'); return { lista: [], total: 0 }; } });
+  assert.match(viejo.body, /Clientes en total/);
+});
+
+test('base de datos: lo que hizo antes de entrar con su cuenta también es suyo', { skip: !CONN && 'sin PGTEST' }, () => {
+  const args = (db) => [...CONN.split(/\s+/), '-d', db, '-v', 'ON_ERROR_STOP=1', '-Atq'];
+  const psql = (sql) => execFileSync('psql', [...args('sidonia_estad'), '-c', sql], { encoding: 'utf8' }).trim();
+  const ev = (o) => psql(`select sidonia_evento('${JSON.stringify(o)}'::jsonb)`);
+  psql("select sidonia_visita('77', 'ana@correo.es', 'Ana')");
+  ev({ tipo: 'vista', sesion: 'navana', handle: 'bmw', titulo: 'BMW 2002' });
+  ev({ tipo: 'contacto', canal: 'registro', sesion: 'navana', handle: 'bmw' });
+  ev({ tipo: 'like', sesion: 'navana', cliente: '77', handle: 'bmw' });
+  ev({ tipo: 'busqueda', sesion: 'navana', cliente: '77', q: 'bmw e30' });
+  ev({ tipo: 'vista', sesion: 'otro', handle: 'bmw' });
+  const l = JSON.parse(psql('select sidonia_crm_clientes(30)::text'));
+  const ana = l.lista.find((c) => c.cliente === '77');
+  assert.deepEqual([ana.email, ana.vistas, ana.likes, ana.quiso_contactar, ana.busquedas, ana.le_interesa_handle], ['ana@correo.es', 1, 1, 1, 1, 'bmw']);
+  const c = JSON.parse(psql("select sidonia_crm_cliente('77')::text"));
+  assert.equal(c.cliente.email, 'ana@correo.es');
+  assert.equal(c.historial.length, 4);
+  assert.deepEqual(c.busquedas.map((b) => b.q), ['bmw e30']);
+  const a = JSON.parse(psql("select sidonia_crm_anuncio('bmw')::text"));
+  assert.equal(a.titulo, 'BMW 2002');
+  assert.equal(a.total.personas, 2, 'cuenta también a los anónimos');
+  assert.deepEqual(a.interesados.map((x) => [x.email, x.like, x.quiso_contactar]), [['ana@correo.es', true, 1]]);
+});

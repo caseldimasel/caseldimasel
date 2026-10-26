@@ -1,4 +1,5 @@
--- SIDONIA · Estadísticas de la web (panel › Estadísticas). Se puede ejecutar varias veces.
+-- SIDONIA · Estadísticas de la web (panel › Estadísticas) y lo que hace cada cliente (panel › Clientes). Se puede ejecutar
+-- varias veces. Necesita sql/circulo.sql (las tablas clientes y alertas).
 -- La web (snippets/sidonia-estadisticas.liquid del tema) apunta lo que pasa: visitas, fichas vistas, contactos, me gusta,
 -- compartidos, búsquedas, alertas y ofertas. Sin datos personales: un número al azar por navegador («sesion») y, si ha
 -- iniciado sesión, su id de cliente de Shopify.
@@ -99,15 +100,122 @@ create or replace function sidonia_estadisticas(p_dias integer default 30) retur
   )
 $$;
 
+-- ---------------------------------------------------------------------------------------------- Clientes (CRM)
+-- Quién es quién: lo que hace cada cliente con cuenta. Lo que hizo antes de entrar (en el mismo navegador) también
+-- cuenta: el navegador («sesion») se une al último cliente que entró con él.
+create index if not exists eventos_cliente on eventos (cliente) where cliente is not null;
+create index if not exists eventos_sesion on eventos (sesion);
+
+create or replace function sidonia_eventos_clientes(p_desde timestamptz) returns table (
+  cli text, tipo text, handle text, titulo text, canal text, q text, creado timestamptz) language sql stable as $$
+  with mapa as (
+    select distinct on (sesion) sesion, cliente from eventos
+     where cliente is not null and sesion is not null order by sesion, creado desc)
+  select coalesce(e.cliente, m.cliente), e.tipo, e.handle, e.titulo, e.canal, e.q, e.creado
+    from eventos e left join mapa m on e.cliente is null and m.sesion = e.sesion
+   where e.creado >= p_desde and coalesce(e.cliente, m.cliente) is not null
+$$;
+
+-- La lista: cada cliente con lo que ha hecho en el periodo (los más activos primero)
+create or replace function sidonia_crm_clientes(p_dias integer default 30) returns jsonb language sql stable as $$
+  with
+  r as (select now() - make_interval(days => greatest(1, least(p_dias, 3650))) as desde),
+  ev as (select * from sidonia_eventos_clientes((select desde from r))),
+  m as (
+    select cli,
+      count(*) filter (where tipo = 'vista') as vistas,
+      count(distinct handle) filter (where tipo = 'vista') as anuncios,
+      count(*) filter (where tipo = 'like') as likes,
+      count(*) filter (where tipo = 'contacto' and canal is distinct from 'registro') as contactos,
+      count(*) filter (where tipo = 'contacto' and canal = 'registro') as quiso_contactar,
+      count(*) filter (where tipo = 'busqueda') as busquedas,
+      count(*) filter (where tipo = 'oferta') as ofertas,
+      count(*) filter (where tipo = 'compartir') as compartidos,
+      max(creado) as actividad,
+      max(creado) filter (where tipo in ('contacto', 'oferta')) as ultimo_contacto
+    from ev group by cli),
+  interes as (
+    select distinct on (cli) cli, titulo as le_interesa, handle as le_interesa_handle
+      from (select cli, handle, max(titulo) as titulo,
+                   sum(case tipo when 'contacto' then 6 when 'oferta' then 8 when 'like' then 3 else 1 end) as peso
+              from ev where handle is not null group by cli, handle) x
+     order by cli, peso desc),
+  al as (select cliente, count(*) as alertas from alertas where activa group by cliente)
+  select jsonb_build_object(
+    'dias', greatest(1, least(p_dias, 3650)),
+    'total', (select count(*) from clientes),
+    'nuevos', (select count(*) from clientes, r where primera >= r.desde),
+    'activos', (select count(*) from m),
+    'lista', coalesce((select jsonb_agg(to_jsonb(x) order by x.puntos desc, x.actividad desc nulls last) from (
+      select c.cliente, c.email, c.nombre, c.primera, c.ultima, c.visitas,
+             coalesce(m.vistas, 0) as vistas, coalesce(m.anuncios, 0) as anuncios, coalesce(m.likes, 0) as likes,
+             coalesce(m.contactos, 0) as contactos, coalesce(m.quiso_contactar, 0) as quiso_contactar, coalesce(m.busquedas, 0) as busquedas,
+             coalesce(m.ofertas, 0) as ofertas, coalesce(m.compartidos, 0) as compartidos, coalesce(al.alertas, 0) as alertas,
+             greatest(m.actividad, c.ultima) as actividad, m.ultimo_contacto, i.le_interesa, i.le_interesa_handle,
+             coalesce(m.contactos, 0) * 6 + coalesce(m.quiso_contactar, 0) * 5 + coalesce(m.ofertas, 0) * 8 + coalesce(al.alertas, 0) * 4
+               + coalesce(m.likes, 0) * 3 + coalesce(m.busquedas, 0) + coalesce(m.vistas, 0) as puntos
+        from clientes c left join m on m.cli = c.cliente left join interes i on i.cli = c.cliente left join al on al.cliente = c.cliente
+       limit 2000) x), '[]'::jsonb))
+$$;
+
+-- Un cliente: todo lo que ha hecho, desde siempre
+create or replace function sidonia_crm_cliente(p_cliente text) returns jsonb language sql stable as $$
+  with ev as (select * from sidonia_eventos_clientes('-infinity') where cli = p_cliente)
+  select jsonb_build_object(
+    'cliente', (select to_jsonb(c) from clientes c where c.cliente = p_cliente),
+    'resumen', (select jsonb_build_object(
+        'vistas', count(*) filter (where tipo = 'vista'), 'likes', count(*) filter (where tipo = 'like'),
+        'contactos', count(*) filter (where tipo = 'contacto' and canal is distinct from 'registro'),
+        'quiso_contactar', count(*) filter (where tipo = 'contacto' and canal = 'registro'),
+        'busquedas', count(*) filter (where tipo = 'busqueda'), 'ofertas', count(*) filter (where tipo = 'oferta'),
+        'compartidos', count(*) filter (where tipo = 'compartir'), 'primera', min(creado), 'ultima', max(creado)) from ev),
+    'anuncios', coalesce((select jsonb_agg(to_jsonb(x) order by x.peso desc, x.ultima desc) from (
+        select handle, max(titulo) as titulo,
+               count(*) filter (where tipo = 'vista') as vistas, bool_or(tipo = 'like') as like,
+               count(*) filter (where tipo = 'contacto' and canal is distinct from 'registro') as contactos,
+               count(*) filter (where tipo = 'contacto' and canal = 'registro') as quiso_contactar,
+               count(*) filter (where tipo = 'oferta') as ofertas, max(creado) as ultima,
+               sum(case tipo when 'contacto' then 6 when 'oferta' then 8 when 'like' then 3 else 1 end) as peso
+          from ev where handle is not null group by handle limit 100) x), '[]'::jsonb),
+    'busquedas', coalesce((select jsonb_agg(to_jsonb(x) order by x.n desc) from (
+        select q, count(*) as n, max(creado) as ultima from ev where tipo = 'busqueda' and q is not null group by q limit 50) x), '[]'::jsonb),
+    'alertas', coalesce((select jsonb_agg(jsonb_build_object('nombre', nombre, 'filtros', filtros, 'creada', creada, 'avisos', avisos) order by creada desc)
+        from alertas where cliente = p_cliente and activa), '[]'::jsonb),
+    'historial', coalesce((select jsonb_agg(to_jsonb(x) order by x.creado desc) from (
+        select tipo, handle, titulo, canal, q, creado from ev order by creado desc limit 200) x), '[]'::jsonb)
+  )
+$$;
+
+-- Un anuncio: quién está interesado (clientes con cuenta) y cuánta gente sin cuenta
+create or replace function sidonia_crm_anuncio(p_handle text) returns jsonb language sql stable as $$
+  with ev as (select * from sidonia_eventos_clientes('-infinity') where handle = p_handle)
+  select jsonb_build_object(
+    'handle', p_handle,
+    'titulo', (select max(titulo) from eventos where handle = p_handle),
+    'total', (select jsonb_build_object('vistas', count(*) filter (where tipo = 'vista'), 'personas', count(distinct sesion) filter (where tipo = 'vista'),
+        'likes', count(*) filter (where tipo = 'like'), 'contactos', count(*) filter (where tipo = 'contacto' and canal is distinct from 'registro'),
+        'quiso_contactar', count(*) filter (where tipo = 'contacto' and canal = 'registro'), 'ofertas', count(*) filter (where tipo = 'oferta'))
+      from eventos where handle = p_handle),
+    'interesados', coalesce((select jsonb_agg(to_jsonb(x) order by x.peso desc, x.ultima desc) from (
+        select ev.cli as cliente, c.email, c.nombre,
+               count(*) filter (where tipo = 'vista') as vistas, bool_or(tipo = 'like') as like,
+               count(*) filter (where tipo = 'contacto' and canal is distinct from 'registro') as contactos,
+               count(*) filter (where tipo = 'contacto' and canal = 'registro') as quiso_contactar,
+               count(*) filter (where tipo = 'oferta') as ofertas, max(creado) as ultima,
+               sum(case tipo when 'contacto' then 6 when 'oferta' then 8 when 'like' then 3 else 1 end) as peso
+          from ev left join clientes c on c.cliente = ev.cli group by ev.cli, c.email, c.nombre limit 500) x), '[]'::jsonb)
+  )
+$$;
+
 -- Solo para el servidor (clave de servicio)
-revoke execute on function sidonia_evento(jsonb), sidonia_estadisticas(integer) from public;
+revoke execute on function sidonia_evento(jsonb), sidonia_estadisticas(integer), sidonia_eventos_clientes(timestamptz), sidonia_crm_clientes(integer), sidonia_crm_cliente(text), sidonia_crm_anuncio(text) from public;
 do $$
 begin
   if exists (select 1 from pg_roles where rolname = 'anon') then
-    execute 'revoke execute on function sidonia_evento(jsonb), sidonia_estadisticas(integer) from anon, authenticated';
+    execute 'revoke execute on function sidonia_evento(jsonb), sidonia_estadisticas(integer), sidonia_eventos_clientes(timestamptz), sidonia_crm_clientes(integer), sidonia_crm_cliente(text), sidonia_crm_anuncio(text) from anon, authenticated';
   end if;
   if exists (select 1 from pg_roles where rolname = 'service_role') then
-    execute 'grant execute on function sidonia_evento(jsonb), sidonia_estadisticas(integer) to service_role';
+    execute 'grant execute on function sidonia_evento(jsonb), sidonia_estadisticas(integer), sidonia_eventos_clientes(timestamptz), sidonia_crm_clientes(integer), sidonia_crm_cliente(text), sidonia_crm_anuncio(text) to service_role';
   end if;
 end $$;
 notify pgrst, 'reload schema';

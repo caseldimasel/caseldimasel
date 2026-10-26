@@ -35,9 +35,58 @@ export async function registrarEvento(db, body, cliente, headers = {}) {
 }
 
 /* ---------------------------------------------------------------------------- La página del panel */
-const n = (x) => Number(x) || 0;
-const fmt = (x) => n(x).toLocaleString('es-ES');
-const pct = (a, b) => (b > 0 ? Math.round((a / b) * 1000) / 10 : 0);
+/** Las pestañas del panel, con la que está abierta marcada */
+export function navPanel(on) {
+  const extra = [['cambios', 'Cambios'], ['propietarios', 'Propietarios'], ['ubicaciones', 'Ubicaciones'], ['clientes', 'Clientes'], ['avisos', 'Avisos']];
+  return [['estadisticas', 'Estadísticas'], ...Object.entries(ESTADOS), ...extra].map(([k, v]) => `<a href="?estado=${k}"${k === on ? ' class="on"' : ''}>${v}</a>`).join('');
+}
+
+/** El estilo de las páginas de Estadísticas y Clientes */
+export const ESTILO = `
+  :root { font-family: system-ui, -apple-system, Segoe UI, sans-serif; color: #1a1a1a; background: #f6f5f2; }
+  body { max-width: 1180px; margin: 0 auto; padding: 24px 16px 80px; }
+  h1 { margin: 0; letter-spacing: .2em; font-size: 18px; }
+  h2 { margin: 0 0 12px; font-size: 17px; }
+  nav { display: flex; gap: 6px; flex-wrap: wrap; margin: 18px 0; }
+  nav a { padding: 8px 14px; border: 1px solid #0002; border-radius: 99px; color: inherit; text-decoration: none; font-size: 14px; background: #fff; }
+  nav a.on { border-color: #1a1a1a; font-weight: 700; }
+  .per { display: inline-flex; gap: 2px; padding: 3px; border-radius: 99px; background: #0000000d; margin: 0 0 16px; }
+  .per a { padding: 6px 14px; border-radius: 99px; color: inherit; text-decoration: none; font-size: 13px; }
+  .per a.on { background: #fff; font-weight: 700; box-shadow: 0 1px 3px #0002; }
+  .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; margin-bottom: 14px; }
+  .kpi { position: relative; padding: 16px 18px; border-radius: 18px; background: #fff; }
+  .kpi b { display: block; font-size: 30px; letter-spacing: -.02em; }
+  .kpi span { display: block; font-size: 13px; opacity: .65; }
+  .kpi small { display: block; margin-top: 4px; font-size: 11.5px; opacity: .45; }
+  .kpi em { position: absolute; top: 16px; right: 16px; font-style: normal; font-size: 12px; font-weight: 700; opacity: .5; }
+  .kpi em.sube { color: #1f8a4c; opacity: 1; } .kpi em.baja { color: #b3261e; opacity: 1; }
+  .card { padding: 18px 20px; border-radius: 18px; background: #fff; margin-bottom: 14px; }
+  .grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px; }
+  .grid2 .card { margin: 0; }
+  .embudo { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 18px; }
+  .embudo div b { display: block; font-size: 26px; } .embudo div span { font-size: 13px; opacity: .6; }
+  .embudo i { font-style: normal; opacity: .3; font-size: 22px; }
+  .embudo p { flex-basis: 100%; margin: 6px 0 0; font-size: 14px; opacity: .8; }
+  .graf { width: 100%; height: auto; display: block; }
+  .ley { margin: 6px 0 0; font-size: 12px; opacity: .7; display: flex; align-items: center; gap: 6px; }
+  .ley span { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-left: 10px; } .c1 { background: #1a1a1a; } .c2 { background: #1f8a4c; }
+  .bars { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+  .bars li { display: grid; grid-template-columns: 150px 1fr 56px; align-items: center; gap: 10px; font-size: 14px; }
+  .bb { height: 8px; border-radius: 99px; background: #0000000d; overflow: hidden; } .bb i { display: block; height: 100%; border-radius: 99px; background: #1a1a1a; }
+  .bars b { text-align: right; }
+  .top { margin: 0; padding-left: 20px; display: grid; gap: 6px; font-size: 14px; } .top li b { float: right; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chips a { padding: 6px 12px; border-radius: 99px; background: #0000000a; color: inherit; text-decoration: none; font-size: 14px; } .chips b { opacity: .5; margin-left: 4px; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { padding: 9px 10px; border-bottom: 1px solid #0001; text-align: right; vertical-align: top; } th:first-child, td:first-child { text-align: left; }
+  th { font-weight: 600; opacity: .6; font-size: 11.5px; text-transform: uppercase; letter-spacing: .06em; }
+  td small { opacity: .5; } a { color: inherit; }
+  .tabla { overflow-x: auto; }
+  .vacio, .nota { font-size: 13px; opacity: .6; } .error { padding: 12px 16px; border-radius: 12px; background: #fdecea; color: #8a1c13; font-size: 14px; }
+`;
+export const n = (x) => Number(x) || 0;
+export const fmt = (x) => n(x).toLocaleString('es-ES');
+export const pct = (a, b) => (b > 0 ? Math.round((a / b) * 1000) / 10 : 0);
 
 /** «+12 %» en verde, «−5 %» en rojo, frente al periodo anterior */
 function cambio(ahora, antes) {
@@ -88,8 +137,7 @@ export function paginaEstadisticas(datos, { dias = 30, error = '', tienda = 'htt
   const d = datos || {};
   const a = d.actual || {};
   const b = d.anterior || {};
-  const pestañas = '<a href="?estado=estadisticas" class="on">Estadísticas</a>' + Object.entries(ESTADOS).map(([k, v]) => `<a href="?estado=${k}">${v}</a>`).join('')
-    + '<a href="?estado=cambios">Cambios</a><a href="?estado=propietarios">Propietarios</a><a href="?estado=ubicaciones">Ubicaciones</a><a href="?estado=clientes">Clientes</a><a href="?estado=avisos">Avisos</a>';
+  const pestañas = navPanel('estadisticas');
   const periodos = [[7, '7 días'], [30, '30 días'], [90, '3 meses'], [365, '1 año']].map(([k, t]) => `<a href="?estado=estadisticas&dias=${k}" class="${k === dias ? 'on' : ''}">${t}</a>`).join('');
   const kpi = (valor, antes, titulo, ayuda) => `<div class="kpi"><b>${fmt(valor)}</b>${cambio(valor, antes)}<span>${titulo}</span>${ayuda ? `<small>${ayuda}</small>` : ''}</div>`;
   const link = (h, t) => `<a href="${esc(tienda)}/products/${esc(h)}" target="_blank" rel="noopener">${esc(t || h)}</a>`;
@@ -104,7 +152,7 @@ export function paginaEstadisticas(datos, { dias = 30, error = '', tienda = 'htt
     <p>De cada 100 fichas vistas, <b>${pct(contactos, conFicha).toLocaleString('es-ES')}</b> acaban en un contacto.${n(a.contactos_registro) ? ` Además, <b>${fmt(a.contactos_registro)}</b> veces quisieron contactar sin cuenta y les pedimos registrarse.` : ''}</p>
   </div>`;
 
-  const filas = (d.anuncios || []).map((x) => `<tr><td>${link(x.handle, x.titulo)}</td><td>${fmt(x.vistas)}</td><td>${fmt(x.personas)}</td><td>${fmt(x.likes)}</td><td>${fmt(x.guardados)}</td><td>${fmt(x.contactos)}${n(x.contactos_registro) ? ` <small>(+${fmt(x.contactos_registro)} sin cuenta)</small>` : ''}</td><td>${pct(x.contactos, x.vistas).toLocaleString('es-ES')} %</td><td>${fmt(x.compartidos)}</td></tr>`).join('');
+  const filas = (d.anuncios || []).map((x) => `<tr><td>${link(x.handle, x.titulo)}<br><a href="?estado=anuncio&h=${encodeURIComponent(x.handle)}" style="font-size:12px;opacity:.6">Quién está interesado ›</a></td><td>${fmt(x.vistas)}</td><td>${fmt(x.personas)}</td><td>${fmt(x.likes)}</td><td>${fmt(x.guardados)}</td><td>${fmt(x.contactos)}${n(x.contactos_registro) ? ` <small>(+${fmt(x.contactos_registro)} sin cuenta)</small>` : ''}</td><td>${pct(x.contactos, x.vistas).toLocaleString('es-ES')} %</td><td>${fmt(x.compartidos)}</td></tr>`).join('');
   const canales = Object.entries(d.canales || {}).map(([k, v]) => ({ nombre: NOMBRE_CANAL[k] || k, n: v })).sort((x, y) => y.n - x.n);
   const origenes = (d.origenes || []).map((x) => ({ nombre: NOMBRE_ORIGEN(x.origen), n: x.n }));
   const dispositivos = [
@@ -114,7 +162,7 @@ export function paginaEstadisticas(datos, { dias = 30, error = '', tienda = 'htt
     { nombre: 'Con su cuenta', n: n(d.con_cuenta) }
   ];
   const top = (lista, campo, titulo) => (lista || []).length
-    ? `<ol class="top">${lista.map((x) => `<li>${link(x.handle, x.titulo)}<b>${fmt(x[campo])}</b></li>`).join('')}</ol>`
+    ? `<ol class="top">${lista.map((x) => `<li><a href="?estado=anuncio&h=${encodeURIComponent(x.handle)}">${esc(x.titulo || x.handle)}</a><b>${fmt(x[campo])}</b></li>`).join('')}</ol>`
     : `<p class="vacio">${titulo}</p>`;
   const busquedas = (d.busquedas || []).length
     ? `<div class="chips">${d.busquedas.map((x) => `<a href="${esc(tienda)}/search?q=${encodeURIComponent(x.q)}&type=product" target="_blank" rel="noopener">${esc(x.q)} <b>${fmt(x.n)}</b></a>`).join('')}</div>`
@@ -122,48 +170,7 @@ export function paginaEstadisticas(datos, { dias = 30, error = '', tienda = 'htt
 
   return `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Estadísticas · Panel de Sidonia</title><meta name="robots" content="noindex">
-<style>
-  :root { font-family: system-ui, -apple-system, Segoe UI, sans-serif; color: #1a1a1a; background: #f6f5f2; }
-  body { max-width: 1180px; margin: 0 auto; padding: 24px 16px 80px; }
-  h1 { margin: 0; letter-spacing: .2em; font-size: 18px; }
-  h2 { margin: 0 0 12px; font-size: 17px; }
-  nav { display: flex; gap: 6px; flex-wrap: wrap; margin: 18px 0; }
-  nav a { padding: 8px 14px; border: 1px solid #0002; border-radius: 99px; color: inherit; text-decoration: none; font-size: 14px; background: #fff; }
-  nav a.on { border-color: #1a1a1a; font-weight: 700; }
-  .per { display: inline-flex; gap: 2px; padding: 3px; border-radius: 99px; background: #0000000d; margin: 0 0 16px; }
-  .per a { padding: 6px 14px; border-radius: 99px; color: inherit; text-decoration: none; font-size: 13px; }
-  .per a.on { background: #fff; font-weight: 700; box-shadow: 0 1px 3px #0002; }
-  .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; margin-bottom: 14px; }
-  .kpi { position: relative; padding: 16px 18px; border-radius: 18px; background: #fff; }
-  .kpi b { display: block; font-size: 30px; letter-spacing: -.02em; }
-  .kpi span { display: block; font-size: 13px; opacity: .65; }
-  .kpi small { display: block; margin-top: 4px; font-size: 11.5px; opacity: .45; }
-  .kpi em { position: absolute; top: 16px; right: 16px; font-style: normal; font-size: 12px; font-weight: 700; opacity: .5; }
-  .kpi em.sube { color: #1f8a4c; opacity: 1; } .kpi em.baja { color: #b3261e; opacity: 1; }
-  .card { padding: 18px 20px; border-radius: 18px; background: #fff; margin-bottom: 14px; }
-  .grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px; }
-  .grid2 .card { margin: 0; }
-  .embudo { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 18px; }
-  .embudo div b { display: block; font-size: 26px; } .embudo div span { font-size: 13px; opacity: .6; }
-  .embudo i { font-style: normal; opacity: .3; font-size: 22px; }
-  .embudo p { flex-basis: 100%; margin: 6px 0 0; font-size: 14px; opacity: .8; }
-  .graf { width: 100%; height: auto; display: block; }
-  .ley { margin: 6px 0 0; font-size: 12px; opacity: .7; display: flex; align-items: center; gap: 6px; }
-  .ley span { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-left: 10px; } .c1 { background: #1a1a1a; } .c2 { background: #1f8a4c; }
-  .bars { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
-  .bars li { display: grid; grid-template-columns: 150px 1fr 56px; align-items: center; gap: 10px; font-size: 14px; }
-  .bb { height: 8px; border-radius: 99px; background: #0000000d; overflow: hidden; } .bb i { display: block; height: 100%; border-radius: 99px; background: #1a1a1a; }
-  .bars b { text-align: right; }
-  .top { margin: 0; padding-left: 20px; display: grid; gap: 6px; font-size: 14px; } .top li b { float: right; }
-  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
-  .chips a { padding: 6px 12px; border-radius: 99px; background: #0000000a; color: inherit; text-decoration: none; font-size: 14px; } .chips b { opacity: .5; margin-left: 4px; }
-  table { width: 100%; border-collapse: collapse; font-size: 14px; }
-  th, td { padding: 9px 10px; border-bottom: 1px solid #0001; text-align: right; vertical-align: top; } th:first-child, td:first-child { text-align: left; }
-  th { font-weight: 600; opacity: .6; font-size: 11.5px; text-transform: uppercase; letter-spacing: .06em; }
-  td small { opacity: .5; } a { color: inherit; }
-  .tabla { overflow-x: auto; }
-  .vacio, .nota { font-size: 13px; opacity: .6; } .error { padding: 12px 16px; border-radius: 12px; background: #fdecea; color: #8a1c13; font-size: 14px; }
-</style></head><body>
+<style>${ESTILO}</style></head><body>
 <header><h1>SIDONIA · PANEL</h1></header>
 <nav>${pestañas}</nav>
 <div class="per">${periodos}</div>

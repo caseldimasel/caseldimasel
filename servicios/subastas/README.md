@@ -165,6 +165,15 @@ ofertas (`snippets/sidonia-estadisticas.liquid` del tema → `POST /tienda/api/e
 Para ponerlo en marcha: Supabase › SQL Editor, ejecuta `sql/estadisticas.sql` (se puede repetir). Se cuenta desde ese
 momento. `/api/salud?prueba=1` dice si está (`estadisticas: ok`). Código: `lib/estadisticas.mjs`.
 
+### Clientes (CRM): qué hace cada cliente
+
+Panel › **Clientes**: cada persona con cuenta, con su email y lo que ha hecho (fichas vistas, me gusta, contactos,
+ofertas, búsquedas, alertas y el anuncio que más le interesa), ordenados por interés (Caliente · Templado · Frío) y
+descargable en CSV. Pulsando en uno: su ficha completa con su historial. En Estadísticas, en cada anuncio,
+**Quién está interesado**: los clientes con su email y un botón para escribirles a todos. Lo que alguien hace antes de
+entrar con su cuenta, en el mismo navegador, también se le cuenta. Código: `lib/crm.mjs`; base de datos:
+`sql/estadisticas.sql` (funciones `sidonia_crm_*`). Recuerda tenerlo en la política de privacidad de la web.
+
 ## Rutas (detrás de `/apps/sidonia`)
 
 | Ruta | |
