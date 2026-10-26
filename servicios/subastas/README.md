@@ -199,6 +199,10 @@ título, precio) y un texto propio. Al dueño le llega un email y un aviso al m�
 la web lo ve en su anuncio. Al editarlo, el panel lo marca «Ya lo ha mejorado» y al equipo le llega un email.
 (Columna anuncios.mejoras: vuelve a ejecutar `sql/circulo.sql`.)
 
+**Guía de fotos** (`/tienda/guia`, lib/guia.mjs): siluetas de las 8 fotos que mejor funcionan, empezando por la portada
+(tres cuartos de frente, morro hacia la derecha). Va en el email de mejoras cuando se pide algo de las fotos, en el
+paso de fotos del formulario de la web (coches) y se puede mandar por WhatsApp.
+
 ### Comunidad: anuncios de pago por meses (panel › Anuncios › Cobros comunidad)
 Hay dos tipos de anuncio: los de **gestión de venta** (Sidonia lo vende y cobra comisión: Ventas) y los de la
 **comunidad** (cada dueño pone el suyo y paga por meses). El primer anuncio de cada persona es gratis un mes; después
