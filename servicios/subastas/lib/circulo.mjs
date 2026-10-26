@@ -29,6 +29,7 @@ import { avisarCliente, avisarTodos, avisoCambios, avisoPublicado, avisoRechazad
 import { navPanel, paginaEstadisticas, ponerContadores } from './estadisticas.mjs';
 import { rutasOperaciones } from './operaciones.mjs';
 import { rutasFichas } from './fichas.mjs';
+import { avisoMejoras, cajaMejoras, correoMejoras, CSS_MEJORAS, leerMejoras, listaMejoras, pendientes } from './mejoras.mjs';
 import { altaComunidad, cancelarRenovacion, enlacePago, leerTarifa, precioMes, rutasComunidad } from './comunidad.mjs';
 import { cookieFuera, cookieSesion, intentarEntrar, paginaEntrar, sesionValida } from './acceso.mjs';
 import { csvClientes, paginaAnuncio, paginaCliente, paginaClientesCrm } from './crm.mjs';
@@ -160,7 +161,7 @@ export async function rutasTienda({ ruta, method, body }, cliente, cfg, deps) {
   if (ruta === 'api/anuncio' && method === 'GET') {
     if (Number(body.id)) {
       const a = await elegido(body.id);
-      return json(200, { ok: true, anuncio: a && { id: a.id, estado: a.estado, tipo: a.tipo, titulo: a.titulo, nota: a.nota, producto: a.producto, creado: a.creado, reservado: Boolean(a.reservado), pago_url: a.estado === 'publicado' ? enlacePago(cfg, a.id) : '' }, ...(await cuenta()) });
+      return json(200, { ok: true, anuncio: a && { id: a.id, estado: a.estado, tipo: a.tipo, titulo: a.titulo, nota: a.nota, producto: a.producto, creado: a.creado, reservado: Boolean(a.reservado), pago_url: a.estado === 'publicado' ? enlacePago(cfg, a.id) : '', mejoras: pendientes(a.mejoras) ? listaMejoras(a.mejoras) : null }, ...(await cuenta()) });
     }
     const mio = await db('sidonia_anuncio_mio', { p_cliente: cliente });
     // Si está publicado: si lo tiene marcado como reservado (para sus botones)
@@ -168,6 +169,10 @@ export async function rutasTienda({ ruta, method, body }, cliente, cfg, deps) {
       try { mio.reservado = Boolean((await (deps.tabla || tablaAnuncios(cfg, deps.fetch)).leer(`id=eq.${Number(mio.id)}&select=reservado`))[0]?.reservado); } catch (e) { /* sin la columna aún */ }
     }
     if (mio && mio.estado === 'publicado') mio.pago_url = enlacePago(cfg, mio.id);
+    // Mejoras que le hemos pedido y aún no ha hecho
+    if (mio && ['pendiente', 'aprobado'].includes(mio.estado)) {
+      try { const [x] = await tablaA().leer(`id=eq.${Number(mio.id)}&select=mejoras`); if (pendientes(x?.mejoras)) mio.mejoras = listaMejoras(x.mejoras); } catch (e) { /* sin la columna aún */ }
+    }
     return json(200, { ok: true, anuncio: mio, ...(await cuenta()) });
   }
   if (ruta === 'api/anuncios' && method === 'GET') {
@@ -175,8 +180,10 @@ export async function rutasTienda({ ruta, method, body }, cliente, cfg, deps) {
     // Cuáles están marcados como reservados (sus botones en «Mi perfil»)
     const reservados = new Set();
     try { (await tablaA().leer(`cliente=eq.${encodeURIComponent(cliente)}&reservado=eq.true&select=id`)).forEach((x) => reservados.add(Number(x.id))); } catch (e) { /* sin la columna aún */ }
+    const conMejoras = new Set();
+    try { (await tablaA().leer(`cliente=eq.${encodeURIComponent(cliente)}&mejoras=not.is.null&select=id,mejoras`)).filter((x) => pendientes(x.mejoras)).forEach((x) => conMejoras.add(Number(x.id))); } catch (e) { /* sin la columna aún */ }
     // Con el enlace para pagar (o gestionar la renovación) de cada anuncio activo
-    return json(200, { ok: true, anuncios: (lista || []).map((a) => ({ ...a, portada: a.portada ? urlFoto(cfg, a.portada) : '', reservado: reservados.has(Number(a.id)), pago_url: ACTIVOS.includes(a.estado) ? enlacePago(cfg, a.id) : '' })) });
+    return json(200, { ok: true, anuncios: (lista || []).map((a) => ({ ...a, portada: a.portada ? urlFoto(cfg, a.portada) : '', reservado: reservados.has(Number(a.id)), mejoras: conMejoras.has(Number(a.id)), pago_url: ACTIVOS.includes(a.estado) ? enlacePago(cfg, a.id) : '' })) });
   }
   if (ruta === 'api/anuncio/fotos' && method === 'POST') {
     // Para uno nuevo, mientras no llegue al máximo de anuncios activos
@@ -218,8 +225,10 @@ export async function rutasTienda({ ruta, method, body }, cliente, cfg, deps) {
     const cambios = Object.fromEntries(CAMPOS_EDITABLES.map((k) => [k, v.datos[k]]));
     // Por revisar: aún no se ve en la tienda, se cambia directamente. Aprobado o publicado: el equipo revisa los cambios.
     const revision = a.estado !== 'pendiente';
-    await tabla.cambiar(a.id, revision ? { revision: cambios, revision_fecha: new Date().toISOString() } : { ...cambios, revision: null, actualizado: new Date().toISOString() });
-    await avisarEquipo(cfg, revision ? `Cambios por revisar: ${cambios.titulo}` : `Anuncio editado: ${cambios.titulo}`,
+    // ¿Le habíamos pedido mejoras? Queda marcado como hecho (y el equipo lo sabe por el email)
+    const mejorado = pendientes(a.mejoras) ? { mejoras: { ...a.mejoras, editado: new Date().toISOString() } } : {};
+    await tabla.cambiar(a.id, revision ? { revision: cambios, revision_fecha: new Date().toISOString(), ...mejorado } : { ...cambios, revision: null, actualizado: new Date().toISOString(), ...mejorado });
+    await avisarEquipo(cfg, mejorado.mejoras ? `Ha mejorado su anuncio: ${cambios.titulo}` : revision ? `Cambios por revisar: ${cambios.titulo}` : `Anuncio editado: ${cambios.titulo}`,
       `<p>${esc(a.vendedor_nombre)} ha editado su anuncio #${a.id}${revision ? '. Revisa los cambios en el panel › Cambios.' : ' (aún por revisar).'}</p>`, deps.fetch).catch((e) => console.error(e));
     return json(200, { ok: true, revision });
   }
@@ -568,7 +577,7 @@ export function paginaPanel(cfg, lista, { estado = 'pendiente', aviso = '' } = {
   <article class="a">
     <div class="fotos">${(a.fotos || []).map((f, i) => `<a href="${esc(urlFoto(cfg, f))}" target="_blank"><img src="${esc(urlFoto(cfg, f))}" alt="" loading="lazy">${i === 0 ? '<b>Portada</b>' : ''}</a>`).join('')}</div>
     <div class="cuerpo">
-      <p class="meta">#${a.id} · ${esc(a.tipo)} · ${new Date(a.creado).toLocaleString('es-ES', { timeZone: 'Europe/Madrid' })} · <span class="est est-${esc(a.estado)}">${esc(ESTADOS[a.estado] || a.estado)}</span></p>
+      <p class="meta">#${a.id} · ${esc(a.tipo)} · ${new Date(a.creado).toLocaleString('es-ES', { timeZone: 'Europe/Madrid' })} · <span class="est est-${esc(a.estado)}">${esc(ESTADOS[a.estado] || a.estado)}</span>${a.mejoras?.pedido && ['pendiente', 'aprobado'].includes(a.estado) ? (a.mejoras.editado ? ' · <span class="est est-publicado">Ya lo ha mejorado</span>' : ' · <span class="est est-pendiente">Mejoras pedidas</span>') : ''}</p>
       <h2>${esc(a.titulo)} <small>${fmt(a.precio)} · ${esc(a.ubicacion)}</small></h2>
       <p class="vend">Lo vende <b>${esc(a.vendedor_nombre)}</b> (${a.vendedor_tipo === 'profesional' ? 'profesional' : 'particular'}) · <a href="tel:${esc(a.telefono)}">${esc(a.telefono)}</a>${a.email ? ` · ${esc(a.email)}` : ''} · ${(a.fotos || []).length} fotos</p>
       <p class="res">${esc(a.resumen)}</p>
@@ -579,7 +588,7 @@ export function paginaPanel(cfg, lista, { estado = 'pendiente', aviso = '' } = {
       </details>
       ${a.nota ? `<p class="nota">Nota: ${esc(a.nota)}</p>` : ''}
       ${a.producto ? `<p><a href="${esc(cfg.tienda)}/products/${esc(a.producto)}" target="_blank">Ver la ficha en la tienda →</a></p>` : ''}
-      ${['pendiente', 'aprobado'].includes(a.estado) ? formEditar(cfg, a) : ''}
+      ${['pendiente', 'aprobado'].includes(a.estado) ? formEditar(cfg, a) + cajaMejoras(a) : ''}
       <form method="post" class="acc">
         <input type="hidden" name="id" value="${a.id}">
         ${['pendiente', 'aprobado'].includes(a.estado) ? '<button name="accion" value="publicar" class="si">Aprobar y publicar en Shopify</button>' : ''}
@@ -695,6 +704,7 @@ function paginaPanelHtml(pestañas, aviso, tarjetas) {
   .editar .fila { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 160px), 1fr)); }
   .editar label { display: grid; gap: 4px; font-size: 13px; font-weight: 600; color: var(--suave); }
   .editar textarea { resize: vertical; line-height: 1.45; }
+  ${CSS_MEJORAS}
   .editar .efotos { display: flex; gap: 8px; flex-wrap: wrap; }
   .editar .efoto { width: 120px; font-weight: 400; font-size: 12px; }
   .editar .efoto img { width: 120px; height: 90px; object-fit: cover; border-radius: 8px; display: block; }
@@ -805,7 +815,7 @@ export function tablaAnuncios(cfg, fetchImpl = fetch, nombreTabla = 'anuncios') 
   const fallo = async (r) => {
     const t = (await r.text().catch(() => '')).slice(0, 200);
     // Falta la columna «revision» o las tablas «perfiles» o «dispositivos»: hay que volver a ejecutar sql/circulo.sql
-    throw new Error(/revision|reservado|perfiles|dispositivos|alertas/.test(t) ? 'Falta actualizar la base de datos: ejecuta otra vez sql/circulo.sql en Supabase › SQL Editor.' : `Supabase ${r.status}: ${t}`);
+    throw new Error(/revision|reservado|mejoras|perfiles|dispositivos|alertas/.test(t) ? 'Falta actualizar la base de datos: ejecuta otra vez sql/circulo.sql en Supabase › SQL Editor.' : `Supabase ${r.status}: ${t}`);
   };
   return {
     async leer(filtro) {
@@ -1038,6 +1048,13 @@ export async function atenderPanel(req, cfg, deps) {
         await db('sidonia_anuncio_estado', { p_id: id, p_estado: 'publicado', p_nota: '', p_producto: p.handle });
         aviso = `Publicado: ${p.url}.` + await altaComunidad(cfg, deps, a) + await correo(correoPublicado(cfg, a, p.url)) + await movil(a, avisoPublicado(a, p.url));
         estado = 'publicado';
+      } else if (accion === 'mejoras') {
+        // En vez de rechazar: recomendaciones al dueño (sigue por revisar)
+        const m = leerMejoras(req.body);
+        if (!m) throw new Error('Marca al menos una recomendación o escribe algo.');
+        const mejoras = { ...m, pedido: new Date().toISOString(), editado: null };
+        await (deps.guardar || guardarAnuncio)(cfg, id, { mejoras });
+        aviso = `Recomendaciones enviadas a ${a.vendedor_nombre || 'su dueño'} (${listaMejoras(mejoras).length}).` + await correoAlDueno(a, true, correoMejoras(cfg, a, mejoras)) + await avisoMovil(a, avisoMejoras(a));
       } else if (accion === 'rechazar') {
         const motivo = texto(req.body.nota, 1500);
         await db('sidonia_anuncio_estado', { p_id: id, p_estado: 'rechazado', p_nota: motivo, p_producto: null });

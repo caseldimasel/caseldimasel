@@ -192,6 +192,13 @@ descargable en CSV. Pulsando en uno: su ficha completa con su historial. En Esta
 entrar con su cuenta, en el mismo navegador, también se le cuenta. Código: `lib/crm.mjs`; base de datos:
 `sql/estadisticas.sql` (funciones `sidonia_crm_*`). Recuerda tenerlo en la política de privacidad de la web.
 
+### Pedir mejoras antes de publicar (en vez de rechazar)
+En cada anuncio por revisar (y aprobado), «Pedir mejoras antes de publicar»: se marcan recomendaciones ya escritas (foto
+de portada de tres cuartos, más luz, fondo limpio, más fotos, historia más larga, estado y mecánica, ficha técnica,
+título, precio) y un texto propio. Al dueño le llega un email y un aviso al móvil con la lista y «Editar mi anuncio»; en
+la web lo ve en su anuncio. Al editarlo, el panel lo marca «Ya lo ha mejorado» y al equipo le llega un email.
+(Columna anuncios.mejoras: vuelve a ejecutar `sql/circulo.sql`.)
+
 ### Comunidad: anuncios de pago por meses (panel › Anuncios › Cobros comunidad)
 Hay dos tipos de anuncio: los de **gestión de venta** (Sidonia lo vende y cobra comisión: Ventas) y los de la
 **comunidad** (cada dueño pone el suyo y paga por meses). El primer anuncio de cada persona es gratis un mes; después

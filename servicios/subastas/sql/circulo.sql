@@ -47,6 +47,8 @@ alter table anuncios add column if not exists revision_fecha timestamptz;
 alter table anuncios drop constraint if exists anuncios_estado_check;
 alter table anuncios add constraint anuncios_estado_check check (estado in ('pendiente', 'aprobado', 'rechazado', 'publicado', 'vendido', 'retirado'));
 alter table anuncios add column if not exists reservado boolean not null default false;
+-- «Pedir mejoras» antes de publicar (en vez de rechazar): { claves, texto, pedido, editado } (lib/mejoras.mjs)
+alter table anuncios add column if not exists mejoras jsonb;
 
 -- Perfil de cada vendedor: nombre que se enseña (persona o negocio), particular o profesional, descripción y foto/logo.
 -- Lo edita él desde «Mi perfil» y se ve en su perfil público y en sus anuncios.

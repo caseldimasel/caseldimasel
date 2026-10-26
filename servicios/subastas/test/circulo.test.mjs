@@ -435,3 +435,37 @@ test('varios anuncios: el segundo es de pago; editar, vender y eliminar cada uno
   assert.equal((await ir('POST', 'api/anuncio/eliminar', { id: '1' })).ok, true);
   assert.deepEqual(llamadas.find((c) => c[0] === 'sidonia_anuncio_estado')[1].p_id, 1);
 });
+
+test('pedir mejoras en vez de rechazar: email con la lista, el dueño lo ve, lo edita y queda «Ya lo ha mejorado»', async () => {
+  const a = { id: 7, cliente: '7001', estado: 'pendiente', tipo: 'coche', ...validar(bueno(), '7001').datos, email: 'ana@x.es', creado: new Date().toISOString() };
+  const filas = [a];
+  const tabla = { async leer(f) { const id = (f.match(/id=eq\.(\d+)/) || [])[1]; return id ? filas.filter((x) => x.id === Number(id)) : [...filas]; }, async cambiar(id, c) { Object.assign(filas.find((x) => x.id === id), c); } };
+  const correos = [];
+  const cfgM = { ...cfg, resendKey: 're_x' };
+  const fetchF = async (url, o) => { correos.push(JSON.parse(o.body)); return { ok: true, json: async () => ({}) }; };
+  const db = async (fn) => (fn === 'sidonia_anuncio_uno' ? filas[0] : fn === 'sidonia_anuncios_lista' ? filas : fn === 'sidonia_anuncio_mio' ? { id: 7, estado: 'pendiente', titulo: a.titulo } : null);
+  const deps = { db, tabla, fetch: fetchF, guardar: (c, id, cambios) => tabla.cambiar(id, cambios) };
+  const auth = { authorization: 'Basic ' + Buffer.from('a:panel-secreto').toString('base64') };
+  // El formulario está en la tarjeta
+  const lista = await atenderPanel({ method: 'GET', query: { estado: 'pendiente' }, headers: auth }, cfgM, deps);
+  assert.match(lista.body, /Pedir mejoras antes de publicar/);
+  assert.match(lista.body, /name="mejora" value="portada"/);
+  // Sin nada marcado, no
+  assert.match((await atenderPanel({ method: 'POST', query: { estado: 'pendiente' }, body: { id: '7', accion: 'mejoras' }, headers: auth }, cfgM, deps)).body, /Marca al menos una/);
+  const r = await atenderPanel({ method: 'POST', query: { estado: 'pendiente' }, body: { id: '7', accion: 'mejoras', mejora: ['portada', 'historia'], mejora_texto: '¿Tienes fotos de su época?' }, headers: auth }, cfgM, deps);
+  assert.match(r.body, /Recomendaciones enviadas/);
+  assert.match(r.body, /Mejoras pedidas/);
+  assert.deepEqual(filas[0].mejoras.claves, ['portada', 'historia']);
+  assert.equal(filas[0].estado, 'pendiente', 'sigue por revisar');
+  const mail = correos.find((c) => /Unas mejoras/.test(c.subject));
+  assert.match(mail.html, /tres cuartos/);
+  assert.match(mail.html, /fotos de su época/);
+  assert.match(mail.html, /view=publicar&amp;anuncio=7/);
+  // El dueño lo ve en su anuncio
+  const g = JSON.parse((await atender({ method: 'GET', ruta: 'api/anuncio', query: q(), body: {} }, cfg, deps)).body);
+  assert.equal(g.anuncio.mejoras[0][0], 'Foto de portada');
+  // Lo edita: queda hecho y al equipo le llega «Ha mejorado su anuncio»
+  await atender({ method: 'POST', ruta: 'api/anuncio/editar', query: q(), body: { ...bueno(), id: 7 } }, cfgM, deps);
+  assert.ok(filas[0].mejoras.editado);
+  assert.match((await atenderPanel({ method: 'GET', query: { estado: 'pendiente' }, headers: auth }, cfgM, deps)).body, /Ya lo ha mejorado/);
+});
