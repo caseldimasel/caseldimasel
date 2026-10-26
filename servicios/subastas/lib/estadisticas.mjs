@@ -42,7 +42,7 @@ export async function registrarEvento(db, body, cliente, headers = {}) {
  *   anunciantes de la comunidad y propietarios de las ventas gestionadas) · Estadísticas web · Herramientas
  */
 export const SECCIONES = [
-  ['ventas', 'Ventas', [['ventas', 'Ventas'], ['enlazar', 'Enlazar a mano'], ['importar', 'Importar Excel']], ['operacion']],
+  ['ventas', 'Ventas', [['ventas', 'Ventas'], ['meses', 'Por meses'], ['enlazar', 'Enlazar a mano'], ['importar', 'Importar Excel']], ['operacion']],
   ['fichas', 'Anuncios', [['fichas', 'En la web'], ['cobros', 'Cobros comunidad'], ['pendiente', 'Por revisar'], ['cambios', 'Cambios'], ['aprobado', 'Aprobados'], ['publicado', 'Publicados'], ['vendido', 'Vendidos'], ['cancelados', 'Cancelados']], ['ficha', 'rechazado', 'retirado', 'cobrar', 'tarifa']],
   ['clientes', 'Clientes', [['clientes', 'Interesados'], ['anunciantes', 'Anunciantes · comunidad'], ['duenos', 'Propietarios · gestión']], ['cliente', 'anunciante']],
   ['estadisticas', 'Estadísticas web', [], ['anuncio']],
@@ -117,8 +117,9 @@ export function paginaEstadisticas(datos, { dias = 30, error = '', tienda = 'htt
   const a = d.actual || {};
   const b = d.anterior || {};
   const pestañas = navPanel('estadisticas');
-  const periodos = [[7, '7 días'], [30, '30 días'], [90, '3 meses'], [365, '1 año']].map(([k, t]) => `<a href="?estado=estadisticas&dias=${k}" class="${k === dias ? 'on' : ''}">${t}</a>`).join('');
-  const kpi = (valor, antes, titulo, ayuda) => `<div class="kpi"><b>${fmt(valor)}</b>${cambio(valor, antes)}<span>${titulo}</span>${ayuda ? `<small>${ayuda}</small>` : ''}</div>`;
+  const periodos = [[1, '24 h'], [7, '7 días'], [30, '30 días'], [90, '3 meses'], [365, '1 año']].map(([k, t]) => `<a href="?estado=estadisticas&dias=${k}" class="${k === dias ? 'on' : ''}">${t}</a>`).join('');
+  // Cada cajita lleva a su detalle (lib/detalle.mjs)
+  const kpi = (valor, antes, titulo, ayuda, ver) => `<a class="kpi kpi-link" href="?estado=estadisticas&dias=${dias}&ver=${ver}"><b>${fmt(valor)}</b>${cambio(valor, antes)}<span>${titulo}</span>${ayuda ? `<small>${ayuda}</small>` : ''}<i class="kpi-ver">Ver ›</i></a>`;
   const link = (h, t) => `<a href="${esc(tienda)}/products/${esc(h)}" target="_blank" rel="noopener">${esc(t || h)}</a>`;
 
   const visitantes = n(a.visitantes);
@@ -155,17 +156,17 @@ ${pestañas}
 <div class="per">${periodos}</div>
 ${error ? `<p class="error">No se han podido leer las estadísticas: ${esc(/eventos|sidonia_estadisticas|function/.test(error) ? 'falta ejecutar sql/estadisticas.sql en Supabase › SQL Editor.' : error)}</p>` : ''}
 <div class="kpis">
-  ${kpi(a.visitantes, b.visitantes, 'Visitantes', 'personas distintas (por navegador)')}
-  ${kpi(a.vistas, b.vistas, 'Fichas vistas', 'veces que se ha abierto un anuncio')}
-  ${kpi(a.contactos, b.contactos, 'Contactos', 'WhatsApp, llamada o email al vendedor')}
-  ${kpi(a.likes, b.likes, 'Me gusta', 'corazones puestos')}
-  ${kpi(a.compartidos, b.compartidos, 'Compartidos', '')}
-  ${kpi(d.registros, d.registros_antes, 'Registros nuevos', 'cuentas nuevas')}
-  ${kpi(a.busquedas, b.busquedas, 'Búsquedas', '')}
-  ${kpi(a.alertas, b.alertas, 'Alertas creadas', '«Avísame cuando entre uno así»')}
-  ${kpi(a.ofertas, b.ofertas, 'Ofertas', 'veces que se abre «Hacer oferta»')}
+  ${kpi(a.visitantes, b.visitantes, 'Visitantes', 'personas distintas (por navegador)', 'visitantes')}
+  ${kpi(a.vistas, b.vistas, 'Fichas vistas', 'veces que se ha abierto un anuncio', 'vistas')}
+  ${kpi(a.contactos, b.contactos, 'Contactos', 'WhatsApp, llamada o email al vendedor', 'contactos')}
+  ${kpi(a.likes, b.likes, 'Me gusta', 'corazones puestos', 'likes')}
+  ${kpi(a.compartidos, b.compartidos, 'Compartidos', '', 'compartidos')}
+  ${kpi(d.registros, d.registros_antes, 'Registros nuevos', 'cuentas nuevas', 'registros')}
+  ${kpi(a.busquedas, b.busquedas, 'Búsquedas', '', 'busquedas')}
+  ${kpi(a.alertas, b.alertas, 'Alertas creadas', '«Avísame cuando entre uno así»', 'alertas')}
+  ${kpi(a.ofertas, b.ofertas, 'Ofertas', 'veces que se abre «Hacer oferta»', 'ofertas')}
 </div>
-<p class="nota">Los últimos ${fmt(d.dias || dias)} días; el % compara con los ${fmt(d.dias || dias)} días de antes.</p>
+<p class="nota">${dias === 1 ? 'Las últimas 24 horas; el % compara con las 24 horas de antes' : `Los últimos ${fmt(d.dias || dias)} días; el % compara con los ${fmt(d.dias || dias)} días de antes`}. Pulsa en cada cajita para ver el detalle.</p>
 <div class="card"><h2>Del vistazo al contacto</h2>${embudo}</div>
 <div class="card"><h2>Día a día</h2>${grafica(d.por_dia || [])}</div>
 <div class="grid2">

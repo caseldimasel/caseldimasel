@@ -176,3 +176,30 @@ test('base de datos: lo que hizo antes de entrar con su cuenta también es suyo'
   assert.equal(a.total.personas, 2, 'cuenta también a los anónimos');
   assert.deepEqual(a.interesados.map((x) => [x.email, x.like, x.quiso_contactar]), [['ana@correo.es', true, 1]]);
 });
+
+test('estadísticas › detalle de una cajita: contactos por anuncio, por canal y quién (24 h)', async () => {
+  const { atenderPanel } = await import('../lib/circulo.mjs');
+  const { config } = await import('../lib/motor.mjs');
+  const cfg = config({ ADMIN_CLAVE: 'p', TIENDA_URL: 'https://sidonia.es' });
+  const ahora = new Date().toISOString();
+  const ev = [
+    { tipo: 'contacto', handle: 'bmw-m3', titulo: 'BMW M3 E30', canal: 'whatsapp', sesion: 's1', cliente: '11', creado: ahora },
+    { tipo: 'contacto', handle: 'bmw-m3', titulo: 'BMW M3 E30', canal: 'llamar', sesion: 's2', cliente: '', creado: ahora },
+    { tipo: 'contacto', handle: 'seat-600', titulo: 'SEAT 600', canal: 'email', sesion: 's3', cliente: '', creado: ahora }];
+  const pedidas = [];
+  const eventos = { leer: async (f) => { pedidas.push(f); return /canal=eq\.registro/.test(f) ? [] : /creado=lt/.test(f) ? [{ sesion: 'x' }] : ev; } };
+  const clientes = { leer: async () => [{ cliente: '11', nombre: 'Lucía', email: 'lucia@x.es' }] };
+  const auth = { authorization: 'Basic ' + Buffer.from('a:p').toString('base64') };
+  const r = await atenderPanel({ method: 'GET', query: { estado: 'estadisticas', dias: '1', ver: 'contactos' }, headers: auth }, cfg, { db: async () => null, eventos, clientes });
+  assert.match(r.body, /<title>Contactos/);
+  assert.match(r.body, /class="on">24 h/);
+  assert.match(r.body, /BMW M3 E30<\/a>.*?<b>2<\/b>/s);
+  assert.match(r.body, /WhatsApp 1 · Llamada 1/);
+  assert.match(r.body, /Lucía<\/a><span class="sub">lucia@x\.es/);
+  assert.match(r.body, /\+200 %/);
+  assert.ok(pedidas[0].includes('tipo=eq.contacto&canal=neq.registro'));
+  // Y la portada de estadísticas tiene las cajitas enlazadas y el periodo de 24 h
+  const p = await atenderPanel({ method: 'GET', query: { estado: 'estadisticas', dias: '1' }, headers: auth }, cfg, { db: async () => ({ actual: {}, anterior: {} }) });
+  assert.match(p.body, /href="\?estado=estadisticas&dias=1&ver=contactos"/);
+  assert.match(p.body, /Las últimas 24 horas/);
+});

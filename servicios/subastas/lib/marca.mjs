@@ -139,6 +139,8 @@ export const ESTILO_PANEL = `
   .kpi b { order: 1; font-size: clamp(20px, 14.5cqi, 34px); font-weight: 800; letter-spacing: -.02em; line-height: 1.1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .kpi span { order: 0; font-size: 13px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--suave); }
   .kpi small { order: 2; margin-top: 4px; font-size: 12px; color: var(--flojo); line-height: 1.35; }
+  a.kpi-link { color: inherit; text-decoration: none; cursor: pointer; transition: border-color .15s, transform .15s; } a.kpi-link:hover { border-color: var(--verde); transform: translateY(-1px); }
+  .kpi-ver { order: 4; margin-top: 8px; font-style: normal; font-size: 12px; font-weight: 700; color: var(--verde); }
   .kpi em { order: 3; align-self: flex-start; margin-top: 8px; padding: 2px 7px; border-radius: 6px; font-style: normal; font-size: 12px; font-weight: 800; background: var(--caja-3); color: var(--suave); }
   .kpi em.sube { background: var(--verde-fondo); color: var(--verde); } .kpi em.sube::before { content: '▲ '; font-size: 9px; }
   .kpi em.baja { background: var(--rojo-fondo); color: var(--rojo); } .kpi em.baja::before { content: '▼ '; font-size: 9px; }

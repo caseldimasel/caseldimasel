@@ -213,3 +213,19 @@ test('pantalla de inicio: manifiesto e iconos sin contraseña; las páginas los 
   assert.match(p.body, /<link rel="manifest" href="\/admin\?recurso=manifest">/);
   assert.match(p.body, /apple-mobile-web-app-capable/);
 });
+
+test('ventas por meses: cada mes, mes anterior, año anterior y la comunidad', async () => {
+  const { porMeses, paginaMeses } = await import('../lib/meses.mjs');
+  const ops = [
+    { id: 1, titulo: 'A', tipo: 'coche', estado: 'vendido', fecha_alta: '2026-08-01', fecha_venta: '2026-09-10', precio_venta: 50000, comision: 3000, comision_comercial: 750 },
+    { id: 2, titulo: 'B', tipo: 'moto', estado: 'vendido', fecha_alta: '2026-09-01', fecha_venta: '2026-10-05', precio_venta: 20000, comision: 1200, comision_comercial: 0 },
+    { id: 3, titulo: 'C', tipo: 'coche', estado: 'vendido', fecha_alta: '2025-09-01', fecha_venta: '2025-10-20', precio_venta: 30000, comision: 1000 },
+    { id: 4, titulo: 'D', tipo: 'coche', estado: 'en_venta', fecha_alta: '2026-10-02' }];
+  const m = porMeses(ops, [{ fecha: '2026-10-03', importe: 12.9 }]);
+  assert.deepEqual([m['2026-09'].neto, m['2026-09'].dias, m['2026-10'].total, m['2026-10'].altas], [2250, 40, 1212.9, 1]);
+  const h = paginaMeses(ops, [{ fecha: '2026-10-03', importe: 12.9 }], { ano: '2026', hoy: new Date('2026-10-26T12:00:00Z') });
+  assert.match(h, /class="on">Por meses/);
+  assert.match(h, /<b>octubre<\/b><span class="sub">en curso/);
+  assert.match(h, /−46 %/, 'octubre (1.213 €) frente a septiembre (2.250 €)');
+  assert.match(h, /\+21 %/, 'octubre frente a octubre de 2025 (1.000 €)');
+});

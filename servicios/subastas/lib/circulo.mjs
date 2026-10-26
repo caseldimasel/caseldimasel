@@ -30,6 +30,7 @@ import { navPanel, paginaEstadisticas, ponerContadores } from './estadisticas.mj
 import { rutasOperaciones } from './operaciones.mjs';
 import { rutasFichas } from './fichas.mjs';
 import { rutasCorreos } from './plantillas.mjs';
+import { DETALLES, rutaDetalle } from './detalle.mjs';
 import { avisoMejoras, cajaMejoras, correoMejoras, CSS_MEJORAS, leerMejoras, listaMejoras, pendientes } from './mejoras.mjs';
 import { altaComunidad, cancelarRenovacion, enlacePago, leerTarifa, precioMes, rutasComunidad } from './comunidad.mjs';
 import { cookieFuera, cookieSesion, intentarEntrar, paginaEntrar, sesionValida } from './acceso.mjs';
@@ -891,7 +892,7 @@ export async function atenderPanel(req, cfg, deps) {
   const seccion = req.query.estado || (req.method === 'GET' ? 'ventas' : '');
   // Anuncios › En la web: todos los anuncios de la tienda y su editor (fichas.mjs)
   if (seccion === 'fichas' || seccion === 'ficha') return rutasFichas({ ...req, query: { ...req.query, estado: seccion } }, cfg, deps, html);
-  if (['ventas', 'operacion', 'importar', 'duenos', 'enlazar'].includes(seccion)) {
+  if (['ventas', 'meses', 'operacion', 'importar', 'duenos', 'enlazar'].includes(seccion)) {
     return rutasOperaciones({ ...req, query: { ...req.query, estado: seccion } }, cfg, { ...deps, tareas }, html);
   }
   // Anuncios › Cobros y Clientes › Anunciantes: los anuncios de la comunidad, lo que pagan y lo que llevan gastado (comunidad.mjs)
@@ -926,7 +927,9 @@ export async function atenderPanel(req, cfg, deps) {
     return html(paginaAnuncio(d, { tienda: cfg.tienda, error }));
   }
   if (req.query.estado === 'estadisticas') {
-    const dias = [7, 30, 90, 365].includes(Number(req.query.dias)) ? Number(req.query.dias) : 30;
+    const dias = [1, 7, 30, 90, 365].includes(Number(req.query.dias)) ? Number(req.query.dias) : 30;
+    // El detalle de una cajita (contactos: en qué anuncios y quién…)
+    if (DETALLES[req.query.ver]) return rutaDetalle(req, cfg, deps, html, dias);
     let datos = null, error = '';
     try { datos = await db('sidonia_estadisticas', { p_dias: dias }); } catch (e) { error = String(e.message || e); }
     return html(paginaEstadisticas(datos, { dias, error, tienda: cfg.tienda }));

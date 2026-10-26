@@ -16,6 +16,7 @@
 import { CABECERA, FAVICON } from './marca.mjs';
 import { esc, shopifyAdmin, tablaAnuncios } from './circulo.mjs';
 import { ESTILO, fmt, n, navPanel } from './estadisticas.mjs';
+import { paginaMeses } from './meses.mjs';
 import { leerXlsx } from './xlsx.mjs';
 
 export const ESTADOS_OP = { en_venta: 'En venta', reservado: 'Reservado', vendido: 'Vendido', retirado: 'Retirado' };
@@ -733,6 +734,14 @@ export async function rutasOperaciones(req, cfg, deps, html) {
     let ops = [], error = '';
     try { ops = await t.leer('select=*&limit=5000'); } catch (e) { error = 'Las ventas aún no están: ejecuta sql/operaciones.sql en Supabase › SQL Editor.'; }
     return html(paginaPropietarios(propietarios(ops, []), { error }));
+  }
+
+  // Por meses: cada mes, su comparación y la comunidad (meses.mjs)
+  if (estado === 'meses') {
+    let ops = [], pagos = [], error = '';
+    try { ops = await leerTodas(); } catch (e) { error = 'Las ventas aún no están: ejecuta sql/operaciones.sql en Supabase › SQL Editor.'; }
+    try { pagos = await (deps.pagos || tablaAnuncios(cfg, deps.fetch, 'pagos')).leer('select=fecha,importe&limit=20000'); } catch (e) { pagos = []; }
+    return html(paginaMeses(ops, pagos, { ano: req.query.ano, error }));
   }
 
   // Ventas
