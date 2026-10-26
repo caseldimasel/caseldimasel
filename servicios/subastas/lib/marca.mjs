@@ -107,7 +107,7 @@ export const ESTILO_PANEL = `
   [data-tema="claro"] .cabeza__sol, :root:not([data-tema="claro"]) .cabeza__luna { display: none; }
 
   /* Secciones y apartados */
-  nav { display: flex; gap: 6px; margin: 16px 0; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+  nav { display: flex; flex-wrap: nowrap; gap: 6px; margin: 16px 0; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
   nav::-webkit-scrollbar { display: none; }
   nav a { flex: none; display: inline-flex; align-items: center; gap: 6px; padding: 9px 16px; border: 1px solid var(--linea); border-radius: 10px; background: var(--caja); color: var(--suave); text-decoration: none; font-size: 15px; font-weight: 700; letter-spacing: .02em; white-space: nowrap; transition: background .15s, color .15s; }
   nav a:hover { color: var(--texto); background: var(--caja-2); }

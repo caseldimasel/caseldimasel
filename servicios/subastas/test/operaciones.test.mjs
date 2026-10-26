@@ -61,7 +61,7 @@ test('pequeñas cosas: números, tipo, marca y parecido de títulos', () => {
   assert.deepEqual(['YAMAHA TZR 250 3MA RSE 1989', 'PORSCHE 911', 'Riva Aquarama'].map(tipoDe), ['moto', 'coche', 'barco']);
   assert.deepEqual(['LAND ROVER DEFENDER 90', 'MERCEDES-BENZ 280', 'range rover classic'].map(marcaDe), ['Land Rover', 'Mercedes', 'Range Rover']);
   assert.equal(parecido('PORSCHE 911 CARRERA 4S 997.1 2007', 'PORSCHE 911 CARRERA 4S 997.1 2007'), 1);
-  assert.equal(parecido('JAGUAR XJS 1994', 'JAGUAR XJS V12 6.0 CONVERTIBLE 1994'), 1);
+  assert.ok(parecido('JAGUAR XJS 1994', 'JAGUAR XJS V12 6.0 CONVERTIBLE 1994') > 0.85, 'están todas sus palabras');
   assert.equal(parecido('JAGUAR XJS 1994', 'JAGUAR XJS 1991'), 0, 'otro año, otro coche');
 });
 

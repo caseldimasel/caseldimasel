@@ -124,17 +124,48 @@ export function detectarOperaciones(libro) {
 }
 
 /* ---------------------------------------------------------------------------- Enlazar con las fichas de Shopify */
-const palabras = (t) => normal(t).split(' ').filter((w) => w.length > 1 || /\d/.test(w));
+// Palabras de un título: sin tildes, separando números y letras («190SL» → 190 sl), sin las letras sueltas
+const palabras = (t) => normal(t).replace(/(\d)([a-z])/g, '$1 $2').replace(/([a-z])(\d)/g, '$1 $2').split(' ').filter((w) => w.length > 1 || /\d/.test(w));
 const anios = (t) => (String(t).match(/\b(19|20)\d{2}\b/g) || []);
 
-/** Lo bien que se parece un título del Excel a uno de la tienda (0 a 1) */
-export function parecido(op, prod) {
-  const a = palabras(op), b = new Set(palabras(prod));
-  if (!a.length) return 0;
-  const ya = anios(op), yb = anios(prod);
-  if (ya.length && yb.length && !ya.some((y) => yb.includes(y))) return 0;
-  return a.filter((w) => b.has(w)).length / a.length;
+/** Distancia de edición (para las erratas: «SANATANA», «WRANGLLER») */
+function distancia(a, b) {
+  if (Math.abs(a.length - b.length) > 2) return 9;
+  let prev = Array.from({ length: b.length + 1 }, (_, i) => i);
+  for (let i = 1; i <= a.length; i += 1) {
+    const cur = [i];
+    for (let k = 1; k <= b.length; k += 1) cur[k] = Math.min(prev[k] + 1, cur[k - 1] + 1, prev[k - 1] + (a[i - 1] === b[k - 1] ? 0 : 1));
+    prev = cur;
+  }
+  return prev[b.length];
 }
+/** ¿Es la misma palabra? Igual, o con una errata si es larga («santan» = «santana») */
+const misma = (a, b) => a === b || (!/\d/.test(a + b) && Math.min(a.length, b.length) >= 5 && distancia(a, b) <= (Math.min(a.length, b.length) >= 7 ? 2 : 1));
+
+/**
+ * Lo bien que se parece un título del Excel a uno de la tienda (0 a 1): sobre todo que estén todas las palabras del
+ * Excel (con erratas), y un poco que no le sobren muchas a la ficha. Si los dos dicen año y no coincide, 0.
+ */
+export function parecido(op, prod, { anioDistinto = 0 } = {}) {
+  const a = palabras(op), b = palabras(prod);
+  if (!a.length || !b.length) return 0;
+  const ya = anios(op), yb = anios(prod);
+  const otroAnio = ya.length && yb.length && !ya.some((y) => yb.includes(y));
+  if (otroAnio && !anioDistinto) return 0;
+  const enB = a.filter((w) => b.some((x) => misma(w, x))).length / a.length;
+  const enA = b.filter((w) => a.some((x) => misma(w, x))).length / b.length;
+  return Math.max(0, Math.round((enB * 0.8 + enA * 0.2 - (otroAnio ? anioDistinto : 0)) * 1000) / 1000);
+}
+/** ¿Basta para enlazarlo solo? Que estén casi todas las palabras del Excel */
+const cubre = (op, prod) => {
+  const a = palabras(op), b = palabras(prod);
+  return a.length > 0 && a.filter((w) => b.some((x) => misma(w, x))).length / a.length >= 0.75 && parecido(op, prod) > 0;
+};
+
+/** Las fichas de la tienda que más se parecen (para enlazar a mano) */
+// (aquí un año distinto no descarta: resta, por si el año del Excel es una errata)
+export const sugerencias = (titulo, productos, n = 5) => productos.map((p) => [parecido(titulo, p.title, { anioDistinto: 0.25 }), p]).filter(([x]) => x >= 0.3)
+  .sort((x, y) => y[0] - x[0]).slice(0, n).map(([puntos, p]) => ({ ...p, puntos }));
 
 const TIPO_SHOPIFY = { coches: 'coche', coche: 'coche', motos: 'moto', moto: 'moto', barcos: 'barco', barco: 'barco', casas: 'casa', casa: 'casa' };
 
@@ -163,8 +194,11 @@ export function emparejar(ops, productos) {
     if (o.handle || o.modalidad === 'encargo') continue;
     for (const p of productos) {
       if (usados.has(p.handle)) continue;
-      const s = parecido(o.titulo, p.title);
-      if (s >= 0.75) candidatos.push([s, o, p]);
+      if (!cubre(o.titulo, p.title)) continue;
+      // Si los dos tienen precio y se parecen poco (más de un 40 % de diferencia), no es el mismo coche: a mano
+      const pp = Number(p.precio?.minVariantPrice?.amount), po = Number(o.precio_venta ?? o.precio_anunciado);
+      if (pp > 0 && po > 0 && (pp / po > 1.4 || po / pp > 1.4)) continue;
+      candidatos.push([parecido(o.titulo, p.title), o, p]);
     }
   }
   // Las que ya tienen ficha: si en la tienda está vendida o archivada, se pone igual aquí
@@ -264,9 +298,10 @@ const pill = (e) => `<span class="pill ${esc(e)}">${esc(ESTADOS_OP[e] || e)}</sp
 
 export function paginaVentas(ops, { ver = 'todo', aviso = '', error = '', tienda = 'https://sidonia.es', tareas = [] } = {}) {
   const r = resumen(ops);
-  const filtros = { todo: 'Todas', en_venta: 'En venta', vendido: 'Vendidas', encargo: 'Encargos', retirado: 'Retiradas' };
-  const cuenta = (k) => (k === 'todo' ? ops.length : k === 'encargo' ? ops.filter((o) => o.modalidad === 'encargo').length : k === 'en_venta' ? ops.filter((o) => o.estado === 'en_venta' || o.estado === 'reservado').length : ops.filter((o) => o.estado === k).length);
-  const lista = ops.filter((o) => ver === 'todo' || (ver === 'encargo' ? o.modalidad === 'encargo' : ver === 'en_venta' ? (o.estado === 'en_venta' || o.estado === 'reservado') : o.estado === ver));
+  const filtros = { todo: 'Todas', en_venta: 'En venta', vendido: 'Vendidas', encargo: 'Encargos', retirado: 'Retiradas', sinficha: 'Sin ficha' };
+  const sinFicha = (o) => !o.handle && o.modalidad !== 'encargo';
+  const cuenta = (k) => (k === 'todo' ? ops.length : k === 'sinficha' ? ops.filter(sinFicha).length : k === 'encargo' ? ops.filter((o) => o.modalidad === 'encargo').length : k === 'en_venta' ? ops.filter((o) => o.estado === 'en_venta' || o.estado === 'reservado').length : ops.filter((o) => o.estado === k).length);
+  const lista = ops.filter((o) => ver === 'todo' || (ver === 'sinficha' ? sinFicha(o) : ver === 'encargo' ? o.modalidad === 'encargo' : ver === 'en_venta' ? (o.estado === 'en_venta' || o.estado === 'reservado') : o.estado === ver));
   const filas = lista.map((o) => {
     const d = dias(o.fecha_alta, o.fecha_venta);
     const pct = n(o.comision) && n(o.precio_venta ?? o.precio_anunciado) ? (o.comision / (o.precio_venta ?? o.precio_anunciado)) * 100 : null;
@@ -307,6 +342,7 @@ ${tareas.length ? `<div class="tareas">${tareas.map(([t, href]) => `<a href="${h
   <a class="boton" href="?estado=operacion">+ Añadir</a>
   <a class="boton claro" href="?estado=importar">Importar Excel</a>
   <form method="post" action="?estado=ventas&ver=${esc(ver)}" style="display:inline"><button class="boton claro" name="accion" value="enlazar">Enlazar con la tienda</button></form>
+  ${cuenta('sinficha') ? `<a class="boton claro" href="?estado=enlazar">Enlazar a mano · ${fmt(cuenta('sinficha'))}</a>` : ''}
   <a class="boton claro" href="?estado=ventas&csv=1">Descargar CSV</a>
 </div>
 <div class="card"><div class="tabla"><table>
@@ -327,7 +363,7 @@ export function csvOperaciones(ops) {
   return `﻿${[cab.join(';'), ...filas].join('\r\n')}\r\n`;
 }
 
-export function paginaOperacion(o, { aviso = '', error = '', tienda = 'https://sidonia.es' } = {}) {
+export function paginaOperacion(o, { aviso = '', error = '', tienda = 'https://sidonia.es', productos = [] } = {}) {
   const v = o || { estado: 'en_venta', modalidad: 'gestion', tipo: 'coche' };
   const campo = (k, etiqueta, tipo = 'text', extra = '') => `<label>${etiqueta}<input name="${k}" type="${tipo}" value="${esc(v[k] ?? '')}"${extra}></label>`;
   const select = (k, etiqueta, opciones) => `<label>${etiqueta}<select name="${k}">${Object.entries(opciones).map(([a, b]) => `<option value="${a}"${v[k] === a ? ' selected' : ''}>${b}</option>`).join('')}</select></label>`;
@@ -339,7 +375,7 @@ ${aviso ? `<p class="aviso${/^Error/.test(aviso) ? ' mal' : ''}">${esc(aviso)}</
   <fieldset><legend>El vehículo</legend>
     <label class="ancho">Título<input name="titulo" required value="${esc(v.titulo || '')}" placeholder="PORSCHE 911 CARRERA 3.2 COUPÉ 1986"></label>
     ${select('tipo', 'Tipo', TIPOS_OP)}${select('modalidad', 'Modalidad', MODALIDADES)}${select('estado', 'Estado', ESTADOS_OP)}
-    <label>Ficha en la tienda (handle)<input name="handle" value="${esc(v.handle || '')}" placeholder="porsche-911-carrera-3-2-1986">${v.handle ? `<small><a href="${esc(tienda)}/products/${esc(v.handle)}" target="_blank" rel="noopener">Ver ficha</a> · <a href="?estado=anuncio&h=${encodeURIComponent(v.handle)}">Quién está interesado</a></small>` : ''}</label>
+    <label>Ficha en la tienda<input name="handle" value="${esc(v.handle || '')}" placeholder="Escribe para buscar…" list="fichas-tienda" autocomplete="off">${productos.length ? `<datalist id="fichas-tienda">${productos.map((p) => `<option value="${esc(p.handle)}">${esc(p.title)}</option>`).join('')}</datalist>` : ''}${v.handle ? `<small><a href="${esc(tienda)}/products/${esc(v.handle)}" target="_blank" rel="noopener">Ver ficha</a> · <a href="?estado=anuncio&h=${encodeURIComponent(v.handle)}">Quién está interesado</a></small>` : ''}</label>
   </fieldset>
   <fieldset><legend>Propietario</legend>
     ${campo('propietario_nombre', 'Nombre')}${campo('propietario_telefono', 'Teléfono', 'tel')}${campo('propietario_email', 'Email', 'email')}
@@ -423,6 +459,33 @@ ${ops ? '' : `<div class="card"><h2>Importar el Excel de ventas</h2>
     <input type="file" accept=".xlsx" required onchange="const f=this.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{const fo=document.getElementById('sube');fo.archivo.value=String(r.result).split(',')[1];fo.nombre.value=f.name;fo.querySelector('button').disabled=false};r.readAsDataURL(f)">
     <button class="boton" name="accion" value="ver" disabled>Ver qué hay</button></form></div>`}
 ${vista}`);
+}
+
+/* ---------------------------------------------------------------------------- Enlazar a mano */
+export function paginaEnlazar(ops, productos, { aviso = '', error = '', tienda = 'https://sidonia.es' } = {}) {
+  // Las fichas ya enlazadas también salen (por si el Excel tiene el mismo coche dos veces), con a qué venta van
+  const usadas = new Map(ops.filter((o) => o.handle).map((o) => [o.handle, o]));
+  const libres = productos.filter((p) => !usadas.has(p.handle));
+  const sin = ops.filter((o) => !o.handle && o.modalidad !== 'encargo');
+  const filas = sin.map((o) => {
+    const sug = sugerencias(o.titulo, productos, 5);
+    const boton = (p) => {
+      const otra = usadas.get(p.handle);
+      return `<form method="post" action="?estado=enlazar" style="display:inline"><input type="hidden" name="id" value="${o.id}"><input type="hidden" name="handle" value="${esc(p.handle)}"><button class="boton claro" name="accion" value="ligar" title="${esc(p.handle)}"${otra ? ` onclick="return confirm('Esta ficha ya está enlazada con «${esc(otra.titulo).replace(/'/g, '')}». ¿Enlazarla también con esta venta?')"` : ''}>${esc(p.title)} <small style="opacity:.6">${Math.round(p.puntos * 100)} %${otra ? ' · ya enlazada' : ''}</small></button></form>`;
+    };
+    return `<div class="card">
+      <div class="cab" style="margin-bottom:10px"><div><h2 style="font-size:18px">${esc(o.titulo)}</h2><p>${pill(o.estado)} ${euros(o.precio_venta ?? o.precio_anunciado)} · <a href="?estado=operacion&id=${o.id}">abrir la venta</a></p></div></div>
+      <div class="barra" style="margin:0">${sug.length ? sug.map(boton).join('') : '<span class="vacio">Ninguna ficha se le parece.</span>'}</div>
+      <form method="post" action="?estado=enlazar" class="barra" style="margin:10px 0 0"><input type="hidden" name="id" value="${o.id}">
+        <input type="search" name="handle" list="fichas-libres" placeholder="Otra ficha: escribe para buscar…" autocomplete="off"><button class="boton" name="accion" value="ligar">Enlazar</button></form>
+    </div>`;
+  }).join('');
+  return marco('Enlazar a mano', 'enlazar', `
+<p><a href="?estado=ventas">‹ Ventas</a></p>
+${aviso ? `<p class="aviso${/^Error/.test(aviso) ? ' mal' : ''}">${esc(aviso)}</p>` : ''}${error ? `<p class="aviso mal">No se han podido leer las fichas de la tienda: ${esc(error)}</p>` : ''}
+<p class="nota" style="margin:0 0 14px">${fmt(sin.length)} ventas sin ficha. Pulsa la ficha que es (el % es lo que se parecen los títulos) o búscala abajo. Si el coche ya no está en la web, déjalo así.</p>
+<datalist id="fichas-libres">${[...libres, ...productos.filter((p) => usadas.has(p.handle))].map((p) => `<option value="${esc(p.handle)}">${esc(p.title)}</option>`).join('')}</datalist>
+${filas || '<div class="card"><p class="vacio" style="margin:0">Todas las ventas tienen su ficha. 🎉</p></div>'}`);
 }
 
 /* ---------------------------------------------------------------------------- Propietarios */
@@ -567,11 +630,39 @@ export async function rutasOperaciones(req, cfg, deps, html) {
       }
       return html(paginaVentas(await leerTodas(), { aviso: `Guardado: ${cambios.titulo}.`, tienda: cfg.tienda, tareas: deps.tareas }));
     }
-    let o = null, error = '';
+    let o = null, error = '', productos = [];
     if (id) {
       try { o = (await t.leer(`id=eq.${id}&select=*`))[0] || null; } catch (e) { error = e.message; }
     }
-    return html(paginaOperacion(o, { error, tienda: cfg.tienda }));
+    try { productos = await productosTienda(deps.gql || shopifyAdmin(cfg, deps.fetch)); } catch (e) { productos = []; }
+    // «+ Crear venta» desde un anuncio de la web: ya rellena con lo de la ficha
+    if (!o && req.query.de) {
+      const p = productos.find((x) => x.handle === req.query.de);
+      if (p) o = { titulo: p.title, handle: p.handle, estado: (p.tags || []).some((t) => /^vendid/i.test(t)) ? 'vendido' : 'en_venta', modalidad: 'gestion',
+        tipo: TIPO_SHOPIFY[normal(p.productType)] || tipoDe(p.title), precio_anunciado: Number(p.precio?.minVariantPrice?.amount) || null, fecha_alta: p.createdAt ? p.createdAt.slice(0, 10) : null };
+    }
+    return html(paginaOperacion(o, { error, tienda: cfg.tienda, productos }));
+  }
+
+  // Enlazar a mano: cada venta sin ficha con las fichas de la tienda que más se le parecen
+  if (estado === 'enlazar') {
+    let aviso = '', productos = [], error = '';
+    try { productos = await productosTienda(deps.gql || shopifyAdmin(cfg, deps.fetch)); } catch (e) { error = e.message; }
+    if (req.method === 'POST' && req.body?.accion === 'ligar' && Number(req.body.id)) {
+      const handle = String(req.body.handle || '').replace(/^.*\/products\//, '').replace(/[?#].*$/, '').trim().toLowerCase();
+      const p = productos.find((x) => x.handle === handle);
+      if (!handle) aviso = 'Error: elige una ficha.';
+      else if (!p && productos.length) aviso = `Error: no hay ninguna ficha «${handle}» en la tienda.`;
+      else {
+        const ya = (await t.leer(`id=eq.${Number(req.body.id)}&select=*`))[0];
+        const cambios = { handle, actualizado: new Date().toISOString() };
+        if (ya && !ya.fecha_alta && p?.createdAt) cambios.fecha_alta = p.createdAt.slice(0, 10);
+        await t.cambiar(Number(req.body.id), cambios);
+        aviso = `Enlazado: ${ya?.titulo || ''} → ${p?.title || handle}.`;
+      }
+    }
+    const ops = await leerTodas();
+    return html(paginaEnlazar(ops, productos, { aviso, error, tienda: cfg.tienda }));
   }
 
   if (estado === 'duenos') {
@@ -588,6 +679,6 @@ export async function rutasOperaciones(req, cfg, deps, html) {
   }
   try { ops = await leerTodas(); } catch (e) { error = e.message; }
   if (req.query.csv) return { status: 200, headers: { 'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': 'attachment; filename="ventas-sidonia.csv"', 'Cache-Control': 'no-store' }, body: csvOperaciones(ops) };
-  const ver = ['todo', 'en_venta', 'vendido', 'encargo', 'retirado'].includes(req.query.ver) ? req.query.ver : 'todo';
+  const ver = ['todo', 'en_venta', 'vendido', 'encargo', 'retirado', 'sinficha'].includes(req.query.ver) ? req.query.ver : 'todo';
   return html(paginaVentas(ops, { ver, aviso, error, tienda: cfg.tienda, tareas: deps.tareas }));
 }

@@ -27,6 +27,7 @@ import { rellenarUbicaciones } from './ubicaciones.mjs';
 import { avisarCliente, avisarTodos, avisoCambios, avisoPublicado, avisoRechazado } from './avisos.mjs';
 import { navPanel, paginaEstadisticas, ponerContadores } from './estadisticas.mjs';
 import { rutasOperaciones } from './operaciones.mjs';
+import { rutasFichas } from './fichas.mjs';
 import { csvClientes, paginaAnuncio, paginaCliente, paginaClientesCrm } from './crm.mjs';
 import { correoCambiosAprobados, correoCambiosRechazados, correoPublicado, correoRechazado, correoRecibido, enviarCorreo } from './correos.mjs';
 
@@ -824,7 +825,9 @@ export async function atenderPanel(req, cfg, deps) {
   }
   // La portada del panel es el centro operativo: Ventas, una venta, Importar Excel y Propietarios (operaciones.mjs)
   const seccion = req.query.estado || (req.method === 'GET' ? 'ventas' : '');
-  if (['ventas', 'operacion', 'importar', 'duenos'].includes(seccion)) {
+  // Anuncios › En la web: todos los anuncios de la tienda y su editor (fichas.mjs)
+  if (seccion === 'fichas' || seccion === 'ficha') return rutasFichas({ ...req, query: { ...req.query, estado: seccion } }, cfg, deps, html);
+  if (['ventas', 'operacion', 'importar', 'duenos', 'enlazar'].includes(seccion)) {
     return rutasOperaciones({ ...req, query: { ...req.query, estado: seccion } }, cfg, { ...deps, tareas }, html);
   }
   if (seccion === 'herramientas') return html(paginaPanelHtml(navPanel('herramientas'), '', paginaHerramientas()));

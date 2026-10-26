@@ -41,8 +41,8 @@ export async function registrarEvento(db, body, cliente, headers = {}) {
  *   Ventas (centro operativo) · Anuncios (los de los dueños) · Clientes · Propietarios · Web (estadísticas) · Herramientas
  */
 export const SECCIONES = [
-  ['ventas', 'Ventas', [['ventas', 'Ventas'], ['importar', 'Importar Excel']], ['operacion']],
-  ['pendiente', 'Anuncios', [['pendiente', 'Por revisar'], ['cambios', 'Cambios'], ['aprobado', 'Aprobados'], ['publicado', 'Publicados'], ['vendido', 'Vendidos'], ['cancelados', 'Cancelados']], ['rechazado', 'retirado']],
+  ['ventas', 'Ventas', [['ventas', 'Ventas'], ['enlazar', 'Enlazar a mano'], ['importar', 'Importar Excel']], ['operacion']],
+  ['fichas', 'Anuncios', [['fichas', 'En la web'], ['pendiente', 'Por revisar'], ['cambios', 'Cambios'], ['aprobado', 'Aprobados'], ['publicado', 'Publicados'], ['vendido', 'Vendidos'], ['cancelados', 'Cancelados']], ['ficha', 'rechazado', 'retirado']],
   ['clientes', 'Clientes', [], ['cliente']],
   ['duenos', 'Propietarios', [], []],
   ['estadisticas', 'Estadísticas web', [], ['anuncio']],
@@ -55,7 +55,7 @@ export function ponerContadores(c) { contadores = c || {}; }
 export function navPanel(on) {
   const seccion = SECCIONES.find(([k, , subs, otros]) => k === on || subs.some(([s]) => s === on) || otros.includes(on)) || SECCIONES[0];
   const num = (x) => (x ? ` <b class="num">${x}</b>` : '');
-  const arriba = SECCIONES.map(([k, t]) => `<a href="?estado=${k}"${k === seccion[0] ? ' class="on"' : ''}>${t}${k === 'pendiente' ? num((contadores.pendiente || 0) + (contadores.cambios || 0)) : ''}</a>`).join('');
+  const arriba = SECCIONES.map(([k, t]) => `<a href="?estado=${k}"${k === seccion[0] ? ' class="on"' : ''}>${t}${k === 'fichas' ? num((contadores.pendiente || 0) + (contadores.cambios || 0)) : ''}</a>`).join('');
   const subOn = on === 'rechazado' || on === 'retirado' ? 'cancelados' : on === 'operacion' ? 'ventas' : on;
   const abajo = seccion[2].length ? `<nav class="sub">${seccion[2].map(([k, t]) => `<a href="?estado=${k}"${k === subOn ? ' class="on"' : ''}>${t}${k === 'pendiente' || k === 'cambios' ? num(contadores[k]) : ''}</a>`).join('')}</nav>` : '';
   return `<nav class="main">${arriba}</nav>${abajo}`;
