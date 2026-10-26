@@ -469,20 +469,3 @@ test('pedir mejoras en vez de rechazar: email con la lista, el dueño lo ve, lo 
   assert.ok(filas[0].mejoras.editado);
   assert.match((await atenderPanel({ method: 'GET', query: { estado: 'pendiente' }, headers: auth }, cfgM, deps)).body, /Ya lo ha mejorado/);
 });
-
-test('guía de fotos: la página, las siluetas en PNG y en el email de mejoras si son las fotos', async () => {
-  const cfgG = config({ SUBASTAS_CLAVE: 'k', SERVIDOR_URL: 'https://motor.test' });
-  const ir = (ruta) => atender({ method: 'GET', ruta, query: {}, body: {}, directo: true, headers: {} }, cfgG, { db: async () => null });
-  const pg = await ir('guia');
-  assert.match(pg.body, /Cómo hacer las fotos de tu coche/);
-  assert.match(pg.body, /morro hacia la derecha/);
-  assert.equal((pg.body.match(/<svg/g) || []).length, 8);
-  const img = await ir('guia/portada.png');
-  assert.equal(img.headers['Content-Type'], 'image/png');
-  assert.deepEqual([...img.body.subarray(1, 4)].map((c) => String.fromCharCode(c)).join(''), 'PNG');
-  assert.equal((await ir('guia/nada.png')).status, 404);
-  const { correoMejoras } = await import('../lib/mejoras.mjs');
-  const a = { id: 3, tipo: 'coche', titulo: 'Clio V6', vendedor_nombre: 'Ana', fotos: [] };
-  assert.match(correoMejoras(cfgG, a, { claves: ['portada'] }).html, /motor\.test\/tienda\/guia\/portada\.png/);
-  assert.doesNotMatch(correoMejoras(cfgG, a, { claves: ['historia'] }).html, /guia\/portada\.png/, 'si no es de fotos, sin la guía');
-});

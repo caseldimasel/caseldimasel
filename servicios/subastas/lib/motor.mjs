@@ -17,7 +17,6 @@
  *   POST api/push/registrar { token, plataforma } → el móvil de la app, para los avisos (ver avisos.mjs)
  *   api/alertas…                 → alertas de búsqueda «Avísame cuando entre uno así» (ver alertas.mjs)
  *   POST api/evento { tipo, … }  → estadísticas de la web: visitas, fichas vistas, contactos, me gusta… (estadisticas.mjs)
- *   guia, guia/<foto>.png        → la guía de fotos con siluetas (guia.mjs)
  *   pagar?a=&f=                  → pagar un anuncio de la comunidad con Stripe, renovación cada mes (comunidad.mjs)
  */
 import { createHmac, timingSafeEqual } from 'node:crypto';
@@ -26,7 +25,6 @@ import { cuentaFirebase, registrarDispositivo } from './avisos.mjs';
 import { revisarAlertas, rutasAlertas } from './alertas.mjs';
 import { registrarEvento } from './estadisticas.mjs';
 import { revisarComunidad, rutasPago } from './comunidad.mjs';
-import { imagenGuia, paginaGuia } from './guia.mjs';
 
 export const VERSION = 'pago-y-baja-2026-10-26';
 
@@ -249,9 +247,6 @@ export async function atender(req, cfg, deps) {
   // Directo (sin el proxy de Shopify, /tienda/…): solo los anuncios de dueños, y quien es lo dice la firma del tema
   if (req.directo) {
     // Pagar un anuncio de la comunidad (enlace firmado, sin sesión): la página y la vuelta de Stripe
-    // La guía de fotos (página y siluetas en PNG para los emails)
-    if (ruta === 'guia') return paginaGuia();
-    if (/^guia\/[a-z_]+\.png$/.test(ruta)) return imagenGuia(ruta.slice(5));
     if (ruta === 'pagar' || ruta === 'pagar/ok') return rutasPago({ ruta, method: req.method, query: req.query || {}, body: req.body || {} }, cfg, deps);
     if (!/^api\/(anuncio|anuncios|visita|perfil|push|alertas|evento|comunidad)(\/|$)/.test(ruta)) return json(404, { ok: false, error: 'ruta' });
   } else if (!comprobarProxy(req.query, cfg.secreto)) return json(401, { ok: false, error: 'firma' });

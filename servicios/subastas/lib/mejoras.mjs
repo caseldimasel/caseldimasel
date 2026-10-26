@@ -6,10 +6,7 @@
  */
 import { esc } from './circulo.mjs';
 import { plantilla } from './correos.mjs';
-import { bloqueGuiaCorreo } from './guia.mjs';
 
-// Si se le pide algo de las fotos, el email lleva la guía con las siluetas
-const DE_FOTOS = ['portada', 'luz', 'fondo', 'mas_fotos'];
 
 export const MEJORAS = {
   portada: ['Foto de portada', 'Pon como primera foto el coche entero de tres cuartos (de frente y un poco de lado), con buena luz y un fondo limpio. Es la que se ve en Sidonia y la que hace que entren en tu anuncio.'],
@@ -44,7 +41,6 @@ export function correoMejoras(cfg, a, m) {
       titulo: `${a.vendedor_nombre || 'Hola'}, nos encanta tu anuncio`,
       cuerpo: p(`Hemos revisado «${esc(a.titulo)}» y queremos que se vea como se merece. Antes de publicarlo, te recomendamos:`)
         + `<ul style="margin:0 0 16px;padding:14px 16px 2px 34px;border-radius:12px;background:#f6f5f2">${lista}</ul>`
-        + (a.tipo !== 'casa' && a.tipo !== 'barco' && (m.claves || []).some((k) => DE_FOTOS.includes(k)) ? bloqueGuiaCorreo(cfg) : '')
         + p('Edítalo cuando puedas (tus fotos y textos siguen ahí) y lo revisamos de nuevo enseguida. Si tienes cualquier duda, contesta a este email o escríbenos por WhatsApp.'),
       boton: 'Editar mi anuncio', enlace: `${cfg.tienda}/pages/vende-con-nosotros?view=publicar&anuncio=${Number(a.id)}`
     })
@@ -64,7 +60,7 @@ export function cajaMejoras(a) {
   return `${pedido}<details class="editar mejoras"><summary>${m?.pedido ? 'Pedir otras mejoras' : 'Pedir mejoras antes de publicar'}</summary>
     <form method="post">
       <input type="hidden" name="id" value="${a.id}">
-      <p class="ayuda-m">En vez de rechazarlo: marca lo que le recomiendas. Le llega por email${a.email ? ` (${esc(a.email)})` : ' (no tenemos su email: avísale por WhatsApp)'} y al móvil, con el botón para editarlo. Si es algo de las fotos, el email lleva <a href="/tienda/guia" target="_blank" rel="noopener">la guía de fotos con las siluetas ›</a></p>
+      <p class="ayuda-m">En vez de rechazarlo: marca lo que le recomiendas. Le llega por email${a.email ? ` (${esc(a.email)})` : ' (no tenemos su email: avísale por WhatsApp)'} y al móvil, con el botón para editarlo.</p>
       <div class="opciones-m">${Object.entries(MEJORAS).map(([k, [t, x]]) => `<label title="${esc(x)}"><input type="checkbox" name="mejora" value="${k}"> <span><b>${esc(t)}</b><small>${esc(x)}</small></span></label>`).join('')}</div>
       <label>Algo más <small>(opcional, lo lee tal cual)</small><textarea name="mejora_texto" rows="2" placeholder="Por ejemplo: «¿Tienes alguna foto del coche en su época?»"></textarea></label>
       <div><button name="accion" value="mejoras" class="si">Enviar las recomendaciones</button></div>
