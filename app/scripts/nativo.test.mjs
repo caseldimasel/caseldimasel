@@ -86,7 +86,7 @@ test('iPhone: Info.plist con permisos, avisos en segundo plano, cifrado y versiÃ
 test('iPhone: AppDelegate arranca Firebase y le pasa el token de Apple', () => {
   const s = parcheAppDelegate(DELEGATE);
   assert.match(s, /import Capacitor\nimport FirebaseCore\n/);
-  assert.match(s, /didFinishLaunchingWithOptions[^{]*\{\n\s*if FirebaseApp\.app\(\) == nil \{ FirebaseApp\.configure\(\) \}/);
+  assert.match(s, /didFinishLaunchingWithOptions[^{]*\{\n.*\n\s*if FirebaseApp\.app\(\) == nil, Bundle\.main\.path\(forResource: "GoogleService-Info", ofType: "plist"\) != nil \{ FirebaseApp\.configure\(\) \}/);
   assert.match(s, /didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data\) \{\n\s*NotificationCenter\.default\.post\(name: \.capacitorDidRegisterForRemoteNotifications/);
   assert.match(s, /capacitorDidFailToRegisterForRemoteNotifications/);
   assert.equal(parcheAppDelegate(s), s, 'no se repite');

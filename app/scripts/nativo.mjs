@@ -83,7 +83,7 @@ export function parcheInfoPlist(plist, { version, build } = {}) {
 export function parcheAppDelegate(swift) {
   if (swift.includes('capacitorDidRegisterForRemoteNotifications')) return swift;
   let s = swift.replace(/import Capacitor\n/, 'import Capacitor\nimport FirebaseCore\n');
-  s = s.replace(/(didFinishLaunchingWithOptions[^{]*\{\n)/, '$1        if FirebaseApp.app() == nil { FirebaseApp.configure() }\n');
+  s = s.replace(/(didFinishLaunchingWithOptions[^{]*\{\n)/, '$1        // Sin GoogleService-Info.plist (aún sin Firebase) la app arranca igual, solo que sin avisos\n        if FirebaseApp.app() == nil, Bundle.main.path(forResource: "GoogleService-Info", ofType: "plist") != nil { FirebaseApp.configure() }\n');
   s = s.replace(/(\n\s*var window: UIWindow\?\n)/, `$1
     // Avisos al móvil: el token de Apple va a Firebase (Capacitor lo reparte a @capacitor-firebase/messaging)
     func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
