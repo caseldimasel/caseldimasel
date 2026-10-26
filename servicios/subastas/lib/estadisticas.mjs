@@ -147,7 +147,7 @@ export function paginaEstadisticas(datos, { dias = 30, error = '', tienda = 'htt
     ? `<div class="chips">${d.busquedas.map((x) => `<a href="${esc(tienda)}/search?q=${encodeURIComponent(x.q)}&type=product" target="_blank" rel="noopener">${esc(x.q)} <b>${fmt(x.n)}</b></a>`).join('')}</div>`
     : '<p class="vacio">Aún nadie ha buscado nada.</p>';
 
-  return `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  return `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Estadísticas web · Panel de Sidonia</title><meta name="robots" content="noindex">${FAVICON}
 <style>${ESTILO}</style></head><body>
 ${CABECERA}

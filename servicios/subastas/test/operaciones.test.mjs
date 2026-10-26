@@ -197,3 +197,19 @@ test('comercial: Hugo en las del Excel con comisión de comercial, y su % sobre 
   await importar(t, [ops[1]], t.filas);
   assert.equal(t.filas[0].comercial, 'Hugo');
 });
+
+test('pantalla de inicio: manifiesto e iconos sin contraseña; las páginas los enlazan', async () => {
+  const cfg = config({ ADMIN_CLAVE: 'panel' });
+  const m = await atenderPanel({ method: 'GET', query: { recurso: 'manifest' }, headers: {} }, cfg, { db: async () => [] });
+  assert.equal(m.status, 200);
+  const j = JSON.parse(m.body);
+  assert.deepEqual([j.short_name, j.start_url, j.display, j.icons.length], ['Sidonia', '/admin', 'standalone', 4]);
+  const i = await atenderPanel({ method: 'GET', query: { recurso: 'icono-512' }, headers: {} }, cfg, { db: async () => [] });
+  assert.equal(i.headers['Content-Type'], 'image/png');
+  assert.deepEqual([...i.body.subarray(0, 4)], [0x89, 0x50, 0x4e, 0x47]);
+  assert.equal((await atenderPanel({ method: 'GET', query: { recurso: '../secreto' }, headers: {} }, cfg, { db: async () => [] })).status, 404);
+  const auth = { authorization: 'Basic ' + Buffer.from('a:panel').toString('base64') };
+  const p = await atenderPanel({ method: 'GET', query: { estado: 'duenos' }, headers: auth }, cfg, { db: async () => [], operaciones: { leer: async () => [] }, tabla: { leer: async () => [] } });
+  assert.match(p.body, /<link rel="manifest" href="\/admin\?recurso=manifest">/);
+  assert.match(p.body, /apple-mobile-web-app-capable/);
+});

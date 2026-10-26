@@ -249,7 +249,7 @@ export function resumen(ops) {
 export const pctComercial = (o) => (n(o.comision) && n(o.comision_comercial) ? (o.comision_comercial / o.comision) * 100 : null);
 
 /* ---------------------------------------------------------------------------- Páginas */
-export const marco = (titulo, on, cuerpo, extraCss = '') => `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+export const marco = (titulo, on, cuerpo, extraCss = '') => `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>${esc(titulo)} · Panel de Sidonia</title><meta name="robots" content="noindex">${FAVICON}
 <style>${ESTILO}
   ${extraCss}

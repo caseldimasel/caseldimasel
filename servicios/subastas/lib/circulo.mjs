@@ -20,7 +20,7 @@
  *
  * Un anuncio activo gratis por persona (lo garantiza la base de datos: sql/circulo.sql).
  */
-import { CABECERA, ESTILO_PANEL, FAVICON } from './marca.mjs';
+import { CABECERA, ESTILO_PANEL, FAVICON, recursoPanel } from './marca.mjs';
 import { createHash } from 'node:crypto';
 import { rellenarPropietarios } from './propietarios.mjs';
 import { rellenarUbicaciones } from './ubicaciones.mjs';
@@ -627,7 +627,7 @@ function paginaUbicaciones(cfg, informe) {
 }
 
 function paginaPanelHtml(pestañas, aviso, tarjetas) {
-  return `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  return `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Panel de Sidonia</title><meta name="robots" content="noindex">${FAVICON}
 <style>${ESTILO_PANEL}
   /* Anuncios de los dueños */
@@ -680,7 +680,7 @@ export function paginaClientes(datos) {
   const fecha = (t) => (t ? new Date(t).toLocaleString('es-ES', { timeZone: 'Europe/Madrid', day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' }) : '');
   const filas = (d.lista || []).map((c) => `<tr><td><b>${esc(c.nombre || '—')}</b><br><a href="mailto:${esc(c.email)}">${esc(c.email)}</a></td><td>${fecha(c.primera)}</td><td>${fecha(c.ultima)}</td><td>${Number(c.visitas) || 1}</td></tr>`).join('');
   const pestañas = navPanel('clientes');
-  return `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  return `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Clientes · Panel de Sidonia</title><meta name="robots" content="noindex">${FAVICON}
 <style>${ESTILO_PANEL}
   .tabla table th { position: static; }
@@ -804,6 +804,8 @@ export const guardarAnuncio = (cfg, id, cambios, fetchImpl = fetch) => tablaAnun
 
 export async function atenderPanel(req, cfg, deps) {
   const html = (body, status = 200) => ({ status, headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' }, body });
+  // El icono y el manifiesto para la pantalla de inicio: el móvil los pide sin la contraseña
+  if (req.query.recurso) return recursoPanel(String(req.query.recurso));
   if (!panelAutorizado(req.headers || {}, cfg.adminClave)) {
     return { status: 401, headers: { 'WWW-Authenticate': 'Basic realm="Sidonia"', 'Content-Type': 'text/plain; charset=utf-8' }, body: 'Hace falta la contraseña del panel.' };
   }

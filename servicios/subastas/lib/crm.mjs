@@ -34,7 +34,7 @@ export function temperatura(c, ahora = Date.now()) {
   return ['frio', 'Frío'];
 }
 
-const marco = (titulo, on, cuerpo) => `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+const marco = (titulo, on, cuerpo) => `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>${esc(titulo)} · Panel de Sidonia</title><meta name="robots" content="noindex">${FAVICON}
 <style>${ESTILO}</style></head><body>
 ${CABECERA}
