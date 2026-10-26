@@ -20,6 +20,7 @@
  *
  * Un anuncio activo gratis por persona (lo garantiza la base de datos: sql/circulo.sql).
  */
+import { CABECERA, FAVICON } from './marca.mjs';
 import { createHash } from 'node:crypto';
 import { rellenarPropietarios } from './propietarios.mjs';
 import { rellenarUbicaciones } from './ubicaciones.mjs';
@@ -627,7 +628,7 @@ function paginaUbicaciones(cfg, informe) {
 
 function paginaPanelHtml(pestañas, aviso, tarjetas) {
   return `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Panel de Sidonia</title><meta name="robots" content="noindex">
+<title>Panel de Sidonia</title><meta name="robots" content="noindex">${FAVICON}
 <style>
   :root { color-scheme: light; font-family: system-ui, -apple-system, Segoe UI, sans-serif; color: #1a1a1a; background: #f6f5f2; }
   body { max-width: 1100px; margin: 0 auto; padding: 24px 16px 80px; }
@@ -675,7 +676,7 @@ function paginaPanelHtml(pestañas, aviso, tarjetas) {
   button.si { background: #1a1a1a; color: #fff; } button.no { border-color: #a2121f; color: #a2121f; }
   .vacio { opacity: .6; }
 </style></head><body>
-<header><h1>SIDONIA · PANEL</h1><span>Panel del equipo</span></header>
+${CABECERA}
 ${aviso ? `<p class="aviso${aviso.startsWith('Error') ? ' mal' : ''}">${esc(aviso)}</p>` : ''}
 ${pestañas}
 ${tarjetas}
@@ -691,7 +692,7 @@ export function paginaClientes(datos) {
   const filas = (d.lista || []).map((c) => `<tr><td><b>${esc(c.nombre || '—')}</b><br><a href="mailto:${esc(c.email)}">${esc(c.email)}</a></td><td>${fecha(c.primera)}</td><td>${fecha(c.ultima)}</td><td>${Number(c.visitas) || 1}</td></tr>`).join('');
   const pestañas = navPanel('clientes');
   return `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Clientes · Panel de Sidonia</title><meta name="robots" content="noindex">
+<title>Clientes · Panel de Sidonia</title><meta name="robots" content="noindex">${FAVICON}
 <style>
   :root { font-family: system-ui, -apple-system, Segoe UI, sans-serif; color: #1a1a1a; background: #f6f5f2; }
   body { max-width: 1100px; margin: 0 auto; padding: 24px 16px 80px; }
@@ -708,7 +709,7 @@ export function paginaClientes(datos) {
   th, td { padding: 10px 12px; border-bottom: 1px solid #0001; text-align: left; vertical-align: top; } th { font-weight: 600; opacity: .6; font-size: 12px; text-transform: uppercase; letter-spacing: .08em; }
   a { color: inherit; } .nota { font-size: 13px; opacity: .6; }
 </style></head><body>
-<header><h1>SIDONIA · PANEL</h1></header>
+${CABECERA}
 ${pestañas}
 <div class="kpis">
   <div class="kpi"><b>${Number(d.nuevos_hoy) || 0}</b><span>Nuevos hoy</span></div>

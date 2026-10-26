@@ -43,12 +43,11 @@ test('xlsx: lee las hojas (también las ocultas), textos compartidos y números 
   assert.equal(libro[1].filas[5][3], '>70.000 €');
 });
 
-test('excel → ventas: vendidos, en venta, comisiones, encargos y la colección de alguien en captación', () => {
+test('excel → ventas: vendidos, en venta, comisiones y encargos; las tasaciones no', () => {
   const ops = detectarOperaciones(leerXlsx(xlsx()));
-  assert.equal(ops.length, 3);
+  assert.equal(ops.length, 2, 'la hoja de tasaciones («Precio venta propuesto») no entra');
   assert.deepEqual([ops[0].titulo, ops[0].estado, ops[0].precio_venta, ops[0].comision, ops[0].comision_comercial], ['PORSCHE 986 2.5', 'vendido', 16500, 825, null]);
   assert.deepEqual([ops[1].estado, ops[1].precio_anunciado, ops[1].comision_comercial], ['en_venta', 8500, 212.5]);
-  assert.deepEqual([ops[2].estado, ops[2].propietario_nombre, ops[2].precio_anunciado, ops[2].notas], ['captacion', 'Arturo', 45000, 'Est. Óptima: >70.000 €']);
   // Encargos: la tabla de debajo de «Encargos…»
   const enc = detectarOperaciones([{ nombre: 'Coches', filas: [[], ['Encargos EXOTICA!'], ['COCHES/MODELO', 'PRECIO VENDIDO', 'COMISIÓN SIDONIA', 'COMISIÓN COMERCIAL', 'VENTA'], ['ENACRGO MARIO', 28000, 1400, 280, 'VENDIDO'], ['ENCARGOS QUIQUE 2', 20000, 400, 80, 'VENDIDO'], ['', 0, 0]] }]);
   assert.deepEqual(enc.map((o) => [o.titulo, o.modalidad, o.comprador_nombre]), [['Encargo · Mario', 'encargo', 'Mario'], ['Encargo · Quique 2', 'encargo', 'Quique']]);
@@ -85,7 +84,7 @@ test('números del centro operativo', () => {
   const r = resumen(OPS);
   assert.deepEqual([r.vendidos, r.ventas, r.encargos, r.facturado, r.comision, r.comercial, r.neto], [2, 1, 1, 116000, 6560, 1540, 5020]);
   assert.equal(r.pct.toFixed(2), '5.66');
-  assert.deepEqual([r.enVenta, r.valorEnVenta, r.comisionPrevista, r.captacion, r.diasMedios], [1, 49000, 2940, 1, 60]);
+  assert.deepEqual([r.enVenta, r.valorEnVenta, r.comisionPrevista, r.diasMedios], [1, 49000, 2940, 60]);
   assert.equal(r.descuento.toFixed(1), '5.0');
   assert.deepEqual(r.marcas, [{ marca: 'Porsche', n: 1, facturado: 76000, comision: 4560 }]);
   assert.deepEqual(r.comerciales, [{ comercial: 'Quique', n: 1, comision: 1140, sobre: 4560, pct: 25 }]);
@@ -119,18 +118,22 @@ function tablaFalsa(filas = []) {
     async leer(f) { const id = (f.match(/id=eq\.(\d+)/) || [])[1]; return id ? filas.filter((o) => o.id === Number(id)) : [...filas]; },
     async guardar(fila) { const x = { id: ++n, ...fila }; filas.push(x); return x; },
     async cambiar(id, c) { Object.assign(filas.find((o) => o.id === id), c); },
-    async borrar(f) { const id = Number(f.match(/id=eq\.(\d+)/)[1]); filas.splice(filas.findIndex((o) => o.id === id), 1); }
+    async borrar(f) {
+      const id = Number((f.match(/id=eq\.(\d+)/) || [])[1]);
+      const est = (f.match(/estado=eq\.(\w+)/) || [])[1];
+      for (let i = filas.length - 1; i >= 0; i -= 1) if ((id && filas[i].id === id) || (est && filas[i].estado === est)) filas.splice(i, 1);
+    }
   };
 }
 
 test('importar dos veces: la segunda pone al día, no duplica ni pisa lo puesto a mano', async () => {
   const t = tablaFalsa();
   const ops = detectarOperaciones(leerXlsx(xlsx()));
-  assert.deepEqual(await importar(t, ops, []), { creadas: 3, puestas: 0 });
+  assert.deepEqual(await importar(t, ops, []), { creadas: 2, puestas: 0 });
   t.filas[1].propietario_nombre = 'Lucía';
   const otra = ops.map((o) => (o.titulo.startsWith('JAGUAR') ? { ...o, estado: 'vendido', precio_venta: 8000, propietario_nombre: null } : o));
   assert.deepEqual(await importar(t, otra, t.filas), { creadas: 0, puestas: 1 });
-  assert.deepEqual([t.filas.length, t.filas[1].estado, t.filas[1].precio_venta, t.filas[1].propietario_nombre], [3, 'vendido', 8000, 'Lucía']);
+  assert.deepEqual([t.filas.length, t.filas[1].estado, t.filas[1].precio_venta, t.filas[1].propietario_nombre], [2, 'vendido', 8000, 'Lucía']);
 });
 
 test('panel: la portada es Ventas; añadir, editar, importar (vista previa) y Propietarios', async () => {
@@ -151,8 +154,9 @@ test('panel: la portada es Ventas; añadir, editar, importar (vista previa) y Pr
   const csv = await atenderPanel({ method: 'GET', query: { estado: 'ventas', csv: '1' }, headers: auth }, cfg, deps);
   assert.match(csv.headers['Content-Type'], /text\/csv/);
   const vista = await atenderPanel({ method: 'POST', query: { estado: 'importar' }, body: { accion: 'ver', archivo: xlsx().toString('base64'), nombre: 'Coches.xlsx' }, headers: auth }, cfg, deps);
-  assert.match(vista.body, /Importar 3 filas/);
-  assert.equal(operaciones.filas.length, 5, 'la vista previa no guarda nada');
+  assert.match(vista.body, /Importar 2 filas/);
+  assert.equal(operaciones.filas.length, 4, 'la vista previa no guarda nada, y lo de captación se ha borrado');
+  assert.ok(!operaciones.filas.some((o) => o.estado === 'captacion'));
   const duenos = await atenderPanel({ method: 'GET', query: { estado: 'duenos' }, headers: auth }, cfg, deps);
   assert.match(duenos.body, /Carlos/);
   assert.match(duenos.body, /Ana/);
@@ -181,7 +185,7 @@ test('comercial: Hugo en las del Excel con comisión de comercial, y su % sobre 
   const { COMERCIAL, pctComercial } = await import('../lib/operaciones.mjs');
   assert.equal(COMERCIAL, 'Hugo');
   const ops = detectarOperaciones(leerXlsx(xlsx()));
-  assert.deepEqual(ops.map((o) => o.comercial), [null, 'Hugo', null], 'solo donde hay comisión de comercial');
+  assert.deepEqual(ops.map((o) => o.comercial), [null, 'Hugo'], 'solo donde hay comisión de comercial');
   assert.equal(pctComercial({ comision: 850, comision_comercial: 212.5 }), 25);
   // Formulario: el % del comercial calcula su parte; sin nombre, es Hugo
   const { cambios } = leerOperacion({ titulo: 'X', precio_venta: '50000', comision: '3000', comercial_pct: '30' });

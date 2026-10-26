@@ -7,6 +7,7 @@
  * Lo que hizo alguien antes de entrar con su cuenta, en el mismo navegador, también se le cuenta.
  * La base de datos: sql/estadisticas.sql (sidonia_crm_*).
  */
+import { CABECERA, FAVICON } from './marca.mjs';
 import { esc } from './circulo.mjs';
 import { ESTILO, fmt, n, navPanel } from './estadisticas.mjs';
 
@@ -34,7 +35,7 @@ export function temperatura(c, ahora = Date.now()) {
 }
 
 const marco = (titulo, on, cuerpo) => `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>${esc(titulo)} · Panel de Sidonia</title><meta name="robots" content="noindex">
+<title>${esc(titulo)} · Panel de Sidonia</title><meta name="robots" content="noindex">${FAVICON}
 <style>${ESTILO}
   .temp { display: inline-block; padding: 3px 9px; border-radius: 99px; font-size: 12px; font-weight: 700; white-space: nowrap; }
   .temp.caliente { background: #fde8e4; color: #b3261e; } .temp.templado { background: #fff3d6; color: #8a5a00; } .temp.frio { background: #eceae5; color: #5f5b53; }
@@ -51,7 +52,7 @@ const marco = (titulo, on, cuerpo) => `<!doctype html><html lang="es"><head><met
   .si { color: #1f8a4c; font-weight: 700; }
   tr[data-q] { cursor: pointer; } tr[data-q]:hover td { background: #00000005; }
 </style></head><body>
-<header><h1>SIDONIA · PANEL</h1></header>
+${CABECERA}
 ${navPanel(on)}
 ${cuerpo}
 </body></html>`;

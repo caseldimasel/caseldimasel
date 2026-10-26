@@ -6,6 +6,7 @@
  * Sin datos personales: un número al azar por navegador y, si ha entrado con su cuenta, su id de cliente.
  * La base de datos: sql/estadisticas.sql (tabla eventos y la función que lo resume todo).
  */
+import { CABECERA, FAVICON } from './marca.mjs';
 import { ESTADOS, esc } from './circulo.mjs';
 
 export const TIPOS = ['visita', 'vista', 'contacto', 'like', 'unlike', 'compartir', 'busqueda', 'alerta', 'oferta'];
@@ -191,9 +192,9 @@ export function paginaEstadisticas(datos, { dias = 30, error = '', tienda = 'htt
     : '<p class="vacio">Aún nadie ha buscado nada.</p>';
 
   return `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Estadísticas web · Panel de Sidonia</title><meta name="robots" content="noindex">
+<title>Estadísticas web · Panel de Sidonia</title><meta name="robots" content="noindex">${FAVICON}
 <style>${ESTILO}</style></head><body>
-<header><h1>SIDONIA · PANEL</h1></header>
+${CABECERA}
 ${pestañas}
 <div class="per">${periodos}</div>
 ${error ? `<p class="error">No se han podido leer las estadísticas: ${esc(/eventos|sidonia_estadisticas|function/.test(error) ? 'falta ejecutar sql/estadisticas.sql en Supabase › SQL Editor.' : error)}</p>` : ''}

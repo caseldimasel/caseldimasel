@@ -5,7 +5,7 @@
  * mano en el panel o importando el Excel de ventas (las hojas con «Modelo / Precio / Comisión / Venta»), y se enlaza
  * sola con su ficha de la tienda (por el título) para sacar la fecha en que se anunció.
  *
- *   ?estado=ventas[&ver=en_venta|vendido|captacion|encargo|retirado|todo][&q=]   la lista y los números
+ *   ?estado=ventas[&ver=en_venta|vendido|encargo|retirado|todo][&q=]   la lista y los números
  *   ?estado=ventas&csv=1                                                          todo en CSV
  *   ?estado=operacion[&id=]                                                       añadir o editar una
  *   ?estado=importar                                                              subir el Excel (vista previa e importar)
@@ -13,11 +13,12 @@
  *                                                                                 de los anuncios gratis, con sus coches
  * Base de datos: sql/operaciones.sql (tabla operaciones).
  */
+import { CABECERA, FAVICON } from './marca.mjs';
 import { esc, shopifyAdmin, tablaAnuncios } from './circulo.mjs';
 import { ESTILO, fmt, n, navPanel } from './estadisticas.mjs';
 import { leerXlsx } from './xlsx.mjs';
 
-export const ESTADOS_OP = { captacion: 'Captación', en_venta: 'En venta', reservado: 'Reservado', vendido: 'Vendido', retirado: 'Retirado' };
+export const ESTADOS_OP = { en_venta: 'En venta', reservado: 'Reservado', vendido: 'Vendido', retirado: 'Retirado' };
 export const MODALIDADES = { gestion: 'Venta gestionada', encargo: 'Encargo', subasta: 'Subasta', particular: 'Anuncio de particular' };
 /** El comercial de Sidonia: las comisiones de comercial del Excel son suyas */
 export const COMERCIAL = 'Hugo';
@@ -58,13 +59,12 @@ const capital = (s) => s.toLowerCase().replace(/(^|\s)\S/g, (c) => c.toUpperCase
 /* ---------------------------------------------------------------------------- Importar el Excel */
 /**
  * Saca las operaciones de un libro (leerXlsx): en cada hoja, cada tabla con una fila de títulos «Coche / Modelo …» y
- * «Precio …». Columnas: precio (vendido / venta / propuesto), comisión Sidonia, comisión comercial, venta («VENDIDO»)
+ * «Precio …». Columnas: precio (vendido / venta), comisión Sidonia, comisión comercial, venta («VENDIDO»)
  * y estimaciones (van a las notas). Encima de la tabla, «Encargos…» = encargos; hoja «Colección X» = propietario X.
  */
 export function detectarOperaciones(libro) {
   const ops = [];
   for (const hoja of libro) {
-    const propietarioHoja = (hoja.nombre.match(/colecci[oó]n\s+(.+)/i) || [])[1]?.trim() || '';
     const filas = hoja.filas;
     for (let r = 0; r < filas.length; r += 1) {
       const fila = filas[r] || [];
@@ -82,6 +82,8 @@ export function detectarOperaciones(libro) {
           else if (/^(venta|estado|vendido)$/.test(h)) cols.venta = k;
           else (cols.notas ||= []).push([k, String(fila[k]).trim()]);
         }
+        // Las tasaciones («Precio venta propuesto», p. ej. la hoja «Colección Arturo») no son ventas: fuera
+        if (cols.propuesto) continue;
         const encima = [filas[r - 1]?.[c], filas[r - 2]?.[c]].map(normal).join(' ');
         const encargo = /encargo/.test(encima);
         const vistos = {};
@@ -102,13 +104,13 @@ export function detectarOperaciones(libro) {
             titulo: encargo ? `Encargo · ${capital(quien(titulo))}` : titulo,
             tipo: tipoDe(titulo),
             modalidad: encargo ? 'encargo' : 'gestion',
-            estado: vendido ? 'vendido' : cols.propuesto ? 'captacion' : 'en_venta',
+            estado: vendido ? 'vendido' : 'en_venta',
             precio_anunciado: vendido ? null : precio,
             precio_venta: vendido ? precio : null,
             comision: cols.comision !== undefined && numero(f[cols.comision]) ? redondo(numero(f[cols.comision])) : null,
             comision_comercial: cols.comision_comercial !== undefined && numero(f[cols.comision_comercial]) ? redondo(numero(f[cols.comision_comercial])) : null,
             comercial: cols.comision_comercial !== undefined && numero(f[cols.comision_comercial]) ? COMERCIAL : null,
-            propietario_nombre: propietarioHoja || null,
+            propietario_nombre: null,
             comprador_nombre: encargo ? capital(quien(titulo).replace(/\s+\d+$/, '')) : null,
             notas: (cols.notas || []).map(([k, h]) => (String(f[k] ?? '').trim() ? `${h}: ${String(f[k]).trim()}` : '')).filter(Boolean).join(' · ') || null
           };
@@ -168,7 +170,7 @@ export function emparejar(ops, productos) {
   // Las que ya tienen ficha: si en la tienda está vendida o archivada, se pone igual aquí
   const porHandle = new Map(productos.map((p) => [p.handle, p]));
   const estadoTienda = (o, p) => {
-    if (!p || o.estado === 'vendido' || o.estado === 'captacion') return null;
+    if (!p || o.estado === 'vendido') return null;
     if ((p.tags || []).some((t) => /^vendid/i.test(t))) return 'vendido';
     if (p.status === 'ARCHIVED' && o.estado !== 'retirado') return 'retirado';
     return null;
@@ -235,7 +237,6 @@ export function resumen(ops) {
     pct: facturado ? (comision / facturado) * 100 : 0,
     ticket: vendidos.length ? facturado / vendidos.length : 0,
     enVenta: enVenta.length, valorEnVenta: suma(enVenta, (o) => o.precio_anunciado ?? o.precio_venta), comisionPrevista: suma(enVenta, (o) => o.comision),
-    captacion: ops.filter((o) => o.estado === 'captacion').length,
     diasMedios: tiempos.length ? Math.round(tiempos.reduce((s, d) => s + d, 0) / tiempos.length) : null, conTiempos: tiempos.length,
     descuento: descuentos.length ? (descuentos.reduce((s, d) => s + d, 0) / descuentos.length) * 100 : null,
     marcas: Object.values(marcas).sort((a, b) => b.n - a.n || b.facturado - a.facturado).slice(0, 10),
@@ -249,12 +250,12 @@ export const pctComercial = (o) => (n(o.comision) && n(o.comision_comercial) ? (
 
 /* ---------------------------------------------------------------------------- Páginas */
 export const marco = (titulo, on, cuerpo, extraCss = '') => `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>${esc(titulo)} · Panel de Sidonia</title><meta name="robots" content="noindex">
+<title>${esc(titulo)} · Panel de Sidonia</title><meta name="robots" content="noindex">${FAVICON}
 <style>${ESTILO}
   td.izq, th.izq { text-align: left; } td .sub { display: block; font-size: 12px; opacity: .55; }
   .pill { display: inline-block; padding: 3px 9px; border-radius: 99px; font-size: 12px; font-weight: 700; white-space: nowrap; background: #eceae5; color: #5f5b53; }
   .pill.vendido { background: #e2f3e8; color: #1f7a4d; } .pill.en_venta { background: #e8eefb; color: #2b4c9b; } .pill.reservado { background: #fff3d6; color: #8a5a00; }
-  .pill.captacion { background: #f1e8fb; color: #6b3fa0; } .pill.retirado { background: #f3e9e7; color: #8a3a2a; }
+  .pill.pendiente { background: #f1e8fb; color: #6b3fa0; } .pill.retirado { background: #f3e9e7; color: #8a3a2a; }
   .barra { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 0 0 14px; }
   .barra input[type=search] { padding: 9px 14px; border: 1px solid #0002; border-radius: 99px; font: inherit; font-size: 14px; min-width: 220px; background: #fff; }
   .boton { display: inline-block; padding: 9px 16px; border: 0; border-radius: 99px; background: #1a1a1a; color: #fff !important; text-decoration: none; font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; }
@@ -272,7 +273,7 @@ export const marco = (titulo, on, cuerpo, extraCss = '') => `<!doctype html><htm
   .tareas { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 14px; } .tareas a { padding: 8px 14px; border-radius: 99px; background: #fff3d6; color: #8a5a00; text-decoration: none; font-size: 14px; font-weight: 600; }
   ${extraCss}
 </style></head><body>
-<header><h1>SIDONIA · PANEL</h1></header>
+${CABECERA}
 ${navPanel(on)}
 ${cuerpo}
 </body></html>`;
@@ -282,7 +283,7 @@ const pill = (e) => `<span class="pill ${esc(e)}">${esc(ESTADOS_OP[e] || e)}</sp
 
 export function paginaVentas(ops, { ver = 'todo', aviso = '', error = '', tienda = 'https://sidonia.es', tareas = [] } = {}) {
   const r = resumen(ops);
-  const filtros = { todo: 'Todas', en_venta: 'En venta', vendido: 'Vendidas', captacion: 'Captación', encargo: 'Encargos', retirado: 'Retiradas' };
+  const filtros = { todo: 'Todas', en_venta: 'En venta', vendido: 'Vendidas', encargo: 'Encargos', retirado: 'Retiradas' };
   const cuenta = (k) => (k === 'todo' ? ops.length : k === 'encargo' ? ops.filter((o) => o.modalidad === 'encargo').length : k === 'en_venta' ? ops.filter((o) => o.estado === 'en_venta' || o.estado === 'reservado').length : ops.filter((o) => o.estado === k).length);
   const lista = ops.filter((o) => ver === 'todo' || (ver === 'encargo' ? o.modalidad === 'encargo' : ver === 'en_venta' ? (o.estado === 'en_venta' || o.estado === 'reservado') : o.estado === ver));
   const filas = lista.map((o) => {
@@ -314,7 +315,6 @@ ${tareas.length ? `<div class="tareas">${tareas.map(([t, href]) => `<a href="${h
   <div class="kpi"><b>${fmt(r.enVenta)}</b><span>En venta ahora</span><small>${euros(r.valorEnVenta)} · comisión prevista ${euros(r.comisionPrevista)}</small></div>
   <div class="kpi"><b>${r.diasMedios == null ? '—' : fmt(r.diasMedios)}</b><span>Días hasta vender</span><small>${r.conTiempos ? `de media, en ${fmt(r.conTiempos)} ventas con fechas` : 'pon las fechas para verlo'}</small></div>
   <div class="kpi"><b>${r.descuento == null ? '—' : `${r.descuento.toLocaleString('es-ES', { maximumFractionDigits: 1 })} %`}</b><span>Rebaja media</span><small>del precio de salida al de venta</small></div>
-  <div class="kpi"><b>${fmt(r.captacion)}</b><span>En captación</span><small>tasados, aún sin anunciar</small></div>
 </div>
 <div class="grid2">
   <div class="card"><h2>Las marcas que más vendemos</h2>${marcas}</div>
@@ -425,7 +425,7 @@ export function leerOperacion(body) {
 
 export function paginaImportar({ ops = null, archivo = '', nombre = '', aviso = '', existentes = 0 } = {}) {
   const vista = ops ? `<div class="card"><h2>Esto es lo que hay en «${esc(nombre)}»</h2>
-    <p>${fmt(ops.length)} filas: ${fmt(ops.filter((o) => o.estado === 'vendido').length)} vendidas, ${fmt(ops.filter((o) => o.estado === 'en_venta').length)} en venta, ${fmt(ops.filter((o) => o.estado === 'captacion').length)} en captación y ${fmt(ops.filter((o) => o.modalidad === 'encargo').length)} encargos.
+    <p>${fmt(ops.length)} filas: ${fmt(ops.filter((o) => o.estado === 'vendido').length)} vendidas, ${fmt(ops.filter((o) => o.estado === 'en_venta').length)} en venta y ${fmt(ops.filter((o) => o.modalidad === 'encargo').length)} encargos.
     ${existentes ? `${fmt(existentes)} ya estaban de una importación anterior: se ponen al día (precio, comisión y estado), sin tocar lo que hayáis añadido a mano.` : ''}</p>
     <div class="tabla"><table><thead><tr><th class="izq">Fila</th><th class="izq">Título</th><th class="izq">Estado</th><th>Precio</th><th>Comisión</th><th>Comercial</th><th class="izq">Notas</th></tr></thead><tbody>
     ${ops.map((o) => `<tr><td class="izq"><span class="sub">${esc(o.fila)}</span></td><td class="izq">${esc(o.titulo)}<span class="sub">${esc(TIPOS_OP[o.tipo])} · ${esc(MODALIDADES[o.modalidad])}${o.propietario_nombre ? ` · de ${esc(o.propietario_nombre)}` : ''}</span></td><td class="izq">${pill(o.estado)}</td><td>${euros(o.precio_venta ?? o.precio_anunciado)}</td><td>${euros(o.comision)}</td><td>${euros(o.comision_comercial)}</td><td class="izq"><span class="sub">${esc(o.notas || '')}</span></td></tr>`).join('')}
@@ -437,7 +437,7 @@ export function paginaImportar({ ops = null, archivo = '', nombre = '', aviso = 
 <p><a href="?estado=ventas">‹ Ventas</a></p>
 ${aviso ? `<p class="aviso${/^Error/.test(aviso) ? ' mal' : ''}">${esc(aviso)}</p>` : ''}
 ${ops ? '' : `<div class="card"><h2>Importar el Excel de ventas</h2>
-  <p>Sube el Excel (.xlsx). Se leen todas las hojas, también las ocultas: cada tabla con una columna de coche o modelo y otra de precio (y, si las tiene, comisión de Sidonia, comisión del comercial y «VENDIDO»). Las tablas que van debajo de «Encargos…» entran como encargos, y una hoja «Colección Arturo» como coches de Arturo en captación. Antes de importar ves lo que hay. Se puede repetir: lo que ya está se pone al día.</p>
+  <p>Sube el Excel (.xlsx). Se leen todas las hojas, también las ocultas: cada tabla con una columna de coche o modelo y otra de precio (y, si las tiene, comisión de Sidonia, comisión del comercial y «VENDIDO»). Las tablas que van debajo de «Encargos…» entran como encargos; las tasaciones («Precio venta propuesto») no se importan. Antes de importar ves lo que hay. Se puede repetir: lo que ya está se pone al día.</p>
   <form method="post" action="?estado=importar" id="sube"><input type="hidden" name="archivo"><input type="hidden" name="nombre">
     <input type="file" accept=".xlsx" required onchange="const f=this.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{const fo=document.getElementById('sube');fo.archivo.value=String(r.result).split(',')[1];fo.nombre.value=f.name;fo.querySelector('button').disabled=false};r.readAsDataURL(f)">
     <button class="boton" name="accion" value="ver" disabled>Ver qué hay</button></form></div>`}
@@ -467,7 +467,7 @@ export function propietarios(ops, anuncios) {
   }
   for (const a of anuncios) {
     meter(clave(a.email, a.telefono, a.vendedor_nombre), { nombre: a.vendedor_nombre, email: a.email, telefono: a.telefono },
-      { origen: a.vendedor_tipo === 'profesional' ? 'Anuncio (profesional)' : 'Anuncio gratis', titulo: a.titulo, estado: ESTADO_ANUNCIO[a.estado] || a.estado, clase: a.estado === 'publicado' ? 'en_venta' : a.estado === 'vendido' ? 'vendido' : a.estado === 'pendiente' ? 'captacion' : 'retirado', enlace: `?estado=${a.estado === 'rechazado' || a.estado === 'retirado' ? 'cancelados' : a.estado}#a${a.id}`, vendido: a.estado === 'vendido', precio: a.precio, fecha: a.creado });
+      { origen: a.vendedor_tipo === 'profesional' ? 'Anuncio (profesional)' : 'Anuncio gratis', titulo: a.titulo, estado: ESTADO_ANUNCIO[a.estado] || a.estado, clase: a.estado === 'publicado' ? 'en_venta' : a.estado === 'vendido' ? 'vendido' : a.estado === 'pendiente' ? 'pendiente' : 'retirado', enlace: `?estado=${a.estado === 'rechazado' || a.estado === 'retirado' ? 'cancelados' : a.estado}#a${a.id}`, vendido: a.estado === 'vendido', precio: a.precio, fecha: a.creado });
   }
   return [...grupos.values()].map((g) => ({ ...g, tipo: [...g.tipo] })).sort((a, b) => b.ultima.localeCompare(a.ultima));
 }
@@ -497,7 +497,7 @@ ${error ? `<p class="aviso mal">${esc(error)}</p>` : ''}
 
 /* ---------------------------------------------------------------------------- Rutas del panel */
 const ordenar = (ops) => ops.sort((a, b) => {
-  const peso = { en_venta: 0, reservado: 0, captacion: 1, vendido: 2, retirado: 3 };
+  const peso = { en_venta: 0, reservado: 0, vendido: 2, retirado: 3 };
   return (peso[a.estado] ?? 4) - (peso[b.estado] ?? 4) || String(b.fecha_venta || b.fecha_alta || b.creado || '').localeCompare(String(a.fecha_venta || a.fecha_alta || a.creado || '')) || b.id - a.id;
 });
 
@@ -532,7 +532,15 @@ export async function importar(t, nuevas, existentes) {
 export async function rutasOperaciones(req, cfg, deps, html) {
   const estado = req.query.estado || 'ventas';
   const t = tabla(cfg, deps);
-  const leerTodas = async () => ordenar(await t.leer('select=*&order=id.desc&limit=5000'));
+  const leerTodas = async () => {
+    let ops = await t.leer('select=*&order=id.desc&limit=5000');
+    // Captación ya no va en el panel: lo que se importó así (las tasaciones de «Colección Arturo») se borra
+    if (ops.some((o) => o.estado === 'captacion')) {
+      await t.borrar('estado=eq.captacion').catch(() => {});
+      ops = ops.filter((o) => o.estado !== 'captacion');
+    }
+    return ordenar(ops);
+  };
 
   if (estado === 'importar') {
     const b = req.body || {};
@@ -599,6 +607,6 @@ export async function rutasOperaciones(req, cfg, deps, html) {
   }
   try { ops = await leerTodas(); } catch (e) { error = e.message; }
   if (req.query.csv) return { status: 200, headers: { 'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': 'attachment; filename="ventas-sidonia.csv"', 'Cache-Control': 'no-store' }, body: csvOperaciones(ops) };
-  const ver = ['todo', 'en_venta', 'vendido', 'captacion', 'encargo', 'retirado'].includes(req.query.ver) ? req.query.ver : 'todo';
+  const ver = ['todo', 'en_venta', 'vendido', 'encargo', 'retirado'].includes(req.query.ver) ? req.query.ver : 'todo';
   return html(paginaVentas(ops, { ver, aviso, error, tienda: cfg.tienda, tareas: deps.tareas }));
 }
