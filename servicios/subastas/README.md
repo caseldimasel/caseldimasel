@@ -199,6 +199,12 @@ título, precio) y un texto propio. Al dueño le llega un email y un aviso al m�
 la web lo ve en su anuncio. Al editarlo, el panel lo marca «Ya lo ha mejorado» y al equipo le llega un email.
 (Columna anuncios.mejoras: vuelve a ejecutar `sql/circulo.sql`.)
 
+### Ofertas («Hacer una oferta», en todos los anuncios)
+La ficha de la web manda cada oferta a `POST /tienda/api/oferta` (lib/ofertas.mjs). Si el anuncio es de la comunidad,
+le llega directamente al dueño por email (respondiendo, le contesta al comprador; también por WhatsApp) y al móvil si
+tiene la app; al equipo, una copia. Si es de Sidonia, os llega a vosotros. El comprador recibe el resumen. Se guardan
+en la tabla `ofertas` (ejecuta `sql/ofertas.sql`) y se ven en el panel › Ventas › Ofertas.
+
 ### Comunidad: anuncios de pago por meses (panel › Anuncios › Cobros comunidad)
 Hay dos tipos de anuncio: los de **gestión de venta** (Sidonia lo vende y cobra comisión: Ventas) y los de la
 **comunidad** (cada dueño pone el suyo y paga por meses). El primer anuncio de cada persona es gratis un mes; después

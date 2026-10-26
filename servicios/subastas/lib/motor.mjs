@@ -17,6 +17,7 @@
  *   POST api/push/registrar { token, plataforma } → el móvil de la app, para los avisos (ver avisos.mjs)
  *   api/alertas…                 → alertas de búsqueda «Avísame cuando entre uno así» (ver alertas.mjs)
  *   POST api/evento { tipo, … }  → estadísticas de la web: visitas, fichas vistas, contactos, me gusta… (estadisticas.mjs)
+ *   POST api/oferta              → «Hacer una oferta»: al dueño o al equipo, y el resumen al comprador (ofertas.mjs)
  *   pagar?a=&f=                  → pagar un anuncio de la comunidad con Stripe, renovación cada mes (comunidad.mjs)
  */
 import { createHmac, timingSafeEqual } from 'node:crypto';
@@ -25,6 +26,7 @@ import { cuentaFirebase, registrarDispositivo } from './avisos.mjs';
 import { revisarAlertas, rutasAlertas } from './alertas.mjs';
 import { registrarEvento } from './estadisticas.mjs';
 import { revisarComunidad, rutasPago } from './comunidad.mjs';
+import { recibirOferta } from './ofertas.mjs';
 
 export const VERSION = 'pago-y-baja-2026-10-26';
 
@@ -248,7 +250,7 @@ export async function atender(req, cfg, deps) {
   if (req.directo) {
     // Pagar un anuncio de la comunidad (enlace firmado, sin sesión): la página y la vuelta de Stripe
     if (ruta === 'pagar' || ruta === 'pagar/ok') return rutasPago({ ruta, method: req.method, query: req.query || {}, body: req.body || {} }, cfg, deps);
-    if (!/^api\/(anuncio|anuncios|visita|perfil|push|alertas|evento|comunidad)(\/|$)/.test(ruta)) return json(404, { ok: false, error: 'ruta' });
+    if (!/^api\/(anuncio|anuncios|visita|perfil|push|alertas|evento|comunidad|oferta)(\/|$)/.test(ruta)) return json(404, { ok: false, error: 'ruta' });
   } else if (!comprobarProxy(req.query, cfg.secreto)) return json(401, { ok: false, error: 'firma' });
   const cliente = !req.directo && req.query.logged_in_customer_id ? String(req.query.logged_in_customer_id) : clienteFirmado(req.query, cfg.clave);
   // El tema mandó quién es, pero la firma no cuadra: la «Clave del motor» del tema no es la SUBASTAS_CLAVE de Vercel
@@ -291,6 +293,9 @@ export async function atender(req, cfg, deps) {
     if (!cfg.cronSecreto || auth !== `Bearer ${cfg.cronSecreto}`) return json(401, { ok: false, error: 'cron' });
     return json(200, { ok: true, ...(await revisarAlertas(cfg, { fetch: deps.fetch || fetch, gql: deps.gql, alertas: deps.alertas, dispositivos: deps.dispositivos })) });
   }
+  // «Hacer una oferta»: al dueño (comunidad) o al equipo (Sidonia), y el resumen al comprador (ofertas.mjs)
+  if (ruta === 'api/oferta' && req.method === 'POST') return json(200, await recibirOferta(body, cliente, cfg, deps));
+
   // Comunidad: el repaso diario (recordar el pago a quien le caduca y, si se quiere, retirar los caducados)
   if (ruta === 'api/comunidad/revisar') {
     const auth = String((req.headers || {}).authorization || '');

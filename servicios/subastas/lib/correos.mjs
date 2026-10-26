@@ -13,12 +13,13 @@ const TEXTO = "font-family:Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Hel
 const TITULAR = "font-family:Carlito,Calibri,'Helvetica Neue',Arial,sans-serif;text-transform:uppercase;letter-spacing:2px";
 
 /** Envía un email con Resend. Devuelve true si salió, false si no hay Resend configurado; lanza si Resend falla. */
-export async function enviarCorreo(cfg, para, asunto, html, fetchImpl = fetch) {
+/** replyTo: a quién se contesta (por defecto, al equipo; en las ofertas, al comprador) */
+export async function enviarCorreo(cfg, para, asunto, html, fetchImpl = fetch, replyTo = '') {
   if (!cfg.resendKey || !para) return false;
   const r = await fetchImpl('https://api.resend.com/emails', {
     method: 'POST',
     headers: { Authorization: `Bearer ${cfg.resendKey}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ from: cfg.avisosRemitente, to: [para], reply_to: cfg.avisosEquipo?.[0] || undefined, subject: asunto, html }),
+    body: JSON.stringify({ from: cfg.avisosRemitente, to: [para], reply_to: replyTo || cfg.avisosEquipo?.[0] || undefined, subject: asunto, html }),
     signal: AbortSignal.timeout(8000)
   });
   if (!r.ok) throw new Error(`Resend ${r.status}: ${(await r.text().catch(() => '')).slice(0, 200)}`);
@@ -51,7 +52,8 @@ const precio = (a) => (a.precio ? `${Number(a.precio).toLocaleString('es-ES')} �
  * lo vende), dentro de una ventana de navegador de sidonia.es.
  */
 function tarjeta(cfg, a) {
-  const foto = (a.fotos || [])[0] ? urlFoto(cfg, a.fotos[0]) : '';
+  // La portada: la del anuncio de la comunidad o, si es de Sidonia, la que manda la web
+  const foto = a.foto || ((a.fotos || [])[0] ? urlFoto(cfg, a.fotos[0]) : '');
   const enlace = a.producto ? `${cfg.tienda}/products/${a.producto}` : '';
   const pro = a.vendedor_tipo === 'profesional';
   const chip = (t, estilo) => `<span style="display:inline-block;margin:0 0 6px;padding:4px 10px;border-radius:999px;${TEXTO};font-size:12px;line-height:1.4;font-weight:700;${estilo}">${t}</span>`;

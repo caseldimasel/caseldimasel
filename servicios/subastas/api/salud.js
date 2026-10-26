@@ -57,6 +57,8 @@ export default async function handler(req, res) {
       estadisticas: await medir(async () => { await db('sidonia_estadisticas', { p_dias: 1 }); }),
       // Ventas (centro operativo): sql/operaciones.sql
       ventas: await medir(async () => { await tablaAnuncios(cfg, fetch, 'operaciones').leer('select=id&limit=1'); }),
+      // Ofertas de la web: sql/ofertas.sql
+      ofertas: await medir(async () => { await tablaAnuncios(cfg, fetch, 'ofertas').leer('select=id&limit=1'); }),
       // Cobros de la comunidad: sql/comunidad.sql
       cobros: await medir(async () => { await tablaAnuncios(cfg, fetch, 'pagos').leer('select=id&limit=1'); await tablaAnuncios(cfg, fetch).leer('select=caduca&limit=1'); })
     };

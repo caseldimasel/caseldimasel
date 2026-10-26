@@ -17,6 +17,7 @@ import { CABECERA, FAVICON } from './marca.mjs';
 import { esc, shopifyAdmin, tablaAnuncios } from './circulo.mjs';
 import { ESTILO, fmt, n, navPanel } from './estadisticas.mjs';
 import { paginaMeses } from './meses.mjs';
+import { paginaOfertas } from './ofertas.mjs';
 import { leerXlsx } from './xlsx.mjs';
 
 export const ESTADOS_OP = { en_venta: 'En venta', reservado: 'Reservado', vendido: 'Vendido', retirado: 'Retirado' };
@@ -734,6 +735,14 @@ export async function rutasOperaciones(req, cfg, deps, html) {
     let ops = [], error = '';
     try { ops = await t.leer('select=*&limit=5000'); } catch (e) { error = 'Las ventas aún no están: ejecuta sql/operaciones.sql en Supabase › SQL Editor.'; }
     return html(paginaPropietarios(propietarios(ops, []), { error }));
+  }
+
+  // Ofertas de la web: las de Sidonia y las de la comunidad (ofertas.mjs)
+  if (estado === 'ofertas') {
+    let lista = [], error = '';
+    try { lista = await (deps.ofertas || tablaAnuncios(cfg, deps.fetch, 'ofertas')).leer('select=*&order=creado.desc&limit=2000'); } catch (e) { error = 'Las ofertas se apuntan desde que ejecutes sql/ofertas.sql en Supabase › SQL Editor (mientras, os llegan por email).'; }
+    const ver = ['todas', 'sidonia', 'dueno'].includes(req.query.ver) ? req.query.ver : 'todas';
+    return html(paginaOfertas(lista, { ver, error, marco, tienda: cfg.tienda }));
   }
 
   // Por meses: cada mes, su comparación y la comunidad (meses.mjs)

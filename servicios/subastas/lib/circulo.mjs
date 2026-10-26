@@ -892,7 +892,7 @@ export async function atenderPanel(req, cfg, deps) {
   const seccion = req.query.estado || (req.method === 'GET' ? 'ventas' : '');
   // Anuncios › En la web: todos los anuncios de la tienda y su editor (fichas.mjs)
   if (seccion === 'fichas' || seccion === 'ficha') return rutasFichas({ ...req, query: { ...req.query, estado: seccion } }, cfg, deps, html);
-  if (['ventas', 'meses', 'operacion', 'importar', 'duenos', 'enlazar'].includes(seccion)) {
+  if (['ventas', 'meses', 'ofertas', 'operacion', 'importar', 'duenos', 'enlazar'].includes(seccion)) {
     return rutasOperaciones({ ...req, query: { ...req.query, estado: seccion } }, cfg, { ...deps, tareas }, html);
   }
   // Anuncios › Cobros y Clientes › Anunciantes: los anuncios de la comunidad, lo que pagan y lo que llevan gastado (comunidad.mjs)
