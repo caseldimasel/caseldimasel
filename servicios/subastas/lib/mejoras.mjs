@@ -36,7 +36,7 @@ export function correoMejoras(cfg, a, m) {
   return {
     asunto: `Antes de publicar tu anuncio: ${a.titulo}`,
     html: plantilla(cfg, a, {
-      titulo: 'Antes de publicarlo', previa: 'Un par de cosas para que tu anuncio luzca como el resto de Sidonia.',
+      titulo: 'Antes de publicarlo', paso: 'mejoras', conFicha: true, previa: 'Un par de cosas para que tu anuncio luzca como el resto de Sidonia.',
       cuerpo: hola + P('Hemos visto tu anuncio y tiene muy buena pinta. Para que luzca como el resto de Sidonia, antes de publicarlo te pedimos:')
         + lista(listaMejoras(m))
         + P('Puedes editarlo desde aquí: tus fotos y textos siguen guardados. En cuanto lo cambies, lo revisamos.'),
