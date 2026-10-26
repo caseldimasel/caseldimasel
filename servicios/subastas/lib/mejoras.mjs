@@ -5,7 +5,7 @@
  * mejorado» y al equipo le llega un email. Se guarda en anuncios.mejoras (sql/circulo.sql).
  */
 import { esc } from './circulo.mjs';
-import { plantilla } from './correos.mjs';
+import { lista, P, plantilla } from './correos.mjs';
 
 
 export const MEJORAS = {
@@ -32,16 +32,14 @@ export const listaMejoras = (m) => [...(m?.claves || []).filter((k) => MEJORAS[k
 export const pendientes = (m) => Boolean(m && m.pedido && !m.editado);
 
 export function correoMejoras(cfg, a, m) {
-  const p = (t) => `<p style="margin:0 0 14px;font-size:16px;line-height:1.6;color:#3a3833">${t}</p>`;
-  const lista = listaMejoras(m).map(([t, x]) => `<li style="margin:0 0 12px;font-size:15px;line-height:1.55;color:#3a3833"><b style="color:#1b1a18">${esc(t)}.</b> ${esc(x).replace(/\n/g, '<br>')}</li>`).join('');
+  const hola = P(`Hola${a.vendedor_nombre ? ` ${esc(a.vendedor_nombre)}` : ''}:`);
   return {
-    asunto: `Unas mejoras para tu anuncio: ${a.titulo}`,
+    asunto: `Antes de publicar tu anuncio: ${a.titulo}`,
     html: plantilla(cfg, a, {
-      antetitulo: 'Antes de publicarlo',
-      titulo: `${a.vendedor_nombre || 'Hola'}, nos encanta tu anuncio`,
-      cuerpo: p(`Hemos revisado «${esc(a.titulo)}» y queremos que se vea como se merece. Antes de publicarlo, te recomendamos:`)
-        + `<ul style="margin:0 0 16px;padding:14px 16px 2px 34px;border-radius:12px;background:#f6f5f2">${lista}</ul>`
-        + p('Edítalo cuando puedas (tus fotos y textos siguen ahí) y lo revisamos de nuevo enseguida. Si tienes cualquier duda, contesta a este email o escríbenos por WhatsApp.'),
+      titulo: 'Antes de publicarlo', previa: 'Un par de cosas para que tu anuncio luzca como el resto de Sidonia.',
+      cuerpo: hola + P('Hemos visto tu anuncio y tiene muy buena pinta. Para que luzca como el resto de Sidonia, antes de publicarlo te pedimos:')
+        + lista(listaMejoras(m))
+        + P('Puedes editarlo desde aquí: tus fotos y textos siguen guardados. En cuanto lo cambies, lo revisamos.'),
       boton: 'Editar mi anuncio', enlace: `${cfg.tienda}/pages/vende-con-nosotros?view=publicar&anuncio=${Number(a.id)}`
     })
   };

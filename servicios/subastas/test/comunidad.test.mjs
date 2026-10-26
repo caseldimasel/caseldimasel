@@ -237,7 +237,7 @@ test('se renueva solo: aviso antes de cada cobro (una vez), recibo, cobro fallid
   const fin = t + 32 * 86400;
   const factura = (id, extra = {}) => ({ type: 'invoice.paid', data: { object: { id, customer: 'cus_1', amount_paid: 1290, billing_reason: 'subscription_cycle', parent: { subscription_details: { subscription: 'sub_1', metadata: { anuncio: '1' } } }, lines: { data: [{ period: { start: t, end: fin } }] }, ...extra } } });
   assert.equal(await procesarStripe(factura('in_9'), cfg, deps), 'pago');
-  assert.match(enviados.at(-1).subject, /Recibo 12,90 €/);
+  assert.match(enviados.at(-1).subject, /Recibo: Pagoda/);
   assert.match(enviados.at(-1).html, /Gestionar o dar de baja/);
   // y el mes siguiente se vuelve a avisar (es otro cobro)
   assert.equal((await revisarComunidad(cfg, deps, fin * 1000 - 2 * DIA)).avisos, 1);

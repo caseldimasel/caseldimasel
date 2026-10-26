@@ -151,7 +151,7 @@ test('avisos: email al equipo con cada anuncio (si hay Resend) y visitas de clie
   assert.equal(enviados.length, 2, 'al equipo y al dueño');
   assert.match(enviados[0].body.subject, /Nuevo anuncio gratis: Porsche 911 SC 1982/);
   assert.deepEqual(enviados[0].body.to, ['hola@sidonia.es']);
-  assert.match(enviados[1].body.subject, /Hemos recibido tu anuncio: Porsche 911 SC 1982/);
+  assert.match(enviados[1].body.subject, /Tenemos tu anuncio: Porsche 911 SC 1982/);
   assert.deepEqual(enviados[1].body.to, ['e@x.es']);
   enviados.shift();
   const v = await atender({ method: 'POST', ruta: 'api/visita', query: q(), body: { email: 'e@x.es', nombre: 'Enrique' } }, cfgAvisos, { db, fetch: fetchFalso });
@@ -236,12 +236,12 @@ test('panel: editar antes de publicar (textos, ficha, fotos) y emails al dueño'
   const cfgR = { ...cfg, resendKey: 're_x', avisosRemitente: 'Sidonia <hola@sidonia.es>' };
   const r = await atenderPanel({ method: 'POST', query: {}, body: { id: '9', accion: 'rechazar', nota: 'Las fotos tienen poca luz.', avisar: '1' }, headers: auth }, cfgR, { db, fetch: fetchFalso });
   assert.match(r.body, /Email enviado a e@x\.es/);
-  assert.match(enviados[0].subject, /Sobre tu anuncio en Sidonia/);
+  assert.match(enviados[0].subject, /Sobre tu anuncio: Porsche/);
   assert.match(enviados[0].html, /Las fotos tienen poca luz\./);
   const gql = async (query) => (/productCreate/.test(query) ? { productCreate: { product: { id: 'P', handle: 'porsche', variants: { nodes: [] } }, userErrors: [] } } : /publications/.test(query) && !/publishablePublish/.test(query) ? { publications: { nodes: [] } } : {});
   const p = await atenderPanel({ method: 'POST', query: {}, body: { id: '9', accion: 'publicar', avisar: '1' }, headers: auth }, cfgR, { db, gql, fetch: fetchFalso });
   assert.match(p.body, /Email enviado/);
-  assert.match(enviados[1].subject, /¡Enhorabuena!/);
+  assert.match(enviados[1].subject, /Ya está en Sidonia/);
   assert.match(enviados[1].html, /https:\/\/sidonia\.es\/products\/porsche/);
   const sin = await atenderPanel({ method: 'POST', query: {}, body: { id: '9', accion: 'rechazar', nota: 'x', avisar: '1' }, headers: auth }, cfg, { db });
   assert.match(sin.body, /falta RESEND_API_KEY/);
@@ -458,7 +458,7 @@ test('pedir mejoras en vez de rechazar: email con la lista, el dueño lo ve, lo 
   assert.match(r.body, /Mejoras pedidas/);
   assert.deepEqual(filas[0].mejoras.claves, ['portada', 'historia']);
   assert.equal(filas[0].estado, 'pendiente', 'sigue por revisar');
-  const mail = correos.find((c) => /Unas mejoras/.test(c.subject));
+  const mail = correos.find((c) => /Antes de publicar tu anuncio/.test(c.subject));
   assert.match(mail.html, /tres cuartos/);
   assert.match(mail.html, /fotos de su época/);
   assert.match(mail.html, /view=publicar&amp;anuncio=7/);
@@ -479,7 +479,7 @@ test('panel › Herramientas › Emails: vista previa de cada email (con un anun
   const auth = { authorization: 'Basic ' + Buffer.from('a:panel-secreto').toString('base64') };
   const v = await atenderPanel({ method: 'GET', query: { estado: 'correos', ver: 'mejoras', id: '9' }, headers: auth }, cfgE, deps);
   assert.match(v.body, /class="on">Emails/);
-  assert.match(v.body, /Unas mejoras para tu anuncio: BMW M3 E30/);
+  assert.match(v.body, /Antes de publicar tu anuncio: BMW M3 E30/);
   assert.match(v.body, /Cuéntanos del motor/, 'lo que se le pidió de verdad');
   assert.match(v.body, /motor\.test\/admin\?recurso=logo/, 'con el logo');
   const p = await atenderPanel({ method: 'POST', query: { estado: 'correos', ver: 'aviso' }, body: { accion: 'prueba', para: 'yo@sidonia.es' }, headers: auth }, cfgE, deps);

@@ -25,7 +25,7 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { archivarEnShopify, avisarEquipo, esc, shopifyAdmin, tablaAnuncios, urlFoto } from './circulo.mjs';
 import { stripe } from './motor.mjs';
-import { enviarCorreo, plantilla } from './correos.mjs';
+import { datos, enviarCorreo, P, plantilla } from './correos.mjs';
 import { fmt, n } from './estadisticas.mjs';
 import { marco, normal } from './operaciones.mjs';
 
@@ -197,21 +197,20 @@ export async function altaComunidad(cfg, deps, a, ahora = Date.now()) {
   }
 }
 
-/** El email de «renueva tu anuncio» */
+/** El email de «activa tu anuncio» (cuando hay que pagar y aún no tiene la renovación) */
 export function correoRenovar(cfg, a, precio) {
   const caducado = a.caduca && Date.parse(a.caduca) < Date.now();
   const pagar = enlacePago(cfg, a.id);
   const wa = `https://wa.me/${cfg.whatsapp || '34675287095'}?text=${encodeURIComponent(`Hola, quiero renovar mi anuncio «${a.titulo}» en Sidonia`)}`;
-  const p = (t) => `<p style="margin:0 0 14px;font-size:16px;line-height:1.6;color:#3a3833">${t}</p>`;
   return {
-    asunto: caducado ? `Tu anuncio «${a.titulo}» ha caducado` : a.caduca ? `Tu anuncio «${a.titulo}» caduca el ${dia(a.caduca)}` : `Activa tu anuncio «${a.titulo}» en Sidonia`,
+    asunto: caducado ? `Tu anuncio ha caducado: ${a.titulo}` : a.caduca ? `Tu anuncio caduca el ${dia(a.caduca)}: ${a.titulo}` : `Activa tu anuncio: ${a.titulo}`,
     html: plantilla(cfg, a, {
-      antetitulo: 'Tu anuncio en Sidonia',
-      titulo: caducado ? 'Tu anuncio ha caducado' : a.caduca ? `Caduca el ${dia(a.caduca)}` : 'Activa tu anuncio',
-      cuerpo: p(`Hola ${esc(a.vendedor_nombre || '')}:`) + p(`Para que <b>${esc(a.titulo)}</b> siga en Sidonia son <b>${eur(precio)} al mes</b>.`)
-        + (pagar ? p('Paga con tarjeta y se renueva solo cada mes; lo cancelas cuando quieras. Si aún te queda tiempo pagado o gratis, no se cobra nada hasta que se acabe.') + p('Si ya no lo vendes, no hagas nada.')
-          : p('Contesta a este email o escríbenos por WhatsApp y te decimos cómo pagar. Si ya no lo vendes, no hagas nada.')),
-      boton: pagar ? 'Activar la renovación' : 'Renovar por WhatsApp', enlace: pagar || wa
+      titulo: caducado ? 'Tu anuncio ha caducado' : a.caduca ? `Caduca el ${dia(a.caduca)}` : 'Activa tu anuncio', previa: `${eur(precio)} al mes, sin permanencia.`,
+      cuerpo: P(`Hola${a.vendedor_nombre ? ` ${esc(a.vendedor_nombre)}` : ''}:`) + P('Para que tu anuncio siga en Sidonia:')
+        + datos([['Cada mes', eur(precio)], ['Primer cobro', a.caduca && !caducado ? dia(a.caduca) : 'Al activarlo'], ['Permanencia', 'Ninguna']])
+        + (pagar ? P('Se paga con tarjeta y se renueva solo cada mes, hasta que te des de baja. Si ya no lo vendes, no hagas nada.')
+          : P('Responde a este email o escríbenos por WhatsApp y te decimos cómo pagar. Si ya no lo vendes, no hagas nada.')),
+      boton: pagar ? 'Activar mi anuncio' : 'Escribir por WhatsApp', enlace: pagar || wa
     })
   };
 }
@@ -549,24 +548,24 @@ const firmaBuena = (cfg, id, f) => {
 
 /** Los emails al dueño en cada paso: activada, aviso antes del cobro, cobrado, fallido, baja y fin */
 export function correoPago(cfg, a, tipo, { precio = 0, fecha = null } = {}) {
-  const t = `<b>${esc(a.titulo)}</b>`;
   const gestion = enlacePago(cfg, a.id) || cfg.tienda;
   const C = {
-    activada: [`Renovación activada · ${a.titulo}`, 'Renovación activada', [`Tu anuncio ${t} sigue en Sidonia por <b>${eur(precio)} al mes</b>.`,
-      fecha ? `El próximo cobro será el <b>${dia(fecha)}</b> y después cada mes ese mismo día, hasta que te des de baja. Unos días antes de cada cobro te avisamos.` : 'Se cobra cada mes, hasta que te des de baja. Unos días antes de cada cobro te avisamos.',
-      'Puedes darte de baja cuando quieras con el botón de abajo: el anuncio sigue publicado hasta el final del mes pagado y no se te vuelve a cobrar.'], 'Gestionar o dar de baja', gestion],
-    aviso: [`El ${dia(fecha)} se renueva tu anuncio`, `Se renueva el ${dia(fecha)}`, [`El <b>${dia(fecha)}</b> se cobrarán <b>${eur(precio)}</b> para que ${t} siga otro mes en Sidonia.`,
-      'No tienes que hacer nada. Si ya lo has vendido o no quieres seguir, date de baja antes de esa fecha y no se te cobrará.'], 'Dar de baja o cambiar la tarjeta', gestion],
-    cobrado: [`Recibo ${eur(precio)} · ${a.titulo}`, 'Pago recibido', [`Hemos cobrado <b>${eur(precio)}</b>. ${t} sigue publicado hasta el <b>${dia(fecha)}</b>; ese día se renueva otra vez (te avisamos antes).`,
-      'Si quieres darte de baja, hazlo cuando quieras con el botón de abajo.'], 'Gestionar o dar de baja', gestion],
-    fallido: ['No hemos podido cobrar tu anuncio', 'El cobro ha fallado', [`No hemos podido cobrar los <b>${eur(precio)}</b> de ${t}. Lo volvemos a intentar en los próximos días.`,
-      'Para que tu anuncio no deje de verse, revisa o cambia tu tarjeta con el botón de abajo.'], 'Cambiar la tarjeta', gestion],
-    baja: [`Baja confirmada · ${a.titulo}`, 'Te has dado de baja', [`No se te volverá a cobrar. ${t} sigue publicado hasta el <b>${dia(fecha)}</b> y después deja de verse.`,
-      'Si cambias de idea antes de esa fecha, puedes reactivarlo con el botón de abajo.'], 'Reactivar mi anuncio', gestion],
-    fin: ['Tu anuncio ha dejado de publicarse', 'Anuncio finalizado', [`${t} ya no se ve en Sidonia porque su suscripción ha terminado.`, 'Cuando quieras, puedes volver a publicarlo desde sidonia.es.'], 'Ir a Sidonia', cfg.tienda]
+    activada: [`Renovación activada: ${a.titulo}`, 'Renovación activada', `${eur(precio)} al mes, sin permanencia.`,
+      P('Tu anuncio sigue en Sidonia. Así queda:') + datos([['Cada mes', eur(precio)], ['Próximo cobro', fecha ? dia(fecha) : 'Dentro de un mes'], ['Permanencia', 'Ninguna']])
+      + P('Unos días antes de cada cobro te avisamos. Puedes darte de baja cuando quieras: el anuncio sigue hasta el final del mes pagado y no se te vuelve a cobrar.'), 'Gestionar o dar de baja', gestion],
+    aviso: [`El ${dia(fecha)} se renueva tu anuncio`, `Se renueva el ${dia(fecha)}`, `Se cobrarán ${eur(precio)}.`,
+      P(`El <b>${dia(fecha)}</b> se cobrarán <b>${eur(precio)}</b> para que tu anuncio siga otro mes en Sidonia. No tienes que hacer nada.`)
+      + P('Si ya lo has vendido o no quieres seguir, date de baja antes de esa fecha y no se te cobrará.'), 'Dar de baja o cambiar la tarjeta', gestion],
+    cobrado: [`Recibo: ${a.titulo}`, 'Recibo', `Hemos cobrado ${eur(precio)}.`,
+      datos([['Importe', eur(precio)], ['Publicado hasta', dia(fecha)], ['Siguiente cobro', dia(fecha)]]) + P('Te avisaremos unos días antes del siguiente cobro. Puedes darte de baja cuando quieras.'), 'Gestionar o dar de baja', gestion],
+    fallido: ['No hemos podido cobrar tu anuncio', 'No hemos podido cobrar', 'Revisa tu tarjeta para que tu anuncio siga publicado.',
+      P(`No hemos podido cobrar los <b>${eur(precio)}</b> de este mes. Lo volveremos a intentar en los próximos días.`) + P('Para que tu anuncio no deje de verse, revisa o cambia tu tarjeta.'), 'Cambiar la tarjeta', gestion],
+    baja: [`Baja confirmada: ${a.titulo}`, 'Te has dado de baja', 'No se te volverá a cobrar.',
+      P(`No se te volverá a cobrar. Tu anuncio sigue publicado hasta el <b>${dia(fecha)}</b> y después deja de verse.`) + P('Si cambias de idea antes de esa fecha, puedes reactivarlo.'), 'Reactivar mi anuncio', gestion],
+    fin: ['Tu anuncio ya no está publicado', 'Anuncio finalizado', 'Cuando quieras, puedes volver a publicarlo.',
+      P('Tu anuncio ya no se ve en Sidonia porque se ha acabado su suscripción.') + P('Cuando quieras, puedes volver a publicarlo.'), 'Ir a Sidonia', cfg.tienda]
   }[tipo];
-  const p = (x) => `<p style="margin:0 0 14px;font-size:16px;line-height:1.6;color:#3a3833">${x}</p>`;
-  return { asunto: C[0], html: plantilla(cfg, a, { antetitulo: 'Tu anuncio en Sidonia', titulo: C[1], cuerpo: p(`Hola ${esc(a.vendedor_nombre || '')}:`) + C[2].map(p).join(''), boton: C[3], enlace: C[4] }) };
+  return { asunto: C[0], html: plantilla(cfg, a, { titulo: C[1], previa: C[2], cuerpo: P(`Hola${a.vendedor_nombre ? ` ${esc(a.vendedor_nombre)}` : ''}:`) + C[3], boton: C[4], enlace: C[5] }) };
 }
 async function avisarDueno(cfg, deps, a, tipo, datos) {
   if (!a?.email) return false;
