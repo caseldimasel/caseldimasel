@@ -52,7 +52,7 @@ const marco = (titulo, on, cuerpo) => `<!doctype html><html lang="es"><head><met
   tr[data-q] { cursor: pointer; } tr[data-q]:hover td { background: #00000005; }
 </style></head><body>
 <header><h1>SIDONIA · PANEL</h1></header>
-<nav>${navPanel(on)}</nav>
+${navPanel(on)}
 ${cuerpo}
 </body></html>`;
 
@@ -169,6 +169,7 @@ ${errorSql(error)}
   <div class="card"><h2>Lo que busca</h2>${busq}</div>
   <div class="card"><h2>Sus alertas</h2>${alertas}</div>
 </div>
+${(d.compras || []).length ? `<div class="card" style="margin-top:14px"><h2>Lo que nos ha comprado</h2><ul class="hist">${d.compras.map((o) => `<li><time>${o.fecha_venta ? fecha(o.fecha_venta, false) : '—'}</time><span><a href="?estado=operacion&id=${o.id}">${esc(o.titulo)}</a> · ${o.precio_venta ? `${fmt(Math.round(o.precio_venta))} €` : ''}</span></li>`).join('')}</ul></div>` : ''}
 <div class="card" style="margin-top:14px"><h2>Historial</h2>${hist}</div>`);
 }
 

@@ -155,6 +155,22 @@ Para ponerlo en marcha:
    el cron). Sin ella, el repaso no se hace.
 3. La app de Shopify necesita `read_products` (ya lo tiene para publicar).
 
+### El panel (/admin): cómo está organizado
+
+- **Ventas** (la portada): el centro operativo. Cada coche, moto, barco o casa que vende Sidonia, con su propietario,
+  su comprador, precio de salida y de venta, comisión de Sidonia y del comercial, y cuándo se anunció y se vendió.
+  Arriba los números (vendido en total, comisiones, % medio, neto, en venta ahora, días hasta vender, rebaja media,
+  marcas que más vendemos, comerciales) y las tareas pendientes (anuncios y cambios por revisar). **Importar Excel**
+  mete el Excel de ventas (vista previa antes; se puede repetir y pone al día lo que ya estaba). **Enlazar con la
+  tienda** busca la ficha de cada uno, pone la fecha en que se anunció y lo vendido/archivado en la tienda.
+  Código: `lib/operaciones.mjs` (y `lib/xlsx.mjs`, que lee el .xlsx); base de datos: `sql/operaciones.sql`.
+- **Anuncios**: los de los dueños (gratis). Por revisar · Cambios · Aprobados · Publicados · Vendidos · Cancelados
+  (rechazados y retirados). El número rojo dice cuántos hay por revisar.
+- **Clientes**: lo que hace cada cliente con cuenta (y lo que nos ha comprado).
+- **Propietarios**: los dueños de las ventas y de los anuncios, juntos (por email, teléfono o nombre), con sus vehículos.
+- **Web**: las estadísticas de sidonia.es y la app.
+- **Herramientas**: Ubicaciones, Propietario en las fichas y Avisos al móvil.
+
 ### Estadísticas (panel › Estadísticas)
 
 La web apunta, sin datos personales, lo que pasa: visitas (con de dónde vienen: Instagram, Google, WhatsApp…), fichas

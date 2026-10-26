@@ -35,10 +35,29 @@ export async function registrarEvento(db, body, cliente, headers = {}) {
 }
 
 /* ---------------------------------------------------------------------------- La página del panel */
-/** Las pestañas del panel, con la que está abierta marcada */
+/**
+ * Las pestañas del panel: arriba las secciones y, en la sección abierta, sus apartados (con cuántos hay por revisar).
+ *   Ventas (centro operativo) · Anuncios (los de los dueños) · Clientes · Propietarios · Web (estadísticas) · Herramientas
+ */
+export const SECCIONES = [
+  ['ventas', 'Ventas', [['ventas', 'Ventas'], ['importar', 'Importar Excel']], ['operacion']],
+  ['pendiente', 'Anuncios', [['pendiente', 'Por revisar'], ['cambios', 'Cambios'], ['aprobado', 'Aprobados'], ['publicado', 'Publicados'], ['vendido', 'Vendidos'], ['cancelados', 'Cancelados']], ['rechazado', 'retirado']],
+  ['clientes', 'Clientes', [], ['cliente']],
+  ['duenos', 'Propietarios', [], []],
+  ['estadisticas', 'Web', [], ['anuncio']],
+  ['herramientas', 'Herramientas', [['ubicaciones', 'Ubicaciones'], ['propietarios', 'Propietario en las fichas'], ['avisos', 'Avisos al móvil']], []]
+];
+let contadores = {};
+/** Cuántos hay por revisar (para el número rojo de «Anuncios», «Por revisar» y «Cambios») */
+export function ponerContadores(c) { contadores = c || {}; }
+
 export function navPanel(on) {
-  const extra = [['cambios', 'Cambios'], ['propietarios', 'Propietarios'], ['ubicaciones', 'Ubicaciones'], ['clientes', 'Clientes'], ['avisos', 'Avisos']];
-  return [['estadisticas', 'Estadísticas'], ...Object.entries(ESTADOS), ...extra].map(([k, v]) => `<a href="?estado=${k}"${k === on ? ' class="on"' : ''}>${v}</a>`).join('');
+  const seccion = SECCIONES.find(([k, , subs, otros]) => k === on || subs.some(([s]) => s === on) || otros.includes(on)) || SECCIONES[0];
+  const num = (x) => (x ? ` <b class="num">${x}</b>` : '');
+  const arriba = SECCIONES.map(([k, t]) => `<a href="?estado=${k}"${k === seccion[0] ? ' class="on"' : ''}>${t}${k === 'pendiente' ? num((contadores.pendiente || 0) + (contadores.cambios || 0)) : ''}</a>`).join('');
+  const subOn = on === 'rechazado' || on === 'retirado' ? 'cancelados' : on === 'operacion' ? 'ventas' : on;
+  const abajo = seccion[2].length ? `<nav class="sub">${seccion[2].map(([k, t]) => `<a href="?estado=${k}"${k === subOn ? ' class="on"' : ''}>${t}${k === 'pendiente' || k === 'cambios' ? num(contadores[k]) : ''}</a>`).join('')}</nav>` : '';
+  return `<nav class="main">${arriba}</nav>${abajo}`;
 }
 
 /** El estilo de las páginas de Estadísticas y Clientes */
@@ -50,6 +69,9 @@ export const ESTILO = `
   nav { display: flex; gap: 6px; flex-wrap: wrap; margin: 18px 0; }
   nav a { padding: 8px 14px; border: 1px solid #0002; border-radius: 99px; color: inherit; text-decoration: none; font-size: 14px; background: #fff; }
   nav a.on { border-color: #1a1a1a; font-weight: 700; }
+  nav.main a.on { background: #1a1a1a; color: #fff; }
+  nav.sub { margin: -8px 0 18px; gap: 4px; } nav.sub a { border-color: transparent; background: transparent; padding: 6px 12px; } nav.sub a.on { background: #fff; border-color: #0002; }
+  nav .num { display: inline-block; min-width: 18px; margin-left: 4px; padding: 0 5px; border-radius: 99px; background: #d93025; color: #fff; font-size: 11px; line-height: 18px; text-align: center; }
   .per { display: inline-flex; gap: 2px; padding: 3px; border-radius: 99px; background: #0000000d; margin: 0 0 16px; }
   .per a { padding: 6px 14px; border-radius: 99px; color: inherit; text-decoration: none; font-size: 13px; }
   .per a.on { background: #fff; font-weight: 700; box-shadow: 0 1px 3px #0002; }
@@ -172,7 +194,7 @@ export function paginaEstadisticas(datos, { dias = 30, error = '', tienda = 'htt
 <title>Estadísticas · Panel de Sidonia</title><meta name="robots" content="noindex">
 <style>${ESTILO}</style></head><body>
 <header><h1>SIDONIA · PANEL</h1></header>
-<nav>${pestañas}</nav>
+${pestañas}
 <div class="per">${periodos}</div>
 ${error ? `<p class="error">No se han podido leer las estadísticas: ${esc(/eventos|sidonia_estadisticas|function/.test(error) ? 'falta ejecutar sql/estadisticas.sql en Supabase › SQL Editor.' : error)}</p>` : ''}
 <div class="kpis">

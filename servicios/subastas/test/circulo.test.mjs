@@ -127,7 +127,9 @@ test('panel: con contraseña; aprobar publica y marca el anuncio', async () => {
   assert.equal((await atenderPanel({ method: 'GET', query: {}, headers: auth('mala') }, cfg, { db })).status, 401);
   const ok = await atenderPanel({ method: 'GET', query: {}, headers: auth('panel-secreto') }, cfg, { db });
   assert.equal(ok.status, 200);
-  assert.match(ok.body, /SIDONIA · ANUNCIOS DE DUEÑOS/);
+  assert.match(ok.body, /SIDONIA · PANEL/);
+  assert.match(ok.body, /<title>Ventas · Panel de Sidonia/, 'la portada del panel es el centro operativo');
+  assert.match((await atenderPanel({ method: 'GET', query: { estado: 'pendiente' }, headers: auth('panel-secreto') }, cfg, { db })).body, /class="on">Anuncios/);
   const llamadas = [];
   const db2 = async (fn, a) => { llamadas.push([fn, a]); return db(fn); };
   const gql = async (query) => (/productCreate/.test(query) ? { productCreate: { product: { id: 'P', handle: 'porsche', variants: { nodes: [] } }, userErrors: [] } } : /publications/.test(query) && !/publishablePublish/.test(query) ? { publications: { nodes: [] } } : {});

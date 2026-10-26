@@ -24,7 +24,8 @@ import { createHash } from 'node:crypto';
 import { rellenarPropietarios } from './propietarios.mjs';
 import { rellenarUbicaciones } from './ubicaciones.mjs';
 import { avisarCliente, avisarTodos, avisoCambios, avisoPublicado, avisoRechazado } from './avisos.mjs';
-import { paginaEstadisticas } from './estadisticas.mjs';
+import { navPanel, paginaEstadisticas, ponerContadores } from './estadisticas.mjs';
+import { rutasOperaciones } from './operaciones.mjs';
 import { csvClientes, paginaAnuncio, paginaCliente, paginaClientesCrm } from './crm.mjs';
 import { correoCambiosAprobados, correoCambiosRechazados, correoPublicado, correoRechazado, correoRecibido, enviarCorreo } from './correos.mjs';
 
@@ -518,8 +519,7 @@ function formEditar(cfg, a) {
 
 export function paginaPanel(cfg, lista, { estado = 'pendiente', aviso = '' } = {}) {
   const fmt = (n) => (n ? `${Number(n).toLocaleString('es-ES')} €` : 'A consultar');
-  const pestañas = '<a href="?estado=estadisticas">Estadísticas</a>' + Object.entries(ESTADOS).map(([k, v]) => `<a href="?estado=${k}" class="${k === estado ? 'on' : ''}">${v}</a>`).join('')
-    + `<a href="?estado=cambios" class="${estado === 'cambios' ? 'on' : ''}">Cambios</a><a href="?estado=propietarios" class="${estado === 'propietarios' ? 'on' : ''}">Propietarios</a><a href="?estado=ubicaciones" class="${estado === 'ubicaciones' ? 'on' : ''}">Ubicaciones</a><a href="?estado=clientes">Clientes</a><a href="?estado=avisos">Avisos</a>`;
+  const pestañas = navPanel(estado);
   if (estado === 'propietarios') return paginaPanelHtml(pestañas, aviso, paginaPropietarios(cfg, lista));
   if (estado === 'ubicaciones') return paginaPanelHtml(pestañas, aviso, paginaUbicaciones(cfg, lista));
   if (estado === 'cambios') return paginaPanelHtml(pestañas, aviso, lista.map((a) => tarjetaCambios(cfg, a)).join('') || '<p class="vacio">No hay cambios por revisar.</p>');
@@ -627,7 +627,7 @@ function paginaUbicaciones(cfg, informe) {
 
 function paginaPanelHtml(pestañas, aviso, tarjetas) {
   return `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Anuncios de dueños · Panel de Sidonia</title><meta name="robots" content="noindex">
+<title>Panel de Sidonia</title><meta name="robots" content="noindex">
 <style>
   :root { color-scheme: light; font-family: system-ui, -apple-system, Segoe UI, sans-serif; color: #1a1a1a; background: #f6f5f2; }
   body { max-width: 1100px; margin: 0 auto; padding: 24px 16px 80px; }
@@ -636,6 +636,9 @@ function paginaPanelHtml(pestañas, aviso, tarjetas) {
   nav { display: flex; gap: 6px; flex-wrap: wrap; margin: 18px 0; }
   nav a { padding: 8px 14px; border: 1px solid #0002; border-radius: 99px; color: inherit; text-decoration: none; font-size: 14px; background: #fff; }
   nav a.on { border-color: #1a1a1a; font-weight: 700; }
+  nav.main a.on { background: #1a1a1a; color: #fff; }
+  nav.sub { margin: -8px 0 18px; gap: 4px; } nav.sub a { border-color: transparent; background: transparent; padding: 6px 12px; } nav.sub a.on { background: #fff; border-color: #0002; }
+  nav .num { display: inline-block; min-width: 18px; margin-left: 4px; padding: 0 5px; border-radius: 99px; background: #d93025; color: #fff; font-size: 11px; line-height: 18px; text-align: center; }
   .aviso { padding: 12px 16px; border-radius: 12px; background: #e6f4ec; color: #1f7a4d; font-weight: 600; }
   .aviso.mal { background: #fde8ea; color: #a2121f; }
   .a { display: grid; gap: 14px; margin: 18px 0; padding: 16px; border-radius: 18px; background: #fff; box-shadow: 0 1px 2px #0000000d; }
@@ -672,9 +675,9 @@ function paginaPanelHtml(pestañas, aviso, tarjetas) {
   button.si { background: #1a1a1a; color: #fff; } button.no { border-color: #a2121f; color: #a2121f; }
   .vacio { opacity: .6; }
 </style></head><body>
-<header><h1>SIDONIA · ANUNCIOS DE DUEÑOS</h1><span>Panel del equipo</span></header>
+<header><h1>SIDONIA · PANEL</h1><span>Panel del equipo</span></header>
 ${aviso ? `<p class="aviso${aviso.startsWith('Error') ? ' mal' : ''}">${esc(aviso)}</p>` : ''}
-<nav>${pestañas}</nav>
+${pestañas}
 ${tarjetas}
 <script>document.querySelectorAll('form.acc').forEach((f) => f.addEventListener('submit', (e) => { const b = e.submitter; if (b && b.value === 'publicar' && !confirm('¿Aprobar y crear la ficha en Shopify?')) return e.preventDefault(); if (b && b.value === 'rechazar' && !confirm('¿Rechazar este anuncio?')) return e.preventDefault(); if (b && b.value === 'descartar' && !confirm('¿No aprobar estos cambios?')) return e.preventDefault(); if (b) setTimeout(() => { b.disabled = true; b.textContent = 'Un momento…'; }, 0); }));</script>
 </body></html>`;
@@ -686,7 +689,7 @@ export function paginaClientes(datos) {
   const d = datos || {};
   const fecha = (t) => (t ? new Date(t).toLocaleString('es-ES', { timeZone: 'Europe/Madrid', day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' }) : '');
   const filas = (d.lista || []).map((c) => `<tr><td><b>${esc(c.nombre || '—')}</b><br><a href="mailto:${esc(c.email)}">${esc(c.email)}</a></td><td>${fecha(c.primera)}</td><td>${fecha(c.ultima)}</td><td>${Number(c.visitas) || 1}</td></tr>`).join('');
-  const pestañas = '<a href="?estado=estadisticas">Estadísticas</a>' + Object.entries(ESTADOS).map(([k, v]) => `<a href="?estado=${k}">${v}</a>`).join('') + '<a href="?estado=cambios">Cambios</a><a href="?estado=propietarios">Propietarios</a><a href="?estado=ubicaciones">Ubicaciones</a><a href="?estado=clientes" class="on">Clientes</a><a href="?estado=avisos">Avisos</a>';
+  const pestañas = navPanel('clientes');
   return `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Clientes · Panel de Sidonia</title><meta name="robots" content="noindex">
 <style>
@@ -696,14 +699,17 @@ export function paginaClientes(datos) {
   nav { display: flex; gap: 6px; flex-wrap: wrap; margin: 18px 0; }
   nav a { padding: 8px 14px; border: 1px solid #0002; border-radius: 99px; color: inherit; text-decoration: none; font-size: 14px; background: #fff; }
   nav a.on { border-color: #1a1a1a; font-weight: 700; }
+  nav.main a.on { background: #1a1a1a; color: #fff; }
+  nav.sub { margin: -8px 0 18px; gap: 4px; } nav.sub a { border-color: transparent; background: transparent; padding: 6px 12px; } nav.sub a.on { background: #fff; border-color: #0002; }
+  nav .num { display: inline-block; min-width: 18px; margin-left: 4px; padding: 0 5px; border-radius: 99px; background: #d93025; color: #fff; font-size: 11px; line-height: 18px; text-align: center; }
   .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; margin-bottom: 18px; }
   .kpi { padding: 14px 16px; border-radius: 16px; background: #fff; } .kpi b { display: block; font-size: 26px; } .kpi span { font-size: 13px; opacity: .6; }
   table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 16px; overflow: hidden; font-size: 14px; }
   th, td { padding: 10px 12px; border-bottom: 1px solid #0001; text-align: left; vertical-align: top; } th { font-weight: 600; opacity: .6; font-size: 12px; text-transform: uppercase; letter-spacing: .08em; }
   a { color: inherit; } .nota { font-size: 13px; opacity: .6; }
 </style></head><body>
-<header><h1>SIDONIA · ANUNCIOS DE DUEÑOS</h1></header>
-<nav>${pestañas}</nav>
+<header><h1>SIDONIA · PANEL</h1></header>
+${pestañas}
 <div class="kpis">
   <div class="kpi"><b>${Number(d.nuevos_hoy) || 0}</b><span>Nuevos hoy</span></div>
   <div class="kpi"><b>${Number(d.semana) || 0}</b><span>Nuevos esta semana</span></div>
@@ -715,9 +721,18 @@ export function paginaClientes(datos) {
 </body></html>`;
 }
 
+/** Panel › Herramientas: lo que se usa de vez en cuando */
+function paginaHerramientas() {
+  const h = (href, titulo, texto) => `<article class="a"><div class="cuerpo"><h2><a href="${href}" style="color:inherit">${titulo} ›</a></h2><p class="meta">${texto}</p></div></article>`;
+  return h('?estado=ubicaciones', 'Ubicaciones', 'Pone a cada producto de la tienda su provincia (para la tarjeta y el filtro «Localización»), sacada de la descripción.')
+    + h('?estado=propietarios', 'Propietario en las fichas', 'Saca de la historia de cada coche de Sidonia el nombre de su dueño, para enseñarlo en la ficha («Propietario: Carlos»).')
+    + h('?estado=avisos', 'Avisos al móvil', 'Manda una notificación a todos los que tienen la app (un coche nuevo, una bajada de precio…).')
+    + h('?estado=importar', 'Importar Excel de ventas', 'Mete en Ventas el Excel de coches vendidos, con precios y comisiones. Se puede repetir: lo que ya está se pone al día.');
+}
+
 /** Panel › Avisos: mandar un aviso al móvil a todos los que tienen la app (coche nuevo, bajada de precio…) */
 export function paginaAvisos(cfg, aviso = '') {
-  const pestañas = '<a href="?estado=estadisticas">Estadísticas</a>' + Object.entries(ESTADOS).map(([k, v]) => `<a href="?estado=${k}">${v}</a>`).join('') + '<a href="?estado=cambios">Cambios</a><a href="?estado=propietarios">Propietarios</a><a href="?estado=ubicaciones">Ubicaciones</a><a href="?estado=clientes">Clientes</a><a href="?estado=avisos" class="on">Avisos</a>';
+  const pestañas = navPanel('avisos');
   const formulario = `<article class="a"><div class="cuerpo">
     <h2>Aviso a todos los que tienen la app</h2>
     <p class="meta">Les llega como notificación al móvil y, al tocarla, se abre la página del enlace. Úsalo con cabeza: un aviso a la semana como mucho.</p>
@@ -816,6 +831,24 @@ export async function atenderPanel(req, cfg, deps) {
     return { status: 401, headers: { 'WWW-Authenticate': 'Basic realm="Sidonia"', 'Content-Type': 'text/plain; charset=utf-8' }, body: 'Hace falta la contraseña del panel.' };
   }
   const { db } = deps;
+  // Cuántos anuncios hay por revisar: el número rojo de «Anuncios» y la lista de tareas de la portada
+  ponerContadores({});
+  const tareas = [];
+  if (deps.tabla || cfg.supabaseUrl) {
+    try {
+      const filas = await (deps.tabla || tablaAnuncios(cfg, deps.fetch)).leer('select=estado,revision&limit=5000');
+      const c = { pendiente: filas.filter((a) => a.estado === 'pendiente').length, cambios: filas.filter((a) => a.revision).length };
+      ponerContadores(c);
+      if (c.pendiente) tareas.push([`${c.pendiente} ${c.pendiente === 1 ? 'anuncio' : 'anuncios'} por revisar ›`, '?estado=pendiente']);
+      if (c.cambios) tareas.push([`${c.cambios} ${c.cambios === 1 ? 'cambio' : 'cambios'} por revisar ›`, '?estado=cambios']);
+    } catch (e) { console.error(e); }
+  }
+  // La portada del panel es el centro operativo: Ventas, una venta, Importar Excel y Propietarios (operaciones.mjs)
+  const seccion = req.query.estado || (req.method === 'GET' ? 'ventas' : '');
+  if (['ventas', 'operacion', 'importar', 'duenos'].includes(seccion)) {
+    return rutasOperaciones({ ...req, query: { ...req.query, estado: seccion } }, cfg, { ...deps, tareas }, html);
+  }
+  if (seccion === 'herramientas') return html(paginaPanelHtml(navPanel('herramientas'), '', paginaHerramientas()));
   // Clientes (CRM): la lista con lo que hace cada uno, un cliente, o quién está interesado en un anuncio (crm.mjs)
   if (req.query.estado === 'clientes') {
     const dias = [7, 30, 90, 365, 3650].includes(Number(req.query.dias)) ? Number(req.query.dias) : 30;
@@ -831,6 +864,10 @@ export async function atenderPanel(req, cfg, deps) {
   if (req.query.estado === 'cliente' && req.query.id) {
     let d = null, error = '';
     try { d = await db('sidonia_crm_cliente', { p_cliente: String(req.query.id).slice(0, 30) }); } catch (e) { error = String(e.message || e); }
+    // Lo que nos ha comprado (Ventas, por su email)
+    if (d?.cliente?.email && (deps.operaciones || cfg.supabaseUrl)) {
+      try { d.compras = await (deps.operaciones || tablaAnuncios(cfg, deps.fetch, 'operaciones')).leer(`comprador_email=ilike.${encodeURIComponent(d.cliente.email)}&select=id,titulo,precio_venta,fecha_venta`); } catch (e) { d.compras = []; }
+    }
     return html(paginaCliente(d, { tienda: cfg.tienda, error }));
   }
   if (req.query.estado === 'anuncio' && req.query.h) {
@@ -946,7 +983,7 @@ export async function atenderPanel(req, cfg, deps) {
     return html(paginaPanel(cfg, lista, { estado: 'cambios', aviso }));
   }
   let aviso = '';
-  let estado = ESTADOS[req.query.estado] ? req.query.estado : 'pendiente';
+  let estado = ESTADOS[req.query.estado] || req.query.estado === 'cancelados' ? req.query.estado : 'pendiente';
   if (req.method === 'POST') {
     const id = Number(req.body.id);
     const accion = String(req.body.accion || '');
@@ -982,6 +1019,10 @@ export async function atenderPanel(req, cfg, deps) {
       aviso = `Error: ${e.message}`;
     }
   }
-  const lista = await db('sidonia_anuncios_lista', { p_estado: estado });
+  // Cancelados: los rechazados y los retirados juntos
+  const lista = estado === 'cancelados'
+    ? [...(await db('sidonia_anuncios_lista', { p_estado: 'rechazado' }) || []), ...(await db('sidonia_anuncios_lista', { p_estado: 'retirado' }) || [])]
+      .sort((a, b) => String(b.actualizado || b.creado).localeCompare(String(a.actualizado || a.creado)))
+    : await db('sidonia_anuncios_lista', { p_estado: estado });
   return html(paginaPanel(cfg, lista || [], { estado, aviso }));
 }
