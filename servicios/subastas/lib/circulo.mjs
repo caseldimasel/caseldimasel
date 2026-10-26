@@ -29,6 +29,7 @@ import { avisarCliente, avisarTodos, avisoCambios, avisoPublicado, avisoRechazad
 import { navPanel, paginaEstadisticas, ponerContadores } from './estadisticas.mjs';
 import { rutasOperaciones } from './operaciones.mjs';
 import { rutasFichas } from './fichas.mjs';
+import { rutasCorreos } from './plantillas.mjs';
 import { avisoMejoras, cajaMejoras, correoMejoras, CSS_MEJORAS, leerMejoras, listaMejoras, pendientes } from './mejoras.mjs';
 import { altaComunidad, cancelarRenovacion, enlacePago, leerTarifa, precioMes, rutasComunidad } from './comunidad.mjs';
 import { cookieFuera, cookieSesion, intentarEntrar, paginaEntrar, sesionValida } from './acceso.mjs';
@@ -753,6 +754,7 @@ function paginaHerramientas() {
   const h = (href, titulo, texto) => `<article class="a"><div class="cuerpo"><h2><a href="${href}" style="color:inherit">${titulo} ›</a></h2><p class="meta">${texto}</p></div></article>`;
   return h('?estado=ubicaciones', 'Ubicaciones', 'Pone a cada producto de la tienda su provincia (para la tarjeta y el filtro «Localización»), sacada de la descripción.')
     + h('?estado=propietarios', 'Propietario en las fichas', 'Saca de la historia de cada coche de Sidonia el nombre de su dueño, para enseñarlo en la ficha («Propietario: Carlos»).')
+    + h('?estado=correos', 'Emails', 'Cómo se ve cada email que mandamos a los dueños (recibido, mejoras, publicado, pagos…) y mandarte una prueba.')
     + h('?estado=avisos', 'Avisos al móvil', 'Manda una notificación a todos los que tienen la app (un coche nuevo, una bajada de precio…).')
     + h('?salir=1', 'Cerrar sesión', 'Sale del panel en este dispositivo (la próxima vez pedirá el código).')
     + h('?estado=importar', 'Importar Excel de ventas', 'Mete en Ventas el Excel de coches vendidos, con precios y comisiones. Se puede repetir: lo que ya está se pone al día.');
@@ -894,6 +896,8 @@ export async function atenderPanel(req, cfg, deps) {
   }
   // Anuncios › Cobros y Clientes › Anunciantes: los anuncios de la comunidad, lo que pagan y lo que llevan gastado (comunidad.mjs)
   if (['cobros', 'cobrar', 'tarifa', 'anunciantes', 'anunciante'].includes(seccion)) return rutasComunidad({ ...req, query: { ...req.query, estado: seccion } }, cfg, deps, html);
+  // Herramientas › Emails: cómo se ve cada email y mandarse una prueba (plantillas.mjs)
+  if (seccion === 'correos') return rutasCorreos(req, cfg, deps, html);
   if (seccion === 'herramientas') return html(paginaPanelHtml(navPanel('herramientas'), '', paginaHerramientas()));
   // Clientes (CRM): la lista con lo que hace cada uno, un cliente, o quién está interesado en un anuncio (crm.mjs)
   if (req.query.estado === 'clientes') {

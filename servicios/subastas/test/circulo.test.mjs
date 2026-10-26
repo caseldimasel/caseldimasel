@@ -4,6 +4,7 @@ import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { atender, codigoError, config, firmaProxy } from '../lib/motor.mjs';
 import { atenderPanel, leerEdicion, descripcionHtml, metacamposFiltros, permisosSubida, productoShopify, publicarEnShopify, slugVendedor, telefono, validar } from '../lib/circulo.mjs';
+import { recursoPanel } from '../lib/marca.mjs';
 
 const SECRETO = 'secreto-de-la-app';
 const cfg = config({ SHOPIFY_APP_SECRET: SECRETO, SUPABASE_URL: 'https://x.supabase.co', SUPABASE_SERVICE_KEY: 'sb_secret_x', TIENDA_URL: 'https://sidonia.es', SHOPIFY_TIENDA: 'sidonia.myshopify.com', SHOPIFY_CLIENT_ID: 'cid', ADMIN_CLAVE: 'panel-secreto' });
@@ -468,4 +469,22 @@ test('pedir mejoras en vez de rechazar: email con la lista, el dueño lo ve, lo 
   await atender({ method: 'POST', ruta: 'api/anuncio/editar', query: q(), body: { ...bueno(), id: 7 } }, cfgM, deps);
   assert.ok(filas[0].mejoras.editado);
   assert.match((await atenderPanel({ method: 'GET', query: { estado: 'pendiente' }, headers: auth }, cfgM, deps)).body, /Ya lo ha mejorado/);
+});
+
+test('panel › Herramientas › Emails: vista previa de cada email (con un anuncio de verdad) y prueba', async () => {
+  const cfgE = { ...cfg, resendKey: 're_x', servidor: 'https://motor.test', avisosEquipo: ['equipo@sidonia.es'] };
+  const a = { id: 9, tipo: 'coche', titulo: 'BMW M3 E30', vendedor_nombre: 'Javi', email: 'javi@x.es', fotos: [], mejoras: { claves: ['historia'], texto: 'Cuéntanos del motor', pedido: new Date().toISOString() } };
+  const enviados = [];
+  const deps = { db: async () => null, tabla: { leer: async (f) => (/id=eq\.9/.test(f) ? [a] : []) }, fetch: async (u, o) => { enviados.push(JSON.parse(o.body)); return { ok: true, json: async () => ({}) }; } };
+  const auth = { authorization: 'Basic ' + Buffer.from('a:panel-secreto').toString('base64') };
+  const v = await atenderPanel({ method: 'GET', query: { estado: 'correos', ver: 'mejoras', id: '9' }, headers: auth }, cfgE, deps);
+  assert.match(v.body, /class="on">Emails/);
+  assert.match(v.body, /Unas mejoras para tu anuncio: BMW M3 E30/);
+  assert.match(v.body, /Cuéntanos del motor/, 'lo que se le pidió de verdad');
+  assert.match(v.body, /motor\.test\/admin\?recurso=logo/, 'con el logo');
+  const p = await atenderPanel({ method: 'POST', query: { estado: 'correos', ver: 'aviso' }, body: { accion: 'prueba', para: 'yo@sidonia.es' }, headers: auth }, cfgE, deps);
+  assert.match(p.body, /Prueba enviada a yo@sidonia\.es/);
+  assert.deepEqual(enviados[0].to, ['yo@sidonia.es']);
+  assert.match(enviados[0].subject, /^\[Prueba\] El .* se renueva tu anuncio/);
+  assert.equal(recursoPanel('logo').headers['Content-Type'], 'image/png');
 });

@@ -55,7 +55,7 @@ const fecha = (t) => (t ? new Date(t).toLocaleString('es-ES', { timeZone: 'Europ
 export function cajaMejoras(a) {
   const m = a.mejoras;
   const pedido = m?.pedido ? `<div class="mejoras-pedidas${m.editado ? ' hecho' : ''}">
-    <p><b>${m.editado ? `Ya lo ha mejorado (${fecha(m.editado)})` : `Mejoras pedidas el ${fecha(m.pedido)} · aún sin editar`}</b></p>
+    <p><b>${m.editado ? `Ya lo ha mejorado (${fecha(m.editado)})` : `Mejoras pedidas el ${fecha(m.pedido)} · aún sin editar`}</b> · <a href="?estado=correos&ver=mejoras&id=${a.id}">ver el email que le llegó ›</a></p>
     <ul>${listaMejoras(m).map(([t, x]) => `<li><b>${esc(t)}:</b> ${esc(x)}</li>`).join('')}</ul></div>` : '';
   return `${pedido}<details class="editar mejoras"><summary>${m?.pedido ? 'Pedir otras mejoras' : 'Pedir mejoras antes de publicar'}</summary>
     <form method="post">

@@ -46,7 +46,7 @@ export const SECCIONES = [
   ['fichas', 'Anuncios', [['fichas', 'En la web'], ['cobros', 'Cobros comunidad'], ['pendiente', 'Por revisar'], ['cambios', 'Cambios'], ['aprobado', 'Aprobados'], ['publicado', 'Publicados'], ['vendido', 'Vendidos'], ['cancelados', 'Cancelados']], ['ficha', 'rechazado', 'retirado', 'cobrar', 'tarifa']],
   ['clientes', 'Clientes', [['clientes', 'Interesados'], ['anunciantes', 'Anunciantes · comunidad'], ['duenos', 'Propietarios · gestión']], ['cliente', 'anunciante']],
   ['estadisticas', 'Estadísticas web', [], ['anuncio']],
-  ['herramientas', 'Herramientas', [['ubicaciones', 'Ubicaciones'], ['propietarios', 'Propietario en las fichas'], ['avisos', 'Avisos al móvil']], []]
+  ['herramientas', 'Herramientas', [['ubicaciones', 'Ubicaciones'], ['propietarios', 'Propietario en las fichas'], ['avisos', 'Avisos al móvil'], ['correos', 'Emails']], []]
 ];
 let contadores = {};
 /** Cuántos hay por revisar (para el número rojo de «Anuncios», «Por revisar» y «Cambios») */

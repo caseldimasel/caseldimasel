@@ -30,7 +30,7 @@ export function plantilla(cfg, a, { antetitulo, titulo, cuerpo, boton, enlace })
 <body style="margin:0;padding:0;background:#f6f5f2;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;color:#1b1a18">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f6f5f2"><tr><td align="center" style="padding:32px 16px">
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px">
-    <tr><td align="center" style="padding:0 0 24px;font-size:15px;font-weight:700;letter-spacing:.45em;color:#1b1a18">SIDONIA</td></tr>
+    <tr><td align="center" style="padding:0 0 24px;font-size:15px;font-weight:700;letter-spacing:.45em;color:#1b1a18">${cfg.servidor ? `<img src="${esc(cfg.servidor)}/admin?recurso=logo" width="150" alt="SIDONIA" style="display:block;width:150px;height:auto;border:0">` : 'SIDONIA'}</td></tr>
     <tr><td style="background:#ffffff;border-radius:20px;overflow:hidden">
       ${foto ? `<img src="${esc(foto)}" width="560" alt="${esc(a.titulo)}" style="display:block;width:100%;max-width:560px;height:auto;border:0">` : ''}
       <div style="padding:28px 28px 8px">

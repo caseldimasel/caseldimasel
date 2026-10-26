@@ -26,6 +26,8 @@ export function recursoPanel(nombre) {
         .concat({ src: '/admin?recurso=icono-512', sizes: '512x512', type: 'image/png', purpose: 'maskable' })
     }) };
   }
+  // El logo en PNG (para la cabecera de los emails)
+  if (nombre === 'logo') return { status: 200, headers: { 'Content-Type': 'image/png', ...cache }, body: Buffer.from(LOGO.split(',')[1], 'base64') };
   const t = (String(nombre || '').match(/^icono-(180|192|512)$/) || [])[1];
   if (t) return { status: 200, headers: { 'Content-Type': 'image/png', ...cache }, body: Buffer.from(ICONOS[t], 'base64') };
   return { status: 404, headers: { 'Content-Type': 'text/plain; charset=utf-8' }, body: 'No existe' };
