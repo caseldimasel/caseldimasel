@@ -212,7 +212,14 @@ el panel. Crea una suscripción mensual al precio de la tarifa; si le queda tiem
 cuando se acaba. Cada cobro de Stripe llega a `/api/stripe`, se apunta en pagos y alarga el anuncio. Al venderse o
 retirarse, la renovación se cancela sola. Con la renovación activa, el mismo enlace lleva al portal de Stripe (cambiar
 tarjeta o cancelar). Cada día (cron) se recuerda el pago a quien le caduca y, si se pide en la tarifa, se retiran los caducados.
+- Precio: 12,90 € al mes por anuncio (el primero, un mes gratis). Se renueva cada mes el mismo día hasta que se da de
+  baja («Dar de baja» en el enlace de pago, en «Mi perfil › Pago y baja» o en el panel): sigue publicado hasta el final
+  del mes pagado, no se vuelve a cobrar y después se retira solo.
+- Emails al dueño: renovación activada, aviso 3 días antes de cada cobro («el día X se cobran 12,90 €»), recibo, cobro
+  fallido (cambiar la tarjeta), baja confirmada y anuncio finalizado. Un pago doble (dos pestañas) se cancela solo.
 - Vercel: `STRIPE_SECRET_KEY` (ya estaba) y `STRIPE_WEBHOOK_SECRET`.
+- Stripe › Configuración › Facturación › Suscripciones: reintentos de cobro y, si fallan todos, «cancelar la suscripción»
+  (así el anuncio sin pagar se retira solo).
 - Stripe › Desarrolladores › Webhooks: `https://<servidor>/api/stripe` con checkout.session.completed, invoice.paid,
   invoice.payment_failed, customer.subscription.updated y customer.subscription.deleted.
 - Stripe › Configuración › Facturación › Portal de clientes: guardarlo una vez (para cambiar tarjeta o cancelar).

@@ -160,13 +160,14 @@ export async function rutasTienda({ ruta, method, body }, cliente, cfg, deps) {
   if (ruta === 'api/anuncio' && method === 'GET') {
     if (Number(body.id)) {
       const a = await elegido(body.id);
-      return json(200, { ok: true, anuncio: a && { id: a.id, estado: a.estado, tipo: a.tipo, titulo: a.titulo, nota: a.nota, producto: a.producto, creado: a.creado, reservado: Boolean(a.reservado) }, ...(await cuenta()) });
+      return json(200, { ok: true, anuncio: a && { id: a.id, estado: a.estado, tipo: a.tipo, titulo: a.titulo, nota: a.nota, producto: a.producto, creado: a.creado, reservado: Boolean(a.reservado), pago_url: a.estado === 'publicado' ? enlacePago(cfg, a.id) : '' }, ...(await cuenta()) });
     }
     const mio = await db('sidonia_anuncio_mio', { p_cliente: cliente });
     // Si está publicado: si lo tiene marcado como reservado (para sus botones)
     if (mio && mio.estado === 'publicado') {
       try { mio.reservado = Boolean((await (deps.tabla || tablaAnuncios(cfg, deps.fetch)).leer(`id=eq.${Number(mio.id)}&select=reservado`))[0]?.reservado); } catch (e) { /* sin la columna aún */ }
     }
+    if (mio && mio.estado === 'publicado') mio.pago_url = enlacePago(cfg, mio.id);
     return json(200, { ok: true, anuncio: mio, ...(await cuenta()) });
   }
   if (ruta === 'api/anuncios' && method === 'GET') {

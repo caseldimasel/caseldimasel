@@ -7,6 +7,8 @@ import { atender } from '../lib/motor.mjs';
 import { altaComunidad, anunciantes, cancelarRenovacion, enlacePago, estadoCobro, leerFormTarifa, limpiarTarifa, metricas, precioMes, procesarStripe, revisarComunidad, sumarMeses, TARIFA_BASE, verificarStripe } from '../lib/comunidad.mjs';
 
 const DIA = 864e5;
+// Una tarifa por tramos (para probar los tramos; la de serie es 12,90 € por anuncio)
+const TRAMOS = { tramos: [{ desde: 1, precio: 14.9 }, { desde: 2, precio: 12.9 }, { desde: 4, precio: 9.9 }, { desde: 10, precio: 7.9 }], meses_gratis: 1, aviso: 7 };
 const AHORA = Date.parse('2026-10-26T10:00:00Z');
 
 function tablaFalsa(filas = []) {
@@ -28,7 +30,8 @@ function tablaFalsa(filas = []) {
 }
 
 test('tarifa: tramos, precio por anuncio según cuántos tiene, meses', () => {
-  assert.deepEqual([1, 2, 3, 4, 9, 10, 30].map((k) => precioMes(TARIFA_BASE, k)), [14.9, 12.9, 12.9, 9.9, 9.9, 7.9, 7.9]);
+  assert.deepEqual([1, 2, 5, 30].map((k) => precioMes(TARIFA_BASE, k)), [12.9, 12.9, 12.9, 12.9], 'de serie: 12,90 € cada anuncio');
+  assert.deepEqual([1, 2, 3, 4, 9, 10, 30].map((k) => precioMes(TRAMOS, k)), [14.9, 12.9, 12.9, 9.9, 9.9, 7.9, 7.9]);
   const t = limpiarTarifa({ tramos: [{ desde: 3, precio: '5,5' }, { desde: 0, precio: 10 }], meses_gratis: 2, aviso: 99 });
   assert.deepEqual(t, { tramos: [{ desde: 1, precio: 10 }, { desde: 3, precio: 5.5 }], meses_gratis: 2, aviso: 30, retirar: 0 });
   assert.deepEqual(leerFormTarifa({ desde_0: '1', precio_0: '20', desde_1: '5', precio_1: '15', desde_2: '', precio_2: '', meses_gratis: '0', aviso: '5', retirar: '3' }), { tramos: [{ desde: 1, precio: 20 }, { desde: 5, precio: 15 }], meses_gratis: 0, aviso: 5, retirar: 3 });
@@ -47,7 +50,7 @@ test('cómo va cada anuncio y cada anunciante, y lo que entra', () => {
   const anuncios = [a(1, 'ana', ancho(20), { gratis: true }), a(2, 'beto', ancho(20)), a(3, 'beto', null), a(4, 'carla', ancho(-2)), a(5, 'carla', null, { estado: 'vendido' })];
   const pagos = [{ id: 1, cliente: 'ana', anuncio: 1, concepto: 'gratis', importe: 0, fecha: '2026-10-01' }, { id: 2, cliente: 'beto', anuncio: 2, concepto: 'alta', importe: 12.9, fecha: '2026-10-10' },
     { id: 3, cliente: 'carla', anuncio: 4, concepto: 'alta', importe: 14.9, fecha: '2026-09-05' }, { id: 4, cliente: 'beto', anuncio: 2, concepto: 'renovacion', importe: 12.9, fecha: '2026-09-10' }];
-  const l = anunciantes(anuncios, pagos, TARIFA_BASE, AHORA);
+  const l = anunciantes(anuncios, pagos, TRAMOS, AHORA);
   assert.deepEqual(l.map((x) => [x.cliente, x.estado, x.activos, x.precio_mes, x.gastado]), [['beto', 'por_cobrar', 2, 12.9, 25.8], ['carla', 'caducado', 1, 14.9, 14.9], ['ana', 'gratis', 1, 14.9, 0]]);
   const m = metricas(l, pagos, AHORA);
   assert.equal(m.este_mes, 12.9);
@@ -121,14 +124,15 @@ test('Stripe: enlace firmado, página de pago y Checkout con el mes gratis sin c
   assert.equal((await ir('pagar', { a: '9', f: 'x'.repeat(32) })).status, 404, 'firma mala');
   assert.equal((await ir('pagar', { a: '8', f })).status, 404, 'la firma es de otro anuncio');
   const p = await ir('pagar', { a: '9', f });
-  assert.match(p.body, /14,90 €/);
+  assert.match(p.body, /12,90 €/);
   assert.match(p.body, /Hoy no se cobra nada/);
   const c = await ir('pagar', { a: '9', f, ir: '1' });
   assert.equal(c.status, 303);
   assert.equal(c.headers.Location, 'https://checkout.stripe.com/c/x');
   const [, , s] = llamadas[0];
   assert.equal(s.mode, 'subscription');
-  assert.equal(s.line_items[0].price_data.unit_amount, 1490);
+  assert.equal(s.line_items[0].price_data.unit_amount, 1290);
+  assert.match(s.custom_text.submit.message, /hasta que te des de baja/);
   assert.equal(s.line_items[0].price_data.recurring.interval, 'month');
   assert.equal(s.subscription_data.trial_end, Math.floor(Date.parse(caduca) / 1000), 'no se cobra hasta que acaba el mes gratis');
   assert.equal(s.subscription_data.metadata.anuncio, '9');
@@ -137,9 +141,20 @@ test('Stripe: enlace firmado, página de pago y Checkout con el mes gratis sin c
   const ok = await ir('pagar/ok', { a: '9', f, session_id: 'cs_test_1' });
   assert.match(ok.body, /se renueva solo/);
   assert.deepEqual([tabla.filas[0].stripe_suscripcion, tabla.filas[0].stripe_estado], ['sub_1', 'activa']);
-  // Ya activa: cambiar tarjeta o cancelar (portal de Stripe)
-  assert.match((await ir('pagar', { a: '9', f })).body, /Cambiar tarjeta o cancelar/);
+  // Ya activa: dar de baja (al final del mes pagado), reactivar y cambiar la tarjeta
   tabla.filas[0].stripe_cliente = 'cus_1';
+  const activa = (await ir('pagar', { a: '9', f })).body;
+  assert.match(activa, /Renovación activa/);
+  assert.match(activa, /value="baja"><button class="rojo">Dar de baja/);
+  llamadas.length = 0;
+  const baja = (await ir('pagar', { a: '9', f }, 'POST', { accion: 'baja' })).body;
+  assert.deepEqual(llamadas[0], ['POST', 'subscriptions/sub_1', { cancel_at_period_end: 'true' }]);
+  assert.equal(tabla.filas[0].stripe_estado, 'cancela');
+  assert.match(baja, /Dado de baja/);
+  assert.match(baja, /Reactivar la renovación/);
+  await ir('pagar', { a: '9', f }, 'POST', { accion: 'reactivar' });
+  assert.deepEqual(llamadas[1], ['POST', 'subscriptions/sub_1', { cancel_at_period_end: 'false' }]);
+  assert.equal(tabla.filas[0].stripe_estado, 'activa');
   llamadas.length = 0;
   await ir('pagar', { a: '9', f }, 'POST', { accion: 'portal' });
   assert.equal(llamadas[0][1], 'billing_portal/sessions');
@@ -160,7 +175,8 @@ test('Stripe: firma del aviso, factura pagada (una vez), impago y cancelación',
   const cfg = config({ ADMIN_CLAVE: 'p' });
   const tabla = tablaFalsa([{ id: 9, cliente: '77', estado: 'publicado', titulo: 'SEAT 600', vendedor_nombre: 'Luis', email: 'luis@x.es', caduca: new Date(Date.now() - DIA).toISOString(), gratis: true, stripe_suscripcion: 'sub_1', stripe_estado: 'activa' }]);
   const pagos = tablaFalsa([]);
-  const deps = { tabla, pagos, stripe: async () => ({}) };
+  const estados = [];
+  const deps = { tabla, pagos, stripe: async () => ({}), db: async (fn, a) => { estados.push(a); } };
   const fin = Math.floor(Date.now() / 1000) + 30 * 86400;
   const factura = { type: 'invoice.paid', data: { object: { id: 'in_1', number: 'A-1', customer: 'cus_1', amount_paid: 1490, billing_reason: 'subscription_cycle', created: t,
     parent: { subscription_details: { subscription: 'sub_1', metadata: { anuncio: '9' } } }, lines: { data: [{ period: { start: t, end: fin } }] } } } };
@@ -173,7 +189,11 @@ test('Stripe: firma del aviso, factura pagada (una vez), impago y cancelación',
   // Por la suscripción guardada, aunque la factura no traiga los datos (API antigua)
   assert.equal(await procesarStripe({ type: 'invoice.payment_failed', data: { object: { subscription: 'sub_1' } } }, cfg, deps), 'impago');
   assert.equal(tabla.filas[0].stripe_estado, 'impago');
-  assert.equal(await procesarStripe({ type: 'customer.subscription.deleted', data: { object: { id: 'sub_1', status: 'canceled', metadata: { anuncio: '9' } } } }, cfg, deps), 'cancelada');
+  // La que sobra de un pago doble no toca el anuncio
+  assert.equal(await procesarStripe({ type: 'customer.subscription.deleted', data: { object: { id: 'sub_2', status: 'canceled', metadata: { anuncio: '9' } } } }, cfg, deps), 'otra');
+  // Baja al final del mes: se acaba la suscripción y el anuncio se retira solo
+  assert.equal(await procesarStripe({ type: 'customer.subscription.deleted', data: { object: { id: 'sub_1', status: 'canceled', metadata: { anuncio: '9' } } } }, cfg, deps), 'retirado');
+  assert.deepEqual(estados.map((e) => [e.p_id, e.p_estado]), [[9, 'retirado']]);
   assert.equal(await procesarStripe({ type: 'otro.evento', data: { object: {} } }, cfg, deps), 'ignorado');
 });
 
@@ -189,11 +209,53 @@ test('repaso diario: recuerda el pago una vez por semana y retira los caducados 
   const estados = [];
   const deps = { fetch, tabla, pagos: tablaFalsa([]), ajustes: tablaFalsa([{ clave: 'tarifa', valor: { ...TARIFA_BASE, retirar: 14 } }]), db: async (fn, a) => { estados.push([fn, a.p_id, a.p_estado]); } };
   const r = await revisarComunidad(cfg, deps, AHORA);
-  assert.deepEqual(r, { recordados: 1, retirados: 1 });
-  assert.deepEqual(enviados.map((e) => e.to[0]), ['a@x.es']);
-  assert.match(enviados[0].html, /motor\.test\/tienda\/pagar\?a=1&amp;f=/);
+  assert.deepEqual(r, { recordados: 1, retirados: 1, avisos: 1 }, 'el de renovación automática recibe el aviso de cobro');
+  assert.deepEqual(enviados.map((e) => e.to[0]).sort(), ['a@x.es', 'b@x.es']);
+  assert.match(enviados.find((e) => e.to[0] === 'a@x.es').html, /motor\.test\/tienda\/pagar\?a=1&amp;f=/);
   assert.deepEqual(estados, [['sidonia_anuncio_estado', 3, 'retirado']]);
   assert.ok(tabla.filas[0].avisado);
   // Al día siguiente no se le vuelve a mandar
-  assert.deepEqual(await revisarComunidad(cfg, { ...deps, db: async () => {} }, AHORA + DIA), { recordados: 0, retirados: 1 });
+  assert.deepEqual(await revisarComunidad(cfg, { ...deps, db: async () => {} }, AHORA + DIA), { recordados: 0, retirados: 1, avisos: 0 });
+});
+
+test('se renueva solo: aviso antes de cada cobro (una vez), recibo, cobro fallido (un email) y pago doble', async () => {
+  const cfg = config({ ADMIN_CLAVE: 'p', SUBASTAS_CLAVE: 'k', SERVIDOR_URL: 'https://motor.test', RESEND_API_KEY: 're_x' });
+  const enviados = [];
+  const fetch = async (url, o) => { enviados.push(JSON.parse(o.body)); return { ok: true, json: async () => ({}) }; };
+  const caduca = new Date(AHORA + 2 * DIA).toISOString();
+  const tabla = tablaFalsa([{ id: 1, cliente: 'a', estado: 'publicado', titulo: 'Pagoda', vendedor_nombre: 'Ana', email: 'a@x.es', caduca, stripe_suscripcion: 'sub_1', stripe_estado: 'activa' }]);
+  const llamadas = [];
+  const deps = { fetch, tabla, pagos: tablaFalsa([]), ajustes: tablaFalsa([]), db: async () => {}, stripe: async (m, path) => { llamadas.push([m, path]); return {}; } };
+  // 1 · Aviso «se renueva el día X por 12,90 €», solo una vez por cobro
+  assert.deepEqual(await revisarComunidad(cfg, deps, AHORA), { recordados: 0, retirados: 0, avisos: 1 });
+  assert.match(enviados[0].subject, /se renueva tu anuncio/);
+  assert.match(enviados[0].html, /12,90 €/);
+  assert.match(enviados[0].html, /date de baja antes de esa fecha/);
+  assert.deepEqual(await revisarComunidad(cfg, deps, AHORA + DIA / 2), { recordados: 0, retirados: 0, avisos: 0 });
+  // 2 · Stripe cobra: recibo con hasta cuándo y el botón de baja
+  const t = Math.floor(AHORA / 1000);
+  const fin = t + 32 * 86400;
+  const factura = (id, extra = {}) => ({ type: 'invoice.paid', data: { object: { id, customer: 'cus_1', amount_paid: 1290, billing_reason: 'subscription_cycle', parent: { subscription_details: { subscription: 'sub_1', metadata: { anuncio: '1' } } }, lines: { data: [{ period: { start: t, end: fin } }] }, ...extra } } });
+  assert.equal(await procesarStripe(factura('in_9'), cfg, deps), 'pago');
+  assert.match(enviados.at(-1).subject, /Recibo 12,90 €/);
+  assert.match(enviados.at(-1).html, /Gestionar o dar de baja/);
+  // y el mes siguiente se vuelve a avisar (es otro cobro)
+  assert.equal((await revisarComunidad(cfg, deps, fin * 1000 - 2 * DIA)).avisos, 1);
+  // 3 · Cobro fallido: un solo email aunque Stripe reintente
+  const n0 = enviados.length;
+  const fallo = { type: 'invoice.payment_failed', data: { object: { amount_due: 1290, parent: { subscription_details: { subscription: 'sub_1', metadata: { anuncio: '1' } } } } } };
+  await procesarStripe(fallo, cfg, deps);
+  await procesarStripe(fallo, cfg, deps);
+  assert.equal(enviados.length - n0, 1);
+  assert.match(enviados.at(-1).html, /Cambiar la tarjeta/);
+  // 4 · Pago doble (dos pestañas): la segunda suscripción se cancela y su factura no se apunta
+  tabla.filas[0].stripe_estado = 'activa';
+  assert.equal(await procesarStripe({ type: 'checkout.session.completed', data: { object: { mode: 'subscription', subscription: 'sub_2', customer: 'cus_1', metadata: { anuncio: '1' } } } }, cfg, deps), 'duplicada');
+  assert.deepEqual(llamadas.at(-1), ['DELETE', 'subscriptions/sub_2']);
+  assert.equal(tabla.filas[0].stripe_suscripcion, 'sub_1');
+  assert.equal(await procesarStripe(factura('in_10', { parent: { subscription_details: { subscription: 'sub_2', metadata: { anuncio: '1' } } } }), cfg, deps), 'duplicada');
+  // 5 · Baja desde el portal de Stripe: email de confirmación
+  await procesarStripe({ type: 'customer.subscription.updated', data: { object: { id: 'sub_1', status: 'active', cancel_at_period_end: true, current_period_end: fin, metadata: { anuncio: '1' } } } }, cfg, deps);
+  assert.equal(tabla.filas[0].stripe_estado, 'cancela');
+  assert.match(enviados.at(-1).subject, /Baja confirmada/);
 });

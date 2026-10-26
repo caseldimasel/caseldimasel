@@ -29,9 +29,10 @@ import { enviarCorreo, plantilla } from './correos.mjs';
 import { fmt, n } from './estadisticas.mjs';
 import { marco, normal } from './operaciones.mjs';
 
-export const TARIFA_BASE = { tramos: [{ desde: 1, precio: 14.9 }, { desde: 2, precio: 12.9 }, { desde: 4, precio: 9.9 }, { desde: 10, precio: 7.9 }], meses_gratis: 1, aviso: 7, retirar: 0 };
+// 12,90 € al mes por anuncio (el primero, un mes gratis). Se puede cambiar en el panel (Cobros › Tarifa).
+export const TARIFA_BASE = { tramos: [{ desde: 1, precio: 12.9 }], meses_gratis: 1, aviso: 7, retirar: 0 };
 export const METODOS = { bizum: 'Bizum', transferencia: 'Transferencia', tarjeta: 'Tarjeta', efectivo: 'Efectivo', otro: 'Otro', stripe: 'Tarjeta (Stripe)' };
-export const AUTO = { activa: ['Renovación automática activa', 'vendido'], cancela: ['Cancelada: no se renovará', 'reservado'], impago: ['El último cobro ha fallado', 'retirado'], cancelada: ['Renovación cancelada', ''] };
+export const AUTO = { activa: ['Renovación automática activa', 'vendido'], cancela: ['Dado de baja: no se renueva', 'reservado'], impago: ['El último cobro ha fallado', 'retirado'], cancelada: ['Suscripción terminada', ''] };
 const CONCEPTOS = { gratis: 'Mes gratis', alta: 'Alta', renovacion: 'Renovación', otro: 'Otro' };
 // Cómo va cada anuncio: [texto, clase de la píldora]. De peor a mejor (el anunciante lleva el peor de los suyos).
 export const COBRO = { por_cobrar: ['Por cobrar', 'retirado'], caducado: ['Caducado', 'retirado'], pronto: ['Caduca pronto', 'reservado'], al_dia: ['Pagado', 'vendido'], gratis: ['Mes gratis', 'en_venta'], inactivo: ['Sin anuncio activo', ''] };
@@ -308,12 +309,12 @@ function renovacion(cfg, a, x, precio) {
   const falta = !cfg.stripeKey ? 'Falta STRIPE_SECRET_KEY en Vercel.' : !enlace ? 'Falta SUBASTAS_CLAVE en Vercel (firma los enlaces).' : '';
   const wa = enlace && x.telefono ? `https://wa.me/${tel(x.telefono)}?text=${encodeURIComponent(`Hola ${x.nombre || ''}, este es el enlace para pagar tu anuncio «${a.titulo}» en Sidonia (${eur(precio)} al mes, se renueva solo y lo cancelas cuando quieras): ${enlace}`)}` : '';
   return `<form class="op" method="post" action="?estado=cobrar&id=${a.id}"><section class="grupo"><h3>Pago con tarjeta · se renueva solo cada mes</h3>
-  <p style="margin:0">${auto ? `<span class="pill ${auto[1]}">${auto[0]}</span>` : '<span class="pill">Sin activar</span>'} ${a.stripe_estado === 'activa' ? `Stripe cobra ${eur(precio)} cada mes y el anuncio se alarga solo.` : 'Mándale el enlace: paga con tarjeta y, si aún le queda tiempo gratis o pagado, no se le cobra hasta que se acabe.'}</p>
+  <p style="margin:0">${auto ? `<span class="pill ${auto[1]}">${auto[0]}</span>` : '<span class="pill">Sin activar</span>'} ${a.stripe_estado === 'activa' ? `Stripe cobra ${eur(precio)} cada mes (próximo cobro el ${dia(a.caduca)}) y el anuncio se alarga solo.` : a.stripe_estado === 'cancela' ? `No se renueva: sigue publicado hasta el ${dia(a.caduca)} y después se retira solo.` : 'Mándale el enlace: paga con tarjeta y, si aún le queda tiempo gratis o pagado, no se le cobra hasta que se acabe.'}</p>
   ${falta ? `<p class="aviso mal">${falta}</p>` : `<div class="fila"><label class="ancho">Enlace de pago<input readonly value="${esc(enlace)}" onclick="this.select()"></label></div>
   <div class="acc"><button type="button" class="boton claro" onclick="navigator.clipboard.writeText(${esc(JSON.stringify(enlace))}).then(()=>{this.textContent='Copiado ✓'})">Copiar el enlace</button>
     ${wa ? `<a class="boton claro" href="${esc(wa)}" target="_blank" rel="noopener">Mandar por WhatsApp</a>` : ''}
     ${x.email ? '<button class="boton claro" name="accion" value="recordar">Mandar por email</button>' : ''}
-    ${['activa', 'impago'].includes(a.stripe_estado) ? '<button class="boton rojo" name="accion" value="cancelar_auto" onclick="return confirm(\'¿Cancelar la renovación? No se le volverá a cobrar; el anuncio sigue hasta que caduque.\')">Cancelar la renovación</button>' : ''}</div>`}
+    ${['activa', 'impago'].includes(a.stripe_estado) ? '<button class="boton rojo" name="accion" value="cancelar_auto" onclick="return confirm(\'¿Darle de baja? No se le volverá a cobrar; el anuncio sigue hasta el final del mes pagado y después se retira solo.\')">Dar de baja</button>' : ''}</div>`}
 </section></form>`;
 }
 
@@ -499,7 +500,10 @@ export async function rutasComunidad(req, cfg, deps, html) {
           if (ok) await tA.cambiar(a.id, { avisado: new Date().toISOString() });
           av = ok ? `Email enviado a ${a.email}${enlacePago(cfg, a.id) ? ', con el enlace de pago' : ''}.` : 'Error: no se ha enviado: falta RESEND_API_KEY en Vercel.';
         } else if (b.accion === 'cancelar_auto') {
-          av = (await cancelarRenovacion(cfg, deps, a.id)) ? 'Renovación cancelada: no se le volverá a cobrar. El anuncio sigue hasta que caduque.' : 'Error: no se ha podido cancelar en Stripe.';
+          if (await cancelarRenovacion(cfg, deps, a.id)) {
+            const email = await avisarDueno(cfg, deps, a, 'baja', { fecha: a.caduca });
+            av = `Dado de baja: no se le volverá a cobrar y el anuncio sigue hasta el ${dia(a.caduca)} (después se retira solo).${email ? ' Le hemos mandado la confirmación por email.' : ''}`;
+          } else av = 'Error: no se ha podido dar de baja en Stripe.';
         } else if (b.accion === 'retirar') {
           const archivado = await retirarCaducado(cfg, deps, a);
           av = `Retirado.${a.producto ? (archivado ? ' La ficha de la web está archivada.' : ' Archiva la ficha en Shopify › Productos.') : ''}`;
@@ -525,9 +529,12 @@ export async function rutasComunidad(req, cfg, deps, html) {
   return html(paginaCobros(cfg, lista, pagos, tarifa, { ver, error }));
 }
 
-/* ---------------------------------------------------------------------------- Stripe: pagar y renovar solo */
+/* ---------------------------------------------------------------------------- Stripe: pagar, renovar solo y darse de baja */
 const st = (cfg, deps) => deps.stripe || stripe(cfg, deps.fetch);
 const seg = (t) => Math.floor(Date.parse(t) / 1000);
+const VIVA = ['activa', 'impago', 'cancela'];   // suscripción que aún existe en Stripe
+const susDe = (o) => { const x = o.subscription || o.parent?.subscription_details?.subscription || ''; return typeof x === 'string' ? x : x?.id || ''; };
+const metaDe = (o) => o.subscription_details?.metadata || o.parent?.subscription_details?.metadata || o.lines?.data?.[0]?.metadata || {};
 
 /** La firma del enlace de pago de un anuncio (con SUBASTAS_CLAVE): nadie puede inventarse el de otro */
 export function firmaPago(cfg, id) {
@@ -540,79 +547,150 @@ const firmaBuena = (cfg, id, f) => {
   return Boolean(b) && b.length === x.length && timingSafeEqual(Buffer.from(b), Buffer.from(x));
 };
 
-/** La página que ve el dueño (fuera del tema: clara, como los emails) */
-export function paginaPago({ titulo, texto, boton = '', enlace = '', post = '', foto = '', status = 200 }) {
-  const accion = boton ? (post ? `<form method="post" action="${esc(post)}"><input type="hidden" name="accion" value="portal"><button>${esc(boton)}</button></form>` : `<a class="b" href="${esc(enlace)}">${esc(boton)}</a>`) : '';
+/** Los emails al dueño en cada paso: activada, aviso antes del cobro, cobrado, fallido, baja y fin */
+export function correoPago(cfg, a, tipo, { precio = 0, fecha = null } = {}) {
+  const t = `<b>${esc(a.titulo)}</b>`;
+  const gestion = enlacePago(cfg, a.id) || cfg.tienda;
+  const C = {
+    activada: [`Renovación activada · ${a.titulo}`, 'Renovación activada', [`Tu anuncio ${t} sigue en Sidonia por <b>${eur(precio)} al mes</b>.`,
+      fecha ? `El próximo cobro será el <b>${dia(fecha)}</b> y después cada mes ese mismo día, hasta que te des de baja. Unos días antes de cada cobro te avisamos.` : 'Se cobra cada mes, hasta que te des de baja. Unos días antes de cada cobro te avisamos.',
+      'Puedes darte de baja cuando quieras con el botón de abajo: el anuncio sigue publicado hasta el final del mes pagado y no se te vuelve a cobrar.'], 'Gestionar o dar de baja', gestion],
+    aviso: [`El ${dia(fecha)} se renueva tu anuncio`, `Se renueva el ${dia(fecha)}`, [`El <b>${dia(fecha)}</b> se cobrarán <b>${eur(precio)}</b> para que ${t} siga otro mes en Sidonia.`,
+      'No tienes que hacer nada. Si ya lo has vendido o no quieres seguir, date de baja antes de esa fecha y no se te cobrará.'], 'Dar de baja o cambiar la tarjeta', gestion],
+    cobrado: [`Recibo ${eur(precio)} · ${a.titulo}`, 'Pago recibido', [`Hemos cobrado <b>${eur(precio)}</b>. ${t} sigue publicado hasta el <b>${dia(fecha)}</b>; ese día se renueva otra vez (te avisamos antes).`,
+      'Si quieres darte de baja, hazlo cuando quieras con el botón de abajo.'], 'Gestionar o dar de baja', gestion],
+    fallido: ['No hemos podido cobrar tu anuncio', 'El cobro ha fallado', [`No hemos podido cobrar los <b>${eur(precio)}</b> de ${t}. Lo volvemos a intentar en los próximos días.`,
+      'Para que tu anuncio no deje de verse, revisa o cambia tu tarjeta con el botón de abajo.'], 'Cambiar la tarjeta', gestion],
+    baja: [`Baja confirmada · ${a.titulo}`, 'Te has dado de baja', [`No se te volverá a cobrar. ${t} sigue publicado hasta el <b>${dia(fecha)}</b> y después deja de verse.`,
+      'Si cambias de idea antes de esa fecha, puedes reactivarlo con el botón de abajo.'], 'Reactivar mi anuncio', gestion],
+    fin: ['Tu anuncio ha dejado de publicarse', 'Anuncio finalizado', [`${t} ya no se ve en Sidonia porque su suscripción ha terminado.`, 'Cuando quieras, puedes volver a publicarlo desde sidonia.es.'], 'Ir a Sidonia', cfg.tienda]
+  }[tipo];
+  const p = (x) => `<p style="margin:0 0 14px;font-size:16px;line-height:1.6;color:#3a3833">${x}</p>`;
+  return { asunto: C[0], html: plantilla(cfg, a, { antetitulo: 'Tu anuncio en Sidonia', titulo: C[1], cuerpo: p(`Hola ${esc(a.vendedor_nombre || '')}:`) + C[2].map(p).join(''), boton: C[3], enlace: C[4] }) };
+}
+async function avisarDueno(cfg, deps, a, tipo, datos) {
+  if (!a?.email) return false;
+  const c = correoPago(cfg, a, tipo, datos);
+  return enviarCorreo(cfg, a.email, c.asunto, c.html, deps.fetch).catch((e) => { console.error(e); return false; });
+}
+const precioDe = async (cfg, deps) => precioMes(await leerTarifa(deps.ajustes || tablaAnuncios(cfg, deps.fetch, 'ajustes')), 1);
+
+/** La página que ve el dueño (fuera del tema: clara, como los emails). acciones: botones (HTML) */
+export function paginaPago({ titulo, texto, boton = '', enlace = '', acciones = '', foto = '', status = 200 }) {
+  const accion = acciones || (boton ? `<a class="b" href="${esc(enlace)}">${esc(boton)}</a>` : '');
   return { status, headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' }, body: `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${esc(titulo)} · Sidonia</title><meta name="robots" content="noindex">
 <style>body{margin:0;background:#f6f5f2;color:#1b1a18;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif}
 main{max-width:520px;margin:0 auto;padding:32px 16px}.logo{text-align:center;font-weight:700;letter-spacing:.45em;margin:0 0 24px}
 .c{background:#fff;border-radius:20px;overflow:hidden}.c img{display:block;width:100%;aspect-ratio:4/3;object-fit:cover}.t{padding:26px 24px 28px}
 h1{margin:0 0 14px;font-size:24px;line-height:1.25}p{margin:0 0 12px;font-size:16px;line-height:1.6;color:#3a3833}.precio{font-size:30px;font-weight:800;color:#1b1a18;margin:4px 0 14px}
-.b,button{display:block;width:100%;box-sizing:border-box;margin-top:18px;padding:16px;border:0;border-radius:999px;background:#1b1a18;color:#fff;font:inherit;font-size:16px;font-weight:700;text-align:center;text-decoration:none;cursor:pointer}
+.estado{display:inline-block;margin:0 0 14px;padding:5px 12px;border-radius:999px;font-size:13px;font-weight:700;background:#e7f5ec;color:#1d7a43}.estado.mal{background:#fde8ea;color:#a2121f}.estado.baja{background:#fdf3dc;color:#8a5a00}
+.lista{margin:0 0 14px;padding:0;list-style:none}.lista li{display:flex;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid #eee;font-size:15px}.lista li span{color:#8a857b}
+form{margin:0}.b,button{display:block;width:100%;box-sizing:border-box;margin-top:14px;padding:16px;border:0;border-radius:999px;background:#1b1a18;color:#fff;font:inherit;font-size:16px;font-weight:700;text-align:center;text-decoration:none;cursor:pointer}
+.b.claro,button.claro{background:#fff;color:#1b1a18;border:1px solid #d8d4cc}button.rojo{background:#fff;color:#a2121f;border:1px solid #f0c4c9}
 small{display:block;margin-top:14px;color:#8a857b;font-size:13px;line-height:1.5;text-align:center}</style></head>
 <body><main><p class="logo">SIDONIA</p><div class="c">${foto ? `<img src="${esc(foto)}" alt="">` : ''}<div class="t"><h1>${esc(titulo)}</h1>${texto}${accion}</div></div>
-<small>Pago seguro con Stripe. Sidonia no ve el número de tu tarjeta.</small></main></body></html>` };
+<small>Pago seguro con Stripe. Sidonia no ve el número de tu tarjeta. Sin permanencia: te das de baja cuando quieras.</small></main></body></html>` };
+}
+const boton = (aqui, accion, texto, clase = '', confirmar = '') => `<form method="post" action="${esc(aqui)}"${confirmar ? ` onsubmit="return confirm(${esc(JSON.stringify(confirmar))})"` : ''}><input type="hidden" name="accion" value="${accion}"><button class="${clase}">${esc(texto)}</button></form>`;
+
+/** Dar de baja (al final del mes pagado) o reactivar. Devuelve el estado nuevo. */
+export async function cambiarBaja(cfg, deps, a, baja) {
+  await st(cfg, deps)('POST', `subscriptions/${a.stripe_suscripcion}`, { cancel_at_period_end: baja ? 'true' : 'false' });
+  const estado = baja ? 'cancela' : 'activa';
+  await (deps.tabla || tablaAnuncios(cfg, deps.fetch)).cambiar(a.id, { stripe_estado: estado });
+  return estado;
 }
 
 /** /tienda/pagar y /tienda/pagar/ok */
 export async function rutasPago({ ruta, method, query, body }, cfg, deps) {
   const id = Number(query.a);
-  if (!firmaBuena(cfg, id, query.f)) return paginaPago({ titulo: 'Enlace no válido', texto: '<p>Este enlace de pago no es correcto. Escríbenos y te mandamos uno nuevo.</p>', status: 404 });
+  if (!firmaBuena(cfg, id, query.f)) return paginaPago({ titulo: 'Enlace no válido', texto: '<p>Este enlace no es correcto. Escríbenos y te mandamos uno nuevo.</p>', status: 404 });
   if (!cfg.stripeKey) return paginaPago({ titulo: 'Aún no se puede pagar aquí', texto: '<p>Escríbenos y te decimos cómo pagar tu anuncio.</p>', status: 503 });
   const tA = deps.tabla || tablaAnuncios(cfg, deps.fetch);
-  const [a] = await tA.leer(`id=eq.${id}&select=*`);
+  let [a] = await tA.leer(`id=eq.${id}&select=*`);
   if (!a) return paginaPago({ titulo: 'Anuncio no encontrado', texto: '<p>No encontramos este anuncio.</p>', status: 404 });
   const foto = (a.fotos || [])[0] ? urlFoto(cfg, a.fotos[0]) : '';
   const ver = a.producto ? `${cfg.tienda}/products/${a.producto}` : cfg.tienda;
   const aqui = enlacePago(cfg, id);
+  const precio = await precioDe(cfg, deps);
 
-  // Vuelta de Stripe: se apunta ya la suscripción (el pago lo apunta el aviso de Stripe)
+  // Vuelta de Stripe: se apunta ya la suscripción (el pago y los emails los apuntan los avisos de Stripe)
   if (ruta === 'pagar/ok') {
     const sid = String(query.session_id || '');
     if (/^cs_[A-Za-z0-9_]+$/.test(sid)) {
       try {
         const s = await st(cfg, deps)('GET', `checkout/sessions/${sid}`);
-        if (String(s.metadata?.anuncio) === String(id) && s.status === 'complete' && s.subscription) {
+        const otra = a.stripe_suscripcion && a.stripe_suscripcion !== s.subscription && VIVA.includes(a.stripe_estado);
+        if (String(s.metadata?.anuncio) === String(id) && s.status === 'complete' && s.subscription && !otra) {
           await tA.cambiar(id, { stripe_suscripcion: String(s.subscription), stripe_cliente: String(s.customer || ''), stripe_estado: 'activa' });
         }
       } catch (e) { console.error(e); }
     }
-    return paginaPago({ titulo: '¡Listo! Tu anuncio se renueva solo', foto, texto: `<p><b>${esc(a.titulo)}</b> seguirá en Sidonia: cada mes se cobra solo y te llega el recibo por email.</p><p>Puedes cambiar la tarjeta o cancelarlo cuando quieras desde este mismo enlace.</p>`, boton: 'Ver mi anuncio', enlace: ver });
+    const proximo = a.caduca && Date.parse(a.caduca) > Date.now() ? a.caduca : sumarMeses(Date.now(), 1);
+    return paginaPago({ titulo: '¡Listo! Tu anuncio se renueva solo', foto, texto: `<span class="estado">Renovación activada</span>
+      <ul class="lista"><li>Cada mes<b>${eur(precio)}</b></li><li>Próximo cobro<b>${dia(proximo)}</b></li><li>Permanencia<b>Ninguna</b></li></ul>
+      <p>Te avisamos por email unos días antes de cada cobro. Para darte de baja, vuelve a este mismo enlace (también está en tus emails y en «Mi perfil»).</p>`, boton: 'Ver mi anuncio', enlace: ver });
   }
-  if (!ACTIVOS.includes(a.estado)) return paginaPago({ titulo: 'Este anuncio ya no está activo', foto, texto: `<p><b>${esc(a.titulo)}</b> ya no está publicado (vendido o retirado), así que no hay nada que pagar.</p>`, boton: 'Ir a Sidonia', enlace: cfg.tienda });
+  if (!ACTIVOS.includes(a.estado)) return paginaPago({ titulo: 'Este anuncio ya no está activo', foto, texto: `<p><b>${esc(a.titulo)}</b> ya no está publicado (vendido o retirado): no hay nada que pagar${VIVA.includes(a.stripe_estado) ? ' y no se te volverá a cobrar' : ''}.</p>`, boton: 'Ir a Sidonia', enlace: cfg.tienda });
 
-  // Ya tiene la renovación: cambiar la tarjeta o cancelar (portal de clientes de Stripe)
-  if (a.stripe_suscripcion && ['activa', 'impago', 'cancela'].includes(a.stripe_estado)) {
-    if (method === 'POST' && body.accion === 'portal' && a.stripe_cliente) {
-      const p = await st(cfg, deps)('POST', 'billing_portal/sessions', { customer: a.stripe_cliente, return_url: aqui, locale: 'es' });
-      return { status: 303, headers: { Location: p.url, 'Cache-Control': 'no-store' }, body: '' };
+  // Ya tiene suscripción: dar de baja, reactivar o cambiar la tarjeta
+  if (a.stripe_suscripcion && VIVA.includes(a.stripe_estado)) {
+    let nota = '';
+    if (method === 'POST') {
+      try {
+        if (body.accion === 'portal' && a.stripe_cliente) {
+          const p = await st(cfg, deps)('POST', 'billing_portal/sessions', { customer: a.stripe_cliente, return_url: aqui, locale: 'es' });
+          return { status: 303, headers: { Location: p.url, 'Cache-Control': 'no-store' }, body: '' };
+        }
+        if (body.accion === 'baja' && a.stripe_estado !== 'cancela') {
+          a = { ...a, stripe_estado: await cambiarBaja(cfg, deps, a, true) };
+          await avisarDueno(cfg, deps, a, 'baja', { fecha: a.caduca });
+          await avisarEquipo(cfg, `Baja: ${a.titulo}`, `<p>${esc(a.vendedor_nombre || '')} se ha dado de baja del anuncio #${a.id} «${esc(a.titulo)}». Sigue publicado hasta el ${dia(a.caduca)} y después se retira solo.</p>`, deps.fetch).catch(() => {});
+          nota = '<p><b>Hecho.</b> Te hemos mandado la confirmación por email.</p>';
+        }
+        if (body.accion === 'reactivar' && a.stripe_estado === 'cancela') {
+          a = { ...a, stripe_estado: await cambiarBaja(cfg, deps, a, false) };
+          nota = '<p><b>Hecho.</b> Tu anuncio vuelve a renovarse cada mes.</p>';
+        }
+      } catch (e) {
+        console.error(e);
+        nota = '<p><b>No se ha podido hacer.</b> Vuelve a intentarlo en un momento o escríbenos.</p>';
+      }
     }
-    const txt = a.stripe_estado === 'impago' ? '<p>El último cobro <b>no se ha podido hacer</b>. Cambia la tarjeta para que tu anuncio siga publicado.</p>'
-      : a.stripe_estado === 'cancela' ? `<p>Has cancelado la renovación: el anuncio sigue hasta el <b>${dia(a.caduca)}</b> y no se te volverá a cobrar.</p>`
-        : `<p>La renovación automática está activa: pagado hasta el <b>${dia(a.caduca)}</b>, y cada mes se cobra solo.</p>`;
-    return paginaPago({ titulo: a.titulo, foto, texto: txt, boton: a.stripe_estado === 'impago' ? 'Cambiar la tarjeta' : 'Cambiar tarjeta o cancelar', post: aqui });
+    const filas = `<ul class="lista"><li>Cada mes<b>${eur(precio)}</b></li><li>${a.stripe_estado === 'cancela' ? 'Publicado hasta' : 'Próximo cobro'}<b>${dia(a.caduca)}</b></li></ul>`;
+    const portal = a.stripe_cliente ? boton(aqui, 'portal', 'Cambiar la tarjeta', 'claro') : '';
+    const bajaBtn = boton(aqui, 'baja', 'Dar de baja', 'rojo', `¿Darte de baja? Tu anuncio sigue publicado hasta el ${dia(a.caduca)} y no se te volverá a cobrar.`);
+    if (a.stripe_estado === 'cancela') {
+      return paginaPago({ titulo: a.titulo, foto, texto: `${nota}<span class="estado baja">Dado de baja</span>${filas}<p>No se te volverá a cobrar. El anuncio sigue publicado hasta el <b>${dia(a.caduca)}</b> y después deja de verse.</p>`, acciones: boton(aqui, 'reactivar', 'Reactivar la renovación') });
+    }
+    if (a.stripe_estado === 'impago') {
+      return paginaPago({ titulo: a.titulo, foto, texto: `${nota}<span class="estado mal">El último cobro ha fallado</span>${filas}<p>Cambia la tarjeta para que tu anuncio siga publicado. Lo volvemos a intentar en los próximos días.</p>`, acciones: boton(aqui, 'portal', 'Cambiar la tarjeta') + bajaBtn });
+    }
+    return paginaPago({ titulo: a.titulo, foto, texto: `${nota}<span class="estado">Renovación activa</span>${filas}<p>Se renueva solo cada mes hasta que te des de baja. Te avisamos por email unos días antes de cada cobro. Si te das de baja, sigue publicado hasta el final del mes pagado.</p>`, acciones: portal + bajaBtn });
   }
 
-  // El precio: según cuántos anuncios activos tiene esa persona
-  const suyos = await tA.leer(`cliente=eq.${encodeURIComponent(a.cliente)}&select=id,estado,stripe_cliente`);
-  const tarifa = await leerTarifa(deps.ajustes || tablaAnuncios(cfg, deps.fetch, 'ajustes'));
-  const precio = precioMes(tarifa, suyos.filter((x) => ACTIVOS.includes(x.estado)).length);
-  // Si aún le queda tiempo (mes gratis o pagado), no se cobra hasta entonces (Stripe pide al menos 2 días)
-  const prueba = a.caduca && Date.parse(a.caduca) - Date.now() > 2.1 * DIA ? seg(a.caduca) : null;
+  // Si aún le queda tiempo (mes gratis o pagado), no se cobra hasta entonces (Stripe pide al menos 48 h: si queda menos,
+  // se le regala hasta las 48 h, así nunca pierde días)
+  const prueba = a.caduca && Date.parse(a.caduca) > Date.now() ? Math.max(seg(a.caduca), Math.floor(Date.now() / 1000) + 49 * 3600) : null;
   if (!query.ir) {
     return paginaPago({ titulo: a.titulo, foto, texto: `<p>Para que tu anuncio siga en Sidonia:</p><p class="precio">${eur(precio)} <span style="font-size:16px;font-weight:600;color:#8a857b">al mes</span></p>
-      <p>${prueba ? `Hoy no se cobra nada: el primer cobro será el <b>${dia(a.caduca)}</b>, cuando se acabe lo que ya tienes.` : 'Se cobra hoy el primer mes.'} Después se renueva solo cada mes y lo cancelas cuando quieras.</p>`,
+      <ul class="lista"><li>Primer cobro<b>${prueba ? dia(prueba * 1000) : 'Hoy'}</b></li><li>Después<b>Cada mes ese día</b></li><li>Permanencia<b>Ninguna</b></li></ul>
+      <p>${prueba ? 'Hoy no se cobra nada: el primer cobro es cuando se acaba lo que ya tienes. ' : ''}Se renueva solo cada mes hasta que te des de baja, con un botón y sin llamadas. Te avisamos por email antes de cada cobro.</p>`,
     boton: prueba ? 'Activar con tarjeta' : 'Pagar con tarjeta', enlace: `${aqui}&ir=1` });
   }
+  const suyos = await tA.leer(`cliente=eq.${encodeURIComponent(a.cliente)}&select=id,stripe_cliente`);
   const yaCliente = (suyos.find((x) => x.stripe_cliente) || {}).stripe_cliente;
   const meta = { anuncio: String(id), cliente: String(a.cliente) };
   const s = await st(cfg, deps)('POST', 'checkout/sessions', {
-    mode: 'subscription', locale: 'es', allow_promotion_codes: 'true',
+    mode: 'subscription', locale: 'es',
     ...(yaCliente ? { customer: yaCliente } : a.email ? { customer_email: a.email } : {}),
     line_items: [{ quantity: 1, price_data: { currency: 'eur', unit_amount: Math.round(precio * 100), recurring: { interval: 'month' }, product_data: { name: `Anuncio en Sidonia: ${a.titulo}`.slice(0, 250) } } }],
     subscription_data: { metadata: meta, ...(prueba ? { trial_end: prueba } : {}), description: `Anuncio #${id} en Sidonia` },
     metadata: meta,
+    // La sesión caduca en 1 hora: menos riesgo de pagar dos veces el mismo anuncio con dos pestañas
+    expires_at: Math.floor(Date.now() / 1000) + 3600,
+    custom_text: { submit: { message: `Se renueva cada mes por ${eur(precio)} hasta que te des de baja. Sin permanencia.` } },
     success_url: `${cfg.servidor}/tienda/pagar/ok?a=${id}&f=${firmaPago(cfg, id)}&session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: aqui
   });
@@ -641,27 +719,44 @@ async function anuncioDe(cfg, deps, tA, suscripcion, meta) {
   const s = await st(cfg, deps)('GET', `subscriptions/${suscripcion}`).catch(() => null);
   return Number(s?.metadata?.anuncio) ? (await tA.leer(`id=eq.${Number(s.metadata.anuncio)}&select=*`))[0] || null : null;
 }
+// ¿Es otra suscripción distinta de la que ya tiene el anuncio (un pago doble)?
+const esOtra = (a, sus) => Boolean(sus && a.stripe_suscripcion && a.stripe_suscripcion !== sus && VIVA.includes(a.stripe_estado));
 
-/** Un aviso de Stripe: factura pagada (se apunta y alarga el anuncio), impago, cancelación… Devuelve qué ha hecho. */
+/** Un aviso de Stripe: activada, factura pagada (se apunta y alarga el anuncio), impago, baja, fin. Devuelve qué ha hecho. */
 export async function procesarStripe(ev, cfg, deps) {
   const tA = deps.tabla || tablaAnuncios(cfg, deps.fetch);
   const tP = deps.pagos || tablaAnuncios(cfg, deps.fetch, 'pagos');
   const o = ev?.data?.object || {};
+  const precio = async () => (n(o.amount_due) || n(o.amount_paid) ? n(o.amount_due || o.amount_paid) / 100 : precioDe(cfg, deps));
+
   if (ev.type === 'checkout.session.completed') {
     if (o.mode !== 'subscription' || !Number(o.metadata?.anuncio)) return 'ignorado';
-    await tA.cambiar(Number(o.metadata.anuncio), { stripe_suscripcion: String(o.subscription), stripe_cliente: String(o.customer || ''), stripe_estado: 'activa' });
+    const a = (await tA.leer(`id=eq.${Number(o.metadata.anuncio)}&select=*`))[0];
+    if (!a) return 'sin-anuncio';
+    // Ya tenía otra suscripción viva: esta sobra (dos pestañas, dos pagos). Se cancela y se avisa al equipo para devolverlo.
+    if (esOtra(a, o.subscription)) {
+      await st(cfg, deps)('DELETE', `subscriptions/${o.subscription}`).catch((e) => console.error(e));
+      await avisarEquipo(cfg, `Pago doble cancelado: ${a.titulo}`, `<p>El anuncio #${a.id} ya tenía su suscripción; la nueva (${esc(o.subscription)}) se ha cancelado. Si se llegó a cobrar, devuélvelo en Stripe › Pagos.</p>`, deps.fetch).catch(() => {});
+      return 'duplicada';
+    }
+    await tA.cambiar(a.id, { stripe_suscripcion: String(o.subscription), stripe_cliente: String(o.customer || ''), stripe_estado: 'activa' });
+    const proximo = a.caduca && Date.parse(a.caduca) > Date.now() ? a.caduca : sumarMeses(Date.now(), 1);
+    await avisarDueno(cfg, deps, a, 'activada', { precio: n(o.amount_total) ? n(o.amount_total) / 100 : await precioDe(cfg, deps), fecha: proximo });
+    await avisarEquipo(cfg, `Renovación activada: ${a.titulo}`, `<p>${esc(a.vendedor_nombre || '')} ha activado el pago mensual del anuncio #${a.id} «${esc(a.titulo)}».</p>`, deps.fetch).catch(() => {});
     return 'suscripcion';
   }
+
   if (ev.type === 'invoice.paid' || ev.type === 'invoice.payment_succeeded') {
-    const sus = o.subscription || o.parent?.subscription_details?.subscription || '';
-    const meta = o.subscription_details?.metadata || o.parent?.subscription_details?.metadata || o.lines?.data?.[0]?.metadata || {};
-    const a = await anuncioDe(cfg, deps, tA, typeof sus === 'string' ? sus : sus.id, meta);
+    const sus = susDe(o);
+    const a = await anuncioDe(cfg, deps, tA, sus, metaDe(o));
     if (!a) return 'sin-anuncio';
+    if (esOtra(a, sus)) return 'duplicada';
     const lineas = o.lines?.data || [];
     const fin = Math.max(0, ...lineas.map((l) => n(l.period?.end)));
     const inicio = Math.min(...lineas.map((l) => n(l.period?.start) || Infinity));
     const hasta = fin ? new Date(fin * 1000) : sumarMeses(Date.now(), 1);
-    const cambios = { stripe_estado: 'activa', ...(sus ? { stripe_suscripcion: typeof sus === 'string' ? sus : sus.id } : {}), ...(o.customer ? { stripe_cliente: String(o.customer) } : {}) };
+    const cambios = { ...(sus ? { stripe_suscripcion: sus } : {}), ...(o.customer ? { stripe_cliente: String(o.customer) } : {}) };
+    if (a.stripe_estado !== 'cancela') cambios.stripe_estado = 'activa';
     if (!a.caduca || hasta > new Date(a.caduca)) Object.assign(cambios, { caduca: hasta.toISOString(), gratis: n(o.amount_paid) ? false : a.gratis });
     await tA.cambiar(a.id, cambios);
     // 0 € (el periodo sin cobro hasta que se acaba lo gratis): no es un pago
@@ -674,22 +769,44 @@ export async function procesarStripe(ev, cfg, deps) {
       fecha: new Date(pagado * 1000).toISOString().slice(0, 10), desde: Number.isFinite(inicio) ? new Date(inicio * 1000).toISOString() : null, hasta: hasta.toISOString(),
       nota: `Stripe${o.number ? ` · factura ${o.number}` : ''}`, ref: o.id
     }, 'id');
+    // El recibo (el del alta ya va en «Renovación activada»)
+    if (o.billing_reason !== 'subscription_create') await avisarDueno(cfg, deps, a, 'cobrado', { precio: n(o.amount_paid) / 100, fecha: hasta });
     return 'pago';
   }
+
   if (ev.type === 'invoice.payment_failed') {
-    const sus = o.subscription || o.parent?.subscription_details?.subscription || '';
-    const a = await anuncioDe(cfg, deps, tA, typeof sus === 'string' ? sus : sus.id, o.subscription_details?.metadata || o.parent?.subscription_details?.metadata);
+    const sus = susDe(o);
+    const a = await anuncioDe(cfg, deps, tA, sus, metaDe(o));
     if (!a) return 'sin-anuncio';
-    await tA.cambiar(a.id, { stripe_estado: 'impago' });
-    await avisarEquipo(cfg, `Cobro fallido: ${a.titulo}`, `<p>Stripe no ha podido cobrar el anuncio #${a.id} «${esc(a.titulo)}» de ${esc(a.vendedor_nombre || '')}. Stripe reintenta solo; míralo en el panel › Anuncios › Cobros.</p>`, deps.fetch).catch(() => {});
+    if (esOtra(a, sus)) return 'duplicada';
+    // Stripe reintenta varias veces: el email, solo la primera
+    if (a.stripe_estado !== 'impago') {
+      await tA.cambiar(a.id, { stripe_estado: 'impago' });
+      await avisarDueno(cfg, deps, a, 'fallido', { precio: await precio() });
+      await avisarEquipo(cfg, `Cobro fallido: ${a.titulo}`, `<p>Stripe no ha podido cobrar el anuncio #${a.id} «${esc(a.titulo)}» de ${esc(a.vendedor_nombre || '')}. Le hemos pedido que cambie la tarjeta; Stripe reintenta solo.</p>`, deps.fetch).catch(() => {});
+    }
     return 'impago';
   }
+
   if (ev.type === 'customer.subscription.updated' || ev.type === 'customer.subscription.deleted') {
     const a = await anuncioDe(cfg, deps, tA, o.id, o.metadata);
     if (!a) return 'sin-anuncio';
-    const estado = ev.type === 'customer.subscription.deleted' || o.status === 'canceled' ? 'cancelada'
-      : o.cancel_at_period_end || o.cancel_at ? 'cancela' : ['past_due', 'unpaid', 'incomplete'].includes(o.status) ? 'impago' : 'activa';
+    if (a.stripe_suscripcion && a.stripe_suscripcion !== o.id) return 'otra';   // la que sobraba de un pago doble
+    const terminada = ev.type === 'customer.subscription.deleted' || o.status === 'canceled';
+    const estado = terminada ? 'cancelada' : o.cancel_at_period_end || o.cancel_at ? 'cancela' : ['past_due', 'unpaid', 'incomplete'].includes(o.status) ? 'impago' : 'activa';
+    if (estado === a.stripe_estado) return estado;
     await tA.cambiar(a.id, { stripe_estado: estado, stripe_suscripcion: o.id });
+    // Baja desde el portal de Stripe (la de nuestro botón ya mandó su email)
+    if (estado === 'cancela') {
+      const fin = n(o.cancel_at) || n(o.current_period_end) || n(o.items?.data?.[0]?.current_period_end);
+      await avisarDueno(cfg, deps, a, 'baja', { fecha: fin ? fin * 1000 : a.caduca });
+    }
+    // Se acabó (baja al final del mes o impago sin arreglar): el anuncio deja de verse
+    if (terminada && ACTIVOS.includes(a.estado)) {
+      await retirarCaducado(cfg, { ...deps, tabla: tA }, { ...a, stripe_estado: 'cancelada' }, 'Fin de la suscripción').catch((e) => console.error(e));
+      await avisarDueno(cfg, deps, a, 'fin');
+      return 'retirado';
+    }
     return estado;
   }
   return 'ignorado';
@@ -711,26 +828,49 @@ export async function cancelarRenovacion(cfg, deps, id) {
   }
 }
 
-/** Retira un anuncio que no se ha pagado: fuera de la web (ficha archivada) y sin renovación. Devuelve si se archivó. */
-export async function retirarCaducado(cfg, deps, a) {
-  await deps.db('sidonia_anuncio_estado', { p_id: a.id, p_estado: 'retirado', p_nota: 'Caducado sin renovar', p_producto: null });
+/** Retira un anuncio: fuera de la web (ficha archivada) y sin renovación. Devuelve si se archivó. */
+export async function retirarCaducado(cfg, deps, a, nota = 'Caducado sin renovar') {
+  await deps.db('sidonia_anuncio_estado', { p_id: a.id, p_estado: 'retirado', p_nota: nota, p_producto: null });
   await cancelarRenovacion(cfg, deps, a.id);
   if (!a.producto || !cfg.shopifyTienda || !cfg.shopifyClientId) return false;
   return archivarEnShopify(a.producto, deps.gql || shopifyAdmin(cfg, deps.fetch)).catch(() => false);
 }
 
-/** El repaso diario: recordar el pago (como mucho una vez por semana) y retirar los caducados si la tarifa lo pide */
+/**
+ * El repaso diario:
+ *  - con renovación activa: el aviso «el día X se renueva por Y €» unos días antes de cada cobro (una vez por cobro)
+ *  - dado de baja y pasado el mes: se retira (por si Stripe no avisó)
+ *  - sin renovación: recordar el pago (como mucho una vez por semana) y, si la tarifa lo pide, retirar los caducados
+ */
+export const DIAS_AVISO_COBRO = 3;
 export async function revisarComunidad(cfg, deps, ahora = Date.now()) {
   const tA = deps.tabla || tablaAnuncios(cfg, deps.fetch);
   const tP = deps.pagos || tablaAnuncios(cfg, deps.fetch, 'pagos');
   const tarifa = await leerTarifa(deps.ajustes || tablaAnuncios(cfg, deps.fetch, 'ajustes'));
   const anuncios = await tA.leer(`estado=in.(${ACTIVOS.join(',')})&select=*`);
   const pagos = await tP.leer('select=id,cliente,anuncio,importe,fecha&limit=10000');
-  let recordados = 0, retirados = 0;
+  let recordados = 0, retirados = 0, avisos = 0;
   for (const x of anunciantes(anuncios, pagos, tarifa, ahora)) {
     for (const a of x.anuncios) {
-      if (['activa', 'cancela'].includes(a.stripe_estado) && a.cobro !== 'caducado') continue;
-      if (a.cobro === 'caducado' && tarifa.retirar && Date.parse(a.caduca) < ahora - tarifa.retirar * DIA) {
+      const caduca = a.caduca ? Date.parse(a.caduca) : 0;
+      if (a.stripe_estado === 'activa') {
+        const ya = a.avisado_renovacion && Date.parse(a.avisado_renovacion) > caduca - 20 * DIA;
+        if (a.email && caduca > ahora && caduca - ahora <= DIAS_AVISO_COBRO * DIA && !ya) {
+          if (await avisarDueno(cfg, deps, a, 'aviso', { precio: a.precio_mes, fecha: a.caduca })) {
+            await tA.cambiar(a.id, { avisado_renovacion: new Date(ahora).toISOString() }).catch((e) => console.error(e));
+            avisos += 1;
+          }
+        }
+        continue;
+      }
+      if (a.stripe_estado === 'cancela') {
+        if (caduca && caduca < ahora - DIA) {
+          await retirarCaducado(cfg, { ...deps, tabla: tA }, a, 'Baja de la suscripción').catch((e) => console.error(e));
+          retirados += 1;
+        }
+        continue;
+      }
+      if (a.cobro === 'caducado' && tarifa.retirar && caduca < ahora - tarifa.retirar * DIA) {
         await retirarCaducado(cfg, { ...deps, tabla: tA }, a).catch((e) => console.error(e));
         retirados += 1;
         continue;
@@ -744,5 +884,5 @@ export async function revisarComunidad(cfg, deps, ahora = Date.now()) {
       }
     }
   }
-  return { recordados, retirados };
+  return { recordados, retirados, avisos };
 }
