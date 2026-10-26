@@ -6,7 +6,7 @@
  * Sin datos personales: un número al azar por navegador y, si ha entrado con su cuenta, su id de cliente.
  * La base de datos: sql/estadisticas.sql (tabla eventos y la función que lo resume todo).
  */
-import { CABECERA, FAVICON } from './marca.mjs';
+import { CABECERA, ESTILO_PANEL, FAVICON } from './marca.mjs';
 import { ESTADOS, esc } from './circulo.mjs';
 
 export const TIPOS = ['visita', 'vista', 'contacto', 'like', 'unlike', 'compartir', 'busqueda', 'alerta', 'oferta'];
@@ -62,51 +62,7 @@ export function navPanel(on) {
 }
 
 /** El estilo de las páginas de Estadísticas y Clientes */
-export const ESTILO = `
-  :root { font-family: system-ui, -apple-system, Segoe UI, sans-serif; color: #1a1a1a; background: #f6f5f2; }
-  body { max-width: 1180px; margin: 0 auto; padding: 24px 16px 80px; }
-  h1 { margin: 0; letter-spacing: .2em; font-size: 18px; }
-  h2 { margin: 0 0 12px; font-size: 17px; }
-  nav { display: flex; gap: 6px; flex-wrap: wrap; margin: 18px 0; }
-  nav a { padding: 8px 14px; border: 1px solid #0002; border-radius: 99px; color: inherit; text-decoration: none; font-size: 14px; background: #fff; }
-  nav a.on { border-color: #1a1a1a; font-weight: 700; }
-  nav.main a.on { background: #1a1a1a; color: #fff; }
-  nav.sub { margin: -8px 0 18px; gap: 4px; } nav.sub a { border-color: transparent; background: transparent; padding: 6px 12px; } nav.sub a.on { background: #fff; border-color: #0002; }
-  nav .num { display: inline-block; min-width: 18px; margin-left: 4px; padding: 0 5px; border-radius: 99px; background: #d93025; color: #fff; font-size: 11px; line-height: 18px; text-align: center; }
-  .per { display: inline-flex; gap: 2px; padding: 3px; border-radius: 99px; background: #0000000d; margin: 0 0 16px; }
-  .per a { padding: 6px 14px; border-radius: 99px; color: inherit; text-decoration: none; font-size: 13px; }
-  .per a.on { background: #fff; font-weight: 700; box-shadow: 0 1px 3px #0002; }
-  .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; margin-bottom: 14px; }
-  .kpi { position: relative; padding: 16px 18px; border-radius: 18px; background: #fff; }
-  .kpi b { display: block; font-size: 30px; letter-spacing: -.02em; }
-  .kpi span { display: block; font-size: 13px; opacity: .65; }
-  .kpi small { display: block; margin-top: 4px; font-size: 11.5px; opacity: .45; }
-  .kpi em { position: absolute; top: 16px; right: 16px; font-style: normal; font-size: 12px; font-weight: 700; opacity: .5; }
-  .kpi em.sube { color: #1f8a4c; opacity: 1; } .kpi em.baja { color: #b3261e; opacity: 1; }
-  .card { padding: 18px 20px; border-radius: 18px; background: #fff; margin-bottom: 14px; }
-  .grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px; }
-  .grid2 .card { margin: 0; }
-  .embudo { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 18px; }
-  .embudo div b { display: block; font-size: 26px; } .embudo div span { font-size: 13px; opacity: .6; }
-  .embudo i { font-style: normal; opacity: .3; font-size: 22px; }
-  .embudo p { flex-basis: 100%; margin: 6px 0 0; font-size: 14px; opacity: .8; }
-  .graf { width: 100%; height: auto; display: block; }
-  .ley { margin: 6px 0 0; font-size: 12px; opacity: .7; display: flex; align-items: center; gap: 6px; }
-  .ley span { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-left: 10px; } .c1 { background: #1a1a1a; } .c2 { background: #1f8a4c; }
-  .bars { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
-  .bars li { display: grid; grid-template-columns: 150px 1fr 56px; align-items: center; gap: 10px; font-size: 14px; }
-  .bb { height: 8px; border-radius: 99px; background: #0000000d; overflow: hidden; } .bb i { display: block; height: 100%; border-radius: 99px; background: #1a1a1a; }
-  .bars b { text-align: right; }
-  .top { margin: 0; padding-left: 20px; display: grid; gap: 6px; font-size: 14px; } .top li b { float: right; }
-  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
-  .chips a { padding: 6px 12px; border-radius: 99px; background: #0000000a; color: inherit; text-decoration: none; font-size: 14px; } .chips b { opacity: .5; margin-left: 4px; }
-  table { width: 100%; border-collapse: collapse; font-size: 14px; }
-  th, td { padding: 9px 10px; border-bottom: 1px solid #0001; text-align: right; vertical-align: top; } th:first-child, td:first-child { text-align: left; }
-  th { font-weight: 600; opacity: .6; font-size: 11.5px; text-transform: uppercase; letter-spacing: .06em; }
-  td small { opacity: .5; } a { color: inherit; }
-  .tabla { overflow-x: auto; }
-  .vacio, .nota { font-size: 13px; opacity: .6; } .error { padding: 12px 16px; border-radius: 12px; background: #fdecea; color: #8a1c13; font-size: 14px; }
-`;
+export const ESTILO = ESTILO_PANEL;
 export const n = (x) => Number(x) || 0;
 export const fmt = (x) => n(x).toLocaleString('es-ES');
 export const pct = (a, b) => (b > 0 ? Math.round((a / b) * 1000) / 10 : 0);
@@ -130,17 +86,17 @@ function grafica(dias) {
     const h = (n(d.visitantes) / max) * (H - pad * 2);
     const x = pad + i * bw + bw * 0.15;
     const fecha = new Date(`${d.dia}T12:00:00Z`).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
-    return `<rect x="${x.toFixed(1)}" y="${(H - pad - h).toFixed(1)}" width="${(bw * 0.7).toFixed(1)}" height="${Math.max(h, 1).toFixed(1)}" rx="3" fill="#1a1a1a" opacity=".85"><title>${fecha}: ${fmt(d.visitantes)} visitantes · ${fmt(d.vistas)} fichas vistas · ${fmt(d.contactos)} contactos</title></rect>`;
+    return `<rect x="${x.toFixed(1)}" y="${(H - pad - h).toFixed(1)}" width="${(bw * 0.7).toFixed(1)}" height="${Math.max(h, 1).toFixed(1)}" rx="3" class="g-bar"><title>${fecha}: ${fmt(d.visitantes)} visitantes · ${fmt(d.vistas)} fichas vistas · ${fmt(d.contactos)} contactos</title></rect>`;
   }).join('');
   const puntos = dias.map((d, i) => `${(pad + i * bw + bw / 2).toFixed(1)},${(H - pad - (n(d.contactos) / maxC) * (H - pad * 2)).toFixed(1)}`).join(' ');
   const primero = new Date(`${dias[0].dia}T12:00:00Z`).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
   const ultimo = new Date(`${dias[dias.length - 1].dia}T12:00:00Z`).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
   return `<svg viewBox="0 0 ${W} ${H}" class="graf" role="img" aria-label="Visitantes y contactos por día">
-    <line x1="${pad}" x2="${W - pad}" y1="${H - pad}" y2="${H - pad}" stroke="#0002"/>
+    <line x1="${pad}" x2="${W - pad}" y1="${H - pad}" y2="${H - pad}" class="g-eje"/>
     ${barras}
-    <polyline points="${puntos}" fill="none" stroke="#1f8a4c" stroke-width="2.5" stroke-linejoin="round"/>
-    <text x="${pad}" y="${H - 4}" font-size="12" fill="#0008">${primero}</text>
-    <text x="${W - pad}" y="${H - 4}" font-size="12" fill="#0008" text-anchor="end">${ultimo}</text>
+    <polyline points="${puntos}" fill="none" class="g-linea" stroke-width="2.5" stroke-linejoin="round"/>
+    <text x="${pad}" y="${H - 4}" font-size="12">${primero}</text>
+    <text x="${W - pad}" y="${H - 4}" font-size="12" text-anchor="end">${ultimo}</text>
   </svg>
   <p class="ley"><span class="c1"></span>Visitantes por día (máx. ${fmt(max)}) <span class="c2"></span>Contactos (máx. ${fmt(maxC)})</p>`;
 }

@@ -127,7 +127,8 @@ test('panel: con contraseña; aprobar publica y marca el anuncio', async () => {
   assert.equal((await atenderPanel({ method: 'GET', query: {}, headers: auth('mala') }, cfg, { db })).status, 401);
   const ok = await atenderPanel({ method: 'GET', query: {}, headers: auth('panel-secreto') }, cfg, { db });
   assert.equal(ok.status, 200);
-  assert.match(ok.body, /<img src="data:image\/png;base64,[^"]+" alt="Sidonia"/, 'el logo arriba');
+  assert.match(ok.body, /<img class="cabeza__logo" src="data:image\/png;base64,[^"]+" alt="Sidonia"/, 'el logo arriba');
+  assert.match(ok.body, /data-tema|sidonia-panel-tema/, 'oscuro / claro');
   assert.match(ok.body, /<link rel="icon" type="image\/png"/, 'la «O» de icono');
   assert.match(ok.body, /<title>Ventas · Panel de Sidonia/, 'la portada del panel es el centro operativo');
   assert.match((await atenderPanel({ method: 'GET', query: { estado: 'pendiente' }, headers: auth('panel-secreto') }, cfg, { db })).body, /class="on">Anuncios/);

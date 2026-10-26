@@ -20,7 +20,7 @@
  *
  * Un anuncio activo gratis por persona (lo garantiza la base de datos: sql/circulo.sql).
  */
-import { CABECERA, FAVICON } from './marca.mjs';
+import { CABECERA, ESTILO_PANEL, FAVICON } from './marca.mjs';
 import { createHash } from 'node:crypto';
 import { rellenarPropietarios } from './propietarios.mjs';
 import { rellenarUbicaciones } from './ubicaciones.mjs';
@@ -629,52 +629,41 @@ function paginaUbicaciones(cfg, informe) {
 function paginaPanelHtml(pestañas, aviso, tarjetas) {
   return `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Panel de Sidonia</title><meta name="robots" content="noindex">${FAVICON}
-<style>
-  :root { color-scheme: light; font-family: system-ui, -apple-system, Segoe UI, sans-serif; color: #1a1a1a; background: #f6f5f2; }
-  body { max-width: 1100px; margin: 0 auto; padding: 24px 16px 80px; }
-  header { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
-  h1 { margin: 0; letter-spacing: .2em; font-size: 18px; }
-  nav { display: flex; gap: 6px; flex-wrap: wrap; margin: 18px 0; }
-  nav a { padding: 8px 14px; border: 1px solid #0002; border-radius: 99px; color: inherit; text-decoration: none; font-size: 14px; background: #fff; }
-  nav a.on { border-color: #1a1a1a; font-weight: 700; }
-  nav.main a.on { background: #1a1a1a; color: #fff; }
-  nav.sub { margin: -8px 0 18px; gap: 4px; } nav.sub a { border-color: transparent; background: transparent; padding: 6px 12px; } nav.sub a.on { background: #fff; border-color: #0002; }
-  nav .num { display: inline-block; min-width: 18px; margin-left: 4px; padding: 0 5px; border-radius: 99px; background: #d93025; color: #fff; font-size: 11px; line-height: 18px; text-align: center; }
-  .aviso { padding: 12px 16px; border-radius: 12px; background: #e6f4ec; color: #1f7a4d; font-weight: 600; }
-  .aviso.mal { background: #fde8ea; color: #a2121f; }
-  .a { display: grid; gap: 14px; margin: 18px 0; padding: 16px; border-radius: 18px; background: #fff; box-shadow: 0 1px 2px #0000000d; }
-  .fotos { display: flex; gap: 8px; overflow-x: auto; }
+<style>${ESTILO_PANEL}
+  /* Anuncios de los dueños */
+  .a { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; margin: 0 0 14px; padding: 16px; border-radius: 16px; background: var(--caja); border: 1px solid var(--linea); box-shadow: var(--sombra); }
+  .cuerpo { min-width: 0; display: grid; gap: 10px; }
+  .fotos { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: thin; }
   .fotos a { position: relative; flex: none; }
   .fotos img { width: 150px; height: 112px; object-fit: cover; border-radius: 10px; display: block; }
-  .fotos b { position: absolute; left: 6px; top: 6px; padding: 2px 8px; border-radius: 99px; background: #fff; font-size: 11px; }
-  h2 { margin: 0; font-size: 20px; } h2 small { font-weight: 400; opacity: .6; font-size: 14px; }
-  .meta, .vend { margin: 0; font-size: 13px; opacity: .75; } .res { margin: 0; }
-  .est { padding: 1px 8px; border-radius: 99px; background: #eee; } .est-pendiente { background: #fff3cd; } .est-publicado { background: #e6f4ec; } .est-rechazado { background: #fde8ea; }
-  details summary { cursor: pointer; font-weight: 600; } details h3 { font-size: 14px; margin: 14px 0 4px; } details p { margin: 0 0 8px; line-height: 1.5; }
-  table { border-collapse: collapse; font-size: 14px; } th { text-align: left; padding: 3px 12px 3px 0; opacity: .6; font-weight: 400; }
-  .nota { color: #a2121f; }
+  .fotos b { position: absolute; left: 6px; top: 6px; padding: 2px 8px; border-radius: 6px; background: var(--verde); color: var(--verde-tinta); font-size: 11px; font-weight: 800; }
+  .a h2 { margin: 0; font-size: 20px; letter-spacing: 0; text-transform: none; color: var(--texto); } .a h2 small { color: var(--flojo); font-size: 14px; }
+  .meta, .vend { margin: 0; font-size: 13px; color: var(--suave); } .res { margin: 0; }
+  .est { padding: 2px 8px; border-radius: 6px; font-weight: 800; background: var(--caja-3); color: var(--suave); }
+  .est-pendiente, .est-aprobado { background: var(--amarillo-fondo); color: var(--amarillo); } .est-publicado { background: var(--azul-fondo); color: var(--azul); }
+  .est-vendido { background: var(--verde-fondo); color: var(--verde); } .est-rechazado, .est-retirado { background: var(--rojo-fondo); color: var(--rojo); }
+  details summary { cursor: pointer; font-weight: 700; } details h3 { font-size: 14px; margin: 14px 0 4px; } details p { margin: 0 0 8px; line-height: 1.55; }
+  .a table { width: auto; font-size: 14px; } .a th { position: static; text-align: left; padding: 3px 12px 3px 0; border: 0; background: none; } .a td { border: 0; padding: 3px 0; text-align: left; white-space: normal; }
+  .a th:first-child, .a td:first-child { min-width: 0; position: static; box-shadow: none; }
+  .nota { color: var(--rojo); }
   .acc { display: flex; gap: 8px; flex-wrap: wrap; }
-  .acc textarea[name=nota] { flex: 1; min-width: 220px; padding: 10px 12px; border: 1px solid #0003; border-radius: 10px; font: inherit; resize: vertical; }
-  .avisar { flex-basis: 100%; font-size: 13px; opacity: .8; display: flex; gap: 6px; align-items: center; }
-  .editar { border: 1px solid #0002; border-radius: 14px; padding: 10px 14px; }
-  .a { grid-template-columns: minmax(0, 1fr); } .cuerpo { min-width: 0; }
-  .diff { width: 100%; font-size: 14px; table-layout: fixed; overflow-wrap: anywhere; } .diff th, .diff td { vertical-align: top; padding: 8px 10px; border-top: 1px solid #0001; text-align: left; }
-  .diff th:first-child { width: 130px; } .diff .antes { background: #fdf0f1; color: #6b1a22; } .diff .ahora { background: #edf7f0; color: #14532d; }
-  .a h3 { font-size: 14px; margin: 12px 0 6px; }
+  .acc textarea[name=nota] { flex: 1; min-width: 220px; resize: vertical; }
+  .avisar { flex-basis: 100%; font-size: 13px; color: var(--suave); display: flex; gap: 6px; align-items: center; }
+  .editar { border: 1px solid var(--linea); border-radius: 12px; padding: 10px 14px; background: var(--caja-2); }
   .editar summary { font-weight: 700; }
   .editar form { display: grid; gap: 12px; margin-top: 12px; }
-  .editar .fila { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); }
-  .editar label { display: grid; gap: 4px; font-size: 13px; font-weight: 600; }
-  .editar input, .editar textarea, .editar select { padding: 9px 11px; border: 1px solid #0003; border-radius: 10px; font: inherit; font-weight: 400; background: #fff; }
+  .editar .fila { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 160px), 1fr)); }
+  .editar label { display: grid; gap: 4px; font-size: 13px; font-weight: 600; color: var(--suave); }
   .editar textarea { resize: vertical; line-height: 1.45; }
   .editar .efotos { display: flex; gap: 8px; flex-wrap: wrap; }
   .editar .efoto { width: 120px; font-weight: 400; font-size: 12px; }
   .editar .efoto img { width: 120px; height: 90px; object-fit: cover; border-radius: 8px; display: block; }
   .editar .efoto span { display: flex; gap: 4px; align-items: center; }
-  .editar small { font-weight: 400; opacity: .6; }
-  button { padding: 10px 16px; border-radius: 99px; border: 1px solid #1a1a1a; background: #fff; font: inherit; font-weight: 700; cursor: pointer; }
-  button.si { background: #1a1a1a; color: #fff; } button.no { border-color: #a2121f; color: #a2121f; }
-  .vacio { opacity: .6; }
+  .editar small { font-weight: 400; color: var(--flojo); }
+  .diff { width: 100% !important; font-size: 14px; table-layout: fixed; overflow-wrap: anywhere; } .diff th, .diff td { vertical-align: top; padding: 8px 10px !important; border-top: 1px solid var(--linea) !important; text-align: left; white-space: normal; }
+  .diff th:first-child { width: 130px; } .diff .antes { background: var(--rojo-fondo); color: var(--rojo); } .diff .ahora { background: var(--verde-fondo); color: var(--verde); }
+  .a h3 { font-size: 14px; margin: 12px 0 6px; }
+  .a .aviso { margin: 0; }
 </style></head><body>
 ${CABECERA}
 ${aviso ? `<p class="aviso${aviso.startsWith('Error') ? ' mal' : ''}">${esc(aviso)}</p>` : ''}
@@ -693,21 +682,8 @@ export function paginaClientes(datos) {
   const pestañas = navPanel('clientes');
   return `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Clientes · Panel de Sidonia</title><meta name="robots" content="noindex">${FAVICON}
-<style>
-  :root { font-family: system-ui, -apple-system, Segoe UI, sans-serif; color: #1a1a1a; background: #f6f5f2; }
-  body { max-width: 1100px; margin: 0 auto; padding: 24px 16px 80px; }
-  h1 { margin: 0; letter-spacing: .2em; font-size: 18px; }
-  nav { display: flex; gap: 6px; flex-wrap: wrap; margin: 18px 0; }
-  nav a { padding: 8px 14px; border: 1px solid #0002; border-radius: 99px; color: inherit; text-decoration: none; font-size: 14px; background: #fff; }
-  nav a.on { border-color: #1a1a1a; font-weight: 700; }
-  nav.main a.on { background: #1a1a1a; color: #fff; }
-  nav.sub { margin: -8px 0 18px; gap: 4px; } nav.sub a { border-color: transparent; background: transparent; padding: 6px 12px; } nav.sub a.on { background: #fff; border-color: #0002; }
-  nav .num { display: inline-block; min-width: 18px; margin-left: 4px; padding: 0 5px; border-radius: 99px; background: #d93025; color: #fff; font-size: 11px; line-height: 18px; text-align: center; }
-  .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; margin-bottom: 18px; }
-  .kpi { padding: 14px 16px; border-radius: 16px; background: #fff; } .kpi b { display: block; font-size: 26px; } .kpi span { font-size: 13px; opacity: .6; }
-  table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 16px; overflow: hidden; font-size: 14px; }
-  th, td { padding: 10px 12px; border-bottom: 1px solid #0001; text-align: left; vertical-align: top; } th { font-weight: 600; opacity: .6; font-size: 12px; text-transform: uppercase; letter-spacing: .08em; }
-  a { color: inherit; } .nota { font-size: 13px; opacity: .6; }
+<style>${ESTILO_PANEL}
+  .tabla table th { position: static; }
 </style></head><body>
 ${CABECERA}
 ${pestañas}
@@ -717,7 +693,7 @@ ${pestañas}
   <div class="kpi"><b>${Number(d.hoy) || 0}</b><span>Han entrado hoy</span></div>
   <div class="kpi"><b>${Number(d.total) || 0}</b><span>Clientes en total</span></div>
 </div>
-<table><thead><tr><th>Cliente</th><th>Primera vez (registro)</th><th>Última vez</th><th>Visitas</th></tr></thead><tbody>${filas || '<tr><td colspan="4">Aún no ha entrado nadie con su cuenta.</td></tr>'}</tbody></table>
+<div class="card"><div class="tabla"><table><thead><tr><th>Cliente</th><th>Primera vez (registro)</th><th>Última vez</th><th>Visitas</th></tr></thead><tbody>${filas || '<tr><td colspan="4">Aún no ha entrado nadie con su cuenta.</td></tr>'}</tbody></table></div></div>
 <p class="nota">Son las personas con cuenta en Sidonia: «Primera vez» es cuando se registraron (o entraron por primera vez con su cuenta), «Última vez» cuando entraron por última vez y «Visitas» cuántas veces han entrado (una por sesión del navegador). Quien entra sin cuenta no sale aquí: eso está en <a href="?estado=estadisticas">Estadísticas</a>. La lista completa de clientes está en Shopify › Clientes.</p>
 </body></html>`;
 }

@@ -36,22 +36,7 @@ export function temperatura(c, ahora = Date.now()) {
 
 const marco = (titulo, on, cuerpo) => `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${esc(titulo)} · Panel de Sidonia</title><meta name="robots" content="noindex">${FAVICON}
-<style>${ESTILO}
-  .temp { display: inline-block; padding: 3px 9px; border-radius: 99px; font-size: 12px; font-weight: 700; white-space: nowrap; }
-  .temp.caliente { background: #fde8e4; color: #b3261e; } .temp.templado { background: #fff3d6; color: #8a5a00; } .temp.frio { background: #eceae5; color: #5f5b53; }
-  .cli b { display: block; } .cli a { font-size: 13px; }
-  td.izq, th.izq { text-align: left; } td .sub { display: block; font-size: 12px; opacity: .55; }
-  .filtros { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 0 0 14px; }
-  .filtros input { padding: 9px 14px; border: 1px solid #0002; border-radius: 99px; font: inherit; font-size: 14px; min-width: 240px; background: #fff; }
-  .boton { display: inline-block; padding: 9px 16px; border-radius: 99px; background: #1a1a1a; color: #fff !important; text-decoration: none; font-size: 14px; font-weight: 600; }
-  .boton.claro { background: #fff; color: #1a1a1a !important; border: 1px solid #0002; }
-  .cab { display: flex; flex-wrap: wrap; gap: 14px 24px; align-items: center; justify-content: space-between; }
-  .cab h2 { font-size: 26px; margin: 0 0 4px; } .cab p { margin: 0; opacity: .65; font-size: 14px; }
-  .hist { list-style: none; margin: 0; padding: 0; font-size: 14px; } .hist li { display: flex; gap: 12px; padding: 7px 0; border-bottom: 1px solid #0001; }
-  .hist time { flex: none; width: 118px; opacity: .55; font-size: 13px; }
-  .si { color: #1f8a4c; font-weight: 700; }
-  tr[data-q] { cursor: pointer; } tr[data-q]:hover td { background: #00000005; }
-</style></head><body>
+<style>${ESTILO}</style></head><body>
 ${CABECERA}
 ${navPanel(on)}
 ${cuerpo}

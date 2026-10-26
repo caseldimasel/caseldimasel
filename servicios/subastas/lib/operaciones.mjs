@@ -252,25 +252,6 @@ export const pctComercial = (o) => (n(o.comision) && n(o.comision_comercial) ? (
 export const marco = (titulo, on, cuerpo, extraCss = '') => `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${esc(titulo)} · Panel de Sidonia</title><meta name="robots" content="noindex">${FAVICON}
 <style>${ESTILO}
-  td.izq, th.izq { text-align: left; } td .sub { display: block; font-size: 12px; opacity: .55; }
-  .pill { display: inline-block; padding: 3px 9px; border-radius: 99px; font-size: 12px; font-weight: 700; white-space: nowrap; background: #eceae5; color: #5f5b53; }
-  .pill.vendido { background: #e2f3e8; color: #1f7a4d; } .pill.en_venta { background: #e8eefb; color: #2b4c9b; } .pill.reservado { background: #fff3d6; color: #8a5a00; }
-  .pill.pendiente { background: #f1e8fb; color: #6b3fa0; } .pill.retirado { background: #f3e9e7; color: #8a3a2a; }
-  .barra { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 0 0 14px; }
-  .barra input[type=search] { padding: 9px 14px; border: 1px solid #0002; border-radius: 99px; font: inherit; font-size: 14px; min-width: 220px; background: #fff; }
-  .boton { display: inline-block; padding: 9px 16px; border: 0; border-radius: 99px; background: #1a1a1a; color: #fff !important; text-decoration: none; font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; }
-  .boton.claro { background: #fff; color: #1a1a1a !important; border: 1px solid #0002; } .boton.rojo { background: #b3261e; }
-  .aviso { padding: 12px 16px; border-radius: 12px; background: #e6f4ec; color: #1f7a4d; font-weight: 600; margin: 0 0 14px; } .aviso.mal { background: #fde8ea; color: #a2121f; }
-  form.op { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px 16px; }
-  form.op fieldset { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px 16px; margin: 0; padding: 16px; border: 0; border-radius: 16px; background: #fff; }
-  form.op legend { float: left; width: 100%; padding: 0 0 4px; font-weight: 700; font-size: 15px; }
-  form.op label { display: grid; gap: 5px; font-size: 13px; color: #0009; }
-  form.op input, form.op select, form.op textarea { padding: 10px 12px; border: 1px solid #0002; border-radius: 10px; font: inherit; font-size: 15px; color: #1a1a1a; background: #fff; }
-  form.op .ancho { grid-column: 1 / -1; } form.op .acc { grid-column: 1 / -1; display: flex; gap: 10px; flex-wrap: wrap; }
-  tr[data-q] { cursor: pointer; } tr[data-q]:hover td { background: #00000005; }
-  .kpi b { font-size: clamp(22px, 1.2rem + .8vw, 28px); white-space: nowrap; }
-  .bars li { grid-template-columns: 190px 1fr 90px; } .bars .bl .sub { display: block; }
-  .tareas { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 14px; } .tareas a { padding: 8px 14px; border-radius: 99px; background: #fff3d6; color: #8a5a00; text-decoration: none; font-size: 14px; font-weight: 600; }
   ${extraCss}
 </style></head><body>
 ${CABECERA}
