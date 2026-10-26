@@ -45,14 +45,19 @@ export const FAVICON = `<link rel="icon" type="image/png" href="${ISOTIPO}">
 <script>(() => { let t = 'oscuro'; try { t = localStorage.getItem('sidonia-panel-tema') || 'oscuro'; } catch (e) {} document.documentElement.dataset.tema = t; })();</script>`;
 
 const SOL = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4.5"/><path d="M12 2v2.5M12 19.5V22M4.2 4.2l1.8 1.8M18 18l1.8 1.8M2 12h2.5M19.5 12H22M4.2 19.8 6 18M18 6l1.8-1.8"/></svg>';
+const RECARGAR = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.34-5.66"/><path d="M20 4v4.5h-4.5"/></svg>';
 const LUNA = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 14.5A8.5 8.5 0 1 1 9.5 4a7 7 0 0 0 10.5 10.5Z"/></svg>';
 
 /** La barra de arriba: el logo de Sidonia, «Panel» y el botón de oscuro / claro */
 export const CABECERA = `<header class="cabeza">
   <a class="cabeza__marca" href="?" title="Ir a Ventas"><img class="cabeza__logo" src="${LOGO}" alt="Sidonia" width="130" height="27"><span>Panel</span></a>
+  <span class="cabeza__botones">
+  <button type="button" class="cabeza__tema cabeza__recargar" aria-label="Recargar" title="Recargar"
+    onclick="this.classList.add('gira');location.reload()">${RECARGAR}</button>
   <button type="button" class="cabeza__tema" aria-label="Cambiar entre oscuro y claro" title="Oscuro / claro"
     onclick="const h=document.documentElement;h.dataset.tema=h.dataset.tema==='claro'?'oscuro':'claro';try{localStorage.setItem('sidonia-panel-tema',h.dataset.tema)}catch(e){}">
     <span class="cabeza__sol">${SOL}</span><span class="cabeza__luna">${LUNA}</span></button>
+  </span>
 </header>`;
 
 /**
@@ -103,6 +108,8 @@ export const ESTILO_PANEL = `
   .cabeza__logo { display: block; width: auto; height: 24px; filter: var(--logo); }
   .cabeza__marca span { padding: 3px 8px; border-radius: 6px; background: var(--verde); color: var(--verde-tinta); font-size: 12px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; }
   .cabeza__tema { display: grid; place-items: center; width: 38px; height: 38px; padding: 0; border: 1px solid var(--linea-2); border-radius: 50%; background: var(--caja); color: var(--texto); cursor: pointer; }
+  .cabeza__botones { display: flex; gap: 8px; }
+  .cabeza__recargar.gira svg { animation: gira .7s linear infinite; } @keyframes gira { to { transform: rotate(360deg); } }
   .cabeza .cabeza__tema { padding: 0; border-color: var(--linea-2); background: var(--caja); color: var(--texto) !important; border-radius: 50%; }
   [data-tema="claro"] .cabeza__sol, :root:not([data-tema="claro"]) .cabeza__luna { display: none; }
 
@@ -209,6 +216,22 @@ export const ESTILO_PANEL = `
     width: 100%; padding: 11px 12px; border: 1px solid var(--linea-2); border-radius: 10px; background: var(--fondo-2); color: var(--texto); font-size: 16px; }
   form.op input:focus, form.op select:focus, form.op textarea:focus, input[type=search]:focus { outline: none; border-color: var(--verde); box-shadow: 0 0 0 3px var(--verde-fondo); }
   form.op .ancho { grid-column: 1 / -1; } form.op .acc { display: flex; gap: 10px; flex-wrap: wrap; }
+
+  /* Ficha de venta: bloques con su título dentro */
+  .grupo { display: grid; gap: 14px; padding: 18px; border: 1px solid var(--linea); border-radius: 16px; background: var(--caja); box-shadow: var(--sombra); min-width: 0; }
+  .grupo h3 { margin: 0; font-size: 14px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--suave); }
+  .grupo .fila { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr)); gap: 12px 14px; align-items: end; }
+  .grupo .fila.c3 { grid-template-columns: repeat(3, minmax(0, 1fr)); } .grupo .fila.uno { grid-template-columns: minmax(0, 1fr); }
+  .grupo .fila > * { min-width: 0; } .grupo input, .grupo select { min-width: 0; max-width: 100%; } .grupo input[type=date] { -webkit-appearance: none; appearance: none; min-height: 46px; }
+  .grupo label small { display: block; margin-top: 2px; font-size: 12px; line-height: 1.4; color: var(--flojo); }
+  .dos { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)); gap: 12px; }
+  .dato { display: grid; gap: 6px; align-content: end; min-height: 100%; padding: 0 2px 10px; }
+  .dato span { font-size: 13px; color: var(--suave); } .dato b { font-size: 18px; font-weight: 800; }
+  .resumen { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; padding: 12px; border-radius: 12px; background: var(--fondo-2); }
+  .resumen div { display: grid; gap: 2px; } .resumen span { font-size: 12px; color: var(--flojo); } .resumen b { font-size: 18px; font-weight: 800; } .resumen .neto b { color: var(--verde); }
+  .ayuda { font-size: 12px; color: var(--flojo); }
+  .contacto { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; } .contacto a { padding: 6px 12px; border-radius: 8px; background: var(--verde-fondo); color: var(--verde); font-size: 13px; font-weight: 700; text-decoration: none; }
+  @media (max-width: 700px) { .grupo { padding: 14px; } .grupo .fila.c3 { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } .grupo .fila.c3 > .dato { grid-column: 1 / -1; padding-bottom: 0; } .resumen b { font-size: 16px; } }
 
   /* Historial */
   .hist { list-style: none; margin: 0; padding: 0; font-size: 14px; } .hist li { display: flex; gap: 12px; padding: 9px 0; border-bottom: 1px solid var(--linea); }

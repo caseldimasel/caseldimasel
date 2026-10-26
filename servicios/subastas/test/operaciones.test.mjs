@@ -70,7 +70,7 @@ test('enlazar con la tienda: la ficha que más se parece, sin repetir, y la fech
   const productos = [{ handle: 'porsche-924', title: 'PORSCHE 924 1984', productType: 'Coches', createdAt: '2026-03-02T10:00:00Z', precio: { minVariantPrice: { amount: '23000.0' } } },
     { handle: 'yamaha', title: 'YAMAHA TZR 250 3MA RSE 1989', productType: 'Motos', createdAt: '2026-05-01T10:00:00Z' }, { handle: 'ya-tiene', title: 'PORSCHE 924 1984' }];
   const r = emparejar(ops, productos);
-  assert.deepEqual(r.map((x) => [x.id, x.cambios]).sort((a, b) => a[0] - b[0]), [[1, { handle: 'porsche-924', fecha_alta: '2026-03-02', precio_anunciado: 23000 }], [2, { handle: 'yamaha', fecha_alta: '2026-05-01' }]]);
+  assert.deepEqual(r.map((x) => [x.id, x.cambios]).sort((a, b) => a[0] - b[0]), [[1, { handle: 'porsche-924', fecha_alta: '2026-03-02', precio_anunciado: 23000 }], [2, { handle: 'yamaha', titulo: 'YAMAHA TZR 250 3MA RSE 1989', fecha_alta: '2026-05-01' }]], 'y toma el título del anuncio');
 });
 
 const OPS = [

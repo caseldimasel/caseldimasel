@@ -167,7 +167,7 @@ const cubre = (op, prod) => {
 export const sugerencias = (titulo, productos, n = 5) => productos.map((p) => [parecido(titulo, p.title, { anioDistinto: 0.25 }), p]).filter(([x]) => x >= 0.3)
   .sort((x, y) => y[0] - x[0]).slice(0, n).map(([puntos, p]) => ({ ...p, puntos }));
 
-const TIPO_SHOPIFY = { coches: 'coche', coche: 'coche', motos: 'moto', moto: 'moto', barcos: 'barco', barco: 'barco', casas: 'casa', casa: 'casa' };
+const TIPO_SHOPIFY = { cars: 'coche', coches: 'coche', coche: 'coche', motorcycles: 'moto', boats: 'barco', houses: 'casa', motos: 'moto', moto: 'moto', barcos: 'barco', barco: 'barco', casas: 'casa', casa: 'casa' };
 
 /** Todos los productos de la tienda (para enlazar) */
 export async function productosTienda(gql) {
@@ -180,6 +180,21 @@ export async function productosTienda(gql) {
     despues = d.products.pageInfo.hasNextPage && out.length < 5000 ? d.products.pageInfo.endCursor : null;
   } while (despues);
   return out;
+}
+
+/**
+ * Lo que una venta toma de su anuncio de la web: el título (el de la web manda), el tipo, la fecha en que se anunció y
+ * el precio de salida (si no los tenía). Devuelve solo lo que cambia.
+ */
+export function datosDeFicha(o, p) {
+  const c = {};
+  if (p.title && p.title.trim() !== String(o.titulo || '').trim()) c.titulo = p.title.trim();
+  const t = TIPO_SHOPIFY[normal(p.productType)];
+  if (t && t !== o.tipo) c.tipo = t;
+  if (!o.fecha_alta && p.createdAt) c.fecha_alta = p.createdAt.slice(0, 10);
+  const precio = Number(p.precio?.minVariantPrice?.amount);
+  if (o.precio_anunciado == null && precio > 0) c.precio_anunciado = precio;
+  return c;
 }
 
 /**
@@ -211,20 +226,19 @@ export function emparejar(ops, productos) {
   };
   const sincronizadas = [];
   for (const o of ops) {
-    const e = o.handle && estadoTienda(o, porHandle.get(o.handle));
-    if (e) sincronizadas.push({ id: o.id, titulo: o.titulo, producto: porHandle.get(o.handle).title, cambios: { estado: e } });
+    const p = o.handle && porHandle.get(o.handle);
+    if (!p) continue;
+    const cambios = datosDeFicha(o, p);
+    const e = estadoTienda(o, p);
+    if (e) cambios.estado = e;
+    if (Object.keys(cambios).length) sincronizadas.push({ id: o.id, titulo: o.titulo, producto: p.title, cambios });
   }
   candidatos.sort((x, y) => y[0] - x[0] || String(y[2].createdAt).localeCompare(String(x[2].createdAt)));
   const hechos = new Map();
   for (const [, o, p] of candidatos) {
     if (hechos.has(o.id) || usados.has(p.handle)) continue;
     usados.add(p.handle);
-    const cambios = { handle: p.handle };
-    if (!o.fecha_alta && p.createdAt) cambios.fecha_alta = p.createdAt.slice(0, 10);
-    const t = TIPO_SHOPIFY[normal(p.productType)];
-    if (t && t !== o.tipo) cambios.tipo = t;
-    const precio = Number(p.precio?.minVariantPrice?.amount);
-    if (o.precio_anunciado == null && precio > 0) cambios.precio_anunciado = precio;
+    const cambios = { handle: p.handle, ...datosDeFicha(o, p) };
     const e = estadoTienda(o, p);
     if (e) cambios.estado = e;
     hechos.set(o.id, { id: o.id, titulo: o.titulo, producto: p.title, cambios });
@@ -349,7 +363,7 @@ ${tareas.length ? `<div class="tareas">${tareas.map(([t, href]) => `<a href="${h
   <thead><tr><th class="izq">Vehículo</th><th class="izq">Estado</th><th class="izq">Propietario</th><th class="izq">Comprador</th><th>Precio</th><th>Comisión</th><th>Comercial</th><th>Anunciado</th><th>Vendido</th></tr></thead>
   <tbody>${filas || '<tr><td colspan="9" class="vacio">Aún no hay nada aquí. Añade una venta o importa el Excel.</td></tr>'}</tbody>
 </table></div></div>
-<p class="nota">Pulsa en una fila para ver o cambiar todo (propietario, comprador, precios, comisiones y fechas). «Enlazar con la tienda» busca la ficha de cada uno por el título, pone la fecha en que se anunció y, si en la tienda ya está vendido o archivado, lo pone igual aquí.</p>`);
+<p class="nota">Pulsa en una fila para ver o cambiar todo (propietario, comprador, precios, comisiones y fechas). «Enlazar con la tienda» busca el anuncio de cada uno, le pone su título, la fecha en que se anunció y, si en la web ya está vendido o archivado, lo pone igual aquí.</p>`);
 }
 
 /** Todo en CSV (con ; y BOM, para Excel) */
@@ -368,33 +382,53 @@ export function paginaOperacion(o, { aviso = '', error = '', tienda = 'https://s
   const campo = (k, etiqueta, tipo = 'text', extra = '') => `<label>${etiqueta}<input name="${k}" type="${tipo}" value="${esc(v[k] ?? '')}"${extra}></label>`;
   const select = (k, etiqueta, opciones) => `<label>${etiqueta}<select name="${k}">${Object.entries(opciones).map(([a, b]) => `<option value="${a}"${v[k] === a ? ' selected' : ''}>${b}</option>`).join('')}</select></label>`;
   const pct = n(v.comision) && n(v.precio_venta ?? v.precio_anunciado) ? ((v.comision / (v.precio_venta ?? v.precio_anunciado)) * 100).toFixed(2) : '';
+  const enlazado = v.handle ? productos.find((p) => p.handle === v.handle) : null;
+  const tel = (t) => String(t || '').replace(/\D/g, '').replace(/^(?=[6789]\d{8}$)/, '34');
+  const contacto = (t, e) => (t || e ? `<p class="contacto">${t ? `<a href="https://wa.me/${tel(t)}" target="_blank" rel="noopener">WhatsApp</a><a href="tel:+${tel(t)}">Llamar</a>` : ''}${e ? `<a href="mailto:${esc(e)}">Email</a>` : ''}</p>` : '');
   return marco(v.titulo || 'Nueva venta', 'ventas', `
 <p><a href="?estado=ventas">‹ Ventas</a></p>
 ${aviso ? `<p class="aviso${/^Error/.test(aviso) ? ' mal' : ''}">${esc(aviso)}</p>` : ''}${errorSql(error)}
-<form class="op" method="post" action="?estado=operacion${v.id ? `&id=${v.id}` : ''}">
-  <fieldset><legend>El vehículo</legend>
-    <label class="ancho">Título<input name="titulo" required value="${esc(v.titulo || '')}" placeholder="PORSCHE 911 CARRERA 3.2 COUPÉ 1986"></label>
-    ${select('tipo', 'Tipo', TIPOS_OP)}${select('modalidad', 'Modalidad', MODALIDADES)}${select('estado', 'Estado', ESTADOS_OP)}
-    <label>Ficha en la tienda<input name="handle" value="${esc(v.handle || '')}" placeholder="Escribe para buscar…" list="fichas-tienda" autocomplete="off">${productos.length ? `<datalist id="fichas-tienda">${productos.map((p) => `<option value="${esc(p.handle)}">${esc(p.title)}</option>`).join('')}</datalist>` : ''}${v.handle ? `<small><a href="${esc(tienda)}/products/${esc(v.handle)}" target="_blank" rel="noopener">Ver ficha</a> · <a href="?estado=anuncio&h=${encodeURIComponent(v.handle)}">Quién está interesado</a></small>` : ''}</label>
-  </fieldset>
-  <fieldset><legend>Propietario</legend>
-    ${campo('propietario_nombre', 'Nombre')}${campo('propietario_telefono', 'Teléfono', 'tel')}${campo('propietario_email', 'Email', 'email')}
-  </fieldset>
-  <fieldset><legend>Comprador</legend>
-    ${campo('comprador_nombre', 'Nombre')}${campo('comprador_telefono', 'Teléfono', 'tel')}${campo('comprador_email', 'Email', 'email')}
-  </fieldset>
-  <fieldset><legend>Dinero</legend>
-    ${campo('precio_anunciado', 'Precio de salida (€)', 'number', ' step="any" min="0"')}${campo('precio_venta', 'Precio de venta (€)', 'number', ' step="any" min="0"')}
-    ${campo('comision', 'Comisión Sidonia (€)', 'number', ' step="any" min="0"')}
-    <label>o la comisión en %<input name="comision_pct" type="number" step="any" min="0" max="100" value="${esc(pct)}" placeholder="6"><small>Si pones el %, se calcula el importe con el precio de venta (o el de salida).</small></label>
-    ${campo('comercial', 'Comercial', 'text', ` placeholder="${COMERCIAL}"`)}
-    ${campo('comision_comercial', 'Comisión del comercial (€)', 'number', ' step="any" min="0"')}
-    <label>% del comercial sobre la comisión de Sidonia<input name="comercial_pct" type="number" step="any" min="0" max="100" value="${esc(pctComercial(v) != null ? pctComercial(v).toFixed(2) : '')}" placeholder="25"><small>Su parte del beneficio: con un 25 %, de cada 1.000 € de comisión se lleva 250 €.</small></label>
-  </fieldset>
-  <fieldset><legend>Fechas</legend>
-    ${campo('fecha_alta', 'Se anunció', 'date')}${campo('fecha_venta', 'Se vendió', 'date')}
-    <label class="ancho">Notas<textarea name="notas" rows="3">${esc(v.notas || '')}</textarea></label>
-  </fieldset>
+<form class="op ficha-venta" method="post" action="?estado=operacion${v.id ? `&id=${v.id}` : ''}">
+  <section class="grupo"><h3>El vehículo</h3>
+    <div class="fila"><label class="ancho">Título<input name="titulo" required value="${esc(v.titulo || '')}" placeholder="PORSCHE 911 CARRERA 3.2 COUPÉ 1986"></label></div>
+    <div class="fila c3">${select('tipo', 'Tipo', TIPOS_OP)}${select('modalidad', 'Modalidad', MODALIDADES)}${select('estado', 'Estado', ESTADOS_OP)}</div>
+    <div class="fila"><label class="ancho">Anuncio en la web<input name="handle" value="${esc(v.handle || '')}" placeholder="Escribe el coche para buscar su anuncio…" list="fichas-tienda" autocomplete="off">
+      ${productos.length ? `<datalist id="fichas-tienda">${productos.map((p) => `<option value="${esc(p.handle)}">${esc(p.title)}</option>`).join('')}</datalist>` : ''}
+      <small>${v.handle ? `${esc(enlazado ? `Enlazado con «${enlazado.title}»` : v.handle)} · <a href="${esc(tienda)}/products/${esc(v.handle)}" target="_blank" rel="noopener">ver en la web</a> · <a href="?estado=ficha&h=${encodeURIComponent(v.handle)}">editar el anuncio</a> · <a href="?estado=anuncio&h=${encodeURIComponent(v.handle)}">interesados</a>` : 'Sin anuncio: al enlazarlo, esta venta toma el título y los datos del anuncio.'}</small></label></div>
+  </section>
+  <div class="dos">
+    <section class="grupo"><h3>Propietario</h3>
+      <div class="fila uno">${campo('propietario_nombre', 'Nombre')}${campo('propietario_telefono', 'Teléfono', 'tel')}${campo('propietario_email', 'Email', 'email')}</div>
+      ${contacto(v.propietario_telefono, v.propietario_email)}
+    </section>
+    <section class="grupo"><h3>Comprador</h3>
+      <div class="fila uno">${campo('comprador_nombre', 'Nombre')}${campo('comprador_telefono', 'Teléfono', 'tel')}${campo('comprador_email', 'Email', 'email')}</div>
+      ${contacto(v.comprador_telefono, v.comprador_email)}
+    </section>
+  </div>
+  <section class="grupo"><h3>Dinero</h3>
+    <div class="fila c3">
+      ${campo('precio_anunciado', 'Precio de salida (€)', 'number', ' step="any" min="0" inputmode="decimal"')}
+      ${campo('precio_venta', 'Precio de venta (€)', 'number', ' step="any" min="0" inputmode="decimal"')}
+      <div class="dato"><span>Rebaja</span><b data-rebaja>—</b></div>
+    </div>
+    <div class="fila c3">
+      <label>Comisión Sidonia (%)<input name="comision_pct" type="number" step="any" min="0" max="100" inputmode="decimal" value="${esc(pct)}" placeholder="6"></label>
+      ${campo('comision', 'Comisión Sidonia (€)', 'number', ' step="any" min="0" inputmode="decimal"')}
+      <div class="dato"><span>Sobre</span><b data-base>—</b></div>
+    </div>
+    <div class="fila c3">
+      ${campo('comercial', 'Comercial', 'text', ` placeholder="${COMERCIAL}"`)}
+      <label>Su % de la comisión<input name="comercial_pct" type="number" step="any" min="0" max="100" inputmode="decimal" value="${esc(pctComercial(v) != null ? pctComercial(v).toFixed(2) : '')}" placeholder="25"></label>
+      ${campo('comision_comercial', 'Comisión del comercial (€)', 'number', ' step="any" min="0" inputmode="decimal"')}
+    </div>
+    <div class="resumen"><div><span>Comisión Sidonia</span><b data-com>—</b></div><div><span>Para el comercial</span><b data-comer>—</b></div><div class="neto"><span>Neto Sidonia</span><b data-neto>—</b></div></div>
+    <small class="ayuda">Pon el % o los euros: lo otro se calcula solo. La comisión va sobre el precio de venta (o el de salida si aún no se ha vendido); la del comercial, sobre la comisión de Sidonia.</small>
+  </section>
+  <section class="grupo"><h3>Fechas y notas</h3>
+    <div class="fila c3">${campo('fecha_alta', 'Se anunció', 'date')}${campo('fecha_venta', 'Se vendió', 'date')}<div class="dato"><span>Tiempo en venta</span><b data-dias>—</b></div></div>
+    <div class="fila"><label class="ancho">Notas<textarea name="notas" rows="3">${esc(v.notas || '')}</textarea></label></div>
+  </section>
   <script>
     // Al cambiar un %, se calcula el importe (y al revés)
     (() => {
@@ -406,6 +440,21 @@ ${aviso ? `<p class="aviso${/^Error/.test(aviso) ? ' mal' : ''}">${esc(aviso)}</
       f.comision.addEventListener('input', () => { if (base()) f.comision_pct.value = num('comision') ? r2(num('comision') / base() * 100) : ''; if (num('comercial_pct')) f.comision_comercial.value = r2(num('comision') * num('comercial_pct') / 100); });
       f.comercial_pct.addEventListener('input', () => { if (num('comision') && f.comercial_pct.value !== '') f.comision_comercial.value = r2(num('comision') * num('comercial_pct') / 100); });
       f.comision_comercial.addEventListener('input', () => { f.comercial_pct.value = num('comision') && num('comision_comercial') ? r2(num('comision_comercial') / num('comision') * 100) : ''; });
+      // Lo que se calcula: rebaja, base de la comisión, neto y días en venta
+      const eur = (x) => (x ? Math.round(x).toLocaleString('es-ES') + ' €' : '—');
+      const pinta = () => {
+        const sal = num('precio_anunciado'), ven = num('precio_venta');
+        f.querySelector('[data-rebaja]').textContent = sal && ven ? (Math.round((1 - ven / sal) * 1000) / 10).toLocaleString('es-ES') + ' %' : '—';
+        f.querySelector('[data-base]').textContent = eur(base());
+        f.querySelector('[data-com]').textContent = eur(num('comision'));
+        f.querySelector('[data-comer]').textContent = eur(num('comision_comercial'));
+        f.querySelector('[data-neto]').textContent = eur(num('comision') - num('comision_comercial'));
+        const a = f.fecha_alta.value, b = f.fecha_venta.value || new Date().toISOString().slice(0, 10);
+        const d = a ? Math.round((new Date(b) - new Date(a)) / 864e5) : null;
+        f.querySelector('[data-dias]').textContent = d == null || d < 0 ? '—' : d + (d === 1 ? ' día' : ' días') + (f.fecha_venta.value ? '' : ' (y sigue)');
+      };
+      f.addEventListener('input', () => setTimeout(pinta, 0));
+      pinta();
     })();
   </script>
   <div class="acc"><button class="boton" name="accion" value="guardar">Guardar</button>
@@ -483,7 +532,8 @@ export function paginaEnlazar(ops, productos, { aviso = '', error = '', tienda =
   return marco('Enlazar a mano', 'enlazar', `
 <p><a href="?estado=ventas">‹ Ventas</a></p>
 ${aviso ? `<p class="aviso${/^Error/.test(aviso) ? ' mal' : ''}">${esc(aviso)}</p>` : ''}${error ? `<p class="aviso mal">No se han podido leer las fichas de la tienda: ${esc(error)}</p>` : ''}
-<p class="nota" style="margin:0 0 14px">${fmt(sin.length)} ventas sin ficha. Pulsa la ficha que es (el % es lo que se parecen los títulos) o búscala abajo. Si el coche ya no está en la web, déjalo así.</p>
+${sin.length ? `<form method="post" action="?estado=enlazar" class="barra"><button class="boton" name="accion" value="ligar_claras" onclick="return confirm('¿Enlazar cada venta con su sugerencia de 70 % o más? Tomarán el título y los datos de su anuncio.')">Enlazar todas las sugerencias claras</button></form>` : ''}
+<p class="nota" style="margin:0 0 14px">${fmt(sin.length)} ventas sin ficha. Al enlazar, la venta toma el título y los datos del anuncio de la web. Pulsa la ficha que es (el % es lo que se parecen los títulos) o búscala abajo. Si el coche ya no está en la web, déjalo así.</p>
 <datalist id="fichas-libres">${[...libres, ...productos.filter((p) => usadas.has(p.handle))].map((p) => `<option value="${esc(p.handle)}">${esc(p.title)}</option>`).join('')}</datalist>
 ${filas || '<div class="card"><p class="vacio" style="margin:0">Todas las ventas tienen su ficha. 🎉</p></div>'}`);
 }
@@ -655,11 +705,24 @@ export async function rutasOperaciones(req, cfg, deps, html) {
       else if (!p && productos.length) aviso = `Error: no hay ninguna ficha «${handle}» en la tienda.`;
       else {
         const ya = (await t.leer(`id=eq.${Number(req.body.id)}&select=*`))[0];
-        const cambios = { handle, actualizado: new Date().toISOString() };
-        if (ya && !ya.fecha_alta && p?.createdAt) cambios.fecha_alta = p.createdAt.slice(0, 10);
-        await t.cambiar(Number(req.body.id), cambios);
-        aviso = `Enlazado: ${ya?.titulo || ''} → ${p?.title || handle}.`;
+        const antes = ya?.titulo || '';
+        await t.cambiar(Number(req.body.id), { handle, ...(ya && p ? datosDeFicha(ya, p) : {}), actualizado: new Date().toISOString() });
+        aviso = `Enlazado: ${antes} → ${p?.title || handle} (con el título y los datos del anuncio).`;
       }
+    }
+    // Todas las que tienen una sugerencia clara (70 % o más) con un anuncio aún sin venta
+    if (req.method === 'POST' && req.body?.accion === 'ligar_claras') {
+      const todas = await leerTodas();
+      const usados = new Set(todas.map((o) => o.handle).filter(Boolean));
+      let hechas = 0;
+      for (const o of todas.filter((x) => !x.handle && x.modalidad !== 'encargo')) {
+        const [mejor] = sugerencias(o.titulo, productos.filter((p) => !usados.has(p.handle)), 1);
+        if (!mejor || mejor.puntos < 0.7) continue;
+        usados.add(mejor.handle);
+        await t.cambiar(o.id, { handle: mejor.handle, ...datosDeFicha(o, mejor), actualizado: new Date().toISOString() });
+        hechas += 1;
+      }
+      aviso = hechas ? `Enlazadas ${hechas} con su anuncio (y con su título y datos).` : 'No hay sugerencias claras: enlaza las que quedan a mano.';
     }
     const ops = await leerTodas();
     return html(paginaEnlazar(ops, productos, { aviso, error, tienda: cfg.tienda }));

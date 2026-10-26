@@ -81,6 +81,11 @@ test('panel › Anuncios › En la web: lista, editar (y la venta al día) y enl
   assert.match(m.body, /name="handle" value="mercedes-190-sl"/);
   const ok = await atenderPanel({ method: 'POST', query: { estado: 'enlazar' }, body: { accion: 'ligar', id: '6', handle: 'mercedes-190-sl' }, headers: auth }, cfg, deps);
   assert.match(ok.body, /Enlazado: MERCEDES 190SL → MERCEDES-BENZ 190 SL 1962/);
-  assert.deepEqual([operaciones.filas[1].handle, operaciones.filas[1].fecha_alta], ['mercedes-190-sl', '2026-03-01']);
+  assert.deepEqual([operaciones.filas[1].handle, operaciones.filas[1].fecha_alta, operaciones.filas[1].titulo], ['mercedes-190-sl', '2026-03-01', 'MERCEDES-BENZ 190 SL 1962'], 'con el título del anuncio');
+  // Todas las sugerencias claras de golpe
+  operaciones.filas.push({ id: 7, titulo: 'LAND ROVER SANTANA SERIE 3A 1980', estado: 'vendido', modalidad: 'gestion' });
+  const claras = await atenderPanel({ method: 'POST', query: { estado: 'enlazar' }, body: { accion: 'ligar_claras' }, headers: auth }, cfg, deps);
+  assert.match(claras.body, /Enlazadas 1 con su anuncio/);
+  assert.equal(operaciones.filas[2].handle, 'land-rover-santana');
   assert.match((await atenderPanel({ method: 'POST', query: { estado: 'enlazar' }, body: { accion: 'ligar', id: '6', handle: 'no-existe' }, headers: auth }, cfg, deps)).body, /no hay ninguna ficha/);
 });
