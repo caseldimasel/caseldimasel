@@ -1,6 +1,7 @@
 /* SIDONIA · Comprobación: /api/salud responde si el motor está publicado y tiene sus claves puestas (sin enseñarlas).
-   /api/salud?prueba=1 además prueba Supabase (la tabla de anuncios y el cubo de fotos) y dice cuánto tarda cada cosa. */
+   /api/salud?prueba=1 además prueba Supabase (la tabla de anuncios, el cubo de fotos y la tabla de alertas) y dice cuánto tarda cada cosa. */
 import { VERSION, codigoError, config, supabase } from '../lib/motor.mjs';
+import { tablaAnuncios } from '../lib/circulo.mjs';
 
 async function medir(fn) {
   const t = Date.now();
@@ -29,7 +30,9 @@ export default async function handler(req, res) {
       SHOPIFY_TIENDA: tiene('SHOPIFY_TIENDA'),
       SHOPIFY_CLIENT_ID: tiene('SHOPIFY_CLIENT_ID'),
       ADMIN_CLAVE: tiene('ADMIN_CLAVE'),
-      FIREBASE_SERVICE_ACCOUNT: Boolean(config().firebase)   // avisos al móvil de la app (válida, no solo puesta)
+      FIREBASE_SERVICE_ACCOUNT: Boolean(config().firebase),  // avisos al móvil de la app (válida, no solo puesta)
+      RESEND_API_KEY: tiene('RESEND_API_KEY'),
+      CRON_SECRET: tiene('CRON_SECRET')                      // el repaso diario de las alertas de búsqueda
     }
   };
   if (new URL(req.url, 'https://x').searchParams.get('prueba')) {
@@ -45,7 +48,9 @@ export default async function handler(req, res) {
           signal: AbortSignal.timeout(8000)
         });
         if (!r.ok) throw new Error(`Storage bucket ${r.status}`);
-      })
+      }),
+      // La tabla de las alertas de búsqueda (sql/circulo.sql)
+      alertas: await medir(async () => { await tablaAnuncios(cfg, fetch, 'alertas').leer('select=id&limit=1'); })
     };
     salida.ok = salida.supabase.anuncios.ok && salida.supabase.fotos.ok;
   }
