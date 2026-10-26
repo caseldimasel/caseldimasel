@@ -30,7 +30,8 @@ import { fmt, n } from './estadisticas.mjs';
 import { marco, normal } from './operaciones.mjs';
 
 // 12,90 € al mes por anuncio (el primero, un mes gratis). Se puede cambiar en el panel (Cobros › Tarifa).
-export const TARIFA_BASE = { tramos: [{ desde: 1, precio: 12.9 }], meses_gratis: 1, aviso: 7, retirar: 0 };
+// cobrar: si se cobra a la comunidad. Apagado (de serie): todos los anuncios son gratis, sin avisos de pago ni precios.
+export const TARIFA_BASE = { tramos: [{ desde: 1, precio: 12.9 }], meses_gratis: 1, aviso: 7, retirar: 0, cobrar: false };
 export const METODOS = { bizum: 'Bizum', transferencia: 'Transferencia', tarjeta: 'Tarjeta', efectivo: 'Efectivo', otro: 'Otro', stripe: 'Tarjeta (Stripe)' };
 export const AUTO = { activa: ['Renovación automática activa', 'vendido'], cancela: ['Dado de baja: no se renueva', 'reservado'], impago: ['El último cobro ha fallado', 'retirado'], cancelada: ['Suscripción terminada', ''] };
 const CONCEPTOS = { gratis: 'Mes gratis', alta: 'Alta', renovacion: 'Renovación', otro: 'Otro' };
@@ -55,10 +56,10 @@ export function limpiarTarifa(v = {}) {
     .filter((t) => t.desde && String(t.precio) !== 'NaN')
     .sort((a, b) => a.desde - b.desde)
     .filter((t, i, l) => !i || t.desde !== l[i - 1].desde);
-  if (!tramos.length) return limpiarTarifa(TARIFA_BASE);
+  if (!tramos.length) return limpiarTarifa({ ...TARIFA_BASE, ...v, tramos: TARIFA_BASE.tramos });
   tramos[0].desde = 1;
   const meses = Number.isFinite(Number(v.meses_gratis)) ? Math.min(12, Math.max(0, Math.round(Number(v.meses_gratis)))) : 1;
-  return { tramos, meses_gratis: meses, aviso: Math.min(30, Math.max(1, Math.round(n(v.aviso)) || 7)), retirar: Math.min(90, Math.max(0, Math.round(n(v.retirar)))) };
+  return { tramos, meses_gratis: meses, aviso: Math.min(30, Math.max(1, Math.round(n(v.aviso)) || 7)), retirar: Math.min(90, Math.max(0, Math.round(n(v.retirar)))), cobrar: v.cobrar === true || v.cobrar === '1' };
 }
 
 /** Precio al mes de cada anuncio para quien tiene «cuantos» activos */
@@ -175,6 +176,8 @@ export async function altaComunidad(cfg, deps, a, ahora = Date.now()) {
     const tA = deps.tabla || tablaAnuncios(cfg, deps.fetch);
     const tP = deps.pagos || tablaAnuncios(cfg, deps.fetch, 'pagos');
     const tarifa = await leerTarifa(deps.ajustes || tablaAnuncios(cfg, deps.fetch, 'ajustes'));
+    // Sin cobrar a la comunidad: gratis, sin mes gratis que contar ni enlace de pago
+    if (!tarifa.cobrar) return '';
     const previos = await tP.leer(`cliente=eq.${encodeURIComponent(a.cliente)}&select=id&limit=1`);
     if (!previos.length && tarifa.meses_gratis > 0) {
       const hasta = sumarMeses(ahora, tarifa.meses_gratis);
@@ -273,7 +276,7 @@ export function paginaCobros(cfg, lista, pagos, tarifa, { ver = 'todo', aviso: a
   const cambio = m.mes_anterior ? Math.round(((m.este_mes - m.mes_anterior) / m.mes_anterior) * 100) : null;
   const ultimos = pagos.filter((p) => n(p.importe) > 0).slice(0, 8);
   return marco('Cobros de la comunidad', 'cobros', `
-${aviso(av)}${error ? `<p class="aviso mal">${esc(error)}</p>` : ''}
+${aviso(av)}${tarifa.cobrar ? '' : '<p class="aviso">El cobro está apagado: todos los anuncios de la comunidad son gratis y no se manda ningún aviso de pago. Se enciende en <a href="?estado=tarifa">Cambiar la tarifa</a>.</p>'}${error ? `<p class="aviso mal">${esc(error)}</p>` : ''}
 <div class="kpis">
   <div class="kpi"><span>Este mes</span><b>${eur(m.este_mes)}</b><small>${cambio == null ? 'cobrado a la comunidad' : (cambio ? `<em class="${cambio > 0 ? 'sube' : 'baja'}">${cambio > 0 ? '+' : '−'}${Math.abs(cambio)} %</em>` : '<em>=</em>') + ' frente al mes pasado'}</small></div>
   <div class="kpi"><span>Al mes, previsto</span><b>${eur(m.mensual)}</b><small>si renuevan todos los de pago</small></div>
@@ -382,6 +385,10 @@ ${aviso(av)}
     <small class="ayuda">Cada anuncio paga según cuántos tiene activos esa persona a la vez. Ejemplo: «desde 2 anuncios, 12,90 €» = quien tiene 2 o 3 paga 12,90 € al mes por cada uno.</small>
     ${filas.map((t, i) => `<div class="fila c3"><label>Desde (anuncios)<input name="desde_${i}" type="number" min="1" step="1" value="${i === 0 ? 1 : esc(t.desde)}"${i === 0 ? ' readonly' : ''}></label><label>€ al mes cada uno<input name="precio_${i}" type="number" min="0" step="any" inputmode="decimal" value="${esc(t.precio)}"></label><div class="dato"><span>${i === 0 ? 'Su primer anuncio (tras el mes gratis)' : 'Vacío = sin este tramo'}</span></div></div>`).join('')}
   </section>
+  <section class="grupo"><h3>Cobrar a la comunidad</h3>
+    <label style="display:flex;gap:10px;align-items:center;font-size:15px;color:var(--texto)"><input type="checkbox" name="cobrar" value="1"${tarifa.cobrar ? ' checked' : ''} style="width:auto"> Cobrar los anuncios de la comunidad</label>
+    <small class="ayuda">Apagado: todos los anuncios son gratis. No se manda ningún enlace ni aviso de pago, y en la web no sale ningún precio. Al encenderlo, cada uno empieza con su mes gratis.</small>
+  </section>
   <section class="grupo"><h3>Mes gratis y avisos</h3>
     <div class="fila c3">
       <label>Meses gratis del primer anuncio<input name="meses_gratis" type="number" min="0" max="12" step="1" value="${tarifa.meses_gratis}"></label>
@@ -401,7 +408,7 @@ export function leerFormTarifa(b) {
     if (String(b[`precio_${i}`]).trim() === '' || (i && String(b[`desde_${i}`] ?? '').trim() === '')) continue;
     tramos.push({ desde: i ? b[`desde_${i}`] : 1, precio: b[`precio_${i}`] });
   }
-  return limpiarTarifa({ tramos, meses_gratis: b.meses_gratis, aviso: b.aviso, retirar: b.retirar });
+  return limpiarTarifa({ tramos, meses_gratis: b.meses_gratis, aviso: b.aviso, retirar: b.retirar, cobrar: b.cobrar === '1' });
 }
 
 export function paginaAnunciantes(cfg, lista, pagos, { error = '' } = {}) {
@@ -633,6 +640,10 @@ export async function rutasPago({ ruta, method, query, body }, cfg, deps) {
   }
   if (!ACTIVOS.includes(a.estado)) return paginaPago({ titulo: 'Este anuncio ya no está activo', foto, texto: `<p><b>${esc(a.titulo)}</b> ya no está publicado (vendido o retirado): no hay nada que pagar${VIVA.includes(a.stripe_estado) ? ' y no se te volverá a cobrar' : ''}.</p>`, boton: 'Ir a Sidonia', enlace: cfg.tienda });
 
+  // Sin cobrar a la comunidad (y sin suscripción viva): es gratis
+  if (!(await leerTarifa(deps.ajustes || tablaAnuncios(cfg, deps.fetch, 'ajustes'))).cobrar && !(a.stripe_suscripcion && VIVA.includes(a.stripe_estado))) {
+    return paginaPago({ titulo: a.titulo, foto, texto: '<span class="estado">Gratis</span><p>De momento, anunciar en Sidonia es gratis: no tienes que pagar nada.</p>', boton: 'Ver mi anuncio', enlace: ver });
+  }
   // Ya tiene suscripción: dar de baja, reactivar o cambiar la tarjeta
   if (a.stripe_suscripcion && VIVA.includes(a.stripe_estado)) {
     let nota = '';
@@ -846,6 +857,8 @@ export async function revisarComunidad(cfg, deps, ahora = Date.now()) {
   const tA = deps.tabla || tablaAnuncios(cfg, deps.fetch);
   const tP = deps.pagos || tablaAnuncios(cfg, deps.fetch, 'pagos');
   const tarifa = await leerTarifa(deps.ajustes || tablaAnuncios(cfg, deps.fetch, 'ajustes'));
+  // Sin cobrar a la comunidad: ni recordatorios ni retiradas
+  if (!tarifa.cobrar) return { recordados: 0, retirados: 0, avisos: 0, cobro: 'apagado' };
   const anuncios = await tA.leer(`estado=in.(${ACTIVOS.join(',')})&select=*`);
   const pagos = await tP.leer('select=id,cliente,anuncio,importe,fecha&limit=10000');
   let recordados = 0, retirados = 0, avisos = 0;

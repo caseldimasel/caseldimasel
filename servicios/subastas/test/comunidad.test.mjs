@@ -7,6 +7,8 @@ import { atender } from '../lib/motor.mjs';
 import { altaComunidad, anunciantes, cancelarRenovacion, enlacePago, estadoCobro, leerFormTarifa, limpiarTarifa, metricas, precioMes, procesarStripe, revisarComunidad, sumarMeses, TARIFA_BASE, verificarStripe } from '../lib/comunidad.mjs';
 
 const DIA = 864e5;
+// El cobro encendido (de serie está apagado)
+const COBRANDO = () => tablaFalsa([{ clave: 'tarifa', valor: { cobrar: true } }]);
 // Una tarifa por tramos (para probar los tramos; la de serie es 12,90 € por anuncio)
 const TRAMOS = { tramos: [{ desde: 1, precio: 14.9 }, { desde: 2, precio: 12.9 }, { desde: 4, precio: 9.9 }, { desde: 10, precio: 7.9 }], meses_gratis: 1, aviso: 7 };
 const AHORA = Date.parse('2026-10-26T10:00:00Z');
@@ -33,8 +35,8 @@ test('tarifa: tramos, precio por anuncio según cuántos tiene, meses', () => {
   assert.deepEqual([1, 2, 5, 30].map((k) => precioMes(TARIFA_BASE, k)), [12.9, 12.9, 12.9, 12.9], 'de serie: 12,90 € cada anuncio');
   assert.deepEqual([1, 2, 3, 4, 9, 10, 30].map((k) => precioMes(TRAMOS, k)), [14.9, 12.9, 12.9, 9.9, 9.9, 7.9, 7.9]);
   const t = limpiarTarifa({ tramos: [{ desde: 3, precio: '5,5' }, { desde: 0, precio: 10 }], meses_gratis: 2, aviso: 99 });
-  assert.deepEqual(t, { tramos: [{ desde: 1, precio: 10 }, { desde: 3, precio: 5.5 }], meses_gratis: 2, aviso: 30, retirar: 0 });
-  assert.deepEqual(leerFormTarifa({ desde_0: '1', precio_0: '20', desde_1: '5', precio_1: '15', desde_2: '', precio_2: '', meses_gratis: '0', aviso: '5', retirar: '3' }), { tramos: [{ desde: 1, precio: 20 }, { desde: 5, precio: 15 }], meses_gratis: 0, aviso: 5, retirar: 3 });
+  assert.deepEqual(t, { tramos: [{ desde: 1, precio: 10 }, { desde: 3, precio: 5.5 }], meses_gratis: 2, aviso: 30, retirar: 0, cobrar: false });
+  assert.deepEqual(leerFormTarifa({ desde_0: '1', precio_0: '20', desde_1: '5', precio_1: '15', desde_2: '', precio_2: '', meses_gratis: '0', aviso: '5', retirar: '3' }), { tramos: [{ desde: 1, precio: 20 }, { desde: 5, precio: 15 }], meses_gratis: 0, aviso: 5, retirar: 3, cobrar: false });
   assert.equal(sumarMeses('2026-01-31T10:00:00Z', 1).toISOString().slice(0, 10), '2026-02-28');
 });
 
@@ -64,7 +66,7 @@ test('al publicar: el primero gratis un mes, el segundo por cobrar', async () =>
   const cfg = config({ ADMIN_CLAVE: 'p' });
   const tabla = tablaFalsa([{ id: 1, cliente: 'ana', estado: 'publicado', titulo: 'Porsche', vendedor_nombre: 'Ana' }, { id: 2, cliente: 'ana', estado: 'publicado', titulo: 'Vespa', vendedor_nombre: 'Ana' }]);
   const pagos = tablaFalsa([]);
-  const deps = { tabla, pagos, ajustes: tablaFalsa([]) };
+  const deps = { tabla, pagos, ajustes: COBRANDO() };
   assert.match(await altaComunidad(cfg, deps, tabla.filas[0], AHORA), /primer anuncio: gratis hasta el 26\/11\/26/);
   assert.equal(tabla.filas[0].gratis, true);
   assert.equal(pagos.filas[0].concepto, 'gratis');
@@ -116,7 +118,7 @@ test('Stripe: enlace firmado, página de pago y Checkout con el mes gratis sin c
     if (path.startsWith('checkout/sessions/')) return { metadata: { anuncio: '9' }, status: 'complete', subscription: 'sub_1', customer: 'cus_1' };
     return {};
   };
-  const deps = { db: async () => null, tabla, ajustes: tablaFalsa([]), stripe: stripeFalso };
+  const deps = { db: async () => null, tabla, ajustes: COBRANDO(), stripe: stripeFalso };
   const url = enlacePago(cfg, 9);
   assert.match(url, /^https:\/\/motor\.test\/tienda\/pagar\?a=9&f=[0-9a-f]{32}$/);
   const f = new URL(url).searchParams.get('f');
@@ -207,7 +209,7 @@ test('repaso diario: recuerda el pago una vez por semana y retira los caducados 
     { id: 3, cliente: 'c', estado: 'publicado', titulo: 'Caducado hace mucho', email: 'c@x.es', caduca: new Date(AHORA - 20 * DIA).toISOString(), stripe_estado: '' },
     { id: 4, cliente: 'd', estado: 'publicado', titulo: 'Ya avisado', email: 'd@x.es', caduca: null, avisado: new Date(AHORA - 2 * DIA).toISOString(), stripe_estado: '' }]);
   const estados = [];
-  const deps = { fetch, tabla, pagos: tablaFalsa([]), ajustes: tablaFalsa([{ clave: 'tarifa', valor: { ...TARIFA_BASE, retirar: 14 } }]), db: async (fn, a) => { estados.push([fn, a.p_id, a.p_estado]); } };
+  const deps = { fetch, tabla, pagos: tablaFalsa([]), ajustes: tablaFalsa([{ clave: 'tarifa', valor: { ...TARIFA_BASE, retirar: 14, cobrar: true } }]), db: async (fn, a) => { estados.push([fn, a.p_id, a.p_estado]); } };
   const r = await revisarComunidad(cfg, deps, AHORA);
   assert.deepEqual(r, { recordados: 1, retirados: 1, avisos: 1 }, 'el de renovación automática recibe el aviso de cobro');
   assert.deepEqual(enviados.map((e) => e.to[0]).sort(), ['a@x.es', 'b@x.es']);
@@ -225,7 +227,7 @@ test('se renueva solo: aviso antes de cada cobro (una vez), recibo, cobro fallid
   const caduca = new Date(AHORA + 2 * DIA).toISOString();
   const tabla = tablaFalsa([{ id: 1, cliente: 'a', estado: 'publicado', titulo: 'Pagoda', vendedor_nombre: 'Ana', email: 'a@x.es', caduca, stripe_suscripcion: 'sub_1', stripe_estado: 'activa' }]);
   const llamadas = [];
-  const deps = { fetch, tabla, pagos: tablaFalsa([]), ajustes: tablaFalsa([]), db: async () => {}, stripe: async (m, path) => { llamadas.push([m, path]); return {}; } };
+  const deps = { fetch, tabla, pagos: tablaFalsa([]), ajustes: COBRANDO(), db: async () => {}, stripe: async (m, path) => { llamadas.push([m, path]); return {}; } };
   // 1 · Aviso «se renueva el día X por 12,90 €», solo una vez por cobro
   assert.deepEqual(await revisarComunidad(cfg, deps, AHORA), { recordados: 0, retirados: 0, avisos: 1 });
   assert.match(enviados[0].subject, /se renueva tu anuncio/);
@@ -258,4 +260,18 @@ test('se renueva solo: aviso antes de cada cobro (una vez), recibo, cobro fallid
   await procesarStripe({ type: 'customer.subscription.updated', data: { object: { id: 'sub_1', status: 'active', cancel_at_period_end: true, current_period_end: fin, metadata: { anuncio: '1' } } } }, cfg, deps);
   assert.equal(tabla.filas[0].stripe_estado, 'cancela');
   assert.match(enviados.at(-1).subject, /Baja confirmada/);
+});
+
+test('cobro apagado (de serie): sin mes gratis, sin avisos, sin precio y el enlace de pago dice que es gratis', async () => {
+  const cfg = config({ ADMIN_CLAVE: 'p', SUBASTAS_CLAVE: 'k', STRIPE_SECRET_KEY: 'sk', SERVIDOR_URL: 'https://motor.test', RESEND_API_KEY: 're_x' });
+  const enviados = [];
+  const tabla = tablaFalsa([{ id: 1, cliente: 'a', estado: 'publicado', titulo: 'Seat 600', email: 'a@x.es', caduca: null, fotos: [] }]);
+  const deps = { tabla, pagos: tablaFalsa([]), ajustes: tablaFalsa([]), db: async () => null, fetch: async (u, o) => { enviados.push(o); return { ok: true, json: async () => ({}) }; } };
+  assert.equal(await altaComunidad(cfg, deps, tabla.filas[0]), '');
+  assert.equal(deps.pagos.filas.length, 0);
+  assert.deepEqual(await revisarComunidad(cfg, deps), { recordados: 0, retirados: 0, avisos: 0, cobro: 'apagado' });
+  assert.equal(enviados.length, 0);
+  const f = new URL(enlacePago(cfg, 1)).searchParams.get('f');
+  const p = await atender({ method: 'GET', ruta: 'pagar', query: { a: '1', f }, body: {}, directo: true, headers: {} }, cfg, deps);
+  assert.match(p.body, /anunciar en Sidonia es gratis/);
 });

@@ -28,7 +28,7 @@ import { registrarEvento } from './estadisticas.mjs';
 import { revisarComunidad, rutasPago } from './comunidad.mjs';
 import { recibirOferta } from './ofertas.mjs';
 
-export const VERSION = 'pago-y-baja-2026-10-26';
+export const VERSION = 'gratis-y-favicon-2026-10-27';
 
 export function config(env = process.env) {
   return {

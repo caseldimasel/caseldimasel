@@ -418,9 +418,10 @@ test('varios anuncios: el segundo es de pago; editar, vender y eliminar cada uno
     async cambiar(id, c) { Object.assign(filas.find((o) => o.id === id), c); }
   };
   const vacia = { leer: async () => [] };
+  const cobrando = { leer: async () => [{ valor: { cobrar: true } }] };
   const llamadas = [];
   const db = async (fn, a) => { llamadas.push([fn, a]); return fn === 'sidonia_anuncio_nuevo' ? { ok: true, anuncio: { id: 4 } } : fn === 'sidonia_anuncio_mio' ? filas[1] : { ok: true }; };
-  const deps = { db, tabla, pagos: { leer: async () => [{ id: 1 }] }, ajustes: vacia, gql: async () => ({ products: { nodes: [] } }) };
+  const deps = { db, tabla, pagos: { leer: async () => [{ id: 1 }] }, ajustes: cobrando, gql: async () => ({ products: { nodes: [] } }) };
   // En las GET, el id va en la dirección (?id=), firmada por Shopify con lo demás
   const firmada = (extra) => { const x = { ...q(), ...extra }; delete x.signature; return { ...x, signature: firmaProxy(x, SECRETO) }; };
   const ir = async (method, ruta, body = {}) => JSON.parse((await atender({ method, ruta, query: method === 'GET' ? firmada(body) : q(), body }, cfg, deps)).body);

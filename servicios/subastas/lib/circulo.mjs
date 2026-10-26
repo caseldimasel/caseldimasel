@@ -157,25 +157,28 @@ export async function rutasTienda({ ruta, method, body }, cliente, cfg, deps) {
     try {
       const activos = (await tablaA().leer(`cliente=eq.${encodeURIComponent(cliente)}&estado=in.(${ACTIVOS.join(',')})&select=id`)).length;
       const tarifa = await leerTarifa(deps.ajustes || tablaAnuncios(cfg, deps.fetch, 'ajustes'));
-      return { activos, precio_siguiente: precioMes(tarifa, activos + 1) };
-    } catch (e) { return { activos: null, precio_siguiente: null }; }
+      // Sin cobrar a la comunidad: sin precio (la web no enseña nada de pago)
+      return { activos, precio_siguiente: tarifa.cobrar ? precioMes(tarifa, activos + 1) : null, cobrar: tarifa.cobrar };
+    } catch (e) { return { activos: null, precio_siguiente: null, cobrar: false }; }
   };
   if (ruta === 'api/anuncio' && method === 'GET') {
     if (Number(body.id)) {
       const a = await elegido(body.id);
-      return json(200, { ok: true, anuncio: a && { id: a.id, estado: a.estado, tipo: a.tipo, titulo: a.titulo, nota: a.nota, producto: a.producto, creado: a.creado, reservado: Boolean(a.reservado), pago_url: a.estado === 'publicado' ? enlacePago(cfg, a.id) : '', mejoras: pendientes(a.mejoras) ? listaMejoras(a.mejoras) : null }, ...(await cuenta()) });
+      const c = await cuenta();
+      return json(200, { ok: true, ...c, anuncio: a && { id: a.id, estado: a.estado, tipo: a.tipo, titulo: a.titulo, nota: a.nota, producto: a.producto, creado: a.creado, reservado: Boolean(a.reservado), pago_url: a.estado === 'publicado' && c.cobrar ? enlacePago(cfg, a.id) : '', mejoras: pendientes(a.mejoras) ? listaMejoras(a.mejoras) : null } });
     }
     const mio = await db('sidonia_anuncio_mio', { p_cliente: cliente });
     // Si está publicado: si lo tiene marcado como reservado (para sus botones)
     if (mio && mio.estado === 'publicado') {
       try { mio.reservado = Boolean((await (deps.tabla || tablaAnuncios(cfg, deps.fetch)).leer(`id=eq.${Number(mio.id)}&select=reservado`))[0]?.reservado); } catch (e) { /* sin la columna aún */ }
     }
-    if (mio && mio.estado === 'publicado') mio.pago_url = enlacePago(cfg, mio.id);
+    const c = await cuenta();
+    if (mio && mio.estado === 'publicado' && c.cobrar) mio.pago_url = enlacePago(cfg, mio.id);
     // Mejoras que le hemos pedido y aún no ha hecho
     if (mio && ['pendiente', 'aprobado'].includes(mio.estado)) {
       try { const [x] = await tablaA().leer(`id=eq.${Number(mio.id)}&select=mejoras`); if (pendientes(x?.mejoras)) mio.mejoras = listaMejoras(x.mejoras); } catch (e) { /* sin la columna aún */ }
     }
-    return json(200, { ok: true, anuncio: mio, ...(await cuenta()) });
+    return json(200, { ok: true, anuncio: mio, ...c });
   }
   if (ruta === 'api/anuncios' && method === 'GET') {
     const lista = await db('sidonia_anuncios_mios', { p_cliente: cliente });
@@ -185,7 +188,8 @@ export async function rutasTienda({ ruta, method, body }, cliente, cfg, deps) {
     const conMejoras = new Set();
     try { (await tablaA().leer(`cliente=eq.${encodeURIComponent(cliente)}&mejoras=not.is.null&select=id,mejoras`)).filter((x) => pendientes(x.mejoras)).forEach((x) => conMejoras.add(Number(x.id))); } catch (e) { /* sin la columna aún */ }
     // Con el enlace para pagar (o gestionar la renovación) de cada anuncio activo
-    return json(200, { ok: true, anuncios: (lista || []).map((a) => ({ ...a, portada: a.portada ? urlFoto(cfg, a.portada) : '', reservado: reservados.has(Number(a.id)), mejoras: conMejoras.has(Number(a.id)), pago_url: ACTIVOS.includes(a.estado) ? enlacePago(cfg, a.id) : '' })) });
+    const { cobrar } = await cuenta();
+    return json(200, { ok: true, anuncios: (lista || []).map((a) => ({ ...a, portada: a.portada ? urlFoto(cfg, a.portada) : '', reservado: reservados.has(Number(a.id)), mejoras: conMejoras.has(Number(a.id)), pago_url: cobrar && ACTIVOS.includes(a.estado) ? enlacePago(cfg, a.id) : '' })) });
   }
   if (ruta === 'api/anuncio/fotos' && method === 'POST') {
     // Para uno nuevo, mientras no llegue al máximo de anuncios activos
@@ -202,7 +206,8 @@ export async function rutasTienda({ ruta, method, body }, cliente, cfg, deps) {
     if (r && r.ok) {
       // ¿Es de pago? Si ya ha tenido un anuncio (pagos) o tiene otro activo. El enlace de pago le llega al publicarlo.
       try {
-        const { activos } = await cuenta();
+        const { activos, cobrar } = await cuenta();
+        if (!cobrar) throw new Error('gratis');
         const previos = await (deps.pagos || tablaAnuncios(cfg, deps.fetch, 'pagos')).leer(`cliente=eq.${encodeURIComponent(cliente)}&select=id&limit=1`);
         r.de_pago = previos.length > 0 || activos > 1;
         if (r.de_pago) r.precio = precioMes(await leerTarifa(deps.ajustes || tablaAnuncios(cfg, deps.fetch, 'ajustes')), activos);
