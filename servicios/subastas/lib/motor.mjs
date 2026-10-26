@@ -26,7 +26,7 @@ import { revisarAlertas, rutasAlertas } from './alertas.mjs';
 import { registrarEvento } from './estadisticas.mjs';
 import { revisarComunidad, rutasPago } from './comunidad.mjs';
 
-export const VERSION = 'comunidad-stripe-2026-10-26';
+export const VERSION = 'varios-anuncios-2026-10-26';
 
 export function config(env = process.env) {
   return {

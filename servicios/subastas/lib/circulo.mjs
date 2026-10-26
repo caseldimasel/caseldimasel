@@ -18,7 +18,8 @@
  * Panel del equipo (directo en Vercel, con contraseña): /admin → lista, editar, aprobar y publicar en Shopify, rechazar, retirar.
  * Al dueño le llegan emails (si hay Resend): recibido, publicado y no publicado con el motivo (lib/correos.mjs).
  *
- * Un anuncio activo gratis por persona (lo garantiza la base de datos: sql/circulo.sql).
+ * Cada persona puede tener varios anuncios activos (hasta 25): el primero, gratis un mes; los demás se pagan por meses
+ * (lib/comunidad.mjs). Editar, eliminar y reservado/vendido van al anuncio que se diga con «id» (si no, al último activo).
  */
 import { CABECERA, ESTILO_PANEL, FAVICON, recursoPanel } from './marca.mjs';
 import { createHash } from 'node:crypto';
@@ -28,7 +29,7 @@ import { avisarCliente, avisarTodos, avisoCambios, avisoPublicado, avisoRechazad
 import { navPanel, paginaEstadisticas, ponerContadores } from './estadisticas.mjs';
 import { rutasOperaciones } from './operaciones.mjs';
 import { rutasFichas } from './fichas.mjs';
-import { altaComunidad, cancelarRenovacion, enlacePago, rutasComunidad } from './comunidad.mjs';
+import { altaComunidad, cancelarRenovacion, enlacePago, leerTarifa, precioMes, rutasComunidad } from './comunidad.mjs';
 import { cookieFuera, cookieSesion, intentarEntrar, paginaEntrar, sesionValida } from './acceso.mjs';
 import { csvClientes, paginaAnuncio, paginaCliente, paginaClientesCrm } from './crm.mjs';
 import { correoCambiosAprobados, correoCambiosRechazados, correoPublicado, correoRechazado, correoRecibido, enviarCorreo } from './correos.mjs';
@@ -38,6 +39,7 @@ export const VENDEDOR_TIPOS = ['particular', 'profesional'];
 export const FOTOS_MIN = Number(process.env.CIRCULO_FOTOS_MIN || 8);
 export const FOTOS_MAX = 30;
 const ACTIVOS = ['pendiente', 'aprobado', 'publicado'];
+export const MAX_ACTIVOS = 25;   // anuncios activos a la vez por persona (el primero gratis; los demás de pago)
 const SITUACIONES = ['en_venta', 'reservado', 'vendido'];
 // Lo que el dueño puede cambiar de su anuncio (el slug de su perfil y su email no)
 export const CAMPOS_EDITABLES = ['tipo', 'titulo', 'precio', 'ubicacion', 'resumen', 'historia', 'mecanica', 'ficha', 'fotos', 'vendedor_nombre', 'vendedor_tipo', 'telefono', 'acepta_telefono'];
@@ -140,23 +142,47 @@ export async function rutasTienda({ ruta, method, body }, cliente, cfg, deps) {
   }
   if (!cliente) return json(200, { ok: false, error: 'login' });
   const { db } = deps;
+  const tablaA = () => deps.tabla || tablaAnuncios(cfg, deps.fetch);
+  // Uno de sus anuncios activos, por su id
+  const elegido = async (id) => {
+    if (!Number(id)) return null;
+    const [a] = await tablaA().leer(`id=eq.${Number(id)}&cliente=eq.${encodeURIComponent(cliente)}&estado=in.(${ACTIVOS.join(',')})&limit=1`);
+    return a || null;
+  };
+  // Cuántos tiene activos y lo que costaría uno más (para avisarle antes de enviar otro)
+  const cuenta = async () => {
+    try {
+      const activos = (await tablaA().leer(`cliente=eq.${encodeURIComponent(cliente)}&estado=in.(${ACTIVOS.join(',')})&select=id`)).length;
+      const tarifa = await leerTarifa(deps.ajustes || tablaAnuncios(cfg, deps.fetch, 'ajustes'));
+      return { activos, precio_siguiente: precioMes(tarifa, activos + 1) };
+    } catch (e) { return { activos: null, precio_siguiente: null }; }
+  };
   if (ruta === 'api/anuncio' && method === 'GET') {
+    if (Number(body.id)) {
+      const a = await elegido(body.id);
+      return json(200, { ok: true, anuncio: a && { id: a.id, estado: a.estado, tipo: a.tipo, titulo: a.titulo, nota: a.nota, producto: a.producto, creado: a.creado, reservado: Boolean(a.reservado) }, ...(await cuenta()) });
+    }
     const mio = await db('sidonia_anuncio_mio', { p_cliente: cliente });
     // Si está publicado: si lo tiene marcado como reservado (para sus botones)
     if (mio && mio.estado === 'publicado') {
       try { mio.reservado = Boolean((await (deps.tabla || tablaAnuncios(cfg, deps.fetch)).leer(`id=eq.${Number(mio.id)}&select=reservado`))[0]?.reservado); } catch (e) { /* sin la columna aún */ }
     }
-    return json(200, { ok: true, anuncio: mio });
+    return json(200, { ok: true, anuncio: mio, ...(await cuenta()) });
   }
   if (ruta === 'api/anuncios' && method === 'GET') {
     const lista = await db('sidonia_anuncios_mios', { p_cliente: cliente });
+    // Cuáles están marcados como reservados (sus botones en «Mi perfil»)
+    const reservados = new Set();
+    try { (await tablaA().leer(`cliente=eq.${encodeURIComponent(cliente)}&reservado=eq.true&select=id`)).forEach((x) => reservados.add(Number(x.id))); } catch (e) { /* sin la columna aún */ }
     // Con el enlace para pagar (o gestionar la renovación) de cada anuncio activo
-    return json(200, { ok: true, anuncios: (lista || []).map((a) => ({ ...a, portada: a.portada ? urlFoto(cfg, a.portada) : '', pago_url: ACTIVOS.includes(a.estado) ? enlacePago(cfg, a.id) : '' })) });
+    return json(200, { ok: true, anuncios: (lista || []).map((a) => ({ ...a, portada: a.portada ? urlFoto(cfg, a.portada) : '', reservado: reservados.has(Number(a.id)), pago_url: ACTIVOS.includes(a.estado) ? enlacePago(cfg, a.id) : '' })) });
   }
   if (ruta === 'api/anuncio/fotos' && method === 'POST') {
-    const mio = await db('sidonia_anuncio_mio', { p_cliente: cliente });
-    // Al editar su anuncio sí puede subir fotos nuevas; para uno nuevo, solo si no tiene otro activo
-    if (!body.editar && mio && ACTIVOS.includes(mio.estado)) return json(200, { ok: false, error: 'limite', anuncio: mio });
+    // Para uno nuevo, mientras no llegue al máximo de anuncios activos
+    if (!body.editar) {
+      const { activos } = await cuenta();
+      if (activos >= MAX_ACTIVOS) return json(200, { ok: false, error: 'limite' });
+    }
     return json(200, await (deps.subidas || permisosSubida)(cfg, cliente, body.tipos));
   }
   if (ruta === 'api/anuncio' && method === 'POST') {
@@ -164,6 +190,13 @@ export async function rutasTienda({ ruta, method, body }, cliente, cfg, deps) {
     if (!v.ok) return json(400, v);
     const r = await db('sidonia_anuncio_nuevo', { p_cliente: cliente, p: v.datos });
     if (r && r.ok) {
+      // ¿Es de pago? Si ya ha tenido un anuncio (pagos) o tiene otro activo. El enlace de pago le llega al publicarlo.
+      try {
+        const { activos } = await cuenta();
+        const previos = await (deps.pagos || tablaAnuncios(cfg, deps.fetch, 'pagos')).leer(`cliente=eq.${encodeURIComponent(cliente)}&select=id&limit=1`);
+        r.de_pago = previos.length > 0 || activos > 1;
+        if (r.de_pago) r.precio = precioMes(await leerTarifa(deps.ajustes || tablaAnuncios(cfg, deps.fetch, 'ajustes')), activos);
+      } catch (e) { /* sin sql/comunidad.sql: como antes */ }
       await avisarEquipo(cfg, `Nuevo anuncio gratis: ${v.datos.titulo}`, emailAnuncio(cfg, v.datos), deps.fetch).catch((e) => console.error(e));
       const c = correoRecibido(cfg, v.datos);
       await enviarCorreo(cfg, v.datos.email, c.asunto, c.html, deps.fetch).catch((e) => console.error(e));
@@ -172,8 +205,8 @@ export async function rutasTienda({ ruta, method, body }, cliente, cfg, deps) {
   }
   // Editar su anuncio
   if (ruta === 'api/anuncio/editar') {
-    const tabla = deps.tabla || tablaAnuncios(cfg, deps.fetch);
-    const [a] = await tabla.leer(`cliente=eq.${encodeURIComponent(cliente)}&estado=in.(${ACTIVOS.join(',')})&order=creado.desc&limit=1`);
+    const tabla = tablaA();
+    const [a] = Number(body.id) ? [await elegido(body.id)] : await tabla.leer(`cliente=eq.${encodeURIComponent(cliente)}&estado=in.(${ACTIVOS.join(',')})&order=creado.desc&limit=1`);
     if (!a) return json(200, { ok: false, error: 'sin-anuncio' });
     if (method === 'GET') {
       const actual = { ...a, ...(a.revision || {}) };
@@ -191,7 +224,7 @@ export async function rutasTienda({ ruta, method, body }, cliente, cfg, deps) {
   }
   // Eliminar su anuncio: deja de verse y puede publicar otro
   if (ruta === 'api/anuncio/eliminar' && method === 'POST') {
-    const mio = await db('sidonia_anuncio_mio', { p_cliente: cliente });
+    const mio = Number(body.id) ? await elegido(body.id) : await db('sidonia_anuncio_mio', { p_cliente: cliente });
     if (!mio || !ACTIVOS.includes(mio.estado)) return json(200, { ok: false, error: 'sin-anuncio' });
     await db('sidonia_anuncio_estado', { p_id: mio.id, p_estado: 'retirado', p_nota: 'Eliminado por el dueño', p_producto: null });
     await (deps.tabla || tablaAnuncios(cfg, deps.fetch)).cambiar(mio.id, { revision: null }).catch((e) => console.error(e));
@@ -234,7 +267,7 @@ export async function rutasTienda({ ruta, method, body }, cliente, cfg, deps) {
   if (ruta === 'api/anuncio/situacion' && method === 'POST') {
     const situacion = String(body.situacion || '');
     if (!SITUACIONES.includes(situacion)) return json(400, { ok: false, error: 'datos' });
-    const mio = await db('sidonia_anuncio_mio', { p_cliente: cliente });
+    const mio = Number(body.id) ? await elegido(body.id) : await db('sidonia_anuncio_mio', { p_cliente: cliente });
     if (!mio || mio.estado !== 'publicado' || !mio.producto) return json(200, { ok: false, error: 'sin-anuncio' });
     await marcarSituacion(cfg, mio, situacion, deps);
     if (situacion === 'vendido') await cancelarRenovacion(cfg, deps, mio.id);

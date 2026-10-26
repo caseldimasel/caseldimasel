@@ -201,7 +201,10 @@ cada anuncio paga al mes según cuántos tenga activos a la vez (la tarifa se ca
   el pago (meses, importe, Bizum/transferencia…), se le recuerda por email o se retira de la web si no renueva.
 - Clientes › Anunciantes: cada persona con sus anuncios y su histórico de pagos (lo que lleva gastado).
 - Clientes › Propietarios: solo los dueños de las ventas gestionadas.
-- Base de datos: ejecuta `sql/comunidad.sql` en Supabase (los anuncios ya publicados reciben un mes gratis desde ese día).
+- Base de datos: ejecuta otra vez `sql/circulo.sql` (quita el límite de un anuncio por persona) y luego `sql/comunidad.sql`
+  (los anuncios ya publicados reciben un mes gratis desde ese día).
+- Cada persona puede tener hasta 25 anuncios activos. En la web, «Publicar otro anuncio» le dice antes cuánto cuesta; editar,
+  eliminar y reservado/vendido van a cada anuncio por su id.
 
 **Pago con tarjeta (Stripe), se renueva solo cada mes.** Cada anuncio tiene su enlace de pago firmado
 (`/tienda/pagar?a=…&f=…`): va en los emails, en «Mi perfil › Pago y renovación» y se copia o manda por WhatsApp desde

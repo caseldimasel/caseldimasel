@@ -69,7 +69,7 @@ test('tienda: sin sesión pide entrar; con sesión guarda una solicitud', async 
   assert.equal(sinFirma.status, 401, 'nadie publica en nombre de otro');
 });
 
-test('fotos: una dirección firmada por foto, en la carpeta del cliente; no si ya tiene un anuncio activo', async () => {
+test('fotos: una dirección firmada por foto, en la carpeta del cliente; no si ya tiene el máximo de anuncios activos', async () => {
   const pedidas = [];
   const f = async (url) => { pedidas.push(url); return { ok: true, json: async () => ({ url: `/object/upload/sign/anuncios/${url.split('/anuncios/')[1]}?token=t` }) }; };
   const r = await permisosSubida(cfg, '7001', ['image/jpeg', 'image/webp'], f);
@@ -80,7 +80,8 @@ test('fotos: una dirección firmada por foto, en la carpeta del cliente; no si y
   assert.equal(r.subidas[0].url, `https://x.supabase.co/storage/v1/object/upload/sign/anuncios/${r.subidas[0].ruta}?token=t`);
   assert.equal((await permisosSubida(cfg, '7001', ['text/html'], f)).ok, false);
   const db = async () => ({ id: 3, estado: 'pendiente' });
-  const lim = await atender({ method: 'POST', ruta: 'api/anuncio/fotos', query: q(), body: { tipos: ['image/jpeg'] } }, cfg, { db });
+  const llena = { leer: async () => Array.from({ length: 25 }, (_, i) => ({ id: i })) };
+  const lim = await atender({ method: 'POST', ruta: 'api/anuncio/fotos', query: q(), body: { tipos: ['image/jpeg'] } }, cfg, { db, tabla: llena, ajustes: { leer: async () => [] } });
   assert.equal(JSON.parse(lim.body).error, 'limite');
 });
 
@@ -173,7 +174,7 @@ test('panel › clientes: quién se registra y quién entra', async () => {
 
 // Contra un PostgreSQL de verdad (como test/sql.test.mjs)
 const CONN = process.env.PGTEST;
-test('base de datos: un anuncio activo por persona', { skip: !CONN && 'sin PGTEST' }, () => {
+test('base de datos: varios anuncios activos por persona', { skip: !CONN && 'sin PGTEST' }, () => {
   const args = (db) => [...CONN.split(/\s+/), '-d', db, '-v', 'ON_ERROR_STOP=1', '-Atq'];
   const psql = (sql, db = 'sidonia_circulo') => execFileSync('psql', [...args(db), '-c', sql], { encoding: 'utf8' }).trim();
   psql('drop database if exists sidonia_circulo', 'postgres');
@@ -184,14 +185,15 @@ test('base de datos: un anuncio activo por persona', { skip: !CONN && 'sin PGTES
   const datos = JSON.stringify({ ...validar(bueno(), '7001').datos }).replace(/'/g, "''");
   const nuevo = () => JSON.parse(psql(`select sidonia_anuncio_nuevo('7001', '${datos}'::jsonb)::text`));
   assert.equal(nuevo().ok, true);
-  assert.equal(nuevo().error, 'limite', 'el segundo, no');
+  assert.equal(nuevo().ok, true, 'puede tener varios a la vez (los demás, de pago)');
+  psql("update anuncios set estado = 'retirado', creado = now() - interval '1 day' where id = (select max(id) from anuncios)");
   const id = JSON.parse(psql("select sidonia_anuncio_mio('7001')::text")).id;
   psql(`select sidonia_anuncio_estado(${id}, 'rechazado', 'Fotos con otros coches')`);
   assert.equal(JSON.parse(psql("select sidonia_anuncio_mio('7001')::text")).nota, 'Fotos con otros coches');
   assert.equal(nuevo().ok, true, 'tras un rechazo puede enviar otro');
   assert.equal(psql("select public from storage.buckets where id = 'anuncios'"), 't');
   const mios = JSON.parse(psql("select sidonia_anuncios_mios('7001')::text"));
-  assert.deepEqual(mios.map((m) => m.estado), ['pendiente', 'rechazado'], 'su perfil: todos, el último primero');
+  assert.deepEqual(mios.map((m) => m.estado), ['pendiente', 'rechazado', 'retirado'], 'su perfil: todos, el último primero');
   assert.equal(mios[0].portada, '7001/k00-abcdefgh.jpg');
   // Se puede volver a ejecutar, y acepta motos y profesionales
   execFileSync('psql', [...args('sidonia_circulo'), '-f', fileURLToPath(new URL('../sql/circulo.sql', import.meta.url))], { encoding: 'utf8' });
@@ -281,10 +283,11 @@ test('el dueño elimina su anuncio: se retira, se archiva en Shopify y puede pub
   assert.deepEqual(r, { ok: true, archivado: true });
   assert.deepEqual(llamadas.find((c) => c[0] === 'sidonia_anuncio_estado')[1], { p_id: 9, p_estado: 'retirado', p_nota: 'Eliminado por el dueño', p_producto: null });
   assert.deepEqual(gqls[1], { product: { id: 'gid://P/1', status: 'ARCHIVED' } });
-  // Con un anuncio activo puede pedir fotos solo para editar
+  // Con un anuncio activo puede pedir fotos para otro (de pago) y para editar
   const dbActivo = async (fn) => (fn === 'sidonia_anuncio_mio' ? { id: 9, estado: 'publicado' } : null);
-  const nuevo = JSON.parse((await atender({ method: 'POST', ruta: 'api/anuncio/fotos', query: q(), body: { tipos: ['image/jpeg'] } }, cfg, { db: dbActivo, subidas: async () => ({ ok: true, subidas: [] }) })).body);
-  assert.equal(nuevo.error, 'limite');
+  const uno = { leer: async () => [{ id: 9 }] };
+  const nuevo = JSON.parse((await atender({ method: 'POST', ruta: 'api/anuncio/fotos', query: q(), body: { tipos: ['image/jpeg'] } }, cfg, { db: dbActivo, tabla: uno, ajustes: uno, subidas: async () => ({ ok: true, subidas: [] }) })).body);
+  assert.equal(nuevo.ok, true);
   const editar = JSON.parse((await atender({ method: 'POST', ruta: 'api/anuncio/fotos', query: q(), body: { tipos: ['image/jpeg'], editar: true } }, cfg, { db: dbActivo, subidas: async () => ({ ok: true, subidas: [] }) })).body);
   assert.equal(editar.ok, true);
 });
@@ -399,4 +402,36 @@ test('propietarios: se sacan de la historia y se ponen a los que no lo tienen', 
   assert.deepEqual(puestos, ['P1=Carlos']);
   assert.match(r.body, /1 puestos ahora · 1 ya lo tenían · 1 sin nombre en la historia/);
   assert.match(r.body, /Listo: 1 propietarios puestos/);
+});
+
+test('varios anuncios: el segundo es de pago; editar, vender y eliminar cada uno por su id (y nunca el de otro)', async () => {
+  const filas = [{ id: 1, cliente: '7001', estado: 'publicado', titulo: 'Porsche', producto: 'porsche', vendedor_nombre: 'Ana' }, { id: 2, cliente: '7001', estado: 'pendiente', titulo: 'Vespa', vendedor_nombre: 'Ana' }, { id: 3, cliente: '9999', estado: 'publicado', titulo: 'De otro', producto: 'otro' }];
+  const tabla = {
+    async leer(f) {
+      let l = [...filas];
+      for (const [, k, v] of f.matchAll(/(?:^|&)(id|cliente)=eq\.([^&]+)/g)) l = l.filter((o) => String(o[k]) === decodeURIComponent(v));
+      const e = f.match(/estado=in\.\(([^)]+)\)/);
+      if (e) l = l.filter((o) => e[1].split(',').includes(o.estado));
+      return l;
+    },
+    async cambiar(id, c) { Object.assign(filas.find((o) => o.id === id), c); }
+  };
+  const vacia = { leer: async () => [] };
+  const llamadas = [];
+  const db = async (fn, a) => { llamadas.push([fn, a]); return fn === 'sidonia_anuncio_nuevo' ? { ok: true, anuncio: { id: 4 } } : fn === 'sidonia_anuncio_mio' ? filas[1] : { ok: true }; };
+  const deps = { db, tabla, pagos: { leer: async () => [{ id: 1 }] }, ajustes: vacia, gql: async () => ({ products: { nodes: [] } }) };
+  // En las GET, el id va en la dirección (?id=), firmada por Shopify con lo demás
+  const firmada = (extra) => { const x = { ...q(), ...extra }; delete x.signature; return { ...x, signature: firmaProxy(x, SECRETO) }; };
+  const ir = async (method, ruta, body = {}) => JSON.parse((await atender({ method, ruta, query: method === 'GET' ? firmada(body) : q(), body }, cfg, deps)).body);
+  const g = await ir('GET', 'api/anuncio');
+  assert.deepEqual([g.activos, g.precio_siguiente], [2, 12.9], 'ya tiene 2: el tercero, 12,90 € al mes');
+  assert.equal((await ir('GET', 'api/anuncio', { id: '1' })).anuncio.titulo, 'Porsche');
+  assert.equal((await ir('GET', 'api/anuncio', { id: '3' })).anuncio, null, 'el de otro, no');
+  const n = await ir('POST', 'api/anuncio', bueno());
+  assert.equal(n.ok, true);
+  assert.equal(n.de_pago, true);
+  assert.equal((await ir('GET', 'api/anuncio/editar', { id: '1' })).anuncio.titulo, 'Porsche');
+  assert.equal((await ir('POST', 'api/anuncio/eliminar', { id: '3' })).error, 'sin-anuncio', 'no puede eliminar el de otro');
+  assert.equal((await ir('POST', 'api/anuncio/eliminar', { id: '1' })).ok, true);
+  assert.deepEqual(llamadas.find((c) => c[0] === 'sidonia_anuncio_estado')[1].p_id, 1);
 });

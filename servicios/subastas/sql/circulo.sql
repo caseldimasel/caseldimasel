@@ -1,8 +1,8 @@
 -- SIDONIA · Anuncios de dueños: coches, motos, barcos y casas que publican sus dueños (particulares o profesionales),
 -- revisados por Sidonia. Salen en la web con el resto, con «Dueño particular» o «Dueño profesional».
 --
--- Cada cliente de Shopify (con su sesión iniciada) puede tener UN anuncio activo gratis: en revisión, aprobado o
--- publicado. Si se lo rechazamos o lo retira, puede enviar otro. Las fotos van a Supabase Storage (cubo «anuncios»,
+-- Cada cliente de Shopify (con su sesión iniciada) puede tener varios anuncios activos (en revisión, aprobado o
+-- publicado), hasta 25: el primero es gratis un mes y el resto se pagan por meses (sql/comunidad.sql, lib/comunidad.mjs). Las fotos van a Supabase Storage (cubo «anuncios»,
 -- público para leer; solo el servidor da permisos para subir).
 --
 -- Estados: pendiente → aprobado → publicado (ficha creada en Shopify) · rechazado · retirado.
@@ -88,9 +88,9 @@ create table if not exists alertas (
 create index if not exists alertas_cliente on alertas (cliente);
 alter table alertas enable row level security;
 
--- Un anuncio activo por persona (gratis): la base de datos no deja tener dos a la vez
-create unique index if not exists anuncios_uno_activo on anuncios (cliente)
-  where estado in ('pendiente', 'aprobado', 'publicado');
+-- Antes era un anuncio activo por persona; ahora puede tener varios (los demás, de pago)
+drop index if exists anuncios_uno_activo;
+create index if not exists anuncios_cliente on anuncios (cliente, estado);
 create index if not exists anuncios_estado on anuncios (estado, creado desc);
 alter table anuncios enable row level security;
 
@@ -107,7 +107,7 @@ $$;
 create or replace function sidonia_anuncio_nuevo(p_cliente text, p jsonb) returns jsonb language plpgsql as $$
 declare a anuncios;
 begin
-  if exists (select 1 from anuncios where cliente = p_cliente and estado in ('pendiente', 'aprobado', 'publicado')) then
+  if (select count(*) from anuncios where cliente = p_cliente and estado in ('pendiente', 'aprobado', 'publicado')) >= 25 then
     return jsonb_build_object('ok', false, 'error', 'limite', 'anuncio', sidonia_anuncio_mio(p_cliente));
   end if;
   insert into anuncios (cliente, tipo, titulo, precio, ubicacion, resumen, historia, mecanica, ficha, fotos,
@@ -118,9 +118,7 @@ begin
           left(p->>'vendedor_nombre', 60), p->>'vendedor_slug', coalesce(p->>'vendedor_tipo', 'particular'), left(p->>'telefono', 30), left(coalesce(p->>'email', ''), 160),
           coalesce((p->>'acepta_telefono')::boolean, false))
   returning * into a;
-  return jsonb_build_object('ok', true, 'anuncio', sidonia_anuncio_mio(p_cliente));
-exception when unique_violation then
-  return jsonb_build_object('ok', false, 'error', 'limite', 'anuncio', sidonia_anuncio_mio(p_cliente));
+  return jsonb_build_object('ok', true, 'anuncio', jsonb_build_object('id', a.id, 'estado', a.estado, 'tipo', a.tipo, 'titulo', a.titulo, 'nota', a.nota, 'producto', a.producto, 'creado', a.creado));
 end $$;
 
 -- Todos los anuncios de un cliente (su perfil): el más reciente primero
