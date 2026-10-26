@@ -114,7 +114,7 @@ function ficha(a) {
  * La plantilla común. { titulo, cuerpo (HTML con P/lista/cita/datos), boton, enlace, previa (lo que se lee en la bandeja),
  * paso (el estado: recibido · mejoras · publicado · rechazado), conFicha }. Con «así se verá en Sidonia» si es de un anuncio.
  */
-export function plantilla(cfg, a, { titulo, cuerpo, boton, enlace, previa = '', paso = '', conFicha = false }) {
+export function plantilla(cfg, a, { titulo, cuerpo, boton, enlace, previa = '', paso = '', conFicha = false, sinDudas = false }) {
   const wa = `https://wa.me/${cfg.whatsapp || '34675287095'}`;
   const logo = cfg.servidor
     ? `<img src="${esc(cfg.servidor)}/admin?recurso=logo" width="120" alt="SIDONIA" style="display:block;width:120px;height:auto;border:0">`
@@ -144,7 +144,7 @@ ${previa ? `<div style="display:none;max-height:0;overflow:hidden;opacity:0">${e
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px"><tr><td align="center" style="padding:20px 28px 0;${TEXTO};font-size:12px;line-height:1.8;color:#8a8a8a">
     Coches, motos, barcos y casas con alma<br>
     <a href="${esc(cfg.tienda)}" style="color:#1a1a1a;text-decoration:none;font-weight:600">sidonia.es</a> &nbsp;·&nbsp; <a href="${wa}" style="color:#1a1a1a;text-decoration:none;font-weight:600">WhatsApp</a> &nbsp;·&nbsp; <a href="${INSTAGRAM}" style="color:#1a1a1a;text-decoration:none;font-weight:600">Instagram</a><br>
-    ¿Dudas? Responde a este email y te contestamos.</td></tr></table>
+    ${sinDudas ? '' : '¿Dudas? Responde a este email y te contestamos.'}</td></tr></table>
 </td></tr></table></body></html>`;
 }
 

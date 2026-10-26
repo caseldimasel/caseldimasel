@@ -53,9 +53,9 @@ export function correoOfertaVendedor(cfg, o, a) {
       titulo: 'Tienes una oferta', previa: `${o.nombre} ofrece ${eur(o.oferta)}.`,
       cuerpo: P(a ? `Hola ${esc(a.vendedor_nombre || '')}:` : 'Nueva oferta en la web:') + P(`<b>${esc(o.nombre)}</b> ha hecho una oferta por ${a ? 'tu anuncio' : `<b>${esc(o.titulo)}</b>`}:`)
         + datos(filas(o, true)) + (o.mensaje ? cita(o.mensaje) : '')
-        + P(a ? 'Para contestarle, responde a este email (le llega a él) o escríbele por WhatsApp. Tú decides: aceptarla, hacerle una contraoferta o no seguir.' : 'Respondiendo a este email le contestas a él.')
+        + P(a ? 'Para contestar, responde a este email (le llega directamente) o escríbele por WhatsApp. Tú decides: aceptarla, hacer una contraoferta o no seguir.' : 'Respondiendo a este email le contestáis directamente.')
         + (wa ? P(`<a href="${esc(wa)}" style="color:#1a1a1a;font-weight:600">Escribirle por WhatsApp &rarr;</a>`) : ''),
-      boton: `Responder a ${o.nombre.split(' ')[0]}`, enlace: responder
+      boton: `Responder a ${o.nombre.split(' ')[0]}`, enlace: responder, sinDudas: true
     })
   };
 }
