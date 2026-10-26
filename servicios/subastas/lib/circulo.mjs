@@ -770,7 +770,7 @@ export function tablaAnuncios(cfg, fetchImpl = fetch, nombreTabla = 'anuncios') 
   const fallo = async (r) => {
     const t = (await r.text().catch(() => '')).slice(0, 200);
     // Falta la columna «revision» o las tablas «perfiles» o «dispositivos»: hay que volver a ejecutar sql/circulo.sql
-    throw new Error(/revision|reservado|perfiles|dispositivos/.test(t) ? 'Falta actualizar la base de datos: ejecuta otra vez sql/circulo.sql en Supabase › SQL Editor.' : `Supabase ${r.status}: ${t}`);
+    throw new Error(/revision|reservado|perfiles|dispositivos|alertas/.test(t) ? 'Falta actualizar la base de datos: ejecuta otra vez sql/circulo.sql en Supabase › SQL Editor.' : `Supabase ${r.status}: ${t}`);
   };
   return {
     async leer(filtro) {

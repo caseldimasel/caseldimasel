@@ -1,5 +1,6 @@
 /* SIDONIA · Entrada directa desde la tienda (sin el proxy de la app de Shopify): https://<este-servidor>/tienda/<ruta>.
- * Solo para «Anuncia gratis» (api/anuncio, api/anuncio/fotos, api/anuncios, api/visita). Quién es el cliente lo firma el
+ * Para «Anuncia gratis» (api/anuncio, api/anuncio/fotos, api/anuncios, api/visita), los perfiles, el móvil de la app y
+ * las alertas de búsqueda (api/alertas; el repaso diario lo llama el cron de vercel.json). Quién es el cliente lo firma el
  * tema en Liquid con la «Clave del motor» (?c&ct&cf), que se comprueba con SUBASTAS_CLAVE. Sin cookies.
  */
 import { atender, codigoError, config, supabase } from '../lib/motor.mjs';
@@ -27,7 +28,7 @@ export default async function handler(req, res) {
     try { body = JSON.parse(body); } catch (e) { body = {}; }
   }
   try {
-    const r = await atender({ method: req.method, ruta, query, body, directo: true }, cfg, { db: supabase(cfg) });
+    const r = await atender({ method: req.method, ruta, query, body, directo: true, headers: req.headers }, cfg, { db: supabase(cfg) });
     console.log('tienda', req.method, ruta, r.status);
     Object.entries(r.headers || {}).forEach(([k, v]) => res.setHeader(k, v));
     res.status(r.status).send(r.body);

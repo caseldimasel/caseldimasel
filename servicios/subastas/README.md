@@ -142,6 +142,19 @@ El móvil queda en la tabla `dispositivos`, que crea `sql/circulo.sql`. Desde aq
 Variable en Vercel: `FIREBASE_SERVICE_ACCOUNT`, con el JSON de la cuenta de servicio de Firebase (tal cual o en
 base64). `GET /api/salud` dice si es válida.
 
+### Alertas de búsqueda («Avísame cuando entre uno así»)
+
+En una búsqueda o colección, con sus filtros, la campana **Crear alerta** guarda lo que se está mirando (hace falta la
+cuenta: así la gente se registra). Una vez al día (07:10 UTC, `crons` de `vercel.json`) se repasan los anuncios nuevos
+de la tienda y a quien le encaje alguno le llega un email con las fichas (Resend) y un aviso al móvil si tiene la app.
+En el tema: `snippets/sidonia-alerta.liquid` y Mi perfil › Mis alertas (para quitarlas). Código: `lib/alertas.mjs`.
+
+Para ponerlo en marcha:
+1. Supabase › SQL Editor: ejecuta otra vez `sql/circulo.sql` (crea la tabla `alertas`).
+2. Vercel › Settings › Environment Variables: `CRON_SECRET` (una contraseña larga cualquiera; Vercel la manda sola en
+   el cron). Sin ella, el repaso no se hace.
+3. La app de Shopify necesita `read_products` (ya lo tiene para publicar).
+
 ## Rutas (detrás de `/apps/sidonia`)
 
 | Ruta | |

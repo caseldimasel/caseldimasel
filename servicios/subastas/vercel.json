@@ -26,5 +26,11 @@
       "source": "/",
       "destination": "/api/inicio"
     }
+  ],
+  "crons": [
+    {
+      "path": "/api/tienda?ruta=api/alertas/revisar",
+      "schedule": "10 7 * * *"
+    }
   ]
 }

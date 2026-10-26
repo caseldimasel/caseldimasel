@@ -15,12 +15,14 @@
  *   GET  registro/vuelta?session_id=&return_url= → marca la tarjeta como guardada y vuelve a la ficha
  *   api/anuncio…                 → anuncios de dueños, gratis (ver circulo.mjs)
  *   POST api/push/registrar { token, plataforma } → el móvil de la app, para los avisos (ver avisos.mjs)
+ *   api/alertas…                 → alertas de búsqueda «Avísame cuando entre uno así» (ver alertas.mjs)
  */
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { rutasTienda } from './circulo.mjs';
 import { cuentaFirebase, registrarDispositivo } from './avisos.mjs';
+import { revisarAlertas, rutasAlertas } from './alertas.mjs';
 
-export const VERSION = 'app-2026-10-25';
+export const VERSION = 'alertas-2026-10-26';
 
 export function config(env = process.env) {
   return {
@@ -39,7 +41,8 @@ export function config(env = process.env) {
     avisosEquipo: String(env.AVISOS_EQUIPO || env.OFERTAS_EQUIPO || '').split(',').map((x) => x.trim()).filter(Boolean),
     avisosRemitente: env.AVISOS_REMITENTE || env.OFERTAS_REMITENTE || 'Sidonia <avisos@sidonia.es>',
     avisosClientes: env.AVISOS_CLIENTES === '1',     // también un email cuando alguien entra por primera vez
-    firebase: cuentaFirebase(env.FIREBASE_SERVICE_ACCOUNT)   // avisos al móvil de la app (lib/avisos.mjs)
+    firebase: cuentaFirebase(env.FIREBASE_SERVICE_ACCOUNT),  // avisos al móvil de la app (lib/avisos.mjs)
+    cronSecreto: env.CRON_SECRET || ''                       // el repaso diario de las alertas (lo manda el cron de Vercel)
   };
 }
 
@@ -235,7 +238,7 @@ export async function atender(req, cfg, deps) {
   const ruta = String(req.ruta || '').replace(/^\/+|\/+$/g, '');
   // Directo (sin el proxy de Shopify, /tienda/…): solo los anuncios de dueños, y quien es lo dice la firma del tema
   if (req.directo) {
-    if (!/^api\/(anuncio|anuncios|visita|perfil|push)(\/|$)/.test(ruta)) return json(404, { ok: false, error: 'ruta' });
+    if (!/^api\/(anuncio|anuncios|visita|perfil|push|alertas)(\/|$)/.test(ruta)) return json(404, { ok: false, error: 'ruta' });
   } else if (!comprobarProxy(req.query, cfg.secreto)) return json(401, { ok: false, error: 'firma' });
   const cliente = !req.directo && req.query.logged_in_customer_id ? String(req.query.logged_in_customer_id) : clienteFirmado(req.query, cfg.clave);
   // El tema mandó quién es, pero la firma no cuadra: la «Clave del motor» del tema no es la SUBASTAS_CLAVE de Vercel
@@ -260,6 +263,17 @@ export async function atender(req, cfg, deps) {
   // App: guardar el móvil para mandarle avisos (con o sin sesión)
   if (ruta === 'api/push/registrar' && req.method === 'POST') {
     return json(200, await registrarDispositivo(cfg, { fetch: deps.fetch || fetch, dispositivos: deps.dispositivos }, body, cliente));
+  }
+
+  // Alertas de búsqueda: el repaso diario (solo el cron de Vercel, con CRON_SECRET) y las del cliente
+  if (ruta === 'api/alertas/revisar') {
+    const auth = String((req.headers || {}).authorization || '');
+    if (!cfg.cronSecreto || auth !== `Bearer ${cfg.cronSecreto}`) return json(401, { ok: false, error: 'cron' });
+    return json(200, { ok: true, ...(await revisarAlertas(cfg, { fetch: deps.fetch || fetch, gql: deps.gql, alertas: deps.alertas, dispositivos: deps.dispositivos })) });
+  }
+  if (ruta === 'api/alertas' || ruta === 'api/alertas/borrar') {
+    const r = await rutasAlertas({ ruta, method: req.method, body }, cliente, cfg, { fetch: deps.fetch || fetch, alertas: deps.alertas });
+    if (r) return json(200, r);
   }
 
   // Del dueño: anuncios gratis de particulares
