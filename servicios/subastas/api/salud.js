@@ -34,7 +34,6 @@ export default async function handler(req, res) {
       ADMIN_PIN: Boolean(config().adminPin),   // código de entrada al panel (4 a 8 cifras)
       FIREBASE_SERVICE_ACCOUNT: Boolean(config().firebase),  // avisos al móvil de la app (válida, no solo puesta)
       RESEND_API_KEY: tiene('RESEND_API_KEY'),
-      ANTHROPIC_API_KEY: tiene('ANTHROPIC_API_KEY'),         // la valoración de precio con IA
       CRON_SECRET: tiene('CRON_SECRET')                      // el repaso diario de las alertas de búsqueda
     }
   };
@@ -60,8 +59,6 @@ export default async function handler(req, res) {
       ventas: await medir(async () => { await tablaAnuncios(cfg, fetch, 'operaciones').leer('select=id&limit=1'); }),
       // Ofertas de la web: sql/ofertas.sql
       ofertas: await medir(async () => { await tablaAnuncios(cfg, fetch, 'ofertas').leer('select=id&limit=1'); }),
-      // Valoraciones con IA: sql/valoraciones.sql
-      valoraciones: await medir(async () => { await tablaAnuncios(cfg, fetch, 'valoraciones').leer('select=id&limit=1'); }),
       // Cobros de la comunidad: sql/comunidad.sql
       cobros: await medir(async () => { await tablaAnuncios(cfg, fetch, 'pagos').leer('select=id&limit=1'); await tablaAnuncios(cfg, fetch).leer('select=caduca&limit=1'); })
     };

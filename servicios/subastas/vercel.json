@@ -27,14 +27,6 @@
       "destination": "/api/inicio"
     }
   ],
-  "functions": {
-    "api/tienda.js": {
-      "maxDuration": 300
-    },
-    "api/admin.js": {
-      "maxDuration": 300
-    }
-  },
   "crons": [
     {
       "path": "/api/tienda?ruta=api/alertas/revisar",

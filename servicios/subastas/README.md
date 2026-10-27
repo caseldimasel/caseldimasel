@@ -237,13 +237,6 @@ tarjeta o cancelar). Cada día (cron) se recuerda el pago a quien le caduca y, s
   invoice.payment_failed, customer.subscription.updated y customer.subscription.deleted.
 - Stripe › Configuración › Facturación › Portal de clientes: guardarlo una vez (para cambiar tarjeta o cancelar).
 
-### Valoración de precio con IA («¿Qué precio pongo?»)
-- **En la web** (formulario «Publicar», paso «Su historia»): el vendedor pulsa «Calcular mi horquilla de precio» y en uno o dos minutos ve el mínimo y el máximo, el precio recomendado y el de venta rápida, si lo que pide está por encima o por debajo del mercado, lo que sube y lo que baja el precio y los comparables con su enlace. Con un botón pone el precio recomendado en su anuncio.
-- **En el panel** (Anuncios › Por revisar, Aprobados y Publicados): cada anuncio tiene «Valorar con IA» y enseña la última valoración (también la que pidió el vendedor en la web, si no ha cambiado nada).
-- La IA (Claude, con búsqueda web) busca anuncios y subastas parecidos en España y Europa (coches.net, AutoScout24, Milanuncios, Wallapop, mobile.de, Collecting Cars, Bring a Trailer…; para barcos y casas, sus portales) y lo compara con lo que Sidonia ya ha vendido (tabla operaciones), ajustando por kilómetros, estado, reparaciones, historia y ubicación. Solo enseña enlaces que ha visto de verdad en la búsqueda.
-- Hace falta **`ANTHROPIC_API_KEY`** en Vercel (console.anthropic.com › API Keys) y ejecutar **`sql/valoraciones.sql`** en Supabase. Si nada ha cambiado, se reutiliza la valoración de los últimos 14 días; cada persona puede pedir 5 nuevas al día (150 en total en la web). Cada valoración nueva cuesta aproximadamente entre 0,30 y 0,80 € de API (las repetidas no cuestan nada) y queda guardada con lo que ha costado (columna uso).
-- `vercel.json` da hasta 5 minutos a `api/tienda.js` y `api/admin.js` (la búsqueda tarda).
-
 ## Rutas (detrás de `/apps/sidonia`)
 
 | Ruta | |
