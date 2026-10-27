@@ -237,6 +237,13 @@ tarjeta o cancelar). Cada día (cron) se recuerda el pago a quien le caduca y, s
   invoice.payment_failed, customer.subscription.updated y customer.subscription.deleted.
 - Stripe › Configuración › Facturación › Portal de clientes: guardarlo una vez (para cambiar tarjeta o cancelar).
 
+### «¿Quieres que lo vendamos nosotros?» (de la comunidad a gestión de venta)
+- En la web, en el orden de siempre, **primero los anuncios de Sidonia** (gestión de venta) y después, tras «Anunciados por sus dueños», los de la comunidad. En la portada, las filas igual. Se puede desactivar en el editor del tema («Primero los anuncios de Sidonia»). Si el cliente elige otro orden (precio, año…), se respeta.
+- Al publicar un anuncio de la comunidad, el email «Ya está publicado» dice que también podemos venderlo nosotros.
+- A los 14 días, si sigue en venta (ni reservado ni vendido), le llega un email solo para eso (repaso diario del cron), una vez por anuncio.
+- El enlace (firmado) lleva a una página con lo que hacemos y el botón «Sí, quiero que lo vendáis». Al pulsarlo: al equipo le llega un email «[Gestión] …» con su teléfono, y en el panel el anuncio sale con «Quiere que lo vendamos» (y una tarea en la portada del panel).
+- Ejecutar **`sql/gestion.sql`** en Supabase (dos columnas en anuncios).
+
 ## Rutas (detrás de `/apps/sidonia`)
 
 | Ruta | |

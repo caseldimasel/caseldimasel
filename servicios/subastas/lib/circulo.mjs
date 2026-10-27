@@ -584,7 +584,7 @@ export function paginaPanel(cfg, lista, { estado = 'pendiente', aviso = '' } = {
   <article class="a">
     <div class="fotos">${(a.fotos || []).map((f, i) => `<a href="${esc(urlFoto(cfg, f))}" target="_blank"><img src="${esc(urlFoto(cfg, f))}" alt="" loading="lazy">${i === 0 ? '<b>Portada</b>' : ''}</a>`).join('')}</div>
     <div class="cuerpo">
-      <p class="meta">#${a.id} · ${esc(a.tipo)} · ${new Date(a.creado).toLocaleString('es-ES', { timeZone: 'Europe/Madrid' })} · <span class="est est-${esc(a.estado)}">${esc(ESTADOS[a.estado] || a.estado)}</span>${a.mejoras?.pedido && ['pendiente', 'aprobado'].includes(a.estado) ? (a.mejoras.editado ? ' · <span class="est est-publicado">Ya lo ha mejorado</span>' : ' · <span class="est est-pendiente">Mejoras pedidas</span>') : ''}</p>
+      <p class="meta">#${a.id} · ${esc(a.tipo)} · ${new Date(a.creado).toLocaleString('es-ES', { timeZone: 'Europe/Madrid' })} · <span class="est est-${esc(a.estado)}">${esc(ESTADOS[a.estado] || a.estado)}</span>${a.quiere_gestion ? ' · <span class="est est-gestion">Quiere que lo vendamos</span>' : ''}${a.mejoras?.pedido && ['pendiente', 'aprobado'].includes(a.estado) ? (a.mejoras.editado ? ' · <span class="est est-publicado">Ya lo ha mejorado</span>' : ' · <span class="est est-pendiente">Mejoras pedidas</span>') : ''}</p>
       <h2>${esc(a.titulo)} <small>${fmt(a.precio)} · ${esc(a.ubicacion)}</small></h2>
       <p class="vend">Lo vende <b>${esc(a.vendedor_nombre)}</b> (${a.vendedor_tipo === 'profesional' ? 'profesional' : 'particular'}) · <a href="tel:${esc(a.telefono)}">${esc(a.telefono)}</a>${a.email ? ` · ${esc(a.email)}` : ''} · ${(a.fotos || []).length} fotos</p>
       <p class="res">${esc(a.resumen)}</p>
@@ -593,6 +593,7 @@ export function paginaPanel(cfg, lista, { estado = 'pendiente', aviso = '' } = {
         <h3>${a.tipo === 'casa' ? 'Estado y reformas' : 'Mecánica y estado'}</h3>${parrafos(a.mecanica)}
         <h3>Ficha técnica</h3><table>${(a.ficha || []).map(([k, v]) => `<tr><th>${esc(k)}</th><td>${esc(v)}</td></tr>`).join('')}</table>
       </details>
+      ${a.quiere_gestion ? `<p class="gestion-quiere">Pidió el ${new Date(a.quiere_gestion).toLocaleDateString('es-ES', { timeZone: 'Europe/Madrid', day: 'numeric', month: 'long' })} que Sidonia lo venda (gestión de venta): llámale al <a href="tel:${esc(a.telefono)}">${esc(a.telefono)}</a>.</p>` : ''}
       ${a.nota ? `<p class="nota">Nota: ${esc(a.nota)}</p>` : ''}
       ${a.producto ? `<p><a href="${esc(cfg.tienda)}/products/${esc(a.producto)}" target="_blank">Ver la ficha en la tienda →</a></p>` : ''}
       ${['pendiente', 'aprobado'].includes(a.estado) ? formEditar(cfg, a) + cajaMejoras(a) : ''}
@@ -712,6 +713,8 @@ function paginaPanelHtml(pestañas, aviso, tarjetas) {
   .editar label { display: grid; gap: 4px; font-size: 13px; font-weight: 600; color: var(--suave); }
   .editar textarea { resize: vertical; line-height: 1.45; }
   ${CSS_MEJORAS}
+  .est-gestion { background: var(--lila-fondo); color: var(--lila); }
+  .gestion-quiere { margin: 0 0 10px; padding: 10px 14px; border-radius: 12px; background: var(--lila-fondo); color: var(--texto); }
   .editar .efotos { display: flex; gap: 8px; flex-wrap: wrap; }
   .editar .efoto { width: 120px; font-weight: 400; font-size: 12px; }
   .editar .efoto img { width: 120px; height: 90px; object-fit: cover; border-radius: 8px; display: block; }
@@ -892,6 +895,11 @@ export async function atenderPanel(req, cfg, deps) {
       if (c.pendiente) tareas.push([`${c.pendiente} ${c.pendiente === 1 ? 'anuncio' : 'anuncios'} por revisar ›`, '?estado=pendiente']);
       if (c.cambios) tareas.push([`${c.cambios} ${c.cambios === 1 ? 'cambio' : 'cambios'} por revisar ›`, '?estado=cambios']);
     } catch (e) { console.error(e); }
+    // Anunciantes que quieren que Sidonia venda su anuncio (gestion.mjs): sin la columna aún, nada
+    try {
+      const q = (await (deps.tabla || tablaAnuncios(cfg, deps.fetch)).leer('quiere_gestion=not.is.null&estado=eq.publicado&select=id')).length;
+      if (q) tareas.push([`${q} ${q === 1 ? 'anunciante quiere' : 'anunciantes quieren'} que vendáis su anuncio ›`, '?estado=publicado']);
+    } catch (e) { /* sin sql/gestion.sql */ }
   }
   // La portada del panel es el centro operativo: Ventas, una venta, Importar Excel y Propietarios (operaciones.mjs)
   const seccion = req.query.estado || (req.method === 'GET' ? 'ventas' : '');

@@ -5,6 +5,7 @@
  * Sin Resend no se manda nada y el panel lo dice. Se ven todos en el panel › Herramientas › Emails.
  */
 import { esc, urlFoto } from './circulo.mjs';
+import { lineaGestion } from './gestion.mjs';
 
 const TIPO = { coche: 'Coche', moto: 'Moto', barco: 'Barco', casa: 'Casa' };
 const EL = { coche: 'tu coche', moto: 'tu moto', barco: 'tu barco', casa: 'tu casa' };
@@ -171,7 +172,8 @@ export function correoPublicado(cfg, a, url) {
     html: plantilla(cfg, { ...a, producto: a.producto || '' }, {
       titulo: 'Ya está publicado', paso: 'publicado', previa: 'Ya se puede ver en Sidonia.',
       cuerpo: hola(a) + P(`${EL[a.tipo] ? EL[a.tipo].charAt(0).toUpperCase() + EL[a.tipo].slice(1) : 'Tu anuncio'} ya se puede ver en Sidonia. Los interesados te escribirán directamente.`)
-        + P('Un consejo: compártelo con tus amigos y en tus redes. Cuanta más gente lo vea, antes se vende. Nosotros lo contaremos en nuestro Instagram.'),
+        + P('Un consejo: compártelo con tus amigos y en tus redes. Cuanta más gente lo vea, antes se vende. Nosotros lo contaremos en nuestro Instagram.')
+        + lineaGestion(cfg, a),
       boton: 'Ver el anuncio', enlace: url
     })
   };

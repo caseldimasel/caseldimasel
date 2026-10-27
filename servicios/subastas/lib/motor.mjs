@@ -18,6 +18,7 @@
  *   api/alertas…                 → alertas de búsqueda «Avísame cuando entre uno así» (ver alertas.mjs)
  *   POST api/evento { tipo, … }  → estadísticas de la web: visitas, fichas vistas, contactos, me gusta… (estadisticas.mjs)
  *   POST api/oferta              → «Hacer una oferta»: al dueño o al equipo, y el resumen al comprador (ofertas.mjs)
+ *   gestion?a=&f=                → «¿Lo vendemos nosotros?»: de anuncio de la comunidad a gestión de venta (gestion.mjs)
  *   pagar?a=&f=                  → pagar un anuncio de la comunidad con Stripe, renovación cada mes (comunidad.mjs)
  */
 import { createHmac, timingSafeEqual } from 'node:crypto';
@@ -26,9 +27,10 @@ import { cuentaFirebase, registrarDispositivo } from './avisos.mjs';
 import { revisarAlertas, rutasAlertas } from './alertas.mjs';
 import { registrarEvento } from './estadisticas.mjs';
 import { revisarComunidad, rutasPago } from './comunidad.mjs';
+import { ofrecerGestion, rutasGestion } from './gestion.mjs';
 import { recibirOferta } from './ofertas.mjs';
 
-export const VERSION = 'gratis-y-favicon-2026-10-27';
+export const VERSION = 'gestion-primero-2026-10-28';
 
 export function config(env = process.env) {
   return {
@@ -250,6 +252,8 @@ export async function atender(req, cfg, deps) {
   if (req.directo) {
     // Pagar un anuncio de la comunidad (enlace firmado, sin sesión): la página y la vuelta de Stripe
     if (ruta === 'pagar' || ruta === 'pagar/ok') return rutasPago({ ruta, method: req.method, query: req.query || {}, body: req.body || {} }, cfg, deps);
+    // «¿Lo vendemos nosotros?» (enlace firmado del email, sin sesión): gestion.mjs
+    if (ruta === 'gestion') return rutasGestion({ method: req.method, query: req.query || {}, body: req.body || {} }, cfg, deps);
     if (!/^api\/(anuncio|anuncios|visita|perfil|push|alertas|evento|comunidad|oferta)(\/|$)/.test(ruta)) return json(404, { ok: false, error: 'ruta' });
   } else if (!comprobarProxy(req.query, cfg.secreto)) return json(401, { ok: false, error: 'firma' });
   const cliente = !req.directo && req.query.logged_in_customer_id ? String(req.query.logged_in_customer_id) : clienteFirmado(req.query, cfg.clave);
@@ -300,7 +304,8 @@ export async function atender(req, cfg, deps) {
   if (ruta === 'api/comunidad/revisar') {
     const auth = String((req.headers || {}).authorization || '');
     if (!cfg.cronSecreto || auth !== `Bearer ${cfg.cronSecreto}`) return json(401, { ok: false, error: 'cron' });
-    return json(200, { ok: true, ...(await revisarComunidad(cfg, deps)) });
+    const gestion = await ofrecerGestion(cfg, deps);
+    return json(200, { ok: true, ...(await revisarComunidad(cfg, deps)), gestion });
   }
   if (ruta === 'api/alertas' || ruta === 'api/alertas/borrar') {
     const r = await rutasAlertas({ ruta, method: req.method, body }, cliente, cfg, { fetch: deps.fetch || fetch, alertas: deps.alertas });

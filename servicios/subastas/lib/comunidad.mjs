@@ -582,7 +582,7 @@ async function avisarDueno(cfg, deps, a, tipo, datos) {
 const precioDe = async (cfg, deps) => precioMes(await leerTarifa(deps.ajustes || tablaAnuncios(cfg, deps.fetch, 'ajustes')), 1);
 
 /** La página que ve el dueño (fuera del tema: clara, como los emails). acciones: botones (HTML) */
-export function paginaPago({ titulo, texto, boton = '', enlace = '', acciones = '', foto = '', status = 200 }) {
+export function paginaPago({ titulo, texto, boton = '', enlace = '', acciones = '', foto = '', status = 200, pie = 'Pago seguro con Stripe. Sidonia no ve el número de tu tarjeta. Sin permanencia: te das de baja cuando quieras.' }) {
   const accion = acciones || (boton ? `<a class="b" href="${esc(enlace)}">${esc(boton)}</a>` : '');
   return { status, headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' }, body: `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${esc(titulo)} · Sidonia</title><meta name="robots" content="noindex">
@@ -596,7 +596,7 @@ form{margin:0}.b,button{display:block;width:100%;box-sizing:border-box;margin-to
 .b.claro,button.claro{background:#fff;color:#1b1a18;border:1px solid #d8d4cc}button.rojo{background:#fff;color:#a2121f;border:1px solid #f0c4c9}
 small{display:block;margin-top:14px;color:#8a857b;font-size:13px;line-height:1.5;text-align:center}</style></head>
 <body><main><p class="logo">SIDONIA</p><div class="c">${foto ? `<img src="${esc(foto)}" alt="">` : ''}<div class="t"><h1>${esc(titulo)}</h1>${texto}${accion}</div></div>
-<small>Pago seguro con Stripe. Sidonia no ve el número de tu tarjeta. Sin permanencia: te das de baja cuando quieras.</small></main></body></html>` };
+${pie ? `<small>${esc(pie)}</small>` : ''}</main></body></html>` };
 }
 const boton = (aqui, accion, texto, clase = '', confirmar = '') => `<form method="post" action="${esc(aqui)}"${confirmar ? ` onsubmit="return confirm(${esc(JSON.stringify(confirmar))})"` : ''}><input type="hidden" name="accion" value="${accion}"><button class="${clase}">${esc(texto)}</button></form>`;
 
