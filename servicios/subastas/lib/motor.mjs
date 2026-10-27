@@ -18,6 +18,7 @@
  *   api/alertas…                 → alertas de búsqueda «Avísame cuando entre uno así» (ver alertas.mjs)
  *   POST api/evento { tipo, … }  → estadísticas de la web: visitas, fichas vistas, contactos, me gusta… (estadisticas.mjs)
  *   POST api/oferta              → «Hacer una oferta»: al dueño o al equipo, y el resumen al comprador (ofertas.mjs)
+ *   POST api/anuncio/valorar     → «¿Qué precio pongo?»: horquilla de precio con IA y búsqueda en el mercado (valoracion.mjs)
  *   pagar?a=&f=                  → pagar un anuncio de la comunidad con Stripe, renovación cada mes (comunidad.mjs)
  */
 import { createHmac, timingSafeEqual } from 'node:crypto';
@@ -28,7 +29,7 @@ import { registrarEvento } from './estadisticas.mjs';
 import { revisarComunidad, rutasPago } from './comunidad.mjs';
 import { recibirOferta } from './ofertas.mjs';
 
-export const VERSION = 'gratis-y-favicon-2026-10-27';
+export const VERSION = 'valoracion-ia-2026-10-27';
 
 export function config(env = process.env) {
   return {
@@ -52,6 +53,7 @@ export function config(env = process.env) {
     avisosRemitente: env.AVISOS_REMITENTE || env.OFERTAS_REMITENTE || 'Sidonia <avisos@sidonia.es>',
     avisosClientes: env.AVISOS_CLIENTES === '1',     // también un email cuando alguien entra por primera vez
     firebase: cuentaFirebase(env.FIREBASE_SERVICE_ACCOUNT),  // avisos al móvil de la app (lib/avisos.mjs)
+    anthropicKey: env.ANTHROPIC_API_KEY || '',             // la valoración de precio con IA (lib/valoracion.mjs)
     cronSecreto: env.CRON_SECRET || ''                       // el repaso diario de las alertas (lo manda el cron de Vercel)
   };
 }

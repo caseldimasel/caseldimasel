@@ -15,6 +15,7 @@
  *   GET  api/perfil/publico?slug=…  → { ok, perfil }   sin sesión: lo que se enseña en su perfil público y sus anuncios
  *   POST api/anuncio/situacion { situacion: 'en_venta' | 'reservado' | 'vendido' } → { ok }   la etiqueta de la ficha;
  *                             vendido deja de contar como su anuncio gratis (puede publicar otro)
+ *   POST api/anuncio/valorar  { …lo que lleva escrito, id? } → { ok, valoracion }   horquilla de precio con IA (valoracion.mjs)
  * Panel del equipo (directo en Vercel, con contraseña): /admin → lista, editar, aprobar y publicar en Shopify, rechazar, retirar.
  * Al dueño le llegan emails (si hay Resend): recibido, publicado y no publicado con el motivo (lib/correos.mjs).
  *
@@ -32,6 +33,7 @@ import { rutasFichas } from './fichas.mjs';
 import { rutasCorreos } from './plantillas.mjs';
 import { DETALLES, rutaDetalle } from './detalle.mjs';
 import { avisoMejoras, cajaMejoras, correoMejoras, CSS_MEJORAS, leerMejoras, listaMejoras, pendientes } from './mejoras.mjs';
+import { cajaValoracion, CSS_VALORACION, valoracionesDe, valorar } from './valoracion.mjs';
 import { altaComunidad, cancelarRenovacion, enlacePago, leerTarifa, precioMes, rutasComunidad } from './comunidad.mjs';
 import { cookieFuera, cookieSesion, intentarEntrar, paginaEntrar, sesionValida } from './acceso.mjs';
 import { csvClientes, paginaAnuncio, paginaCliente, paginaClientesCrm } from './crm.mjs';
@@ -190,6 +192,12 @@ export async function rutasTienda({ ruta, method, body }, cliente, cfg, deps) {
     // Con el enlace para pagar (o gestionar la renovación) de cada anuncio activo
     const { cobrar } = await cuenta();
     return json(200, { ok: true, anuncios: (lista || []).map((a) => ({ ...a, portada: a.portada ? urlFoto(cfg, a.portada) : '', reservado: reservados.has(Number(a.id)), mejoras: conMejoras.has(Number(a.id)), pago_url: cobrar && ACTIVOS.includes(a.estado) ? enlacePago(cfg, a.id) : '' })) });
+  }
+  // ¿Qué precio pongo? La horquilla con IA de lo que lleva escrito (valoracion.mjs). Si es uno suyo, con su id
+  if (ruta === 'api/anuncio/valorar' && method === 'POST') {
+    const id = Number(body.id) && (await elegido(body.id)) ? Number(body.id) : null;
+    const r = await valorar(cfg, deps, body, { cliente, anuncio: id, origen: 'web', limite: true });
+    return json(200, r.ok ? { ok: true, valoracion: r.valoracion } : { ok: false, error: r.error, detalle: r.error === 'datos' ? r.detalle : '' });
   }
   if (ruta === 'api/anuncio/fotos' && method === 'POST') {
     // Para uno nuevo, mientras no llegue al máximo de anuncios activos
@@ -595,6 +603,7 @@ export function paginaPanel(cfg, lista, { estado = 'pendiente', aviso = '' } = {
       </details>
       ${a.nota ? `<p class="nota">Nota: ${esc(a.nota)}</p>` : ''}
       ${a.producto ? `<p><a href="${esc(cfg.tienda)}/products/${esc(a.producto)}" target="_blank">Ver la ficha en la tienda →</a></p>` : ''}
+      ${['pendiente', 'aprobado', 'publicado'].includes(a.estado) ? cajaValoracion(a) : ''}
       ${['pendiente', 'aprobado'].includes(a.estado) ? formEditar(cfg, a) + cajaMejoras(a) : ''}
       <form method="post" class="acc">
         <input type="hidden" name="id" value="${a.id}">
@@ -712,6 +721,7 @@ function paginaPanelHtml(pestañas, aviso, tarjetas) {
   .editar label { display: grid; gap: 4px; font-size: 13px; font-weight: 600; color: var(--suave); }
   .editar textarea { resize: vertical; line-height: 1.45; }
   ${CSS_MEJORAS}
+  ${CSS_VALORACION}
   .editar .efotos { display: flex; gap: 8px; flex-wrap: wrap; }
   .editar .efoto { width: 120px; font-weight: 400; font-size: 12px; }
   .editar .efoto img { width: 120px; height: 90px; object-fit: cover; border-radius: 8px; display: block; }
@@ -1067,6 +1077,11 @@ export async function atenderPanel(req, cfg, deps) {
         const mejoras = { ...m, pedido: new Date().toISOString(), editado: null };
         await (deps.guardar || guardarAnuncio)(cfg, id, { mejoras });
         aviso = `Recomendaciones enviadas a ${a.vendedor_nombre || 'su dueño'} (${listaMejoras(mejoras).length}).` + await correoAlDueno(a, true, correoMejoras(cfg, a, mejoras)) + await avisoMovil(a, avisoMejoras(a));
+      } else if (accion === 'valorar') {
+        // La horquilla de precio con IA: busca en el mercado y en lo que Sidonia ha vendido (valoracion.mjs)
+        const r = await valorar(cfg, deps, a, { anuncio: id, origen: 'panel' });
+        if (!r.ok) throw new Error(r.detalle || 'No se ha podido valorar.');
+        aviso = `Valoración de «${a.titulo}»: entre ${r.valoracion.minimo.toLocaleString('es-ES')} y ${r.valoracion.maximo.toLocaleString('es-ES')} €${r.repetida ? ' (la de hace unos días: no ha cambiado nada)' : ''}.`;
       } else if (accion === 'rechazar') {
         const motivo = texto(req.body.nota, 1500);
         await db('sidonia_anuncio_estado', { p_id: id, p_estado: 'rechazado', p_nota: motivo, p_producto: null });
@@ -1091,5 +1106,9 @@ export async function atenderPanel(req, cfg, deps) {
     ? [...(await db('sidonia_anuncios_lista', { p_estado: 'rechazado' }) || []), ...(await db('sidonia_anuncios_lista', { p_estado: 'retirado' }) || [])]
       .sort((a, b) => String(b.actualizado || b.creado).localeCompare(String(a.actualizado || a.creado)))
     : await db('sidonia_anuncios_lista', { p_estado: estado });
+  // Su valoración con IA, si la tiene (sin la tabla aún: sin valoraciones)
+  if (lista?.length && (deps.valoraciones || cfg.supabaseUrl) && estado !== 'cancelados') {
+    try { const v = await valoracionesDe(cfg, deps, lista); lista.forEach((a) => { a.valoracion = v.get(Number(a.id)) || null; }); } catch (e) { console.error(e); }
+  }
   return html(paginaPanel(cfg, lista || [], { estado, aviso }));
 }
