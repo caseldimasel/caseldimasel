@@ -65,7 +65,7 @@ const LUNA = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke
 
 /** La barra de arriba: el logo de Sidonia, «Panel» y el botón de oscuro / claro */
 export const CABECERA = `<header class="cabeza">
-  <a class="cabeza__marca" href="?" title="Ir a Ventas"><img class="cabeza__logo" src="${LOGO}" alt="Sidonia" width="130" height="27"><span>Panel</span></a>
+  <a class="cabeza__marca" href="?" title="Ir a Ventas"><img class="cabeza__logo" src="${LOGO}" alt="Sidonia" width="130" height="27"><span>Panel de control</span></a>
   <span class="cabeza__botones">
   <button type="button" class="cabeza__tema cabeza__recargar" aria-label="Recargar" title="Recargar"
     onclick="this.classList.add('gira');location.reload()">${RECARGAR}</button>
@@ -121,7 +121,8 @@ export const ESTILO_PANEL = `
     background: color-mix(in srgb, var(--fondo) 86%, transparent); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); border-bottom: 1px solid var(--linea); }
   .cabeza__marca { display: flex; align-items: center; gap: 12px; text-decoration: none; }
   .cabeza__logo { display: block; width: auto; height: 24px; filter: var(--logo); }
-  .cabeza__marca span { padding: 3px 8px; border-radius: 6px; background: var(--verde); color: var(--verde-tinta); font-size: 12px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; }
+  .cabeza__marca span { padding: 3px 8px; border-radius: 6px; background: var(--verde); color: var(--verde-tinta); font-size: 12px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; white-space: nowrap; }
+  @media (max-width: 400px) { .cabeza__marca span { letter-spacing: .06em; font-size: 11px; padding: 3px 6px; } }
   .cabeza__tema { display: grid; place-items: center; width: 38px; height: 38px; padding: 0; border: 1px solid var(--linea-2); border-radius: 50%; background: var(--caja); color: var(--texto); cursor: pointer; }
   .cabeza__botones { display: flex; gap: 8px; }
   .cabeza__recargar.gira svg { animation: gira .7s linear infinite; } @keyframes gira { to { transform: rotate(360deg); } }
