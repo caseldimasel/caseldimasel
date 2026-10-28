@@ -40,7 +40,7 @@ const filas = (o, conContacto) => [
 ];
 
 /** Lo que se pinta como «así se ve en Sidonia»: el anuncio de la comunidad o, si es de Sidonia, lo que manda la web */
-const anuncioDe = (o, a) => (a ? { ...a } : { titulo: o.titulo, precio: o.precio || null, foto: o.imagen, producto: o.handle, vendedor_nombre: 'Sidonia', vendedor_tipo: 'profesional' });
+const anuncioDe = (o, a) => (a ? { ...a } : { titulo: o.titulo, precio: o.precio || null, foto: o.imagen, producto: o.handle, vendedor_nombre: 'Sidonia', vendedor_tipo: '', sidonia: true });
 
 /** Al que vende (el dueño o el equipo): la oferta, con quién es y cómo responderle */
 export function correoOfertaVendedor(cfg, o, a) {

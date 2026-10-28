@@ -56,21 +56,22 @@ function tarjeta(cfg, a) {
   // La portada: la del anuncio de la comunidad o, si es de Sidonia, la que manda la web
   const foto = a.foto || ((a.fotos || [])[0] ? urlFoto(cfg, a.fotos[0]) : '');
   const enlace = a.producto ? `${cfg.tienda}/products/${a.producto}` : '';
+  // De la comunidad: «Particular» o «Profesional», como en la web. Los de Sidonia no llevan etiqueta
+  const comunidad = !a.sidonia && Boolean(a.vendedor_tipo);
   const pro = a.vendedor_tipo === 'profesional';
-  const chip = (t, estilo) => `<span style="display:inline-block;margin:0 0 6px;padding:4px 10px;border-radius:999px;${TEXTO};font-size:12px;line-height:1.4;font-weight:700;${estilo}">${t}</span>`;
-  const sobreFoto = `<table role="presentation" width="100%" height="300" cellpadding="0" cellspacing="0"><tr>
-      <td valign="top" style="padding:12px">${chip(pro ? 'Profesional' : 'Particular', `background:rgba(255,255,255,.92);color:${pro ? '#2b3a67' : '#1f5e3d'}`)}<br>${chip('<span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:#1f9d5c;margin:0 6px 1px 0;vertical-align:middle"></span>Nuevo', 'background:rgba(255,255,255,.9);color:#1a1a1a;font-weight:500')}</td>
-      <td valign="top" align="right" style="padding:10px"><span style="display:inline-block;width:36px;height:36px;border-radius:50%;background:rgba(0,0,0,.28);color:#fff;font-size:18px;line-height:36px;text-align:center">&#9825;</span></td></tr>
-    <tr><td colspan="2" valign="bottom" style="padding:0 12px 10px;${TEXTO};font-size:13px;font-weight:600;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.6)">${a.ubicacion ? `&#9906;&nbsp;${esc(a.ubicacion)}` : ''}</td></tr></table>`;
-  const media = foto
-    ? `<td height="300" valign="top" style="height:300px;border-radius:16px;background-color:#d9d9d6;background-image:url('${esc(foto)}');background-size:cover;background-position:center">${sobreFoto}</td>`
-    : `<td height="300" style="height:300px;border-radius:16px;background:#e9e8e4">${sobreFoto}</td>`;
-  const tarjetaHtml = `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:400px;margin:0 auto">
-      <tr>${enlace ? media.replace('">', `"><a href="${esc(enlace)}" style="display:block;text-decoration:none">`).replace(/<\/td>$/, '</a></td>') : media}</tr>
+  const chip = comunidad ? `<span style="display:inline-block;margin:0 0 8px;padding:4px 10px;border-radius:999px;${TEXTO};font-size:12px;line-height:1.4;font-weight:700;background:${pro ? '#eef0f7' : '#ecf5ef'};color:${pro ? '#2b3a67' : '#1f5e3d'}">${pro ? 'Profesional' : 'Particular'}</span>` : '';
+  // La foto como <img> (Gmail en el móvil no enseña fotos de fondo), con las esquinas redondeadas de la web
+  const img = foto
+    ? `<img src="${esc(foto)}" width="356" alt="${esc(a.titulo)}" style="display:block;width:100%;max-width:356px;height:auto;border:0;border-radius:16px">`
+    : `<div style="height:220px;border-radius:16px;background:#e9e8e4"></div>`;
+  const media = `<td>${enlace ? `<a href="${esc(enlace)}" style="display:block;text-decoration:none">${img}</a>` : img}</td>`;
+  const tarjetaHtml = `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:356px;margin:0 auto">
+      <tr>${media}</tr>
       <tr><td style="padding:12px 2px 2px">
+        ${chip}
         <p style="margin:0 0 4px;font-family:Carlito,Calibri,'Helvetica Neue',Arial,sans-serif;font-size:21px;line-height:1.2;color:#1a1a1a">${esc(precio(a))}</p>
-        <p style="margin:0 0 4px;${TEXTO};font-size:15px;line-height:1.35;color:#1a1a1a">${esc(a.titulo)}</p>
-        <p style="margin:0;${TEXTO};font-size:13px;line-height:1.35;color:#8a8a8a">${esc([a.ubicacion, a.vendedor_nombre].filter(Boolean).join(' · '))}</p>
+        <p style="margin:0 0 4px;${TEXTO};font-size:15px;line-height:1.35;color:#1a1a1a;text-transform:uppercase">${esc(a.titulo)}</p>
+        <p style="margin:0;${TEXTO};font-size:13px;line-height:1.35;color:#8a8a8a">${esc([a.ubicacion, a.sidonia ? '' : a.vendedor_nombre].filter(Boolean).join(' · '))}</p>
       </td></tr></table>`;
   // La ventana del navegador (tres puntos y la dirección): «así se verá»
   return `<tr><td style="padding:0 24px">
