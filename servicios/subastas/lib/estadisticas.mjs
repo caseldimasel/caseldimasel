@@ -8,7 +8,7 @@
  */
 import { CABECERA, ESTILO_PANEL, FAVICON } from './marca.mjs';
 import { ESTADOS, esc } from './circulo.mjs';
-import { cajaActividad, CSS_ACTIVIDAD, miniFoto } from './actividad.mjs';
+import { cajaActividad, CSS_ACTIVIDAD, miniFoto, SCRIPT_VIVO } from './actividad.mjs';
 
 export const TIPOS = ['visita', 'vista', 'contacto', 'like', 'unlike', 'compartir', 'busqueda', 'alerta', 'oferta'];
 const CANALES = ['whatsapp', 'llamar', 'email', 'registro'];
@@ -168,7 +168,7 @@ ${error ? `<p class="error">No se han podido leer las estadísticas: ${esc(/even
   ${kpi(a.ofertas, b.ofertas, 'Ofertas', 'veces que se abre «Hacer oferta»', 'ofertas')}
 </div>
 <p class="nota">${dias === 1 ? 'Las últimas 24 horas; el % compara con las 24 horas de antes' : `Los últimos ${fmt(d.dias || dias)} días; el % compara con los ${fmt(d.dias || dias)} días de antes`}. Pulsa en cada cajita para ver el detalle.</p>
-${actividad ? `<div class="card"><h2>Ahora en la web</h2><p class="nota" style="margin-top:-6px">Lo último que ha hecho cada persona, de lo más reciente a lo más antiguo (con su cuenta, su nombre y email).</p>${cajaActividad(actividad, fotos, { tienda })}</div>` : ''}
+${actividad ? `<div class="card"><h2>Ahora en la web</h2>${cajaActividad(actividad, fotos, { tienda })}</div>${SCRIPT_VIVO}` : ''}
 <div class="card"><h2>Del vistazo al contacto</h2>${embudo}</div>
 <div class="card"><h2>Día a día</h2>${grafica(d.por_dia || [])}</div>
 <div class="grid2">

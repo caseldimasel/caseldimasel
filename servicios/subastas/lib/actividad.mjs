@@ -6,7 +6,7 @@
 import { esc, shopifyAdmin, tablaAnuncios } from './circulo.mjs';
 
 const ORIGEN = { instagram: 'Instagram', google: 'Google', facebook: 'Facebook', whatsapp: 'WhatsApp', tiktok: 'TikTok', youtube: 'YouTube', linkedin: 'LinkedIn', x: 'X', bing: 'Bing', app: 'la app', email: 'un email de alertas' };
-const CONTACTO = { whatsapp: 'Escribió por WhatsApp por', llamar: 'Llamó por', email: 'Mandó un email por', registro: 'Quiso contactar sin cuenta (le pedimos registrarse) por' };
+const CONTACTO = { whatsapp: 'Escribió por WhatsApp por', llamar: 'Llamó por', email: 'Mandó un email por', registro: 'Quiso contactar (le pedimos registrarse) por' };
 
 /** Lo que ha hecho, en una frase: [texto, anuncio?] */
 export function frase(e) {
@@ -94,36 +94,77 @@ export const miniFoto = (url, alt = '') => (url
   ? `<img class="mini-foto" src="${esc(url)}" alt="${esc(alt)}" loading="lazy" width="44" height="44">`
   : '<span class="mini-foto mini-foto--vacia" aria-hidden="true"></span>');
 
-export function cajaActividad(lista, fotos = {}, { tienda = 'https://sidonia.es', ahora = Date.now() } = {}) {
-  if (!lista.length) return '<p class="vacio">Aún no hay actividad.</p>';
+export function cajaActividad(lista, fotos = {}, { tienda = 'https://sidonia.es', ahora = Date.now(), visibles = 6 } = {}) {
+  if (!lista.length) return '<div class="vivo" data-vivo><p class="vacio">Aún no hay actividad.</p></div>';
+  const enHora = lista.filter((g) => ahora - new Date(g.ultima) < 3600e3).length;
+  const minuscula = (t) => t.charAt(0).toLowerCase() + t.slice(1);
+  const anuncioDe = (e, grande) => (e.handle
+    ? `<a class="vivo-an" href="${esc(tienda)}/products/${esc(e.handle)}" target="_blank" rel="noopener">${miniFoto(fotos[e.handle], e.titulo).replace('class="mini-foto', `class="mini-foto${grande ? '' : ' mini-foto--s'}`)}<span>${esc(e.titulo || e.handle)}</span></a>`
+    : '');
   const persona = (g) => {
-    const quien = g.cliente
-      ? `<a href="?estado=cliente&id=${encodeURIComponent(g.cliente)}"><b>${esc(g.nombre || g.email || `Cliente ${g.cliente}`)}</b></a>${g.email && g.nombre ? ` <small>${esc(g.email)}</small>` : ''}`
-      : `<b>Visitante sin cuenta</b> <small>#${esc(String(g.sesion).slice(-4) || '—')}</small>`;
-    const dispositivo = g.app ? 'App' : g.movil ? 'Móvil' : 'Ordenador';
-    const acciones = g.acciones.map((e) => {
-      const [t, conAnuncio] = frase(e);
-      const anuncio = conAnuncio && e.handle
-        ? `<a class="act-anuncio" href="${esc(tienda)}/products/${esc(e.handle)}" target="_blank" rel="noopener">${miniFoto(fotos[e.handle], e.titulo)}<span>${esc(e.titulo || e.handle)}</span></a>`
-        : '';
-      return `<li><span class="act-texto">${esc(t)}${e.veces > 1 ? ` <small>×${e.veces}</small>` : ''}</span>${anuncio}<time>${hace(e.creado, ahora)}</time></li>`;
-    }).join('');
-    return `<article class="act-persona"><header>${quien}<span class="act-disp">${dispositivo} · ${hace(g.ultima, ahora)}</span></header><ul>${acciones}</ul></article>`;
+    const nombre = g.cliente ? (g.nombre || g.email || `Cliente ${g.cliente}`) : 'Alguien sin cuenta';
+    const inicial = g.cliente ? esc(nombre.trim().charAt(0).toUpperCase() || '·') : '?';
+    const [ultima, ...resto] = g.acciones;
+    const [t, conAnuncio] = frase(ultima);
+    const reciente = ahora - new Date(g.ultima) < 300e3;
+    const detalle = resto.map((e) => { const [x, c] = frase(e); return `<li><span>${esc(x)}${e.veces > 1 ? ` <small>×${e.veces}</small>` : ''}</span>${c ? anuncioDe(e) : ''}<time>${hace(e.creado, ahora)}</time></li>`; }).join('');
+    return `<details class="vivo-p${reciente ? ' es-ahora' : ''}"><summary>
+      <span class="vivo-av${g.cliente ? ' con-cuenta' : ''}" aria-hidden="true">${inicial}</span>
+      <span class="vivo-txt"><b>${esc(nombre)}</b> ${esc(minuscula(t))}${conAnuncio ? '' : ''}${ultima.veces > 1 ? ` <small>×${ultima.veces}</small>` : ''}${conAnuncio ? anuncioDe(ultima, false) : ''}</span>
+      <span class="vivo-meta"><time>${hace(g.ultima, ahora)}</time>${resto.length ? `<i>+${resto.length}</i>` : ''}</span></summary>
+      <div class="vivo-mas-info">${g.cliente ? `<p><a href="?estado=cliente&id=${encodeURIComponent(g.cliente)}">${esc(g.email || 'Ver cliente')} ›</a> · ${g.app ? 'App' : g.movil ? 'Móvil' : 'Ordenador'}</p>` : `<p>${g.app ? 'App' : g.movil ? 'Móvil' : 'Ordenador'} · sin cuenta</p>`}${detalle ? `<ul>${detalle}</ul>` : '<p class="vivo-solo">No ha hecho nada más.</p>'}</div>
+    </details>`;
   };
-  return `<div class="act">${lista.map(persona).join('')}</div>`;
+  const primeros = lista.slice(0, visibles).map(persona).join('');
+  const mas = lista.slice(visibles);
+  return `<div class="vivo" data-vivo>
+    <p class="vivo-cab"><span class="vivo-punto" aria-hidden="true"></span><b>En vivo</b> · ${enHora === 1 ? '1 persona' : `${enHora} personas`} en la última hora</p>
+    <div class="vivo-lista">${primeros}</div>
+    ${mas.length ? `<details class="vivo-otros"><summary>Ver ${mas.length} más</summary><div class="vivo-lista">${mas.map(persona).join('')}</div></details>` : ''}
+  </div>`;
 }
 
+/** Que se actualice solo (cada 20 s), sin cerrar lo que esté abierto */
+export const SCRIPT_VIVO = `<script>(() => {
+  const caja = () => document.querySelector('[data-vivo]');
+  setInterval(async () => {
+    const c = caja();
+    if (!c || document.hidden || c.querySelector('details[open]')) return;
+    try {
+      const u = new URL(location.href); u.searchParams.set('vivo', '1');
+      const r = await fetch(u, { credentials: 'same-origin', headers: { Accept: 'text/html' } });
+      if (r.ok) { const t = await r.text(); if (t.includes('data-vivo')) c.outerHTML = t; }
+    } catch (e) { /* sin conexión: se intenta luego */ }
+  }, 20000);
+})();</script>`;
+
 export const CSS_ACTIVIDAD = `
-  .act { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr)); }
-  .act-persona { padding: 12px 14px; border: 1px solid var(--linea); border-radius: 14px; background: var(--caja-2, var(--caja)); }
-  .act-persona header { display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: baseline; margin: 0 0 8px; }
-  .act-persona header small, .act-disp { color: var(--suave); font-size: 12px; } .act-disp { margin-left: auto; }
-  .act-persona ul { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
-  .act-persona li { display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; align-items: center; font-size: 13px; line-height: 1.35; }
-  .act-persona li time { color: var(--flojo, var(--suave)); font-size: 11px; white-space: nowrap; }
-  .act-anuncio { grid-column: 1 / -1; display: flex; gap: 8px; align-items: center; color: inherit; text-decoration: none; }
-  .act-anuncio span { font-weight: 600; } .act-anuncio:hover span { text-decoration: underline; }
+  .vivo-cab { display: flex; align-items: center; gap: 8px; margin: 0 0 10px; font-size: 13px; color: var(--suave); }
+  .vivo-cab b { color: var(--texto); }
+  .vivo-punto { width: 9px; height: 9px; border-radius: 50%; background: var(--verde); box-shadow: 0 0 0 0 var(--verde); animation: vivo 1.8s infinite; }
+  @keyframes vivo { 0% { box-shadow: 0 0 0 0 rgba(43,212,125,.55); } 70% { box-shadow: 0 0 0 8px rgba(43,212,125,0); } 100% { box-shadow: 0 0 0 0 rgba(43,212,125,0); } }
+  .vivo-lista { display: grid; gap: 6px; }
+  .vivo-p { border: 1px solid var(--linea); border-radius: 12px; background: var(--caja-2, var(--caja)); }
+  .vivo-p.es-ahora { border-color: rgba(43,212,125,.45); }
+  .vivo-p summary { display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: center; padding: 8px 12px; cursor: pointer; list-style: none; }
+  .vivo-p summary::-webkit-details-marker { display: none; }
+  .vivo-av { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; background: var(--caja-3, #2a2a2a); color: var(--suave); font-size: 13px; font-weight: 800; }
+  .vivo-av.con-cuenta { background: var(--verde-fondo); color: var(--verde); }
+  .vivo-txt { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; font-size: 13.5px; line-height: 1.35; min-width: 0; }
+  .vivo-meta { display: flex; gap: 8px; align-items: center; font-size: 11.5px; color: var(--suave); white-space: nowrap; }
+  .vivo-meta i { font-style: normal; padding: 1px 7px; border-radius: 99px; background: var(--caja-3, #2a2a2a); }
+  .vivo-an { display: inline-flex; align-items: center; gap: 6px; color: inherit; text-decoration: none; font-weight: 700; min-width: 0; }
+  .vivo-an span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 34ch; }
+  .vivo-an:hover span { text-decoration: underline; }
+  .vivo-mas-info { padding: 0 12px 10px 52px; font-size: 13px; color: var(--suave); }
+  .vivo-mas-info p { margin: 0 0 6px; } .vivo-mas-info ul { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+  .vivo-mas-info li { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; color: var(--texto); }
+  .vivo-mas-info time { margin-left: auto; color: var(--suave); font-size: 11px; }
+  .vivo-otros { margin-top: 8px; } .vivo-otros > summary { cursor: pointer; font-size: 13px; color: var(--suave); padding: 6px 2px; }
+  .vivo-otros .vivo-lista { margin-top: 6px; }
   .mini-foto { flex: none; width: 44px; height: 44px; border-radius: 8px; object-fit: cover; background: var(--caja-3, #2a2a2a); vertical-align: middle; }
+  .mini-foto--s { width: 26px; height: 26px; border-radius: 6px; }
   .mini-foto--vacia { display: inline-block; }
   td .mini-foto, .top .mini-foto { width: 40px; height: 40px; margin-right: 8px; }
-  .con-foto { display: flex; align-items: center; gap: 8px; }`;
+  .con-foto { display: flex; align-items: center; gap: 8px; }
+  @media (max-width: 600px) { .vivo-p summary { grid-template-columns: auto 1fr; } .vivo-meta { grid-column: 2; } .vivo-mas-info { padding-left: 12px; } }`;

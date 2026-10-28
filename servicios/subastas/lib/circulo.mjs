@@ -31,7 +31,7 @@ import { rutasOperaciones } from './operaciones.mjs';
 import { rutasFichas } from './fichas.mjs';
 import { rutasCorreos } from './plantillas.mjs';
 import { DETALLES, rutaDetalle } from './detalle.mjs';
-import { fotosDe, leerActividad } from './actividad.mjs';
+import { cajaActividad, fotosDe, leerActividad } from './actividad.mjs';
 import { avisoMejoras, cajaMejoras, correoMejoras, CSS_MEJORAS, leerMejoras, listaMejoras, pendientes } from './mejoras.mjs';
 import { altaComunidad, cancelarRenovacion, enlacePago, leerTarifa, precioMes, rutasComunidad } from './comunidad.mjs';
 import { cookieFuera, cookieSesion, intentarEntrar, paginaEntrar, sesionValida } from './acceso.mjs';
@@ -956,6 +956,8 @@ export async function atenderPanel(req, cfg, deps) {
     try { actividad = await leerActividad(cfg, deps); } catch (e) { console.error(e); }
     const handles = [...(actividad || []).flatMap((g) => g.acciones.map((x) => x.handle)), ...(datos?.anuncios || []).map((x) => x.handle), ...(datos?.mas_contactados || []).map((x) => x.handle), ...(datos?.mas_guardados || []).map((x) => x.handle)];
     try { fotos = await fotosDe(cfg, deps, handles); } catch (e) { console.error(e); }
+    // En vivo: solo la caja, para que se actualice sola
+    if (req.query.vivo) return html(cajaActividad(actividad || [], fotos, { tienda: cfg.tienda }));
     return html(paginaEstadisticas(datos, { dias, error, tienda: cfg.tienda, actividad, fotos }));
   }
   // Email al dueño: el aviso del panel dice si ha salido, si falta Resend o si ha fallado

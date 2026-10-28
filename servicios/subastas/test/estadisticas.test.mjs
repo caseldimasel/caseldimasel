@@ -227,11 +227,12 @@ test('estadísticas › ahora en la web: lo último de cada persona, con quién 
   const fotos = await fotosDe({}, deps, ['porsche-944']);
   assert.equal(fotos['porsche-944'], 'https://cdn.shopify.com/944.jpg');
   const h = cajaActividad(lista, fotos, { ahora });
-  assert.match(h, /Escribió por WhatsApp por/);
+  assert.match(h, /<b>Ana &lt;b&gt;<\/b> escribió por WhatsApp por/);
   assert.match(h, /Buscó «944»/);
+  assert.match(h, /En vivo/);
   assert.match(h, /src="https:\/\/cdn\.shopify\.com\/944\.jpg"/);
-  assert.match(h, /Ana &lt;b&gt;/);
-  assert.match(h, /Entró en la web desde Instagram/);
-  assert.match(h, /Visitante sin cuenta/);
-  assert.deepEqual(frase({ tipo: 'contacto', canal: 'registro' })[0], 'Quiso contactar sin cuenta (le pedimos registrarse) por');
+  
+  assert.match(h, /entró en la web desde Instagram/);
+  assert.match(h, /Alguien sin cuenta/);
+  assert.deepEqual(frase({ tipo: 'contacto', canal: 'registro' })[0], 'Quiso contactar (le pedimos registrarse) por');
 });
