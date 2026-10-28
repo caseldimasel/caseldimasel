@@ -35,7 +35,7 @@ import { avisoMejoras, cajaMejoras, correoMejoras, CSS_MEJORAS, leerMejoras, lis
 import { altaComunidad, cancelarRenovacion, enlacePago, leerTarifa, precioMes, rutasComunidad } from './comunidad.mjs';
 import { cookieFuera, cookieSesion, intentarEntrar, paginaEntrar, sesionValida } from './acceso.mjs';
 import { csvClientes, paginaAnuncio, paginaCliente, paginaClientesCrm } from './crm.mjs';
-import { correoCambiosAprobados, correoCambiosRechazados, correoPublicado, correoRechazado, correoRecibido, enviarCorreo } from './correos.mjs';
+import { correoBienvenida, correoCambiosAprobados, correoCambiosRechazados, correoPublicado, correoRechazado, correoRecibido, enviarCorreo } from './correos.mjs';
 
 export const TIPOS = ['coche', 'moto', 'barco', 'casa'];
 export const VENDEDOR_TIPOS = ['particular', 'profesional'];
@@ -297,6 +297,11 @@ export async function rutasTienda({ ruta, method, body }, cliente, cfg, deps) {
     const email = texto(body.email, 160);
     const nombre = texto(body.nombre, 80);
     const r = await db('sidonia_visita', { p_cliente: cliente, p_email: email, p_nombre: nombre });
+    // La primera vez: el email de bienvenida (gracias por unirte)
+    if (r && r.nuevo && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      const c = correoBienvenida(cfg, nombre.split(' ')[0]);
+      await enviarCorreo(cfg, email, c.asunto, c.html, deps.fetch || fetch).catch((e) => console.error(e));
+    }
     if (r && r.nuevo && cfg.avisosClientes) {
       await avisarEquipo(cfg, `Nuevo cliente en Sidonia: ${nombre || email || cliente}`, `<p><b>${esc(nombre || 'Sin nombre')}</b> · ${esc(email || 'sin email')} ha entrado por primera vez con su cuenta.</p>`, deps.fetch).catch((e) => console.error(e));
     }

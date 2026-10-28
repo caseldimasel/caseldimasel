@@ -4,7 +4,7 @@
  * Lo que de verdad se ha enviado a cada persona está en Resend › Emails (resend.com).
  */
 import { esc, tablaAnuncios } from './circulo.mjs';
-import { correoCambiosAprobados, correoCambiosRechazados, correoPublicado, correoRechazado, correoRecibido, enviarCorreo } from './correos.mjs';
+import { correoBienvenida, correoCambiosAprobados, correoCambiosRechazados, correoPublicado, correoRechazado, correoRecibido, enviarCorreo } from './correos.mjs';
 import { correoMejoras } from './mejoras.mjs';
 import { correoPago, correoRenovar } from './comunidad.mjs';
 import { marco } from './operaciones.mjs';
@@ -14,6 +14,7 @@ const MOTIVO = 'Las fotos tienen poca luz y en la portada no se ve el coche ente
 
 // [clave, grupo, nombre, cuándo se manda, (cfg, a) => { asunto, html }]
 export const PLANTILLAS = [
+  ['bienvenida', 'Clientes', 'Bienvenida', 'La primera vez que alguien entra con su cuenta en Sidonia.', (cfg, a) => correoBienvenida(cfg, a.vendedor_nombre || 'Carlos')],
   ['recibido', 'Anuncios', 'Anuncio recibido', 'Nada más enviar su anuncio desde la web.', (cfg, a) => correoRecibido(cfg, a)],
   ['mejoras', 'Anuncios', 'Pedir mejoras', 'Al pulsar «Enviar las recomendaciones» en Por revisar.', (cfg, a) => correoMejoras(cfg, a, a.mejoras?.pedido ? a.mejoras : { claves: ['portada', 'historia'], texto: '' })],
   ['publicado', 'Anuncios', 'Publicado', 'Al aprobarlo y publicarlo en la tienda.', (cfg, a) => correoPublicado(cfg, a, a.producto ? `${cfg.tienda}/products/${a.producto}` : cfg.tienda)],

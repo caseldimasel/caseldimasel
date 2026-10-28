@@ -156,10 +156,14 @@ test('avisos: email al equipo con cada anuncio (si hay Resend) y visitas de clie
   enviados.shift();
   const v = await atender({ method: 'POST', ruta: 'api/visita', query: q(), body: { email: 'e@x.es', nombre: 'Enrique' } }, cfgAvisos, { db, fetch: fetchFalso });
   assert.equal(JSON.parse(v.body).ok, true);
-  assert.match(enviados[1].body.subject, /Nuevo cliente en Sidonia: Enrique/);
+  // La primera vez: bienvenida a la persona y aviso al equipo
+  assert.match(enviados[1].body.subject, /Bienvenido a Sidonia/);
+  assert.deepEqual(enviados[1].body.to, ['e@x.es']);
+  assert.match(enviados[1].body.html, /Hola Enrique/);
+  assert.match(enviados[2].body.subject, /Nuevo cliente en Sidonia: Enrique/);
   // Sin Resend no se envía nada (y no falla)
   await atender({ method: 'POST', ruta: 'api/anuncio', query: q(), body: bueno() }, cfg, { db, fetch: fetchFalso });
-  assert.equal(enviados.length, 2);
+  assert.equal(enviados.length, 3);
   const sin = await atender({ method: 'POST', ruta: 'api/visita', query: q(''), body: {} }, cfg, { db });
   assert.equal(JSON.parse(sin.body).error, 'login');
 });

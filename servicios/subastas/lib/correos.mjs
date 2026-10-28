@@ -166,6 +166,27 @@ export function correoRecibido(cfg, a) {
   };
 }
 
+/** Bienvenida: la primera vez que alguien entra con su cuenta en Sidonia */
+export function correoBienvenida(cfg, nombre = '') {
+  return {
+    asunto: 'Bienvenido a Sidonia, donde hacemos las cosas con alma',
+    html: plantilla(cfg, null, {
+      titulo: 'Ya eres de Sidonia', previa: 'Gracias por unirte. Esto es lo que puedes hacer desde hoy.',
+      cuerpo: P(`Hola${nombre ? ` ${esc(nombre)}` : ''}:`)
+        + P('Gracias por unirte a Sidonia. Aquí no vendemos coches, motos, barcos y casas: buscamos el siguiente capítulo de cosas con historia. Y desde hoy formas parte de eso.')
+        + lista([
+          ['Habla con quien vende', 'Escribe por WhatsApp o llama directamente al vendedor de cualquier anuncio.'],
+          ['Haz ofertas', '¿Te gusta pero no a ese precio? Propón el tuyo y le llega al momento.'],
+          ['Guarda lo que te enamora', 'Pulsa el corazón y tenlo siempre a mano, en el móvil o en el ordenador.'],
+          ['Que te avisemos', 'Dinos qué buscas y te escribimos en cuanto entre uno así.'],
+          ['Anuncia gratis', '¿Tienes algo con alma que vender? Publícalo gratis y lo revisamos para que luzca.']
+        ])
+        + P('Bienvenido a bordo. Nos vemos dentro.'),
+      boton: 'Entrar en Sidonia', enlace: cfg.tienda
+    })
+  };
+}
+
 /** «Ya está publicado» */
 export function correoPublicado(cfg, a, url) {
   return {
