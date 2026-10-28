@@ -56,7 +56,7 @@ const FAVSVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192" wi
 
 // El icono de la pestaña sigue el modo del panel (botón de la luna): O blanca en oscuro, negra en claro
 export const FAVICON = `<link rel="icon" type="image/png" sizes="32x32" href="/admin?recurso=favicon-32" data-favicon="32"><link rel="icon" type="image/png" sizes="48x48" href="/admin?recurso=favicon-48" data-favicon="48"><link rel="icon" type="image/png" sizes="64x64" href="/admin?recurso=favicon-64" data-favicon="64"><link rel="icon" type="image/png" sizes="96x96" href="/admin?recurso=favicon-96" data-favicon="96"><link rel="icon" type="image/png" sizes="192x192" href="/admin?recurso=favicon-192" data-favicon="192">
-<link rel="manifest" href="/admin?recurso=manifest">
+<link rel="manifest" href="/admin?recurso=manifest"><link rel="apple-touch-icon" href="/admin?recurso=icono-180">
 <meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Sidonia"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#0b120f">
