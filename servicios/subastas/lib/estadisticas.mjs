@@ -8,6 +8,7 @@
  */
 import { CABECERA, ESTILO_PANEL, FAVICON } from './marca.mjs';
 import { ESTADOS, esc } from './circulo.mjs';
+import { cajaActividad, CSS_ACTIVIDAD, miniFoto } from './actividad.mjs';
 
 export const TIPOS = ['visita', 'vista', 'contacto', 'like', 'unlike', 'compartir', 'busqueda', 'alerta', 'oferta'];
 const CANALES = ['whatsapp', 'llamar', 'email', 'registro'];
@@ -112,7 +113,7 @@ function barras(items) {
 const NOMBRE_CANAL = { whatsapp: 'WhatsApp', llamar: 'Llamada', email: 'Email', registro: 'Les pedimos la cuenta', otro: 'Otro' };
 const NOMBRE_ORIGEN = (o) => ({ directo: 'Directo / sin origen', 'instagram': 'Instagram', 'google': 'Google', 'facebook': 'Facebook', 'whatsapp': 'WhatsApp', 'tiktok': 'TikTok', 'youtube': 'YouTube', 'linkedin': 'LinkedIn', 'x': 'X (Twitter)', 'bing': 'Bing', 'app': 'App de Sidonia', 'email': 'Email (alertas)' }[o] || o);
 
-export function paginaEstadisticas(datos, { dias = 30, error = '', tienda = 'https://sidonia.es' } = {}) {
+export function paginaEstadisticas(datos, { dias = 30, error = '', tienda = 'https://sidonia.es', actividad = null, fotos = {} } = {}) {
   const d = datos || {};
   const a = d.actual || {};
   const b = d.anterior || {};
@@ -120,7 +121,7 @@ export function paginaEstadisticas(datos, { dias = 30, error = '', tienda = 'htt
   const periodos = [[1, '24 h'], [7, '7 días'], [30, '30 días'], [90, '3 meses'], [365, '1 año']].map(([k, t]) => `<a href="?estado=estadisticas&dias=${k}" class="${k === dias ? 'on' : ''}">${t}</a>`).join('');
   // Cada cajita lleva a su detalle (lib/detalle.mjs)
   const kpi = (valor, antes, titulo, ayuda, ver) => `<a class="kpi kpi-link" href="?estado=estadisticas&dias=${dias}&ver=${ver}"><b>${fmt(valor)}</b>${cambio(valor, antes)}<span>${titulo}</span>${ayuda ? `<small>${ayuda}</small>` : ''}<i class="kpi-ver">Ver ›</i></a>`;
-  const link = (h, t) => `<a href="${esc(tienda)}/products/${esc(h)}" target="_blank" rel="noopener">${esc(t || h)}</a>`;
+  const link = (h, t) => `<a class="con-foto" href="${esc(tienda)}/products/${esc(h)}" target="_blank" rel="noopener">${miniFoto(fotos[h], t)}<span>${esc(t || h)}</span></a>`;
 
   const visitantes = n(a.visitantes);
   const conFicha = n(a.vistas);
@@ -142,15 +143,15 @@ export function paginaEstadisticas(datos, { dias = 30, error = '', tienda = 'htt
     { nombre: 'Con su cuenta', n: n(d.con_cuenta) }
   ];
   const top = (lista, campo, titulo) => (lista || []).length
-    ? `<ol class="top">${lista.map((x) => `<li><a href="?estado=anuncio&h=${encodeURIComponent(x.handle)}">${esc(x.titulo || x.handle)}</a><b>${fmt(x[campo])}</b></li>`).join('')}</ol>`
+    ? `<ol class="top">${lista.map((x) => `<li><a class="con-foto" href="?estado=anuncio&h=${encodeURIComponent(x.handle)}">${miniFoto(fotos[x.handle], x.titulo)}<span>${esc(x.titulo || x.handle)}</span></a><b>${fmt(x[campo])}</b></li>`).join('')}</ol>`
     : `<p class="vacio">${titulo}</p>`;
   const busquedas = (d.busquedas || []).length
-    ? `<div class="chips">${d.busquedas.map((x) => `<a href="${esc(tienda)}/search?q=${encodeURIComponent(x.q)}&type=product" target="_blank" rel="noopener">${esc(x.q)} <b>${fmt(x.n)}</b></a>`).join('')}</div>`
+    ? `<div class="chips">${d.busquedas.map((x) => `<a href="${esc(tienda)}/collections/all?q=${encodeURIComponent(x.q)}" target="_blank" rel="noopener">${esc(x.q)} <b>${fmt(x.n)}</b></a>`).join('')}</div>`
     : '<p class="vacio">Aún nadie ha buscado nada.</p>';
 
   return `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Estadísticas web · Panel de Sidonia</title><meta name="robots" content="noindex">${FAVICON}
-<style>${ESTILO}</style></head><body>
+<style>${ESTILO}${CSS_ACTIVIDAD}</style></head><body>
 ${CABECERA}
 ${pestañas}
 <div class="per">${periodos}</div>
@@ -167,6 +168,7 @@ ${error ? `<p class="error">No se han podido leer las estadísticas: ${esc(/even
   ${kpi(a.ofertas, b.ofertas, 'Ofertas', 'veces que se abre «Hacer oferta»', 'ofertas')}
 </div>
 <p class="nota">${dias === 1 ? 'Las últimas 24 horas; el % compara con las 24 horas de antes' : `Los últimos ${fmt(d.dias || dias)} días; el % compara con los ${fmt(d.dias || dias)} días de antes`}. Pulsa en cada cajita para ver el detalle.</p>
+${actividad ? `<div class="card"><h2>Ahora en la web</h2><p class="nota" style="margin-top:-6px">Lo último que ha hecho cada persona, de lo más reciente a lo más antiguo (con su cuenta, su nombre y email).</p>${cajaActividad(actividad, fotos, { tienda })}</div>` : ''}
 <div class="card"><h2>Del vistazo al contacto</h2>${embudo}</div>
 <div class="card"><h2>Día a día</h2>${grafica(d.por_dia || [])}</div>
 <div class="grid2">

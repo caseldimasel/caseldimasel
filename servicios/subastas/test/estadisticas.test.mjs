@@ -43,7 +43,7 @@ test('panel: estadísticas con lo importante, comparando y sin colar HTML', () =
   assert.match(h, /<b>5<\/b> veces quisieron contactar sin cuenta/);
   assert.match(h, /PORSCHE 911 &lt;b&gt;/);
   assert.match(h, /Instagram/);
-  assert.match(h, /href="https:\/\/sidonia\.es\/search\?q=porsche%20911&type=product"/);
+  assert.match(h, /href="https:\/\/sidonia\.es\/collections\/all\?q=porsche%20911"/);
   assert.match(h, /class="on">30 días/);
   assert.match(paginaEstadisticas(null, { error: 'function sidonia_estadisticas does not exist' }), /falta ejecutar sql\/estadisticas\.sql/);
 });
@@ -193,7 +193,7 @@ test('estadísticas › detalle de una cajita: contactos por anuncio, por canal 
   const r = await atenderPanel({ method: 'GET', query: { estado: 'estadisticas', dias: '1', ver: 'contactos' }, headers: auth }, cfg, { db: async () => null, eventos, clientes });
   assert.match(r.body, /<title>Contactos/);
   assert.match(r.body, /class="on">24 h/);
-  assert.match(r.body, /BMW M3 E30<\/a>.*?<b>2<\/b>/s);
+  assert.match(r.body, /BMW M3 E30<\/span><\/a>.*?<b>2<\/b>/s);
   assert.match(r.body, /WhatsApp 1 · Llamada 1/);
   assert.match(r.body, /Lucía<\/a><span class="sub">lucia@x\.es/);
   assert.match(r.body, /\+200 %/);
@@ -202,4 +202,36 @@ test('estadísticas › detalle de una cajita: contactos por anuncio, por canal 
   const p = await atenderPanel({ method: 'GET', query: { estado: 'estadisticas', dias: '1' }, headers: auth }, cfg, { db: async () => ({ actual: {}, anterior: {} }) });
   assert.match(p.body, /href="\?estado=estadisticas&dias=1&ver=contactos"/);
   assert.match(p.body, /Las últimas 24 horas/);
+});
+
+test('estadísticas › ahora en la web: lo último de cada persona, con quién es y la portada del anuncio', async () => {
+  const { leerActividad, cajaActividad, fotosDe, frase } = await import('../lib/actividad.mjs');
+  const ahora = Date.now();
+  const t = (min) => new Date(ahora - min * 60e3).toISOString();
+  const eventos = [
+    { tipo: 'contacto', canal: 'whatsapp', handle: 'porsche-944', titulo: 'PORSCHE 944 S2', sesion: 's1', cliente: '7', movil: true, creado: t(1) },
+    { tipo: 'vista', handle: 'porsche-944', titulo: 'PORSCHE 944 S2', sesion: 's1', cliente: '7', movil: true, creado: t(2) },
+    { tipo: 'vista', handle: 'porsche-944', titulo: 'PORSCHE 944 S2', sesion: 's1', cliente: '7', movil: true, creado: t(3) },
+    { tipo: 'busqueda', q: '944', sesion: 's1', cliente: '7', movil: true, creado: t(4) },
+    { tipo: 'visita', origen: 'instagram', sesion: 'abcd1234', cliente: null, creado: t(30) }
+  ];
+  const deps = {
+    eventos: { leer: async () => eventos },
+    clientes: { leer: async () => [{ cliente: '7', email: 'ana@x.es', nombre: 'Ana <b>' }] },
+    gql: async (q, v) => ({ products: { nodes: [{ handle: 'porsche-944', featuredImage: { url: 'https://cdn.shopify.com/944.jpg' } }] } })
+  };
+  const lista = await leerActividad({}, deps);
+  assert.equal(lista.length, 2);
+  assert.equal(lista[0].email, 'ana@x.es');
+  assert.equal(lista[0].acciones[1].veces, 2, 'ver dos veces seguidas la misma ficha cuenta una, ×2');
+  const fotos = await fotosDe({}, deps, ['porsche-944']);
+  assert.equal(fotos['porsche-944'], 'https://cdn.shopify.com/944.jpg');
+  const h = cajaActividad(lista, fotos, { ahora });
+  assert.match(h, /Escribió por WhatsApp por/);
+  assert.match(h, /Buscó «944»/);
+  assert.match(h, /src="https:\/\/cdn\.shopify\.com\/944\.jpg"/);
+  assert.match(h, /Ana &lt;b&gt;/);
+  assert.match(h, /Entró en la web desde Instagram/);
+  assert.match(h, /Visitante sin cuenta/);
+  assert.deepEqual(frase({ tipo: 'contacto', canal: 'registro' })[0], 'Quiso contactar sin cuenta (le pedimos registrarse) por');
 });

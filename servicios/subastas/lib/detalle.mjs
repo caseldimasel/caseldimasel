@@ -7,6 +7,7 @@
 import { esc, tablaAnuncios } from './circulo.mjs';
 import { fmt } from './estadisticas.mjs';
 import { marco } from './operaciones.mjs';
+import { CSS_ACTIVIDAD, fotosDe, miniFoto } from './actividad.mjs';
 
 export const DETALLES = {
   visitantes: ['Visitantes', 'visita', 'Personas distintas que han entrado en la web (por navegador).'],
@@ -46,7 +47,7 @@ const barras = (items) => {
 const cuenta = (lista, campo) => Object.entries(lista.reduce((o, e) => { const k = campo(e); if (k) o[k] = (o[k] || 0) + 1; return o; }, {})).map(([nombre, v]) => ({ nombre, n: v })).sort((a, b) => b.n - a.n);
 const persona = (c, quien) => (c ? `<a href="?estado=cliente&id=${encodeURIComponent(c)}">${esc(quien[c]?.nombre || quien[c]?.email || `Cliente ${c}`)}</a>${quien[c]?.email && quien[c]?.nombre ? `<span class="sub">${esc(quien[c].email)}</span>` : ''}` : '<span class="sub">Sin cuenta</span>');
 
-export function paginaDetalle(ver, { dias, eventos = [], antes = 0, quien = {}, registros = [], alertas = [], error = '', tienda = 'https://sidonia.es' }) {
+export function paginaDetalle(ver, { dias, eventos = [], antes = 0, quien = {}, registros = [], alertas = [], error = '', tienda = 'https://sidonia.es', fotos = {} }) {
   const [titulo, , ayuda] = DETALLES[ver];
   const periodos = [[1, '24 h'], [7, '7 días'], [30, '30 días'], [90, '3 meses'], [365, '1 año']].map(([k, t]) => `<a href="?estado=estadisticas&dias=${k}&ver=${ver}" class="${k === dias ? 'on' : ''}">${t}</a>`).join('');
   const total = ver === 'visitantes' ? new Set(eventos.map((e) => e.sesion).filter(Boolean)).size : ver === 'registros' ? registros.length : ver === 'alertas' ? alertas.length : eventos.length;
@@ -54,7 +55,7 @@ export function paginaDetalle(ver, { dias, eventos = [], antes = 0, quien = {}, 
   const cambio = d == null ? (total ? '<em class="sube">nuevo</em>' : '') : d ? `<em class="${d > 0 ? 'sube' : 'baja'}">${d > 0 ? '+' : '−'}${Math.abs(d)} %</em>` : '<em>=</em>';
   const personas = new Set(eventos.map((e) => e.sesion).filter(Boolean)).size;
   const conCuenta = new Set(eventos.map((e) => e.cliente).filter(Boolean)).size;
-  const link = (h, t) => `<a href="?estado=anuncio&h=${encodeURIComponent(h)}">${esc(t)}</a><span class="sub"><a href="${esc(tienda)}/products/${esc(h)}" target="_blank" rel="noopener">ver en la web</a></span>`;
+  const link = (h, t) => `<a class="con-foto" href="?estado=anuncio&h=${encodeURIComponent(h)}">${miniFoto(fotos[h], t)}<span>${esc(t)}</span></a><span class="sub"><a href="${esc(tienda)}/products/${esc(h)}" target="_blank" rel="noopener">ver en la web</a></span>`;
   let cuerpo = '';
 
   if (['vistas', 'contactos', 'likes', 'compartidos', 'ofertas'].includes(ver)) {
@@ -85,7 +86,7 @@ export function paginaDetalle(ver, { dias, eventos = [], antes = 0, quien = {}, 
   // Lo último que ha pasado, con la hora y quién
   if (eventos.length && ver !== 'registros' && ver !== 'alertas') {
     const ultimos = eventos.slice(0, 80).map((e) => `<tr><td class="izq">${hora(e.creado, dias)}</td>
-      <td class="izq">${e.handle ? `<a href="?estado=anuncio&h=${encodeURIComponent(e.handle)}">${esc(e.titulo || e.handle)}</a>` : e.q ? `«${esc(e.q)}»` : esc(ORIGEN[e.origen || 'directo'] || e.origen || '—')}</td>
+      <td class="izq">${e.handle ? `<a class="con-foto" href="?estado=anuncio&h=${encodeURIComponent(e.handle)}">${miniFoto(fotos[e.handle], e.titulo)}<span>${esc(e.titulo || e.handle)}</span></a>` : e.q ? `«${esc(e.q)}»` : esc(ORIGEN[e.origen || 'directo'] || e.origen || '—')}</td>
       <td class="izq">${e.canal ? esc(CANAL[e.canal] || e.canal) : e.app ? 'App' : e.movil ? 'Móvil' : 'Ordenador'}</td><td class="izq">${persona(e.cliente, quien)}</td></tr>`).join('');
     cuerpo += `<div class="card"><h2>Lo último</h2><div class="tabla"><table><thead><tr><th class="izq">Cuándo</th><th class="izq">${ver === 'busquedas' ? 'Búsqueda' : ver === 'visitantes' ? 'De dónde' : 'Anuncio'}</th><th class="izq">${ver === 'contactos' ? 'Cómo' : 'Desde'}</th><th class="izq">Quién</th></tr></thead><tbody>${ultimos}</tbody></table></div></div>`;
   }
@@ -99,7 +100,7 @@ ${error ? `<p class="aviso mal">No se han podido leer los datos: ${esc(error)}</
   ${ver === 'contactos' ? `<div class="kpi"><span>Anuncios contactados</span><b>${fmt(porAnuncio(eventos).length)}</b></div>` : ''}
 </div>
 <p class="nota">En ${periodoTexto(dias)}; el % compara con el periodo de antes.</p>
-${cuerpo}`, '.grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)); gap: 14px; margin: 0 0 14px; } .card { margin: 0 0 14px; }');
+${cuerpo}`, CSS_ACTIVIDAD + '.grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)); gap: 14px; margin: 0 0 14px; } .card { margin: 0 0 14px; }');
 }
 
 /** Lee lo que hace falta y pinta el detalle */
@@ -128,6 +129,8 @@ export async function rutaDetalle(req, cfg, deps, html, dias) {
     // Quién es cada cliente (nombre y email)
     const ids = [...new Set([...(datos.eventos || []), ...(datos.alertas || [])].map((e) => e.cliente).filter((c) => /^\d+$/.test(String(c || ''))))].slice(0, 300);
     if (ids.length) (await t('clientes').leer(`cliente=in.(${ids.join(',')})&select=cliente,nombre,email`)).forEach((c) => { datos.quien = { ...(datos.quien || {}), [c.cliente]: c }; });
+    // La portada de cada anuncio (Shopify), para ubicarlo
+    datos.fotos = await fotosDe(cfg, deps, [...new Set((datos.eventos || []).map((e) => e.handle).filter(Boolean))].slice(0, 200)).catch(() => ({}));
   } catch (e) {
     datos.error = /eventos|relation|schema/.test(e.message) ? 'falta ejecutar sql/estadisticas.sql en Supabase › SQL Editor.' : e.message;
   }

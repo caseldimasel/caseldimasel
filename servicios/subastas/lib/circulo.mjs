@@ -31,6 +31,7 @@ import { rutasOperaciones } from './operaciones.mjs';
 import { rutasFichas } from './fichas.mjs';
 import { rutasCorreos } from './plantillas.mjs';
 import { DETALLES, rutaDetalle } from './detalle.mjs';
+import { fotosDe, leerActividad } from './actividad.mjs';
 import { avisoMejoras, cajaMejoras, correoMejoras, CSS_MEJORAS, leerMejoras, listaMejoras, pendientes } from './mejoras.mjs';
 import { altaComunidad, cancelarRenovacion, enlacePago, leerTarifa, precioMes, rutasComunidad } from './comunidad.mjs';
 import { cookieFuera, cookieSesion, intentarEntrar, paginaEntrar, sesionValida } from './acceso.mjs';
@@ -950,7 +951,12 @@ export async function atenderPanel(req, cfg, deps) {
     if (DETALLES[req.query.ver]) return rutaDetalle(req, cfg, deps, html, dias);
     let datos = null, error = '';
     try { datos = await db('sidonia_estadisticas', { p_dias: dias }); } catch (e) { error = String(e.message || e); }
-    return html(paginaEstadisticas(datos, { dias, error, tienda: cfg.tienda }));
+    // Ahora en la web (lo último de cada persona) y las portadas de los anuncios (actividad.mjs)
+    let actividad = null, fotos = {};
+    try { actividad = await leerActividad(cfg, deps); } catch (e) { console.error(e); }
+    const handles = [...(actividad || []).flatMap((g) => g.acciones.map((x) => x.handle)), ...(datos?.anuncios || []).map((x) => x.handle), ...(datos?.mas_contactados || []).map((x) => x.handle), ...(datos?.mas_guardados || []).map((x) => x.handle)];
+    try { fotos = await fotosDe(cfg, deps, handles); } catch (e) { console.error(e); }
+    return html(paginaEstadisticas(datos, { dias, error, tienda: cfg.tienda, actividad, fotos }));
   }
   // Email al dueño: el aviso del panel dice si ha salido, si falta Resend o si ha fallado
   const correoAlDueno = async (a, avisar, c) => {
