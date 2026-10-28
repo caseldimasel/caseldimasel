@@ -30,7 +30,7 @@ import { revisarComunidad, rutasPago } from './comunidad.mjs';
 import { ofrecerGestion, rutasGestion } from './gestion.mjs';
 import { recibirOferta } from './ofertas.mjs';
 
-export const VERSION = 'gestion-primero-2026-10-28';
+export const VERSION = 'favicon-tamanos-2026-10-28';
 
 export function config(env = process.env) {
   return {
