@@ -22,8 +22,8 @@ export function recursoPanel(nombre) {
     return { status: 200, headers: { 'Content-Type': 'application/manifest+json; charset=utf-8', ...cache }, body: JSON.stringify({
       name: 'Sidonia · Panel', short_name: 'Sidonia', description: 'El panel del equipo de Sidonia: ventas, anuncios, clientes y estadísticas.',
       start_url: '/admin', scope: '/', display: 'standalone', orientation: 'portrait', background_color: '#0b120f', theme_color: '#0b120f', lang: 'es',
-      icons: [180, 192, 512].map((t) => ({ src: `/admin?recurso=icono-${t}`, sizes: `${t}x${t}`, type: 'image/png', purpose: 'any' }))
-        .concat({ src: '/admin?recurso=icono-512', sizes: '512x512', type: 'image/png', purpose: 'maskable' })
+      icons: [180, 192, 512].map((t) => ({ src: `/admin?recurso=icono-${t}&v=i3`, sizes: `${t}x${t}`, type: 'image/png', purpose: 'any' }))
+        .concat({ src: '/admin?recurso=icono-512&v=i3', sizes: '512x512', type: 'image/png', purpose: 'maskable' })
     }) };
   }
   if (nombre === 'favicon.svg') return { status: 200, headers: { 'Content-Type': 'image/svg+xml', ...cache }, body: FAVSVG };
@@ -55,8 +55,8 @@ const FAVB96 = 'iVBORw0KGgoAAAANSUhEUgAAAGAAAABgCAYAAADimHc4AAAAIGNIUk0AAHomAACA
 const FAVSVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192" width="192" height="192"><style>@media (prefers-color-scheme: dark){image{filter:invert(1)}}</style><image width="192" height="192" href="data:image/png;base64,${FAV192}"/></svg>`;
 
 // El icono de la pestaña sigue el modo del panel (botón de la luna): O blanca en oscuro, negra en claro
-export const FAVICON = `<link rel="icon" type="image/png" sizes="32x32" href="/admin?recurso=favicon-32" data-favicon="32"><link rel="icon" type="image/png" sizes="48x48" href="/admin?recurso=favicon-48" data-favicon="48"><link rel="icon" type="image/png" sizes="64x64" href="/admin?recurso=favicon-64" data-favicon="64"><link rel="icon" type="image/png" sizes="96x96" href="/admin?recurso=favicon-96" data-favicon="96"><link rel="icon" type="image/png" sizes="192x192" href="/admin?recurso=favicon-192" data-favicon="192">
-<link rel="manifest" href="/admin?recurso=manifest"><link rel="apple-touch-icon" href="/admin?recurso=icono-180">
+export const FAVICON = `<link rel="icon" type="image/png" sizes="32x32" href="/admin?recurso=favicon-32&v=i3" data-favicon="32"><link rel="icon" type="image/png" sizes="48x48" href="/admin?recurso=favicon-48&v=i3" data-favicon="48"><link rel="icon" type="image/png" sizes="64x64" href="/admin?recurso=favicon-64&v=i3" data-favicon="64"><link rel="icon" type="image/png" sizes="96x96" href="/admin?recurso=favicon-96&v=i3" data-favicon="96"><link rel="icon" type="image/png" sizes="192x192" href="/admin?recurso=favicon-192&v=i3" data-favicon="192">
+<link rel="manifest" href="/admin?recurso=manifest&v=i3"><link rel="apple-touch-icon" href="/admin?recurso=icono-180&v=i3">
 <meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Sidonia"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#0b120f">
@@ -65,7 +65,7 @@ export const FAVICON = `<link rel="icon" type="image/png" sizes="32x32" href="/a
 <script>(() => { let t = 'oscuro'; try { t = localStorage.getItem('sidonia-panel-tema') || 'oscuro'; } catch (e) {} document.documentElement.dataset.tema = t;
   // El favicon: la O de sidonia.es con el punto verde del panel; negra y, con el modo oscuro del dispositivo, blanca
   const m = window.matchMedia ? matchMedia('(prefers-color-scheme: dark)') : null;
-  const poner = () => document.querySelectorAll('link[data-favicon]').forEach((l) => { l.href = '/admin?recurso=favicon-' + (m && m.matches ? 'blanco-' : '') + l.dataset.favicon; });
+  const poner = () => document.querySelectorAll('link[data-favicon]').forEach((l) => { l.href = '/admin?recurso=favicon-' + (m && m.matches ? 'blanco-' : '') + l.dataset.favicon + '&v=i3'; });
   poner(); if (m && m.addEventListener) m.addEventListener('change', poner);
   window.sidoniaFavicon = () => {}; })();</script>`;
 
