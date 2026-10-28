@@ -212,6 +212,12 @@ export function createStore(profile = 'full', port = 4173) {
         vendors: col('vendors', '', products)
       }
     : { all: col('all', 'Productos', []) };
+  // product.collections, como en Shopify: las colecciones en las que está cada producto (sin «all» ni «vendors»)
+  for (const p of products) p.collections = [];
+  for (const c of Object.values(collections)) {
+    if (c.handle === 'all' || c.handle === 'vendors') continue;
+    for (const p of c.products) if (p.collections && !p.collections.some((x) => x.handle === c.handle)) p.collections.push({ handle: c.handle, title: c.title, url: c.url });
+  }
   const menus = full
     ? {
         'main-menu': { title: 'Menú principal', links: [
