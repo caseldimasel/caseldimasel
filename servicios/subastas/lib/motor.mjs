@@ -30,7 +30,7 @@ import { revisarComunidad, rutasPago } from './comunidad.mjs';
 import { ofrecerGestion, rutasGestion } from './gestion.mjs';
 import { recibirOferta } from './ofertas.mjs';
 
-export const VERSION = 'favicon-igual-web-2026-10-28';
+export const VERSION = 'icono-app-invertido-2026-10-28';
 
 export function config(env = process.env) {
   return {
