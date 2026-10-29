@@ -113,7 +113,14 @@ function barras(items) {
 const NOMBRE_CANAL = { whatsapp: 'WhatsApp', llamar: 'Llamada', email: 'Email', registro: 'Les pedimos la cuenta', otro: 'Otro' };
 const NOMBRE_ORIGEN = (o) => ({ directo: 'Directo / sin origen', 'instagram': 'Instagram', 'google': 'Google', 'facebook': 'Facebook', 'whatsapp': 'WhatsApp', 'tiktok': 'TikTok', 'youtube': 'YouTube', 'linkedin': 'LinkedIn', 'x': 'X (Twitter)', 'bing': 'Bing', 'app': 'App de Sidonia', 'email': 'Email (alertas)' }[o] || o);
 
-export function paginaEstadisticas(datos, { dias = 30, error = '', tienda = 'https://sidonia.es', actividad = null, fotos = {} } = {}) {
+const CSS_BUSCADOR = `
+  .buscador { display: flex; gap: 8px; align-items: center; margin: 0 0 16px; }
+  .buscador input { flex: 1; min-width: 0; height: 44px; padding: 0 14px; border: 1px solid var(--linea); border-radius: 12px; background: var(--caja); color: inherit; font: inherit; font-size: 15px; }
+  .buscador button { height: 44px; border-radius: 12px; }
+  .buscador a { color: var(--suave); font-size: 14px; }
+`;
+
+export function paginaEstadisticas(datos, { dias = 30, error = '', tienda = 'https://sidonia.es', actividad = null, fotos = {}, busqueda = null } = {}) {
   const d = datos || {};
   const a = d.actual || {};
   const b = d.anterior || {};
@@ -149,11 +156,19 @@ export function paginaEstadisticas(datos, { dias = 30, error = '', tienda = 'htt
     ? `<div class="chips">${d.busquedas.map((x) => `<a href="${esc(tienda)}/collections/all?q=${encodeURIComponent(x.q)}" target="_blank" rel="noopener">${esc(x.q)} <b>${fmt(x.n)}</b></a>`).join('')}</div>`
     : '<p class="vacio">Aún nadie ha buscado nada.</p>';
 
+  // El buscador: cualquier anuncio, con sus vistas, me gusta, contactos y ofertas desde siempre
+  const bq = busqueda?.q || '';
+  const resultados = (busqueda?.resultados || []).map((x) => { const t = x.total || {}; return `<tr><td class="izq"><a class="con-foto" href="?estado=anuncio&h=${encodeURIComponent(x.handle)}">${miniFoto(x.foto, x.titulo)}<span>${esc(x.titulo || x.handle)}</span></a></td><td>${fmt(t.vistas)}</td><td>${fmt(t.personas)}</td><td>${fmt(t.likes)}</td><td>${fmt(t.contactos)}${n(t.quiso_contactar) ? ` <small>(+${fmt(t.quiso_contactar)} sin cuenta)</small>` : ''}</td><td>${fmt(t.ofertas)}</td><td><a href="?estado=anuncio&h=${encodeURIComponent(x.handle)}">Quién ›</a></td></tr>`; }).join('');
+  const buscador = `<form class="buscador" method="get"><input type="hidden" name="estado" value="estadisticas"><input type="hidden" name="dias" value="${dias}">
+  <input type="search" name="buscar" value="${esc(bq)}" placeholder="Busca un anuncio: Porsche 911, 2CV, Mustang…" autocomplete="off"><button type="submit">Buscar</button>${bq ? `<a href="?estado=estadisticas&dias=${dias}">Quitar</a>` : ''}</form>
+  ${bq ? `<div class="card"><h2>«${esc(bq)}»</h2>${resultados ? `<div class="tabla"><table><thead><tr><th class="izq">Anuncio</th><th>Vistas</th><th>Personas</th><th>Me gusta</th><th>Contactos</th><th>Ofertas</th><th></th></tr></thead><tbody>${resultados}</tbody></table></div><p class="nota">Desde siempre. Pulsa en un anuncio para ver quién está interesado.</p>` : `<p class="vacio">${busqueda?.error ? esc(busqueda.error) : 'Ningún anuncio con esas palabras.'}</p>`}</div>` : ''}`;
+
   return `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Estadísticas web · Panel de Sidonia</title><meta name="robots" content="noindex">${FAVICON}
-<style>${ESTILO}${CSS_ACTIVIDAD}</style></head><body>
+<style>${ESTILO}${CSS_ACTIVIDAD}${CSS_BUSCADOR}</style></head><body>
 ${CABECERA}
 ${pestañas}
+${buscador}
 <div class="per">${periodos}</div>
 ${error ? `<p class="error">No se han podido leer las estadísticas: ${esc(/eventos|sidonia_estadisticas|function/.test(error) ? 'falta ejecutar sql/estadisticas.sql en Supabase › SQL Editor.' : error)}</p>` : ''}
 <div class="kpis">

@@ -31,7 +31,7 @@ import { rutasOperaciones } from './operaciones.mjs';
 import { rutasFichas } from './fichas.mjs';
 import { rutasCorreos } from './plantillas.mjs';
 import { DETALLES, rutaDetalle } from './detalle.mjs';
-import { cajaActividad, fotosDe, leerActividad } from './actividad.mjs';
+import { buscarAnuncios, cajaActividad, fotosDe, leerActividad } from './actividad.mjs';
 import { avisoMejoras, cajaMejoras, correoMejoras, CSS_MEJORAS, leerMejoras, listaMejoras, pendientes } from './mejoras.mjs';
 import { altaComunidad, cancelarRenovacion, enlacePago, leerTarifa, precioMes, rutasComunidad } from './comunidad.mjs';
 import { cookieFuera, cookieSesion, intentarEntrar, paginaEntrar, sesionValida } from './acceso.mjs';
@@ -958,7 +958,19 @@ export async function atenderPanel(req, cfg, deps) {
     try { fotos = await fotosDe(cfg, deps, handles); } catch (e) { console.error(e); }
     // En vivo: solo la caja, para que se actualice sola
     if (req.query.vivo) return html(cajaActividad(actividad || [], fotos, { tienda: cfg.tienda }));
-    return html(paginaEstadisticas(datos, { dias, error, tienda: cfg.tienda, actividad, fotos }));
+    // El buscador: los anuncios con esas palabras y sus números desde siempre
+    let busqueda = null;
+    const q = String(req.query.buscar || '').trim().slice(0, 80);
+    if (q) {
+      busqueda = { q, resultados: [] };
+      try {
+        const lista = await buscarAnuncios(cfg, deps, q);
+        busqueda.resultados = await Promise.all(lista.map(async (x) => {
+          try { return { ...x, total: (await db('sidonia_crm_anuncio', { p_handle: x.handle }))?.total || {} }; } catch (e) { return { ...x, total: {} }; }
+        }));
+      } catch (e) { busqueda.error = `No se ha podido buscar: ${e.message || e}`; }
+    }
+    return html(paginaEstadisticas(datos, { dias, error, tienda: cfg.tienda, actividad, fotos, busqueda }));
   }
   // Email al dueño: el aviso del panel dice si ha salido, si falta Resend o si ha fallado
   const correoAlDueno = async (a, avisar, c) => {

@@ -54,6 +54,33 @@ export async function fotosDe(cfg, deps, handles) {
   return out;
 }
 
+// Todos los anuncios de la tienda (título, handle y portada), para el buscador de Estadísticas web
+let catalogo = { hasta: 0, lista: [] };
+export const normalizar = (t) => String(t || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+
+/** Los anuncios cuyo título tiene todas las palabras buscadas (como el buscador de la web: «944» encuentra «944S2») */
+export async function buscarAnuncios(cfg, deps, q, limite = 12) {
+  const palabras = normalizar(q).split(/[^a-z0-9]+/).filter(Boolean);
+  if (!palabras.length || !(deps.gql || (cfg.shopifyTienda && cfg.shopifyClientId))) return [];
+  if (catalogo.hasta < Date.now()) {
+    const gql = deps.gql || shopifyAdmin(cfg, deps.fetch);
+    const lista = [];
+    let tras = null;
+    for (let i = 0; i < 8; i += 1) {
+      const d = await gql(`query($tras: String) { products(first: 250, after: $tras, sortKey: CREATED_AT, reverse: true) { nodes { handle title featuredImage { url(transform: { maxWidth: 200, maxHeight: 200 }) } } pageInfo { hasNextPage endCursor } } }`, { tras });
+      const p = d?.data?.products || d?.products;
+      for (const x of p?.nodes || []) {
+        lista.push({ handle: x.handle, titulo: x.title, foto: x.featuredImage?.url || '' });
+        cacheFotos.set(x.handle, { url: x.featuredImage?.url || '', hasta: Date.now() + HORA });
+      }
+      if (!p?.pageInfo?.hasNextPage) break;
+      tras = p.pageInfo.endCursor;
+    }
+    catalogo = { hasta: Date.now() + 10 * 60e3, lista };
+  }
+  return catalogo.lista.filter((x) => { const t = normalizar(`${x.titulo} ${x.handle}`); return palabras.every((w) => t.includes(w)); }).slice(0, limite);
+}
+
 /** Lo último que ha pasado, agrupado por persona: [{ sesion, cliente, quien, email, movil, app, ultima, acciones: [...] }] */
 export async function leerActividad(cfg, deps, { eventos = 300, personas = 25 } = {}) {
   const filas = await (deps.eventos || tablaAnuncios(cfg, deps.fetch, 'eventos')).leer(`select=tipo,handle,titulo,canal,q,sesion,cliente,app,movil,origen,creado&order=creado.desc&limit=${eventos}`);

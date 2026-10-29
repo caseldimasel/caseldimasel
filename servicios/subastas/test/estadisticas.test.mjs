@@ -236,3 +236,33 @@ test('estadísticas › ahora en la web: lo último de cada persona, con quién 
   assert.match(h, /Alguien sin cuenta/);
   assert.deepEqual(frase({ tipo: 'contacto', canal: 'registro' })[0], 'Quiso contactar (le pedimos registrarse) por');
 });
+
+test('estadísticas: el buscador encuentra cualquier anuncio y enseña sus vistas, me gusta, contactos y ofertas', async () => {
+  const cfg = config({ ADMIN_CLAVE: 'panel' });
+  const auth = { authorization: 'Basic ' + Buffer.from('equipo:panel').toString('base64') };
+  const llamadas = [];
+  const deps = {
+    db: async (fn, args) => { llamadas.push([fn, args]); return fn === 'sidonia_crm_anuncio' ? { total: { vistas: 120, personas: 80, likes: 9, contactos: 4, ofertas: 1 } } : {}; },
+    eventos: { leer: async () => [] },
+    gql: async () => ({ data: { products: { nodes: [
+      { handle: 'porsche-944-s2-1989', title: 'Porsche 944S2 1989', featuredImage: { url: 'https://cdn/944.jpg' } },
+      { handle: 'citroen-2cv-1985', title: 'Citroën 2CV 1985', featuredImage: null }
+    ], pageInfo: { hasNextPage: false } } } })
+  };
+  const h = (await atenderPanel({ method: 'GET', query: { estado: 'estadisticas', buscar: 'porsche 944' }, body: {}, headers: auth }, cfg, deps)).body;
+  assert.match(h, /«porsche 944»/);
+  assert.match(h, /Porsche 944S2 1989/);
+  assert.doesNotMatch(h, /Citroën 2CV/);
+  assert.match(h, /<td>9<\/td>/);
+  assert.ok(llamadas.some(([fn, a]) => fn === 'sidonia_crm_anuncio' && a.p_handle === 'porsche-944-s2-1989'));
+});
+
+test('estadísticas: la página con el buscador y sus resultados', async () => {
+  const { paginaEstadisticas } = await import('../lib/estadisticas.mjs');
+  const h = paginaEstadisticas({}, { busqueda: { q: '2cv', resultados: [{ handle: 'citroen-2cv-1985', titulo: 'Citroën 2CV 1985', foto: '', total: { vistas: 50, personas: 30, likes: 7, contactos: 3, ofertas: 2 } }] } });
+  assert.match(h, /<input type="search" name="buscar" value="2cv"/);
+  assert.match(h, /Citroën 2CV 1985/);
+  assert.match(h, /\?estado=anuncio&h=citroen-2cv-1985/);
+  assert.match(h, /<td>7<\/td>/);
+  assert.match(paginaEstadisticas({}, { busqueda: { q: 'zzz', resultados: [] } }), /Ningún anuncio con esas palabras/);
+});
