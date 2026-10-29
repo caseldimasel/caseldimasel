@@ -1,0 +1,11 @@
+{
+  "name": "sidonia-ofertas",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Recibe las ofertas de sidonia.es, manda al cliente el email de gracias y avisa al equipo.",
+  "type": "module",
+  "engines": { "node": ">=18" },
+  "scripts": {
+    "test": "node --test"
+  }
+}

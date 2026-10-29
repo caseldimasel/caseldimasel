@@ -1,0 +1,11 @@
+{
+  "name": "sidonia-subastas",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Motor de subastas de Sidonia: pujas, cierre suave, registro con tarjeta y comentarios, detrás de la app de Shopify (/apps/subastas).",
+  "type": "module",
+  "engines": { "node": ">=18" },
+  "scripts": {
+    "test": "node --test --test-concurrency=1"
+  }
+}

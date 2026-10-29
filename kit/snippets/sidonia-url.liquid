@@ -1,0 +1,82 @@
+{%- comment -%}
+  URL de una página o colección clave, sin llevar nunca a un 404 en una tienda a medio configurar.
+
+  Parámetros:
+    key = sell | how | about | favorites | contact | wanted | archive | explore
+    out = url (por defecto) | exists ('true' si la página o colección existe de verdad)
+
+  Orden: lo elegido en Ajustes del tema > Sidonia · Páginas → página o colección con el handle
+  recomendado → ancla de la portada (que incluye esos bloques) o una ruta que siempre existe.
+  Handles recomendados (docs/02-instalacion.md): vender-con-sidonia, como-vendemos, sobre-sidonia,
+  favoritos, contacto, busco (páginas) y explorar, vendidas (colecciones).
+{%- endcomment -%}
+{%- liquid
+  assign target = nil
+  assign handle = ''
+  assign anchor = ''
+  assign is_collection = false
+  assign fallback = routes.root_url
+  case key
+    when 'sell'
+      assign target = settings.sidonia_page_sell
+      assign handle = 'vender-con-sidonia'
+      assign anchor = '#sidonia-vender'
+    when 'how'
+      assign target = settings.sidonia_page_how
+      assign handle = 'como-vendemos'
+      assign anchor = '#sidonia-como'
+    when 'about'
+      assign target = settings.sidonia_page_about
+      assign handle = 'sobre-sidonia'
+      assign anchor = '#sidonia-criterio'
+    when 'favorites'
+      assign target = settings.sidonia_page_favorites
+      assign handle = 'favoritos'
+    when 'contact'
+      assign target = settings.sidonia_page_contact
+      assign handle = 'contacto'
+    when 'wanted'
+      assign target = settings.sidonia_page_wanted
+      assign handle = 'busco'
+    when 'archive'
+      assign target = settings.sidonia_collection_archive
+      assign handle = 'vendidas'
+      assign is_collection = true
+    when 'explore'
+      assign target = settings.sidonia_collection_explore
+      assign handle = 'explorar'
+      assign is_collection = true
+      assign fallback = routes.all_products_collection_url
+  endcase
+
+  assign found = false
+  assign result = fallback
+  if anchor != blank
+    assign result = routes.root_url | append: anchor
+  endif
+  if target != blank and target.url != blank
+    assign found = true
+    assign result = target.url
+  elsif handle != blank
+    if is_collection
+      assign alt = collections[handle]
+    else
+      assign alt = pages[handle]
+    endif
+    if alt != blank and alt.url != blank
+      assign found = true
+      assign result = alt.url
+    endif
+  endif
+  if key == 'favorites' and found == false
+    assign result = routes.root_url
+  endif
+
+  if out == 'exists'
+    if found
+      echo 'true'
+    endif
+  else
+    echo result
+  endif
+-%}

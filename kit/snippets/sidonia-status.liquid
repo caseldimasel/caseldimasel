@@ -1,0 +1,26 @@
+{%- comment -%}
+  Estado editorial de una pieza. Es independiente del inventario de Shopify:
+  «Disponible» significa que acepta consultas, no que product.available sea verdadero.
+
+  Parámetros: product, out = key (por defecto: available | reserved | sold | vacío) | label | chip
+{%- endcomment -%}
+{%- liquid
+  assign s = product.metafields.sidonia.status.value | downcase | strip
+  assign st = ''
+  case s
+    when 'disponible', 'available'
+      assign st = 'available'
+    when 'reservado', 'reservada', 'reserved'
+      assign st = 'reserved'
+    when 'vendido', 'vendida', 'sold'
+      assign st = 'sold'
+  endcase
+  assign label_key = 'sidonia.status.' | append: st
+-%}
+{%- if out == 'label' -%}
+  {%- if st != '' -%}{{ label_key | t }}{%- endif -%}
+{%- elsif out == 'chip' -%}
+  {%- if st != '' -%}<span class="sidonia-status sidonia-status--{{ st }}">{{ label_key | t }}</span>{%- endif -%}
+{%- else -%}
+  {{- st -}}
+{%- endif -%}

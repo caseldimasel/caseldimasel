@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Sin conexión · Sidonia</title>
+  <style>
+    html, body { margin: 0; height: 100%; background: #fff; color: #1a1a1a; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+    main { display: grid; place-items: center; align-content: center; gap: 20px; min-height: 100%; padding: 32px 24px calc(32px + env(safe-area-inset-bottom)); box-sizing: border-box; text-align: center; }
+    img { width: 52vw; max-width: 220px; margin-bottom: 12px; }
+    h1 { margin: 0; font-size: 22px; }
+    p { margin: 0; max-width: 300px; font-size: 16px; line-height: 1.5; color: rgb(26 26 26 / .6); }
+    button { margin-top: 8px; min-height: 48px; padding: 0 28px; border: 0; border-radius: 999px; background: #1a1a1a; color: #fff; font: inherit; font-size: 16px; font-weight: 600; }
+    button:active { transform: scale(.97); }
+  </style>
+</head>
+<body>
+  <main>
+    <img src="logo.png" alt="Sidonia">
+    <h1>Sin conexión</h1>
+    <p>Parece que no hay internet. Cuando vuelva la cobertura, los coches, barcos y casas seguirán aquí.</p>
+    <button type="button" onclick="location.href = 'https://sidonia.es/?origen=app'">Volver a intentarlo</button>
+  </main>
+  <script>
+    // Si vuelve la conexión, se recarga solo
+    addEventListener('online', () => { location.href = 'https://sidonia.es/?origen=app'; });
+  </script>
+</body>
+</html>

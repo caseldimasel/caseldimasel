@@ -1,0 +1,41 @@
+{
+  "appId": "es.sidonia.app",
+  "appName": "Sidonia",
+  "webDir": "www",
+  "backgroundColor": "#ffffff",
+  "appendUserAgent": "SidoniaApp",
+  "server": {
+    "url": "https://sidonia.es/?origen=app",
+    "errorPath": "offline.html",
+    "allowNavigation": [
+      "sidonia.es",
+      "*.sidonia.es",
+      "*.myshopify.com",
+      "shopify.com",
+      "*.shopify.com",
+      "*.shopifycdn.com",
+      "sidoniaplatform.vercel.app",
+      "*.supabase.co"
+    ]
+  },
+  "ios": {
+    "contentInset": "never",
+    "scrollEnabled": true,
+    "allowsLinkPreview": false
+  },
+  "android": {
+    "allowMixedContent": false
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 1200,
+      "launchAutoHide": true,
+      "backgroundColor": "#ffffff",
+      "showSpinner": false,
+      "androidScaleType": "CENTER_CROP"
+    },
+    "FirebaseMessaging": {
+      "presentationOptions": ["badge", "sound", "alert"]
+    }
+  }
+}
