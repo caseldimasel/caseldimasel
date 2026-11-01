@@ -21,6 +21,7 @@
  *   gestion?a=&f=                → «¿Lo vendemos nosotros?»: de anuncio de la comunidad a gestión de venta (gestion.mjs)
  *   pagar?a=&f=                  → pagar un anuncio de la comunidad con Stripe, renovación cada mes (comunidad.mjs)
  */
+import { recibirAlquiler } from './alquiler.mjs';
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { rutasTienda } from './circulo.mjs';
 import { cuentaFirebase, registrarDispositivo } from './avisos.mjs';
@@ -254,7 +255,7 @@ export async function atender(req, cfg, deps) {
     if (ruta === 'pagar' || ruta === 'pagar/ok') return rutasPago({ ruta, method: req.method, query: req.query || {}, body: req.body || {} }, cfg, deps);
     // «¿Lo vendemos nosotros?» (enlace firmado del email, sin sesión): gestion.mjs
     if (ruta === 'gestion') return rutasGestion({ method: req.method, query: req.query || {}, body: req.body || {} }, cfg, deps);
-    if (!/^api\/(anuncio|anuncios|visita|perfil|push|alertas|evento|comunidad|oferta)(\/|$)/.test(ruta)) return json(404, { ok: false, error: 'ruta' });
+    if (!/^api\/(anuncio|anuncios|visita|perfil|push|alertas|evento|comunidad|oferta|alquiler)(\/|$)/.test(ruta)) return json(404, { ok: false, error: 'ruta' });
   } else if (!comprobarProxy(req.query, cfg.secreto)) return json(401, { ok: false, error: 'firma' });
   const cliente = !req.directo && req.query.logged_in_customer_id ? String(req.query.logged_in_customer_id) : clienteFirmado(req.query, cfg.clave);
   // El tema mandó quién es, pero la firma no cuadra: la «Clave del motor» del tema no es la SUBASTAS_CLAVE de Vercel
@@ -299,6 +300,8 @@ export async function atender(req, cfg, deps) {
   }
   // «Hacer una oferta»: al dueño (comunidad) o al equipo (Sidonia), y el resumen al comprador (ofertas.mjs)
   if (ruta === 'api/oferta' && req.method === 'POST') return json(200, await recibirOferta(body, cliente, cfg, deps));
+  // Alquiler (próximamente): la lista de espera de «Alquila un coche con alma» (alquiler.mjs)
+  if (ruta === 'api/alquiler' && req.method === 'POST') return json(200, await recibirAlquiler(body, cliente, cfg, deps));
 
   // Comunidad: el repaso diario (recordar el pago a quien le caduca y, si se quiere, retirar los caducados)
   if (ruta === 'api/comunidad/revisar') {

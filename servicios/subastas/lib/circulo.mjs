@@ -27,7 +27,8 @@ import { rellenarPropietarios } from './propietarios.mjs';
 import { rellenarUbicaciones } from './ubicaciones.mjs';
 import { avisarCliente, avisarTodos, avisoCambios, avisoPublicado, avisoRechazado } from './avisos.mjs';
 import { navPanel, paginaEstadisticas, ponerContadores } from './estadisticas.mjs';
-import { rutasOperaciones } from './operaciones.mjs';
+import { marco, rutasOperaciones } from './operaciones.mjs';
+import { paginaAlquiler } from './alquiler.mjs';
 import { rutasFichas } from './fichas.mjs';
 import { rutasCorreos } from './plantillas.mjs';
 import { DETALLES, rutaDetalle } from './detalle.mjs';
@@ -911,6 +912,13 @@ export async function atenderPanel(req, cfg, deps) {
   const seccion = req.query.estado || (req.method === 'GET' ? 'ventas' : '');
   // Anuncios › En la web: todos los anuncios de la tienda y su editor (fichas.mjs)
   if (seccion === 'fichas' || seccion === 'ficha') return rutasFichas({ ...req, query: { ...req.query, estado: seccion } }, cfg, deps, html);
+  // Clientes › Alquiler: la lista de espera del alquiler (alquiler.mjs)
+  if (seccion === 'alquiler') {
+    let lista = [], error = '';
+    try { lista = await (deps.alquiler || tablaAnuncios(cfg, deps.fetch, 'alquiler')).leer('select=*&order=creado.desc&limit=2000'); } catch (e) { error = 'La lista se apunta aquí desde que ejecutes sql/alquiler.sql en Supabase › SQL Editor (mientras, os llega por email).'; }
+    const ver = ['todos', 'alquilar', 'poner'].includes(req.query.ver) ? req.query.ver : 'todos';
+    return html(paginaAlquiler(lista, { ver, error, marco }));
+  }
   if (['ventas', 'meses', 'ofertas', 'operacion', 'importar', 'duenos', 'enlazar'].includes(seccion)) {
     return rutasOperaciones({ ...req, query: { ...req.query, estado: seccion } }, cfg, { ...deps, tareas }, html);
   }
