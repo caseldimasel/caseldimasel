@@ -179,7 +179,8 @@ const PAGES = [
   { handle: 'vender', title: 'Vende con Sidonia', template: 'vender' },
   { handle: 'vende-con-nosotros', title: 'VENDE CON NOSOTROS', template: '' }, // como en la tienda: sin la plantilla «vender» asignada
   { handle: 'privacidad', title: 'Aviso de privacidad', template: 'legal', content: '<p>[PRUEBA] Texto legal pendiente de Sidonia.</p>' },
-  { handle: 'publicar', title: 'Publica gratis', template: 'publicar' }
+  { handle: 'publicar', title: 'Publica gratis', template: 'publicar' },
+  { handle: 'alquiler', title: 'Alquiler', template: 'alquiler' }
 ];
 
 export function createStore(profile = 'full', port = 4173) {
