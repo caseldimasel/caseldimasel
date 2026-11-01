@@ -144,7 +144,7 @@ ${previa ? `<div style="display:none;max-height:0;overflow:hidden;opacity:0">${e
     <tr><td style="padding:24px 28px 26px">${P('Un saludo,<br><b>El equipo de Sidonia</b>').replace('margin:0 0 16px', 'margin:0')}</td></tr>
   </table>
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px"><tr><td align="center" style="padding:20px 28px 0;${TEXTO};font-size:12px;line-height:1.8;color:#8a8a8a">
-    Coches, motos, barcos y casas con alma<br>
+    La plataforma de los amantes del motor<br>
     <a href="${esc(cfg.tienda)}" style="color:#1a1a1a;text-decoration:none;font-weight:600">sidonia.es</a> &nbsp;·&nbsp; <a href="${wa}" style="color:#1a1a1a;text-decoration:none;font-weight:600">WhatsApp</a> &nbsp;·&nbsp; <a href="${INSTAGRAM}" style="color:#1a1a1a;text-decoration:none;font-weight:600">Instagram</a><br>
     ${sinDudas ? '' : '¿Dudas? Responde a este email y te contestamos.'}</td></tr></table>
 </td></tr></table></body></html>`;
@@ -173,7 +173,7 @@ export function correoBienvenida(cfg, nombre = '') {
     html: plantilla(cfg, null, {
       titulo: 'Ya eres de Sidonia', previa: 'Gracias por unirte. Esto es lo que puedes hacer desde hoy.',
       cuerpo: P(`Hola${nombre ? ` ${esc(nombre)}` : ''}:`)
-        + P('Gracias por unirte a Sidonia. Aquí no vendemos coches, motos, barcos y casas: buscamos el siguiente capítulo de cosas con historia. Y desde hoy formas parte de eso.')
+        + P('Gracias por unirte a Sidonia. Aquí no vendemos coches y motos sin más: buscamos el siguiente capítulo de los que tienen historia. Y desde hoy formas parte de eso.')
         + lista([
           ['Habla con quien vende', 'Escribe por WhatsApp o llama directamente al vendedor de cualquier anuncio.'],
           ['Haz ofertas', '¿Te gusta pero no a ese precio? Propón el tuyo y le llega al momento.'],
