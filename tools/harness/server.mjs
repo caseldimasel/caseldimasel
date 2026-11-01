@@ -201,6 +201,7 @@ export function createStore(profile = 'full', port = 4173) {
     ? {
         explorar: col('explorar', 'Explorar', products, 'sidonia'),
         coches: col('coches', 'Coches', cat('Coches'), 'garage'),
+        motos: col('motos', 'Motos', cat('Motos')),
         barcos: col('barcos', 'Barcos', cat('Barcos'), 'harbor'),
         casas: col('casas', 'Casas', cat('Casas'), 'estate'),
         vendidas: col('vendidas', 'Archivo de piezas vendidas', products.filter((p) => p.__data.status === 'Vendido'), 'sold'),
