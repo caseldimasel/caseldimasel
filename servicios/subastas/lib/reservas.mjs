@@ -68,7 +68,7 @@ async function perfiles(cfg, deps, ids) {
   const ps = await tabla(cfg, deps, 'perfiles').leer(`cliente=in.(${l.map((x) => `"${x.replace(/"/g, '')}"`).join(',')})&select=*`).catch(() => []);
   return Object.fromEntries(ps.map((p) => [String(p.cliente), p]));
 }
-const anfitrion = (cfg, p) => (p ? { nombre: p.nombre || 'Anfitrión', foto: p.foto ? urlFoto(cfg, p.foto) : '', ciudad: p.ciudad || '', slug: p.slug || '', desde: p.creado || p.actualizado || '' } : { nombre: 'Anfitrión', foto: '', ciudad: '' });
+const anfitrion = (cfg, p) => (p ? { nombre: p.nombre || 'Dueño', foto: p.foto ? urlFoto(cfg, p.foto) : '', ciudad: p.ciudad || '', slug: p.slug || '', desde: p.creado || p.actualizado || '' } : { nombre: 'Dueño', foto: '', ciudad: '' });
 const media = (l) => (l.length ? Math.round((l.reduce((s, x) => s + Number(x.nota), 0) / l.length) * 100) / 100 : 0);
 
 /** La tarjeta de un anuncio */
@@ -190,7 +190,7 @@ export async function rutasReservas({ ruta, method, body }, cliente, cfg, deps) 
         let otro;
         if (rol === 'cliente') {
           if (conf && !contactos[r.dueno]) contactos[r.dueno] = await emailDueno(cfg, deps, r.dueno);
-          otro = { nombre: ps[String(r.dueno)]?.nombre || 'Anfitrión', ...(conf ? { email: contactos[r.dueno].email, telefono: contactos[r.dueno].telefono } : {}) };
+          otro = { nombre: ps[String(r.dueno)]?.nombre || 'Dueño', ...(conf ? { email: contactos[r.dueno].email, telefono: contactos[r.dueno].telefono } : {}) };
         } else otro = { nombre: r.nombre || ps[String(r.cliente)]?.nombre || 'Cliente', ...(conf ? { email: r.email, telefono: r.telefono } : {}) };
         return { id: r.id, rol, estado, desde: r.desde, hasta: r.hasta, dias: r.dias, precio_dia: r.precio_dia, total: r.total, tarifa: Number(r.tarifa) || 0, para: r.para, creado: r.creado,
           pago: r.pago || '', ...(rol === 'cliente' && estado === 'aceptada' && r.pago === 'pendiente' ? { pagar: urlPagar(cfg, r.id) } : {}),
