@@ -25,6 +25,7 @@ import { contactarAlquiler, peticionesPublicas, recibirAlquiler } from './alquil
 import { rutasGaraje } from './garaje.mjs';
 import { rutasOpiniones } from './opiniones.mjs';
 import { rutasLikes } from './likes.mjs';
+import { rutasReservas } from './reservas.mjs';
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { rutasTienda } from './circulo.mjs';
 import { cuentaFirebase, registrarDispositivo } from './avisos.mjs';
@@ -305,6 +306,11 @@ export async function atender(req, cfg, deps) {
   if (ruta === 'api/oferta' && req.method === 'POST') return json(200, await recibirOferta(body, cliente, cfg, deps));
   // Alquiler (próximamente): la lista de espera de «Alquila un coche con alma» (alquiler.mjs)
   if (ruta === 'api/alquiler' && req.method === 'POST') return json(200, await recibirAlquiler(body, cliente, cfg, deps));
+  // Alquiler como Airbnb: buscar, ficha, reservar, reservas, mensajes y reseñas (reservas.mjs)
+  if (ruta.startsWith('api/alquiler/')) {
+    const r = await rutasReservas({ ruta, method: req.method, body: req.method === 'GET' ? { ...req.query } : body }, cliente, cfg, deps);
+    if (r) return r;
+  }
   // «Lo que busca la gente» (sin datos personales) y «Tengo uno así» / «Me interesa alquilarlo» (con su sesión)
   if (ruta === 'api/alquiler/peticiones' && req.method === 'GET') {
     try { return { ...json(200, { ok: true, peticiones: await peticionesPublicas(cfg, deps) }), headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=60' } }; } catch (e) { return json(200, { ok: false, error: 'sin-tabla', peticiones: [] }); }

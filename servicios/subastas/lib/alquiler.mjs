@@ -192,7 +192,7 @@ export async function accionPanelAlquiler(b, cfg, deps) {
 }
 
 /* ---------------------------------------------------------------------------- Panel › Clientes › Alquiler */
-export function paginaAlquiler(lista, { ver = 'todos', error = '', marco, contactos = [] }) {
+export function paginaAlquiler(lista, { ver = 'todos', error = '', marco, contactos = [], extra = '' }) {
   const filtros = { todos: 'Todos', alquilar: 'Quieren alquilar', poner: 'Ponen su coche' };
   const l = lista.filter((x) => ver === 'todos' || x.rol === ver);
   const fecha = (t) => new Date(t).toLocaleString('es-ES', { timeZone: 'Europe/Madrid', day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' });
@@ -238,5 +238,6 @@ ${contactos.length ? `<h2 style="margin:22px 0 8px">Contactos entre la comunidad
   <tbody>${contactos.map((c) => `<tr><td class="izq">${fecha(c.creado)}</td><td class="izq">${c.tipo === 'tengo' ? `Tiene uno así (petición #${Number(c.peticion)})` : 'Quiere alquilarlo'}<span class="sub">${esc(c.coche)}${c.fecha ? ` · ${esc(c.fecha)}` : ''}</span></td>
     <td class="izq"><b>${esc(c.nombre)}</b><span class="sub">${esc(c.email)}${c.telefono ? ` · ${esc(c.telefono)}` : ''}</span></td><td class="izq"><span class="sub" style="white-space:normal;max-width:300px;display:block">${esc(c.mensaje || '—')}</span></td></tr>`).join('')}</tbody>
 </table></div></div>` : ''}
+${extra}
 <p class="nota">La lista de espera de «Alquila un coche con alma» (próximamente). Sirve para medir cuánta gente lo quiere antes de abrirlo: a cada uno le llega «Estás en la lista» y a vosotros un email «[Alquiler]».</p>`);
 }

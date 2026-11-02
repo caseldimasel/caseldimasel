@@ -21,6 +21,21 @@ const FOTOS = 12;                      // fotos por coche
 const texto = (v, max) => String(v ?? '').replace(/\r\n?/g, '\n').replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g, '').trim().slice(0, max);
 const tabla = (cfg, deps, nombre) => deps[nombre] || tablaAnuncios(cfg, deps.fetch, nombre);
 
+const ent = (v, min, max) => { const n = Math.round(Number(v)); return Number.isFinite(n) ? Math.min(max, Math.max(min, n)) : 0; };
+const DIA = /^\d{4}-\d{2}-\d{2}$/;
+export const USOS = ['boda', 'rodaje', 'finde', 'ruta', 'evento'];
+/** El anuncio de alquiler (como en Airbnb): precio por día, fianza, km, quién conduce, dónde, normas, reserva inmediata… */
+export function leerAlq(a = {}) {
+  return {
+    precio: ent(a.precio, 0, 20000), fianza: ent(a.fianza, 0, 100000), km: ent(a.km, 0, 5000), minimo: ent(a.minimo, 1, 30) || 1,
+    plazas: ent(a.plazas, 0, 9), cambio: ['manual', 'auto'].includes(a.cambio) ? a.cambio : '',
+    conductor: ['con', 'sin', 'ambos'].includes(a.conductor) ? a.conductor : 'con',
+    ciudad: texto(a.ciudad, 80), entrega: texto(a.entrega, 300), normas: texto(a.normas, 2000),
+    inmediata: Boolean(a.inmediata), usos: (Array.isArray(a.usos) ? a.usos : []).filter((u) => USOS.includes(u))
+  };
+}
+export const leerBloqueos = (l) => (Array.isArray(l) ? l : []).filter((x) => Array.isArray(x) && DIA.test(x[0]) && DIA.test(x[1] || x[0])).map((x) => [x[0], x[1] || x[0]].sort()).slice(0, 200);
+
 /** Limpia un coche: { ok, coche } o { ok: false, error, campo } */
 export function leerCoche(b = {}, cliente = '') {
   const carpeta = String(cliente).replace(/\W/g, '');
@@ -32,7 +47,8 @@ export function leerCoche(b = {}, cliente = '') {
     apodo: texto(b.apodo, 40), historia: texto(b.historia, 4000), mods: texto(b.mods, 2000),
     fotos: (Array.isArray(b.fotos) ? b.fotos : []).map(String).filter((f) => propia.test(f)).slice(0, FOTOS),
     alquiler: Boolean(b.alquiler), alquiler_como: ['con', 'sin', 'igual'].includes(b.alquiler_como) ? b.alquiler_como : '',
-    visible: b.visible !== false
+    visible: b.visible !== false,
+    ...(b.alq ? { alq: leerAlq(b.alq) } : {}), ...(b.bloqueos ? { bloqueos: leerBloqueos(b.bloqueos) } : {})
   };
   if (!c.marca) return { ok: false, error: 'datos', campo: 'marca' };
   if (!c.modelo) return { ok: false, error: 'datos', campo: 'modelo' };
@@ -46,6 +62,7 @@ export const cochePublico = (cfg, c, dueno = null, liked = false) => ({
   titulo: [c.marca, c.modelo, c.anio].filter(Boolean).join(' '),
   fotos: (c.fotos || []).map((f) => urlFoto(cfg, f)), alquiler: Boolean(c.alquiler), alquiler_como: c.alquiler_como || '',
   likes: Number(c.likes) || 0, liked, creado: c.creado,
+  alq: (() => { const { entrega, ...pub } = c.alq || {}; return pub; })(), bloqueos: c.bloqueos || [],
   ...(dueno ? { dueno: { slug: dueno.slug, nombre: dueno.nombre, foto: dueno.foto ? urlFoto(cfg, dueno.foto) : '', ciudad: dueno.ciudad || '' } } : {})
 });
 
@@ -112,7 +129,7 @@ export async function rutasGaraje({ ruta, method, body }, cliente, cfg, deps) {
     try {
       const coches = await tG.leer(`cliente=eq.${encodeURIComponent(cliente)}&order=creado.desc&limit=${GARAJE_MAX}`);
       const [p] = await tP.leer(`cliente=eq.${encodeURIComponent(cliente)}&limit=1`).catch(() => []);
-      return json(200, { ok: true, coches: coches.map((c) => ({ ...cochePublico(cfg, c), visible: c.visible !== false, rutas: c.fotos || [] })), perfil: perfilGaraje(cfg, p) || null });
+      return json(200, { ok: true, coches: coches.map((c) => ({ ...cochePublico(cfg, c), alq: c.alq || {}, visible: c.visible !== false, rutas: c.fotos || [] })), perfil: perfilGaraje(cfg, p) || null });
     } catch (e) { return falta(e); }
   }
   // Añadir o cambiar un coche

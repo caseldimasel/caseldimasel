@@ -29,6 +29,7 @@ import { avisarCliente, avisarTodos, avisoCambios, avisoPublicado, avisoRechazad
 import { navPanel, paginaEstadisticas, ponerContadores } from './estadisticas.mjs';
 import { marco, rutasOperaciones } from './operaciones.mjs';
 import { accionPanelAlquiler, paginaAlquiler } from './alquiler.mjs';
+import { tablaReservasPanel } from './reservas.mjs';
 import { paginaGarajes } from './garaje.mjs';
 import { paginaOpiniones } from './opiniones.mjs';
 import { rutasFichas } from './fichas.mjs';
@@ -959,8 +960,15 @@ export async function atenderPanel(req, cfg, deps) {
     }
     try { lista = await (deps.alquiler || tablaAnuncios(cfg, deps.fetch, 'alquiler')).leer('select=*&order=creado.desc&limit=2000'); } catch (e) { error = 'La lista se apunta aquí desde que ejecutes sql/alquiler.sql en Supabase › SQL Editor (mientras, os llega por email).'; }
     try { contactos = await (deps.alquiler_contactos || tablaAnuncios(cfg, deps.fetch, 'alquiler_contactos')).leer('select=*&order=creado.desc&limit=500'); } catch (e) { /* sin la tabla aún */ }
+    let extra = '';
+    try {
+      const rs = await (deps.reservas || tablaAnuncios(cfg, deps.fetch, 'reservas')).leer('select=*&order=creado.desc&limit=500');
+      const ids = [...new Set(rs.map((r) => Number(r.coche_id)))];
+      const cs = ids.length ? await (deps.garaje || tablaAnuncios(cfg, deps.fetch, 'garaje')).leer(`id=in.(${ids.join(',')})&select=id,marca,modelo,anio`) : [];
+      extra = tablaReservasPanel(rs, cs);
+    } catch (e) { /* sin sql/reservas.sql aún */ }
     const ver = ['todos', 'alquilar', 'poner'].includes(req.query.ver) ? req.query.ver : 'todos';
-    return html(paginaAlquiler(lista, { ver, error, marco, contactos }));
+    return html(paginaAlquiler(lista, { ver, error, marco, contactos, extra }));
   }
   if (['ventas', 'meses', 'ofertas', 'operacion', 'importar', 'duenos', 'enlazar'].includes(seccion)) {
     return rutasOperaciones({ ...req, query: { ...req.query, estado: seccion } }, cfg, { ...deps, tareas }, html);
