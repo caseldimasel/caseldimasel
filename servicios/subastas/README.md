@@ -64,7 +64,8 @@ Puesta en marcha:
 
 1. **Supabase › SQL Editor:** ejecuta `sql/circulo.sql` (crea la tabla, el límite de uno por persona y el cubo de fotos).
 2. **App de Shopify (Dev Dashboard) › nueva versión:** añade los permisos `write_products`, `read_publications` y
-   `write_publications` (además de `write_app_proxy`), publícala y acepta la actualización en la tienda.
+   `write_publications` (además de `write_app_proxy`), y para Panel › Herramientas › Páginas de la web también
+   `write_online_store_pages` y `read_themes`; publícala y acepta la actualización en la tienda.
 3. **Vercel › variables:** `SHOPIFY_TIENDA` (`xxxx.myshopify.com`), `SHOPIFY_CLIENT_ID` (ID de cliente de la app) y
    `ADMIN_CLAVE` (contraseña del panel). Redeploy.
 4. **Shopify (opcional):** sin crear nada, el formulario está en `/pages/vende-con-nosotros?view=publicar`, el perfil en

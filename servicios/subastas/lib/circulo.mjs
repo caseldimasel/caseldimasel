@@ -25,6 +25,7 @@ import { CABECERA, ESTILO_PANEL, FAVICON, recursoPanel } from './marca.mjs';
 import { createHash } from 'node:crypto';
 import { rellenarPropietarios } from './propietarios.mjs';
 import { rellenarUbicaciones } from './ubicaciones.mjs';
+import { ponerPaginas } from './paginas.mjs';
 import { avisarCliente, avisarTodos, avisoCambios, avisoPublicado, avisoRechazado } from './avisos.mjs';
 import { navPanel, paginaEstadisticas, ponerContadores } from './estadisticas.mjs';
 import { marco, rutasOperaciones } from './operaciones.mjs';
@@ -605,6 +606,7 @@ export function paginaPanel(cfg, lista, { estado = 'pendiente', aviso = '' } = {
   const pestañas = navPanel(estado);
   if (estado === 'propietarios') return paginaPanelHtml(pestañas, aviso, paginaPropietarios(cfg, lista));
   if (estado === 'ubicaciones') return paginaPanelHtml(pestañas, aviso, paginaUbicaciones(cfg, lista));
+  if (estado === 'paginas') return paginaPanelHtml(pestañas, aviso, paginaPaginas(cfg, lista));
   if (estado === 'cambios') return paginaPanelHtml(pestañas, aviso, lista.map((a) => tarjetaCambios(cfg, a)).join('') || '<p class="vacio">No hay cambios por revisar.</p>');
   const tarjetas = lista.map((a) => `
   <article class="a">
@@ -709,6 +711,33 @@ function paginaUbicaciones(cfg, informe) {
   </div></article>`;
 }
 
+/** Panel › Páginas de la web: las páginas de Sidonia en Shopify, con su plantilla (lib/paginas.mjs) */
+function paginaPaginas(cfg, res) {
+  const tienda = esc(cfg.tienda || '');
+  const txt = { creada: 'Creada ahora', enlazada: 'Plantilla puesta ahora', ok: 'Bien', falta: 'No existe', 'sin-plantilla': 'Sin su plantilla', error: 'Error' };
+  const filas = (res?.informe || []).map((r) => `<tr><td><a href="${tienda}${esc(r.url)}" target="_blank">${esc(r.titulo)}</a> <small>${esc(r.url)}</small></td>
+    <td>${esc(txt[r.estado] || r.estado)}${r.antes ? ` <small>(tenía «${esc(r.antes)}»)</small>` : ''}${r.oculta ? ' <small>· oculta en Shopify</small>' : ''}${r.error ? ` <small>${esc(r.error)}</small>` : ''}</td>
+    <td>${r.plantillaEnTema === null ? '<span class="vacio">—</span>' : r.plantillaEnTema ? 'Sí' : '<b style="color:#b3261e">No está en el tema</b>'}</td></tr>`).join('');
+  const faltan = (res?.informe || []).filter((r) => r.plantillaEnTema === false);
+  const tema = res?.tema || {};
+  const avisoTema = faltan.length
+    ? `<p class="res" style="color:#b3261e"><b>El tema publicado${tema.tema ? ` («${esc(tema.tema)}»)` : ''} no tiene ${faltan.length === 1 ? 'la plantilla' : 'las plantillas'} de ${faltan.map((r) => esc(r.titulo)).join(', ')}.</b>
+      Eso quiere decir que no le llegan los cambios de GitHub: en Shopify › Tienda online › Temas, mira que el tema publicado esté conectado
+      a GitHub (repositorio caseldimasel/Sidonia-Shopify, rama sidonia-tema) y que no tenga errores de sincronización. Si el repositorio
+      cambió de nombre, desconéctalo y vuelve a conectarlo.</p>`
+    : tema.error === 'sin-permiso' ? '<p class="meta">No se han podido mirar las plantillas del tema: falta el permiso read_themes en la app.</p>'
+    : tema.error ? `<p class="meta">No se han podido mirar las plantillas del tema: ${esc(tema.error)}</p>` : '';
+  return `<article class="a"><div class="cuerpo">
+    <h2>Páginas de la web</h2>
+    <p class="res">Crea en Shopify las páginas de Sidonia que falten (Eventos, Profesionales, Alquiler…) con su plantilla puesta, y a las que
+      ya existen les pone su plantilla. Así el menú lleva a /pages/eventos y se ve bien. No cambia el texto de ninguna página ni publica las que
+      tengáis ocultas.</p>
+    <form method="post" class="acc"><button name="accion" value="paginas" class="si">Crear y enlazar las páginas</button></form>
+    ${avisoTema}
+    ${filas ? `<table class="diff"><tr><th>Página</th><th>Estado</th><th>Plantilla en el tema</th></tr>${filas}</table>` : ''}
+  </div></article>`;
+}
+
 function paginaPanelHtml(pestañas, aviso, tarjetas) {
   return `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Panel de Sidonia</title><meta name="robots" content="noindex">${FAVICON}
@@ -787,7 +816,8 @@ ${pestañas}
 /** Panel › Herramientas: lo que se usa de vez en cuando */
 function paginaHerramientas() {
   const h = (href, titulo, texto) => `<article class="a"><div class="cuerpo"><h2><a href="${href}" style="color:inherit">${titulo} ›</a></h2><p class="meta">${texto}</p></div></article>`;
-  return h('?estado=ubicaciones', 'Ubicaciones', 'Pone a cada producto de la tienda su provincia (para la tarjeta y el filtro «Localización»), sacada de la descripción.')
+  return h('?estado=paginas', 'Páginas de la web', 'Crea en Shopify las páginas de Sidonia que falten (Eventos, Profesionales, Alquiler…) con su plantilla, y mira si el tema las tiene.')
+    + h('?estado=ubicaciones', 'Ubicaciones', 'Pone a cada producto de la tienda su provincia (para la tarjeta y el filtro «Localización»), sacada de la descripción.')
     + h('?estado=propietarios', 'Propietario en las fichas', 'Saca de la historia de cada coche de Sidonia el nombre de su dueño, para enseñarlo en la ficha («Propietario: Carlos»).')
     + h('?estado=correos', 'Emails', 'Cómo se ve cada email que mandamos a los dueños (recibido, mejoras, publicado, pagos…) y mandarte una prueba.')
     + h('?estado=avisos', 'Avisos al móvil', 'Manda una notificación a todos los que tienen la app (un coche nuevo, una bajada de precio…).')
@@ -1089,6 +1119,23 @@ export async function atenderPanel(req, cfg, deps) {
       }
     }
     return html(paginaPanel(cfg, informe, { estado: 'propietarios', aviso }));
+  }
+  if (req.query.estado === 'paginas') {
+    let res = null;
+    let aviso = '';
+    try {
+      if (!cfg.shopifyTienda || !cfg.shopifyClientId) throw new Error('Faltan SHOPIFY_TIENDA y SHOPIFY_CLIENT_ID en Vercel.');
+      const hacer = req.method === 'POST' && req.body.accion === 'paginas';
+      res = await ponerPaginas(deps.gql || shopifyAdmin(cfg, deps.fetch), { hacer });
+      if (hacer) {
+        const n = (e) => res.informe.filter((r) => r.estado === e).length;
+        aviso = `Listo: ${n('creada')} creadas, ${n('enlazada')} con su plantilla puesta${n('error') ? `, ${n('error')} con error` : ''}.`;
+      }
+    } catch (e) {
+      console.error(e);
+      aviso = `Error: ${e.message}`;
+    }
+    return html(paginaPanel(cfg, res, { estado: 'paginas', aviso }));
   }
   if (req.query.estado === 'ubicaciones') {
     let informe = null;
