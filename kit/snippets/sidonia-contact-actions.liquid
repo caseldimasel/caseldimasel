@@ -1,0 +1,54 @@
+{%- comment -%}
+  Acciones de contacto de una ficha: WhatsApp, correo y formulario de consulta.
+  - Los canales no configurados se ocultan (nunca hay un número o correo de ejemplo).
+  - El correo abre el cliente de correo del visitante: no equivale a un mensaje enviado desde la web.
+  - Una pieza vendida invita a buscar algo parecido; no sugiere disponibilidad.
+  - Mostrar un canal no significa que alguien esté conectado en tiempo real.
+
+  Parámetros: product, category, status, form_anchor (id del formulario de la ficha), compact (bool)
+{%- endcomment -%}
+{%- liquid
+  assign is_sold = false
+  if status == 'sold'
+    assign is_sold = true
+  endif
+  assign canon = canonical_url | split: '?' | first
+  capture wa
+    render 'sidonia-contact-link', kind: 'whatsapp', product: product, category: category, sold: is_sold, url: canon
+  endcapture
+  assign wa = wa | strip
+  capture mail
+    render 'sidonia-contact-link', kind: 'email', product: product, category: category, sold: is_sold, url: canon
+  endcapture
+  assign mail = mail | strip
+  assign anchor = form_anchor | default: 'sidonia-consulta'
+  assign ref = product.metafields.sidonia.reference.value | strip
+-%}
+<div class="sidonia-actions{% if compact %} sidonia-actions--compact{% endif %}">
+  {%- if wa != blank -%}
+    <a class="sidonia-btn sidonia-btn--block" href="{{ wa }}" target="_blank" rel="noopener" data-sidonia-track="contact_whatsapp" data-sidonia-track-category="{{ category }}"{% if ref != blank %} data-sidonia-track-ref="{{ ref | escape }}"{% endif %}>
+      {%- render 'sidonia-icon', name: 'whatsapp', size: 20 -%}
+      <span>{% if is_sold %}{{ 'sidonia.contact.whatsapp_similar' | t }}{% else %}{{ 'sidonia.contact.whatsapp' | t }}{% endif %}</span>
+      <span class="sidonia-sr">{{ 'sidonia.general.new_window' | t }}</span>
+    </a>
+  {%- endif -%}
+  {%- if mail != blank -%}
+    <a class="sidonia-btn sidonia-btn--block {% if wa != blank %}sidonia-btn--secondary{% endif %}" href="{{ mail }}" data-sidonia-track="contact_email" data-sidonia-track-category="{{ category }}"{% if ref != blank %} data-sidonia-track-ref="{{ ref | escape }}"{% endif %}>
+      {%- render 'sidonia-icon', name: 'mail', size: 20 -%}
+      <span>{{ 'sidonia.contact.email' | t }}</span>
+    </a>
+  {%- endif -%}
+  <a class="sidonia-btn sidonia-btn--block {% if wa != blank or mail != blank %}sidonia-btn--quiet{% endif %}" href="#{{ anchor }}" data-sidonia-track="contact_form_open">
+    {%- render 'sidonia-icon', name: 'chat', size: 20 -%}
+    <span>{% if is_sold %}{{ 'sidonia.contact.form_similar' | t }}{% else %}{{ 'sidonia.contact.form' | t }}{% endif %}</span>
+  </a>
+</div>
+{%- if mail != blank and compact != true -%}
+  <p class="sidonia-note sidonia-actions__note">{{ 'sidonia.contact.mailto_note' | t }}</p>
+{%- endif -%}
+{%- if settings.sidonia_response_note != blank and compact != true -%}
+  <p class="sidonia-note sidonia-actions__note">{{ settings.sidonia_response_note | escape }}</p>
+{%- endif -%}
+{%- if request.design_mode and wa == blank and mail == blank -%}
+  <p class="sidonia-editor-hint">{{ 'sidonia.editor.no_channels' | t }}</p>
+{%- endif -%}

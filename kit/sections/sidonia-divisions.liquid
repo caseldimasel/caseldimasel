@@ -1,0 +1,86 @@
+{%- comment -%}
+  SIDONIA · Tres mundos, una misma selección.
+  Un acceso por categoría activa (Coches, Barcos, Casas) con su punto, frase y portada.
+  Las portadas salen de Ajustes del tema > Sidonia · Categorías (o de la imagen de la colección).
+  El número de piezas solo aparece si la colección existe: es el mismo total que se verá al abrirla.
+{%- endcomment -%}
+{%- liquid
+  assign s = section.settings
+  capture keys_csv
+    render 'sidonia-division-keys'
+  endcapture
+  assign div_keys = keys_csv | strip | split: ','
+-%}
+<section class="sidonia-scope sidonia-section sidonia-divisions" data-section-id="{{ section.id }}">
+  <div class="sidonia-container">
+    {%- if s.heading != blank or s.text != blank -%}
+      <div class="sidonia-head">
+        <div class="sidonia-head__text">
+          {%- if s.eyebrow != blank -%}<p class="sidonia-eyebrow">{{ s.eyebrow | escape }}</p>{%- endif -%}
+          {%- if s.heading != blank -%}<h2 class="sidonia-h2">{{ s.heading | escape }}</h2>{%- endif -%}
+          {%- if s.text != blank -%}<p class="sidonia-lede">{{ s.text | escape }}</p>{%- endif -%}
+        </div>
+      </div>
+    {%- endif -%}
+    <ul class="sidonia-divisions__list" role="list">
+      {%- for k in div_keys -%}
+        {%- assign key_i = k | strip -%}
+        {%- capture d_name -%}{%- render 'sidonia-division', key: key_i, out: 'name' -%}{%- endcapture -%}
+        {%- capture d_url -%}{%- render 'sidonia-division', key: key_i, out: 'url' -%}{%- endcapture -%}
+        {%- capture d_tag -%}{%- render 'sidonia-division', key: key_i, out: 'tagline' -%}{%- endcapture -%}
+        {%- capture d_com -%}{%- render 'sidonia-division', key: key_i, out: 'community' -%}{%- endcapture -%}
+        {%- capture d_count -%}{%- render 'sidonia-division', key: key_i, out: 'count' -%}{%- endcapture -%}
+        {%- assign d_name = d_name | strip -%}
+        {%- assign d_count = d_count | strip -%}
+        {%- assign img_key = 'sidonia_' | append: key_i | append: '_image' -%}
+        {%- assign col_key = 'sidonia_' | append: key_i | append: '_collection' -%}
+        {%- assign d_img = settings[img_key] -%}
+        {%- if d_img == blank and settings[col_key] != blank -%}{%- assign d_img = settings[col_key].featured_image -%}{%- endif -%}
+        <li class="sidonia-division-card sidonia-cat--{{ key_i }}">
+          <div class="sidonia-division-card__media">
+            {%- if d_img != blank -%}
+              {%- render 'sidonia-image', image: d_img, widths: '480,720,960,1200,1440', sizes: '(min-width: 1024px) 31vw, (min-width: 640px) 46vw, 92vw', decorative: true, class: 'sidonia-division-card__img' -%}
+            {%- else -%}
+              <span class="sidonia-division-card__blank" aria-hidden="true"><span class="sidonia-dot sidonia-dot--{{ key_i }}"></span></span>
+            {%- endif -%}
+          </div>
+          <div class="sidonia-division-card__body">
+            <h3 class="sidonia-division-card__title">
+              <a class="sidonia-division-card__link" href="{{ d_url | strip }}">
+                {%- render 'sidonia-cat-label', key: key_i, name: d_name -%}
+              </a>
+            </h3>
+            {%- if d_tag != blank -%}<p class="sidonia-division-card__text">{{ d_tag | strip | escape }}</p>{%- endif -%}
+            <p class="sidonia-division-card__meta">
+              {%- if s.show_count and d_count != blank and d_count != '0' -%}
+                <span>{{ 'sidonia.divisions.count' | t: count: d_count }}</span>
+              {%- endif -%}
+              {%- if s.show_community and d_com != blank -%}
+                <span class="sidonia-division-card__community">{{ d_com | strip | escape }}</span>
+              {%- endif -%}
+            </p>
+          </div>
+        </li>
+      {%- endfor -%}
+    </ul>
+    {%- if request.design_mode -%}
+      <p class="sidonia-editor-hint sidonia-divisions__hint">{{ 'sidonia.editor.divisions' | t }}</p>
+    {%- endif -%}
+  </div>
+</section>
+
+{% schema %}
+{
+  "name": "Sidonia · Tres mundos",
+  "tag": "div",
+  "settings": [
+    { "type": "text", "id": "eyebrow", "label": "Antetítulo" },
+    { "type": "text", "id": "heading", "label": "Título", "default": "Tres mundos, una misma selección" },
+    { "type": "textarea", "id": "text", "label": "Texto", "default": "Coches, barcos y casas elegidos por lo que cuentan, no solo por lo que cuestan." },
+    { "type": "checkbox", "id": "show_count", "label": "Mostrar el número de piezas de cada colección", "info": "Sale de la colección real; si la colección no existe, no se muestra.", "default": true },
+    { "type": "checkbox", "id": "show_community", "label": "Mostrar el nombre de la comunidad (SIDONIA GARAGE, HARBOR, ESTATE)", "default": false },
+    { "type": "paragraph", "content": "Nombres, frases, portadas y colecciones de cada categoría: Ajustes del tema > Sidonia · Categorías." }
+  ],
+  "presets": [{ "name": "Sidonia · Tres mundos" }]
+}
+{% endschema %}

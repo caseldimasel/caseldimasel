@@ -1,0 +1,112 @@
+{%- comment -%}
+  SIDONIA · Franja de pie: categorías con punto, enlaces de Sidonia, contacto, redes (la misma
+  fuente única de cuentas que la sección de comunidad) y políticas. Fondo piedra alternativo:
+  nunca un bloque negro que rompa el sistema.
+  Se añade al grupo de pie de Impact (enabled_on: footer). Sin boletín: solo se añadirá si existe
+  una conexión real y un consentimiento adecuado.
+{%- endcomment -%}
+{%- liquid
+  assign s = section.settings
+  capture keys_csv
+    render 'sidonia-division-keys'
+  endcapture
+  assign div_keys = keys_csv | strip | split: ','
+  capture accounts
+    render 'sidonia-social', out: 'list'
+  endcapture
+  assign accounts = accounts | strip
+  capture total
+    render 'sidonia-social', out: 'total'
+  endcapture
+  assign total = total | strip
+  capture wa
+    render 'sidonia-contact-link', kind: 'whatsapp'
+  endcapture
+  assign wa = wa | strip
+  capture mail
+    render 'sidonia-contact-link', kind: 'email'
+  endcapture
+  assign mail = mail | strip
+  capture sell_url
+    render 'sidonia-url', key: 'sell'
+  endcapture
+  assign sell_label = settings.sidonia_sell_label | strip
+  if sell_label == blank
+    assign sell_label = 'sidonia.header.sell' | t
+  endif
+-%}
+<div class="sidonia-scope sidonia-footer-band" data-section-id="{{ section.id }}">
+  <div class="sidonia-container sidonia-footer-band__grid">
+    <div class="sidonia-footer-band__brand">
+      <p class="sidonia-footer-band__name">{{ settings.sidonia_brand_name | default: shop.name | escape }}</p>
+      {%- if s.text != blank -%}<p class="sidonia-note">{{ s.text | escape }}</p>{%- endif -%}
+      <a class="sidonia-btn sidonia-btn--sm" href="{{ sell_url | strip }}" data-sidonia-track="sell_cta">{{ sell_label | escape }}</a>
+    </div>
+    <nav class="sidonia-footer-band__col" aria-label="{{ 'sidonia.footer.categories' | t }}">
+      <h2 class="sidonia-footer-band__title">{{ 'sidonia.footer.categories' | t }}</h2>
+      <ul role="list">
+        {%- for k in div_keys -%}
+          {%- assign key_i = k | strip -%}
+          {%- capture d_url -%}{%- render 'sidonia-division', key: key_i, out: 'url' -%}{%- endcapture -%}
+          <li><a href="{{ d_url | strip }}">{%- render 'sidonia-cat-label', key: key_i -%}</a></li>
+        {%- endfor -%}
+      </ul>
+    </nav>
+    {%- if s.menu != blank and s.menu.links.size > 0 -%}
+      <nav class="sidonia-footer-band__col" aria-label="{{ s.menu.title | escape }}">
+        <h2 class="sidonia-footer-band__title">{{ s.menu.title | escape }}</h2>
+        <ul role="list">
+          {%- for link in s.menu.links -%}<li><a href="{{ link.url }}">{{ link.title | escape }}</a></li>{%- endfor -%}
+        </ul>
+      </nav>
+    {%- endif -%}
+    {%- if wa != blank or mail != blank or settings.sidonia_hours != blank -%}
+      <div class="sidonia-footer-band__col">
+        <h2 class="sidonia-footer-band__title">{{ 'sidonia.footer.contact' | t }}</h2>
+        <ul role="list">
+          {%- if wa != blank -%}<li><a href="{{ wa }}" target="_blank" rel="noopener" data-sidonia-track="contact_whatsapp">WhatsApp<span class="sidonia-sr"> {{ 'sidonia.general.new_window' | t }}</span></a></li>{%- endif -%}
+          {%- if mail != blank -%}<li><a href="{{ mail }}" data-sidonia-track="contact_email">{{ settings.sidonia_email | escape }}</a></li>{%- endif -%}
+          {%- if settings.sidonia_hours != blank -%}<li class="sidonia-note">{{ settings.sidonia_hours | escape }}</li>{%- endif -%}
+        </ul>
+      </div>
+    {%- endif -%}
+    {%- if accounts != blank -%}
+      <div class="sidonia-footer-band__col sidonia-footer-band__social">
+        <h2 class="sidonia-footer-band__title">{{ 'sidonia.footer.follow' | t }}</h2>
+        {%- if total != blank and s.show_total -%}
+          {%- capture total_txt -%}{%- render 'sidonia-number', n: total -%}{%- endcapture -%}
+          <p class="sidonia-footer-band__total"><strong>{{ total_txt | strip }}</strong> {{ 'sidonia.community.total' | t: count: total }}</p>
+          <p class="sidonia-note">{{ 'sidonia.community.disclaimer' | t }}</p>
+        {%- endif -%}
+        <ul class="sidonia-social sidonia-social--compact" role="list">{{ accounts }}</ul>
+      </div>
+    {%- endif -%}
+  </div>
+  <div class="sidonia-container sidonia-footer-band__legal">
+    <ul role="list">
+      {%- if s.legal_menu != blank -%}
+        {%- for link in s.legal_menu.links -%}<li><a href="{{ link.url }}">{{ link.title | escape }}</a></li>{%- endfor -%}
+      {%- else -%}
+        {%- if shop.privacy_policy != blank -%}<li><a href="{{ shop.privacy_policy.url }}">{{ shop.privacy_policy.title | escape }}</a></li>{%- endif -%}
+        {%- if shop.terms_of_service != blank -%}<li><a href="{{ shop.terms_of_service.url }}">{{ shop.terms_of_service.title | escape }}</a></li>{%- endif -%}
+        {%- if shop.legal_notice != blank -%}<li><a href="{{ shop.legal_notice.url }}">{{ shop.legal_notice.title | escape }}</a></li>{%- endif -%}
+      {%- endif -%}
+    </ul>
+    <p class="sidonia-note">© {{ 'now' | date: '%Y' }} {{ settings.sidonia_brand_name | default: shop.name | escape }}</p>
+  </div>
+</div>
+
+{% schema %}
+{
+  "name": "Sidonia · Pie",
+  "tag": "div",
+  "enabled_on": { "groups": ["footer"] },
+  "settings": [
+    { "type": "textarea", "id": "text", "label": "Frase de marca", "default": "Coches, barcos y casas con alma, contados por personas que entienden lo que venden." },
+    { "type": "link_list", "id": "menu", "label": "Menú de Sidonia", "info": "Por ejemplo: Explorar, Cómo vendemos, Sobre Sidonia, Contacto, Favoritos." },
+    { "type": "link_list", "id": "legal_menu", "label": "Menú legal", "info": "Vacío: se enlazan las políticas configuradas en Ajustes > Políticas." },
+    { "type": "checkbox", "id": "show_total", "label": "Mostrar el total combinado de seguidores", "default": true }
+  ],
+  "presets": [{ "name": "Sidonia · Pie" }]
+}
+{% endschema %}

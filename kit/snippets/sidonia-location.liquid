@@ -1,0 +1,42 @@
+{%- comment -%}
+  Ubicación ACTUAL y pública de una pieza, según la precisión autorizada
+  (metacampo sidonia.location_precision). Nunca una dirección exacta.
+    Ciudad → «Sóller, Mallorca» · Región → «Mallorca, España» · País → «España» · sin dato → Región
+  En coches no se confunde con el lugar de fabricación o matriculación: estos campos
+  describen dónde se encuentra la pieza hoy.
+
+  Parámetros: product
+{%- endcomment -%}
+{%- liquid
+  assign city = product.metafields.sidonia.city.value | strip
+  assign region = product.metafields.sidonia.region.value | strip
+  assign country = product.metafields.sidonia.country.value | strip
+  assign prec = product.metafields.sidonia.location_precision.value | downcase | strip
+  assign parts = ''
+  if prec == 'ciudad' or prec == 'city'
+    if city != blank
+      assign parts = city
+    endif
+    if region != blank
+      if parts != ''
+        assign parts = parts | append: ', ' | append: region
+      else
+        assign parts = region
+      endif
+    elsif country != blank and parts != ''
+      assign parts = parts | append: ', ' | append: country
+    endif
+  elsif prec == 'país' or prec == 'pais' or prec == 'country'
+    assign parts = country
+  else
+    assign parts = region
+    if country != blank
+      if parts != blank
+        assign parts = parts | append: ', ' | append: country
+      else
+        assign parts = country
+      endif
+    endif
+  endif
+  echo parts
+-%}

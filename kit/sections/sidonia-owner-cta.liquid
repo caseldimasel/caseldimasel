@@ -1,0 +1,94 @@
+{%- comment -%}
+  SIDONIA · Llamada a propietarios. Lleva SIEMPRE al único formulario de venta.
+  La categoría preseleccionada (opcional) viaja como ?categoria=… y el visitante puede cambiarla.
+{%- endcomment -%}
+{%- liquid
+  assign s = section.settings
+  capture sell_url
+    render 'sidonia-url', key: 'sell'
+  endcapture
+  assign sell_url = sell_url | strip
+  assign pre = s.preselect
+  if pre == 'auto'
+    assign pre = ''
+    if product != blank
+      capture pre
+        render 'sidonia-category', product: product
+      endcapture
+    elsif collection != blank
+      assign col_handle = collection.handle
+      capture keys_csv
+        render 'sidonia-division-keys'
+      endcapture
+      assign div_keys = keys_csv | strip | split: ','
+      for k in div_keys
+        assign key_i = k | strip
+        capture d_handle
+          render 'sidonia-division', key: key_i, out: 'handle'
+        endcapture
+        if d_handle != blank and col_handle == d_handle
+          assign pre = key_i
+        endif
+      endfor
+    endif
+    assign pre = pre | strip
+  endif
+  assign target = sell_url
+  if pre != blank and pre != 'none'
+    capture pre_name
+      render 'sidonia-division', key: pre, out: 'name'
+    endcapture
+    assign pre_param = pre_name | strip | handleize
+    if sell_url contains '#'
+      assign target = sell_url
+    elsif sell_url contains '?'
+      assign target = sell_url | append: '&categoria=' | append: pre_param
+    else
+      assign target = sell_url | append: '?categoria=' | append: pre_param
+    endif
+  endif
+-%}
+<section id="{{ s.anchor | default: 'sidonia-vender' | handleize }}" class="sidonia-scope sidonia-section sidonia-owner-cta{% if s.image != blank %} sidonia-owner-cta--image{% endif %}" data-section-id="{{ section.id }}">
+  <div class="sidonia-container">
+    <div class="sidonia-owner-cta__card">
+      {%- if s.image != blank -%}
+        <div class="sidonia-owner-cta__media">
+          {%- render 'sidonia-image', image: s.image, widths: '540,720,960,1200', sizes: '(min-width: 900px) 40vw, 92vw', decorative: true -%}
+        </div>
+      {%- endif -%}
+      <div class="sidonia-owner-cta__body">
+        {%- if s.eyebrow != blank -%}<p class="sidonia-eyebrow">{{ s.eyebrow | escape }}</p>{%- endif -%}
+        <h2 class="sidonia-h2">{{ s.heading | escape }}</h2>
+        {%- if s.text != blank -%}<p class="sidonia-lede">{{ s.text | escape }}</p>{%- endif -%}
+        <div class="sidonia-owner-cta__actions">
+          <a class="sidonia-btn" href="{{ target }}" data-sidonia-track="sell_cta">{{ s.button | escape }}</a>
+        </div>
+        {%- if s.note != blank -%}<p class="sidonia-note">{{ s.note | escape }}</p>{%- endif -%}
+      </div>
+    </div>
+  </div>
+</section>
+
+{% schema %}
+{
+  "name": "Sidonia · Propietarios",
+  "tag": "div",
+  "settings": [
+    { "type": "text", "id": "eyebrow", "label": "Antetítulo", "default": "Vender con Sidonia" },
+    { "type": "text", "id": "heading", "label": "Título", "default": "¿Tienes algo que merece ser contado?" },
+    { "type": "textarea", "id": "text", "label": "Texto", "default": "Cuéntanos qué es y qué lo hace especial. Lo estudiamos con calma y te respondemos." },
+    { "type": "text", "id": "button", "label": "Botón", "default": "Cuéntanos su historia" },
+    { "type": "select", "id": "preselect", "label": "Preseleccionar categoría en el formulario", "options": [
+      { "value": "none", "label": "Ninguna" },
+      { "value": "auto", "label": "Automática (la de la página)" },
+      { "value": "garage", "label": "Coches" },
+      { "value": "harbor", "label": "Barcos" },
+      { "value": "estate", "label": "Casas" }
+    ], "default": "auto" },
+    { "type": "image_picker", "id": "image", "label": "Imagen (opcional)" },
+    { "type": "text", "id": "anchor", "label": "Ancla (id)", "default": "sidonia-vender", "info": "Úsala una sola vez por página." },
+    { "type": "text", "id": "note", "label": "Nota (opcional)", "default": "Enviar la solicitud inicia una valoración de encaje; no implica aceptación ni compromiso de venta." }
+  ],
+  "presets": [{ "name": "Sidonia · Propietarios" }]
+}
+{% endschema %}

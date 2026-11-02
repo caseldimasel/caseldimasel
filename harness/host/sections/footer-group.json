@@ -1,0 +1,9 @@
+{
+  "type": "footer",
+  "name": "Pie (anfitrión de pruebas)",
+  "sections": {
+    "band": { "type": "sidonia-footer-band", "settings": { "menu": "footer", "show_total": true } },
+    "notice": { "type": "harness-notice", "settings": {} }
+  },
+  "order": ["band", "notice"]
+}

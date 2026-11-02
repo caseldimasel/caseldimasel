@@ -1,0 +1,18 @@
+[
+  {
+    "name": "theme_info",
+    "theme_name": "Anfitrión de pruebas Sidonia (no es Impact)",
+    "theme_version": "0.1.0",
+    "theme_author": "Sidonia",
+    "theme_documentation_url": "https://github.com/caseldimasel/caseldimasel",
+    "theme_support_url": "https://github.com/caseldimasel/caseldimasel/issues"
+  },
+  {
+    "name": "Anfitrión · Logo",
+    "settings": [
+      { "type": "image_picker", "id": "logo", "label": "Logo (sobre fondo piedra)" },
+      { "type": "image_picker", "id": "logo_light", "label": "Logo claro (sobre cabecera transparente)" },
+      { "type": "range", "id": "logo_width", "label": "Ancho del logo", "min": 80, "max": 220, "step": 10, "unit": "px", "default": 120 }
+    ]
+  }
+]

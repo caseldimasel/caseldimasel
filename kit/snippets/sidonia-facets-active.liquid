@@ -1,0 +1,45 @@
+{%- comment -%}
+  Chips de filtros activos (enlaces reales para quitar cada uno) y «Limpiar todo».
+  Parámetros: results, clear_url
+{%- endcomment -%}
+{%- liquid
+  assign active_n = 0
+  for filter in results.filters
+    if filter.type == 'price_range'
+      if filter.min_value.value != blank or filter.max_value.value != blank
+        assign active_n = active_n | plus: 1
+      endif
+    else
+      assign active_n = active_n | plus: filter.active_values.size
+    endif
+  endfor
+-%}
+{%- if active_n > 0 -%}
+  <div class="sidonia-chips" role="group" aria-label="{{ 'sidonia.catalog.active_filters' | t }}">
+    {%- for filter in results.filters -%}
+      {%- if filter.type == 'price_range' -%}
+        {%- if filter.min_value.value != blank or filter.max_value.value != blank -%}
+          <a class="sidonia-chip" href="{{ filter.url_to_remove }}" data-sidonia-facet-link>
+            <span class="sidonia-sr">{{ 'sidonia.catalog.remove_filter' | t }}: </span>{{ filter.label | escape }}
+            {%- render 'sidonia-icon', name: 'close', size: 14 -%}
+          </a>
+        {%- endif -%}
+      {%- else -%}
+        {%- for value in filter.active_values -%}
+          <a class="sidonia-chip" href="{{ value.url_to_remove }}" data-sidonia-facet-link>
+            <span class="sidonia-sr">{{ 'sidonia.catalog.remove_filter' | t }}: {{ filter.label | escape }}: </span>
+            {%- if filter.param_name == 'filter.p.m.sidonia.category' -%}
+              {%- capture vkey -%}{%- render 'sidonia-category', value: value.value -%}{%- endcapture -%}
+              {%- assign vkey = vkey | strip -%}
+              {%- if vkey != blank -%}{%- render 'sidonia-cat-label', key: vkey, name: value.label -%}{%- else -%}{{ value.label | escape }}{%- endif -%}
+            {%- else -%}
+              {{ value.label | escape }}
+            {%- endif -%}
+            {%- render 'sidonia-icon', name: 'close', size: 14 -%}
+          </a>
+        {%- endfor -%}
+      {%- endif -%}
+    {%- endfor -%}
+    <a class="sidonia-chip sidonia-chip--clear" href="{{ clear_url }}" data-sidonia-facet-link>{{ 'sidonia.catalog.clear_all' | t }}</a>
+  </div>
+{%- endif -%}
