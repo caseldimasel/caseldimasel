@@ -44,8 +44,10 @@ export function config(env = process.env) {
     supabaseUrl: (env.SUPABASE_URL || '').replace(/\/$/, ''),
     supabaseKey: env.SUPABASE_SERVICE_KEY || '',     // clave de servicio (solo en el servidor)
     stripeKey: env.STRIPE_SECRET_KEY || '',
-    // Alquiler: tarifa de servicio de Sidonia, en % sobre el precio (como Airbnb). ALQUILER_COMISION en Vercel; 15 si no está
-    alquilerComision: Math.max(0, Math.min(50, Number(env.ALQUILER_COMISION ?? 15) || 0)),
+    // Alquiler: gratis, como los anuncios de la comunidad. Si algún día se cobra a través de Sidonia: ALQUILER_COBRAR=1
+    // (con STRIPE_SECRET_KEY) y ALQUILER_COMISION (% de tarifa de servicio). Por defecto, ni cobro ni comisión.
+    alquilerCobrar: env.ALQUILER_COBRAR === '1' && Boolean(env.STRIPE_SECRET_KEY),
+    alquilerComision: Math.max(0, Math.min(50, Number(env.ALQUILER_COMISION ?? 0) || 0)),
     stripeWebhook: env.STRIPE_WEBHOOK_SECRET || '',  // firma de los avisos de Stripe (pagos de los anuncios: api/stripe.js)
     // Este servidor (para los enlaces de pago): Vercel lo da solo; SERVIDOR_URL si se quiere otro
     servidor: (env.SERVIDOR_URL || (env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${env.VERCEL_PROJECT_PRODUCTION_URL}` : '')).replace(/\/$/, ''),

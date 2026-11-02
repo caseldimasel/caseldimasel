@@ -123,7 +123,7 @@ function correoContacto(cfg, { titulo, previa, intro, filasDatos, quien, mensaje
     cuerpo: P(intro) + datos(filasDatos) + (mensaje ? P(esc(tapar(mensaje))) : '')
       + (equipo
         ? P(`Contacto de <b>${esc(quien.nombre)}</b> (solo para el equipo):`) + datos([['Email', quien.email], ...(quien.telefono ? [['Teléfono', quien.telefono]] : [])]) + (wa ? P(`<a href="${esc(wa)}" style="color:#1a1a1a;font-weight:600">WhatsApp &rarr;</a>`) : '')
-        : P('¿Te interesa? Responde a este email o entra en Sidonia y lo organizamos nosotros: así nadie comparte su teléfono hasta que la reserva está confirmada y pagada.')),
+        : P('¿Te interesa? Responde a este email y os ponemos en contacto.')),
     boton: equipo ? `Escribir a ${quien.nombre.split(' ')[0]}` : 'Ir a Sidonia', enlace: equipo ? `mailto:${quien.email}` : `${cfg.tienda}/pages/vende-con-nosotros?view=alquiler`, sinDudas: true
   });
 }

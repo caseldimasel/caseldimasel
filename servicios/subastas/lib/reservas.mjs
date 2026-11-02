@@ -7,10 +7,9 @@
  * - Se hablan por mensajes dentro de Sidonia (con aviso por email). El teléfono, el email y dónde se entrega el coche
  *   solo se ven cuando la reserva está confirmada.
  * - Al acabar, cada uno deja su reseña: quien alquila, del coche y su dueño; el dueño, de quien lo alquiló.
- * - Sidonia hace de intermediario, como Airbnb: quien alquila paga en Sidonia el precio + la tarifa de servicio
- *   (cfg.alquilerComision %, 15 por defecto) cuando el dueño acepta (o al momento con reserva inmediata), con Stripe.
- *   Hasta que paga, nadie ve el contacto del otro ni dónde se recoge. Al dueño se le paga su precio después (panel).
- *   Sin Stripe configurado, se paga al dueño en la entrega.
+ * - Gratis, como los anuncios de la comunidad: se paga al dueño en la entrega y Sidonia no cobra comisión.
+ *   Preparado para cobrar a través de Sidonia si algún día se quiere (ALQUILER_COBRAR=1 con Stripe): entonces quien
+ *   alquila paga el precio + la tarifa de servicio (ALQUILER_COMISION %) y hasta pagar no se ve el contacto.
  *
  * Público:  GET api/alquiler/coches?desde=&hasta=&ciudad=&conductor=   GET api/alquiler/coche?id=
  * Sesión:   POST api/alquiler/reservar   GET api/alquiler/reservas   POST api/alquiler/reserva { id, accion }
@@ -22,7 +21,7 @@ import { USOS } from './garaje.mjs';
 
 export const PLAZO_H = 24;           // horas que tiene el dueño para responder
 import { createHmac } from 'node:crypto';
-export const COMISION = 15;          // % de Sidonia si no se dice otra cosa (cfg.alquilerComision)
+export const COMISION = 0;           // % de Sidonia si no se dice otra cosa (cfg.alquilerComision)
 const comision = (cfg) => (cfg && Number.isFinite(cfg.alquilerComision) ? cfg.alquilerComision : COMISION);
 const firmaR = (cfg, id) => createHmac('sha256', String(cfg.clave || cfg.secreto || 'sidonia')).update(`reserva.${Number(id)}`).digest('hex').slice(0, 32);
 export const urlPagar = (cfg, id) => `${cfg.servidor}/tienda/alquiler/pagar?r=${Number(id)}&f=${firmaR(cfg, id)}`;
@@ -108,7 +107,7 @@ export async function rutasReservas({ ruta, method, body }, cliente, cfg, deps) 
       if (desde) coches = coches.filter((c) => libre(c, rs.filter((r) => Number(r.coche_id) === Number(c.id)), desde, hasta) && diasEntre(desde, hasta) >= (Number(c.alq?.minimo) || 1));
       const res = ids.length ? await tS.leer(`coche_id=in.(${ids.join(',')})&rol=eq.huesped&select=coche_id,nota,rol`).catch(() => []) : [];
       const ps = await perfiles(cfg, deps, coches.map((c) => c.cliente));
-      return json(200, { ok: true, coches: coches.map((c) => anuncio(cfg, c, ps[String(c.cliente)], res)), comision: comision(cfg) }, cliente ? 'no-store' : 'public, max-age=30');
+      return json(200, { ok: true, coches: coches.map((c) => anuncio(cfg, c, ps[String(c.cliente)], res)), comision: cfg.alquilerCobrar ? comision(cfg) : 0 }, cliente ? 'no-store' : 'public, max-age=30');
     } catch (e) { return falta(e); }
   }
   // ------------------------------------------------------------------ Un coche: ficha, calendario, reseñas y anfitrión
@@ -121,7 +120,7 @@ export async function rutasReservas({ ruta, method, body }, cliente, cfg, deps) 
       const ps = await perfiles(cfg, deps, [c.cliente]);
       const otros = (await tG.leer(`cliente=eq.${encodeURIComponent(c.cliente)}&alquiler=eq.true&visible=eq.true&select=id`).catch(() => [])).length;
       return json(200, { ok: true, coche: { ...anuncio(cfg, c, ps[String(c.cliente)], res), suyo: String(c.cliente) === String(cliente) },
-        ocupado: [...(c.bloqueos || []), ...ocupadas(rs)], comision: comision(cfg), anfitrion_coches: otros,
+        ocupado: [...(c.bloqueos || []), ...ocupadas(rs)], comision: cfg.alquilerCobrar ? comision(cfg) : 0, anfitrion_coches: otros,
         resenas: res.filter((r) => r.rol === 'huesped').map((r) => ({ nombre: r.nombre || 'Miembro de Sidonia', nota: r.nota, texto: r.texto, creado: r.creado })) }, cliente ? 'no-store' : 'public, max-age=30');
     } catch (e) { return falta(e); }
   }
@@ -142,7 +141,7 @@ export async function rutasReservas({ ruta, method, body }, cliente, cfg, deps) 
       const [c] = await tG.leer(`id=eq.${Number(body.coche_id)}&alquiler=eq.true&limit=1`);
       if (!c || c.visible === false || !(Number(c.alq?.precio) > 0)) return json(404, { ok: false, error: 'no-existe' });
       if (String(c.cliente) === String(cliente)) return json(400, { ok: false, error: 'suyo' });
-      const pr = precio(c.alq, desde, hasta, cfg.stripeKey ? comision(cfg) : 0);
+      const pr = precio(c.alq, desde, hasta, cfg.alquilerCobrar ? comision(cfg) : 0);
       if (pr.dias < (Number(c.alq.minimo) || 1)) return json(400, { ok: false, error: 'minimo', minimo: Number(c.alq.minimo) });
       if (pr.dias > 60) return json(400, { ok: false, error: 'fechas' });
       const rs = await tR.leer(`coche_id=eq.${Number(c.id)}&select=desde,hasta,estado,creado`);
@@ -150,7 +149,7 @@ export async function rutasReservas({ ruta, method, body }, cliente, cfg, deps) 
       const mias = await tR.leer(`cliente=eq.${encodeURIComponent(cliente)}&estado=eq.pendiente&select=id,creado`).catch(() => []);
       if (mias.filter((r) => estadoActual(r) === 'pendiente').length >= 5) return json(200, { ok: false, error: 'muchas' });
       const estado = c.alq.inmediata ? 'aceptada' : 'pendiente';
-      const cobrar = Boolean(cfg.stripeKey);
+      const cobrar = Boolean(cfg.alquilerCobrar);
       const r = await tR.guardar({ coche_id: Number(c.id), dueno: String(c.cliente), cliente: String(cliente), desde, hasta, dias: pr.dias, precio_dia: pr.precio_dia, total: pr.total, tarifa: pr.tarifa,
         pago: cobrar && estado === 'aceptada' ? 'pendiente' : '', estado, ...q, ...(estado === 'aceptada' ? { respondida: new Date().toISOString() } : {}) }, 'id');
       if (q.mensaje) await tM.guardar({ reserva_id: Number(r.id), de: String(cliente), texto: q.mensaje }, 'id').catch(() => null);
@@ -228,16 +227,16 @@ export async function rutasReservas({ ruta, method, body }, cliente, cfg, deps) 
       } else if (rol === 'dueno' && estado === 'pendiente' && accion === 'rechazar') nuevo = 'rechazada';
       else if (accion === 'cancelar' && (estado === 'pendiente' || (estado === 'aceptada' && String(r.desde) > hoyISO()))) nuevo = 'cancelada';
       else return json(400, { ok: false, error: 'estado' });
-      const pagoNuevo = nuevo === 'aceptada' && cfg.stripeKey ? { pago: 'pendiente' } : {};
+      const pagoNuevo = nuevo === 'aceptada' && cfg.alquilerCobrar ? { pago: 'pendiente' } : {};
       await tR.cambiar(r.id, { estado: nuevo, respondida: new Date().toISOString(), ...pagoNuevo });
       const t = titulo(c || {});
-      const TXT = { aceptada: cfg.stripeKey ? ['¡Han aceptado tu reserva!', `El dueño ha aceptado tu reserva del ${t}. Págala en las próximas ${PLAZO_H} horas para confirmarla: después verás su contacto y dónde se recoge.`] : ['¡Reserva confirmada!', `El dueño ha aceptado tu reserva del ${t}. Ya tienes su contacto y dónde se entrega el coche en Sidonia.`],
+      const TXT = { aceptada: cfg.alquilerCobrar ? ['¡Han aceptado tu reserva!', `El dueño ha aceptado tu reserva del ${t}. Págala en las próximas ${PLAZO_H} horas para confirmarla: después verás su contacto y dónde se recoge.`] : ['¡Reserva confirmada!', `El dueño ha aceptado tu reserva del ${t}. Ya tienes su contacto y dónde se entrega el coche en Sidonia.`],
         rechazada: ['Solicitud no aceptada', `El dueño no puede alquilarte el ${t} esas fechas. Mira otros coches en Sidonia: seguro que hay uno para ti.`],
         cancelada: ['Reserva cancelada', `La reserva del ${t} (${fechaTxt(r.desde)} → ${fechaTxt(r.hasta)}) se ha cancelado.`] };
       const [tt, cuerpo] = TXT[nuevo];
       const d = await emailDueno(cfg, deps, r.dueno);
       const para = rol === 'dueno' ? r.email : d.email;
-      const pagar = nuevo === 'aceptada' && cfg.stripeKey && rol === 'dueno';
+      const pagar = nuevo === 'aceptada' && cfg.alquilerCobrar && rol === 'dueno';
       await correo(cfg, para, `${tt}: ${t}`, { titulo: tt, previa: cuerpo, cuerpo: P(cuerpo), boton: pagar ? `Pagar ${Number(r.total)} € y confirmar` : 'Ver en Sidonia', enlace: pagar ? urlPagar(cfg, r.id) : urlReservas(cfg) }, deps);
       for (const e of cfg.avisosEquipo || []) await correo(cfg, e, `[Alquiler] ${tt}: ${t}`, { titulo: tt, previa: cuerpo, cuerpo: P(cuerpo), boton: 'Panel', enlace: `${cfg.servidor}/admin?estado=alquiler` }, deps);
       return json(200, { ok: true, estado: nuevo });

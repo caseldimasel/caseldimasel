@@ -94,8 +94,8 @@ test('reservas: con reserva inmediata queda confirmada al momento; mínimo de d�
   assert.equal((await api('api/alquiler/reservar', pedir, quien('88'))).reserva.estado, 'aceptada', 'vuelve a estar libre');
 });
 
-test('reservas: Sidonia cobra (precio + 15 % de servicio) y hasta pagar no se ve el contacto', async () => {
-  const cfgP = config({ SUBASTAS_CLAVE: 'k', ADMIN_CLAVE: 'panel', RESEND_API_KEY: 're_x', AVISOS_EQUIPO: 'equipo@sidonia.es', TIENDA_URL: 'https://sidonia.es', SERVIDOR_URL: 'https://motor.test', SUPABASE_URL: 'https://x.supabase.co', SUPABASE_SERVICE_KEY: 's', STRIPE_SECRET_KEY: 'sk_test' });
+test('reservas: si algún día se cobra (ALQUILER_COBRAR=1): precio + 15 % de servicio y hasta pagar no se ve el contacto', async () => {
+  const cfgP = config({ SUBASTAS_CLAVE: 'k', ADMIN_CLAVE: 'panel', RESEND_API_KEY: 're_x', AVISOS_EQUIPO: 'equipo@sidonia.es', TIENDA_URL: 'https://sidonia.es', SERVIDOR_URL: 'https://motor.test', SUPABASE_URL: 'https://x.supabase.co', SUPABASE_SERVICE_KEY: 's', STRIPE_SECRET_KEY: 'sk_test', ALQUILER_COBRAR: '1', ALQUILER_COMISION: '15' });
   const { deps } = preparar({ inmediata: true });
   const llamadas = [];
   deps.stripe = async (m, path, b) => { llamadas.push([m, path, b]); return m === 'POST' ? { url: 'https://checkout.stripe.test/x' } : { metadata: { reserva: String(deps.reservas.filas[0].id) }, payment_status: 'paid' }; };

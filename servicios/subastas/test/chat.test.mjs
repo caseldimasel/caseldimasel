@@ -48,9 +48,22 @@ test('chat: preguntar por un coche en venta sin ver su teléfono; el dueño cont
   assert.equal(b.chat.id, a.chat.id);
 });
 
-test('chat: en el alquiler, sin reserva pagada, el contacto se tapa', async () => {
+test('chat: el alquiler, gratis como la venta: no se tapa nada', async () => {
   const { api } = preparar();
   const a = await api('api/chat/abrir', { tipo: 'alquiler', ref: 7, texto: '¿Está libre en junio? llámame 611 222 333', nombre: 'Ana' }, quien('77'));
   const m = await api('api/chat/mensajes', { id: a.chat.id }, quien('55'), 'GET');
-  assert.match(m.mensajes[0].texto, /\[teléfono oculto\]/);
+  assert.match(m.mensajes[0].texto, /611 222 333/);
+});
+
+test('chat: «Hacer oferta» en un anuncio de la comunidad llega al chat con el dueño', async () => {
+  const { api, deps, correos } = preparar();
+  deps.ofertas = memo(); deps.tabla = deps.anuncios;
+  const r = await api('api/oferta', { handle: 'porsche-911', titulo: 'Porsche 911 1982', oferta: 42000, precio: 45000, nombre: 'Lucía Gómez', email: 'lucia@x.es', telefono: '611222333', mensaje: 'Pago al contado' }, quien('77'));
+  assert.equal(r.ok, true); assert.equal(r.en_chat, true);
+  const l = await api('api/chat', {}, quien('55'), 'GET');
+  assert.equal(l.chats.length, 1);
+  const m = await api('api/chat/mensajes', { id: l.chats[0].id }, quien('55'), 'GET');
+  assert.match(m.mensajes[0].texto, /💶 Oferta: 42\.000 €/);
+  assert.match(m.mensajes[0].texto, /Pago al contado/);
+  assert.equal(correos.filter((c) => c.to.includes('enrique@x.es')).length, 1, 'un solo aviso al dueño (el del chat)');
 });

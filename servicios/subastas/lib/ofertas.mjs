@@ -1,11 +1,12 @@
 /* SIDONIA · «Hacer una oferta» en cualquier anuncio: POST /tienda/api/oferta (el tema, assets/sidonia-offer.js).
- * - Anuncio de la comunidad (lo vende su dueño): la oferta le llega directamente al dueño por email (si responde, le
- *   contesta al comprador) y al móvil si tiene la app; al equipo, una copia.
+ * - Anuncio de la comunidad (lo vende su dueño): la oferta llega al chat con el dueño (Mi perfil › Mensajes, con aviso
+ *   por email; chat.mjs) y al móvil si tiene la app; al equipo, una copia. Sin el chat (sin sql/chat.sql), por email.
  * - Anuncio de Sidonia (gestión de venta): le llega al equipo (si responde, le contesta al comprador).
  * - Al comprador: «Tu oferta está enviada», con la tarjeta del anuncio.
  * Se guarda en la tabla ofertas (sql/ofertas.sql; si aún no está, se manda igual) y se ve en el panel › Ventas › Ofertas.
  * A los dueños solo les llegan ofertas de gente con su cuenta iniciada (contra el spam); como mucho 10 por hora.
  */
+import { escribirEnChat } from './chat.mjs';
 import { avisarCliente } from './avisos.mjs';
 import { esc, tablaAnuncios } from './circulo.mjs';
 import { cita, datos, enviarCorreo, P, plantilla } from './correos.mjs';
@@ -92,10 +93,18 @@ export async function recibirOferta(body, cliente, cfg, deps) {
   } catch (e) { /* sin la tabla aún */ }
   const r = { ok: true, para: a ? 'dueno' : 'sidonia', vendedor: a ? a.vendedor_nombre : 'Sidonia', email_enviado: false };
   const enviar = async (para, c) => enviarCorreo(cfg, para, c.asunto, c.html, deps.fetch, o.email).catch((e) => { console.error(e); return false; });
-  // Al que vende
+  // En la comunidad, la oferta llega al chat con el dueño (y él recibe el aviso del chat por email)
+  if (a && cliente) {
+    try {
+      const txt = `💶 Oferta: ${eur(o.oferta)}${o.precio ? ` (precio publicado: ${eur(o.precio)})` : ''}${o.mensaje ? `\n${o.mensaje}` : ''}`;
+      const ch = await escribirEnChat(cfg, deps, { tipo: 'venta', ref: a.id, cliente, nombre: o.nombre, email: o.email, texto: txt });
+      if (ch.ok) { r.chat = ch.chat.id; r.en_chat = true; }
+    } catch (e) { console.error(e); }
+  }
+  // Al que vende (si no le ha llegado ya por el chat)
   const cv = correoOfertaVendedor(cfg, o, a);
-  let alVendedor = false;
-  if (a?.email) alVendedor = await enviar(a.email, cv);
+  let alVendedor = Boolean(r.en_chat);
+  if (a?.email && !r.en_chat) alVendedor = await enviar(a.email, cv);
   for (const e of cfg.avisosEquipo || []) await enviar(e, a ? { ...cv, asunto: `[Comunidad] ${cv.asunto} · para ${a.vendedor_nombre}` } : cv);
   if (a?.cliente && cfg.firebase) {
     await avisarCliente(cfg, { fetch: deps.fetch || fetch, dispositivos: deps.dispositivos }, a.cliente, { titulo: 'Tienes una oferta', texto: `${o.nombre} ofrece ${eur(o.oferta)} por ${a.titulo}. Míralo en tu email.`, url: o.url || '/' }).catch(() => {});

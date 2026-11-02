@@ -1,8 +1,9 @@
 /* SIDONIA · Mensajes dentro de Sidonia (sql/chat.sql): quien pregunta y el dueño se hablan aquí, sin ver el teléfono del
  * otro. Sirve para los coches en venta de la comunidad, los coches en alquiler (antes de reservar) y las peticiones de
  * alquiler («Busco un clásico rojo descapotable…»). A cada uno le llega un aviso por email si tiene mensajes sin leer.
- * En el alquiler, Sidonia hace de intermediario: hasta que hay una reserva pagada, los teléfonos y emails que se escriban
- * en los mensajes se tapan (como en Airbnb).
+ * «Hacer oferta» en un anuncio de la comunidad también llega aquí, como un mensaje con la oferta (ofertas.mjs).
+ * Si algún día el alquiler se cobra a través de Sidonia (ALQUILER_COBRAR=1), hasta la reserva pagada los teléfonos y
+ * emails que se escriban en el alquiler se tapan (como en Airbnb). Ahora, como en la venta, no se tapa nada.
  *
  *   POST api/chat/abrir     { tipo: venta|alquiler|peticion, ref, texto, nombre, email } → { ok, chat }
  *   GET  api/chat           → { ok, chats, sin_leer }
@@ -27,7 +28,7 @@ export function tapar(t) {
 /** El dueño y lo que se enseña de cada cosa */
 async function deQuien(cfg, deps, tipo, ref) {
   if (tipo === 'venta') {
-    const [a] = await tabla(cfg, deps, 'anuncios').leer(`id=eq.${Number(ref)}&select=id,cliente,titulo,fotos,producto,vendedor_nombre,email,estado&limit=1`);
+    const [a] = await (deps.anuncios || deps.tabla || tabla(cfg, deps, 'anuncios')).leer(`id=eq.${Number(ref)}&select=id,cliente,titulo,fotos,producto,vendedor_nombre,email,estado&limit=1`);
     if (!a || !['publicado', 'aprobado'].includes(a.estado)) return null;
     return { dueno: String(a.cliente), dueno_nombre: a.vendedor_nombre || '', titulo: a.titulo, foto: (a.fotos || [])[0] ? urlFoto(cfg, a.fotos[0]) : '', url: a.producto ? `/products/${a.producto}` : '', email: a.email || '' };
   }
@@ -63,9 +64,34 @@ async function avisar(cfg, deps, para, nombreDe, c, texto, enlace) {
   if (!para) return;
   await enviarCorreo(cfg, para, `${nombreDe} te ha escrito en Sidonia`, plantilla(cfg, null, {
     titulo: 'Tienes un mensaje', previa: texto.slice(0, 90),
-    cuerpo: P(`<b>${esc(nombreDe)}</b> te ha escrito sobre <b>${esc(c.titulo)}</b>:`) + P(`«${esc(texto.slice(0, 600))}»`) + P('Contesta desde Sidonia: así nadie ve tu teléfono hasta que tú quieras.'),
+    cuerpo: P(`<b>${esc(nombreDe)}</b> te ha escrito sobre <b>${esc(c.titulo)}</b>:`) + P(`«${esc(texto.slice(0, 600))}»`) + P('Contesta desde el chat de Sidonia: así nadie ve tu teléfono hasta que tú quieras.'),
     boton: 'Responder', enlace, sinDudas: true
   }), deps.fetch).catch((e) => console.error(e));
+}
+
+const tapa = (cfg, tipo) => tipo !== 'venta' && cfg.alquilerCobrar;
+
+/** Escribir a un dueño (lo usa «abrir» y «Hacer oferta»): crea la conversación si no la hay. { ok, chat } o { ok: false, error } */
+export async function escribirEnChat(cfg, deps, { tipo, ref, cliente, nombre, email, texto }) {
+  tipo = TIPOS.includes(tipo) ? tipo : '';
+  texto = clip(texto, 2000);
+  if (!tipo || !String(ref || '').match(/^\d+$/)) return { ok: false, error: 'datos' };
+  if (texto.length < 2) return { ok: false, error: 'texto' };
+  const yo = String(cliente);
+  const tC = tabla(cfg, deps, 'chats'), tM = tabla(cfg, deps, 'chat_mensajes');
+  const d = await deQuien(cfg, deps, tipo, ref);
+  if (!d) return { ok: false, error: 'no-existe' };
+  if (d.dueno === yo) return { ok: false, error: 'suyo' };
+  let [c] = await tC.leer(`tipo=eq.${tipo}&ref=eq.${Number(ref)}&cliente=eq.${encodeURIComponent(yo)}&limit=1`);
+  const ahora = new Date().toISOString();
+  nombre = clip(nombre, 60) || 'Interesado';
+  if (!c) c = await tC.guardar({ tipo, ref: String(Number(ref)), dueno: d.dueno, cliente: yo, dueno_nombre: d.dueno_nombre, cliente_nombre: nombre.split(' ')[0], cliente_email: clip(email, 200).toLowerCase(), titulo: d.titulo, foto: d.foto, url: d.url }, 'tipo,ref,cliente');
+  const limpio = tapa(cfg, tipo) && !(await reservaPagada(cfg, deps, d.dueno, yo)) ? tapar(texto) : texto;
+  await tM.guardar({ chat_id: Number(c.id), de: yo, texto: limpio }, 'id');
+  const yaAvisado = c.ultimo_de === yo && (!c.leido_dueno || Date.parse(c.leido_dueno) < Date.parse(c.actualizado));
+  await tC.cambiar(c.id, { ultimo: limpio.slice(0, 200), ultimo_de: yo, actualizado: ahora, leido_cliente: ahora });
+  if (!yaAvisado) await avisar(cfg, deps, d.email, nombre.split(' ')[0], c, limpio, `${cfg.tienda}/pages/vende-con-nosotros?view=perfil#mensajes`);
+  return { ok: true, chat: vista({ ...c, ultimo: limpio, ultimo_de: yo, actualizado: ahora, leido_cliente: ahora }, yo) };
 }
 
 export async function rutasChat({ ruta, method, body }, cliente, cfg, deps) {
@@ -79,25 +105,9 @@ export async function rutasChat({ ruta, method, body }, cliente, cfg, deps) {
 
   // Escribir por primera vez (o seguir la conversación que ya hay)
   if (ruta === 'api/chat/abrir' && method === 'POST') {
-    const tipo = TIPOS.includes(body.tipo) ? body.tipo : '';
-    const texto = clip(body.texto, 2000);
-    if (!tipo || !String(body.ref || '').match(/^\d+$/)) return json(400, { ok: false, error: 'datos' });
-    if (texto.length < 2) return json(400, { ok: false, error: 'texto' });
     try {
-      const d = await deQuien(cfg, deps, tipo, body.ref);
-      if (!d) return json(404, { ok: false, error: 'no-existe' });
-      if (d.dueno === yo) return json(400, { ok: false, error: 'suyo' });
-      let [c] = await tC.leer(`tipo=eq.${tipo}&ref=eq.${Number(body.ref)}&cliente=eq.${encodeURIComponent(yo)}&limit=1`);
-      const ahora = new Date().toISOString();
-      const nombre = clip(body.nombre, 60) || 'Interesado';
-      if (!c) c = await tC.guardar({ tipo, ref: String(Number(body.ref)), dueno: d.dueno, cliente: yo, dueno_nombre: d.dueno_nombre, cliente_nombre: nombre.split(' ')[0], cliente_email: clip(body.email, 200).toLowerCase(), titulo: d.titulo, foto: d.foto, url: d.url }, 'tipo,ref,cliente');
-      const limpio = tipo !== 'venta' && !(await reservaPagada(cfg, deps, d.dueno, yo)) ? tapar(texto) : texto;
-      await tM.guardar({ chat_id: Number(c.id), de: yo, texto: limpio }, 'id');
-      const yaAvisado = c.ultimo_de === yo && (!c.leido_dueno || Date.parse(c.leido_dueno) < Date.parse(c.actualizado));
-      await tC.cambiar(c.id, { ultimo: limpio.slice(0, 200), ultimo_de: yo, actualizado: ahora, leido_cliente: ahora });
-      if (!yaAvisado) await avisar(cfg, deps, d.email, nombre.split(' ')[0], c, limpio, enlace);
-      for (const e of cfg.avisosEquipo || []) if (tipo !== 'venta') await enviarCorreo(cfg, e, `[Mensajes] ${c.titulo}`, plantilla(cfg, null, { titulo: 'Nuevo mensaje en Sidonia', previa: limpio.slice(0, 90), cuerpo: P(`${esc(nombre)} → ${esc(d.dueno_nombre || 'dueño')} (${esc(tipo)}):`) + P(esc(limpio)), boton: 'Panel', enlace: `${cfg.servidor}/admin?estado=alquiler`, sinDudas: true }), deps.fetch).catch(() => {});
-      return json(200, { ok: true, chat: vista({ ...c, ultimo: limpio, ultimo_de: yo, actualizado: ahora, leido_cliente: ahora }, yo) });
+      const r = await escribirEnChat(cfg, deps, { tipo: body.tipo, ref: body.ref, cliente: yo, nombre: body.nombre, email: body.email, texto: body.texto });
+      return json(r.ok ? 200 : r.error === 'no-existe' ? 404 : 400, r);
     } catch (e) { return falta(e); }
   }
 
@@ -118,7 +128,7 @@ export async function rutasChat({ ruta, method, body }, cliente, cfg, deps) {
       if (method === 'POST') {
         const texto = clip(body.texto, 2000);
         if (!texto) return json(400, { ok: false, error: 'texto' });
-        const limpio = c.tipo !== 'venta' && !(await reservaPagada(cfg, deps, c.dueno, c.cliente)) ? tapar(texto) : texto;
+        const limpio = tapa(cfg, c.tipo) && !(await reservaPagada(cfg, deps, c.dueno, c.cliente)) ? tapar(texto) : texto;
         await tM.guardar({ chat_id: Number(c.id), de: yo, texto: limpio }, 'id');
         const otroLeido = soyDueno ? c.leido_cliente : c.leido_dueno;
         const yaAvisado = c.ultimo_de === yo && (!otroLeido || Date.parse(otroLeido) < Date.parse(c.actualizado));
