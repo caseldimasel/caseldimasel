@@ -30,6 +30,7 @@ import { navPanel, paginaEstadisticas, ponerContadores } from './estadisticas.mj
 import { marco, rutasOperaciones } from './operaciones.mjs';
 import { paginaAlquiler } from './alquiler.mjs';
 import { paginaGarajes } from './garaje.mjs';
+import { paginaOpiniones } from './opiniones.mjs';
 import { rutasFichas } from './fichas.mjs';
 import { rutasCorreos } from './plantillas.mjs';
 import { DETALLES, rutaDetalle } from './detalle.mjs';
@@ -938,6 +939,16 @@ export async function atenderPanel(req, cfg, deps) {
       perfiles = await (deps.perfiles || tablaAnuncios(cfg, deps.fetch, 'perfiles')).leer('select=*&limit=5000');
     } catch (e) { error = 'Los garajes se guardan desde que ejecutes sql/garaje.sql en Supabase › SQL Editor.'; }
     return html(paginaGarajes(coches.map((c) => ({ ...c, fotos: (c.fotos || []).map((f) => urlFoto(cfg, f)) })), perfiles, { error, marco, tienda: cfg.tienda }));
+  }
+  // Clientes › Opiniones: lo que cuenta la comunidad de cada profesional; «Ocultar» la quita de la web (opiniones.mjs)
+  if (seccion === 'opiniones') {
+    const tO = deps.opiniones_pro || tablaAnuncios(cfg, deps.fetch, 'opiniones_pro');
+    let lista = [], error = '';
+    try {
+      if (req.method === 'POST' && req.body && req.body.accion === 'opinion' && Number(req.body.id)) await tO.cambiar(Number(req.body.id), { visible: String(req.body.visible) === '1' });
+      lista = await tO.leer('select=*&order=creado.desc&limit=2000');
+    } catch (e) { error = 'Las opiniones se guardan desde que ejecutes sql/opiniones.sql en Supabase › SQL Editor.'; }
+    return html(paginaOpiniones(lista, { error, marco, tienda: cfg.tienda }));
   }
   // Clientes › Alquiler: la lista de espera del alquiler (alquiler.mjs)
   if (seccion === 'alquiler') {
