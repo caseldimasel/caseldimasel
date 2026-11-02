@@ -11,7 +11,7 @@
  *   POST api/garaje/like          { id, on } → { ok, likes, liked }
  * Sin sesión (público):
  *   GET  api/garaje/publico?slug= → { ok, perfil, coches }       su garaje (solo los visibles), con «me gusta»
- *   GET  api/garaje/recientes     → { ok, coches }               lo último de la comunidad (para «Garajes»)
+ *   GET  api/garaje/recientes     → { ok, coches }               lo último de la comunidad (?alquiler=1: los que se alquilarán)
  * Las fotos se suben como las de los anuncios (POST api/anuncio/fotos) y se guardan sus rutas.
  */
 import { esc, perfilPublico, slugVendedor, tablaAnuncios, urlFoto } from './circulo.mjs';
@@ -95,7 +95,8 @@ export async function rutasGaraje({ ruta, method, body }, cliente, cfg, deps) {
   // Público: lo último de la comunidad
   if (ruta === 'api/garaje/recientes' && method === 'GET') {
     try {
-      const coches = await tG.leer(`visible=eq.true&order=creado.desc&limit=48`);
+      // ?alquiler=1: solo los que se podrán alquilar (la página «Alquiler»)
+      const coches = await tG.leer(`visible=eq.true${String(body.alquiler) === '1' ? '&alquiler=eq.true' : ''}&order=creado.desc&limit=48`);
       const ids = [...new Set(coches.map((c) => c.cliente))];
       const perfiles = ids.length ? await tP.leer(`cliente=in.(${ids.map((x) => `"${String(x).replace(/"/g, '')}"`).join(',')})&select=cliente,slug,nombre,foto,ciudad`).catch(() => []) : [];
       const de = Object.fromEntries(perfiles.map((p) => [p.cliente, p]));

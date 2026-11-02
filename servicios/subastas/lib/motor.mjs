@@ -24,6 +24,7 @@
 import { recibirAlquiler } from './alquiler.mjs';
 import { rutasGaraje } from './garaje.mjs';
 import { rutasOpiniones } from './opiniones.mjs';
+import { rutasLikes } from './likes.mjs';
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { rutasTienda } from './circulo.mjs';
 import { cuentaFirebase, registrarDispositivo } from './avisos.mjs';
@@ -257,7 +258,7 @@ export async function atender(req, cfg, deps) {
     if (ruta === 'pagar' || ruta === 'pagar/ok') return rutasPago({ ruta, method: req.method, query: req.query || {}, body: req.body || {} }, cfg, deps);
     // «¿Lo vendemos nosotros?» (enlace firmado del email, sin sesión): gestion.mjs
     if (ruta === 'gestion') return rutasGestion({ method: req.method, query: req.query || {}, body: req.body || {} }, cfg, deps);
-    if (!/^api\/(anuncio|anuncios|visita|perfil|push|alertas|evento|comunidad|oferta|alquiler|garaje|opiniones)(\/|$)/.test(ruta)) return json(404, { ok: false, error: 'ruta' });
+    if (!/^api\/(anuncio|anuncios|visita|perfil|push|alertas|evento|comunidad|oferta|alquiler|garaje|opiniones|likes)(\/|$)/.test(ruta)) return json(404, { ok: false, error: 'ruta' });
   } else if (!comprobarProxy(req.query, cfg.secreto)) return json(401, { ok: false, error: 'firma' });
   const cliente = !req.directo && req.query.logged_in_customer_id ? String(req.query.logged_in_customer_id) : clienteFirmado(req.query, cfg.clave);
   // El tema mandó quién es, pero la firma no cuadra: la «Clave del motor» del tema no es la SUBASTAS_CLAVE de Vercel
@@ -323,6 +324,8 @@ export async function atender(req, cfg, deps) {
     if (r) return r;
   }
 
+  // «Me gusta» de profesionales y eventos (likes.mjs)
+  if (ruta === 'api/likes') return rutasLikes({ ruta, method: req.method, body: req.method === 'GET' ? { ...req.query } : body }, cliente, cfg, deps);
   // Profesionales: las opiniones de la comunidad sobre cada taller (opiniones.mjs)
   if (ruta.startsWith('api/opiniones')) {
     const r = await rutasOpiniones({ ruta, method: req.method, body: req.method === 'GET' ? { ...req.query } : body }, cliente, cfg, deps);

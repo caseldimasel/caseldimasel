@@ -72,3 +72,19 @@ test('opiniones: el panel las lista y «Ocultar» las quita de la web', async ()
   assert.match(r.body, /Mostrar/);
   assert.equal((await api('api/opiniones', { pro: 'tapizatop' }, {}, 'GET')).n, 0);
 });
+
+test('likes: profesionales y eventos, uno por persona; pide entrar para dar', async () => {
+  const { deps, api } = preparar();
+  deps.likes = memoria();
+  deps.likes.guardar = (orig => async (fila, k) => { const ya = deps.likes.filas.find((x) => x.tipo === fila.tipo && x.ref === fila.ref && x.cliente === fila.cliente); if (ya) return ya; deps.likes.filas.push({ ...fila }); return fila; })();
+  assert.equal((await api('api/likes', { tipo: 'pro', ref: 'cochera', on: true }, {})).error, 'login');
+  assert.equal((await api('api/likes', { tipo: 'pro', ref: 'cochera', on: true }, quien('1'))).n, 1);
+  assert.equal((await api('api/likes', { tipo: 'pro', ref: 'cochera', on: true }, quien('1'))).n, 1, 'no se duplica');
+  assert.equal((await api('api/likes', { tipo: 'pro', ref: 'cochera', on: true }, quien('2'))).n, 2);
+  await api('api/likes', { tipo: 'evento', ref: 'retromovil-2026', on: true }, quien('2'));
+  const r = await api('api/likes', { tipo: 'pro' }, quien('1'), 'GET');
+  assert.deepEqual(r.n, { cochera: 2 });
+  assert.deepEqual(r.mios, ['cochera']);
+  assert.equal((await api('api/likes', { tipo: 'pro', ref: 'cochera', on: false }, quien('1'))).n, 1);
+  assert.equal((await api('api/likes', { tipo: 'otro' }, {}, 'GET')).error, 'datos');
+});
