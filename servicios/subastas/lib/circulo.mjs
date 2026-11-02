@@ -29,6 +29,7 @@ import { avisarCliente, avisarTodos, avisoCambios, avisoPublicado, avisoRechazad
 import { navPanel, paginaEstadisticas, ponerContadores } from './estadisticas.mjs';
 import { marco, rutasOperaciones } from './operaciones.mjs';
 import { paginaAlquiler } from './alquiler.mjs';
+import { paginaGarajes } from './garaje.mjs';
 import { rutasFichas } from './fichas.mjs';
 import { rutasCorreos } from './plantillas.mjs';
 import { DETALLES, rutaDetalle } from './detalle.mjs';
@@ -260,7 +261,7 @@ export async function rutasTienda({ ruta, method, body }, cliente, cfg, deps) {
   if (ruta === 'api/perfil') {
     const perfiles = deps.perfiles || tablaAnuncios(cfg, deps.fetch, 'perfiles');
     const [actual] = await perfiles.leer(`cliente=eq.${encodeURIComponent(cliente)}&limit=1`);
-    if (method === 'GET') return json(200, { ok: true, perfil: actual ? { ...perfilPublico(cfg, actual), ruta_foto: actual.foto } : null });
+    if (method === 'GET') return json(200, { ok: true, perfil: actual ? { ...perfilPublico(cfg, actual), ruta_foto: actual.foto, ruta_portada: actual.portada || '', avisos: actual.avisos || {} } : null });
     const nombre = texto(body.nombre, 60).replace(/[<>]/g, '');
     if (nombre.length < 2) return json(400, { ok: false, error: 'datos', campo: 'nombre' });
     const foto = String(body.foto || '');
@@ -272,10 +273,25 @@ export async function rutasTienda({ ruta, method, body }, cliente, cfg, deps) {
       const [ultimo] = await (deps.tabla || tablaAnuncios(cfg, deps.fetch)).leer(`cliente=eq.${encodeURIComponent(cliente)}&select=vendedor_slug&order=creado.desc&limit=1`).catch(() => []);
       slug = ultimo?.vendedor_slug || slugVendedor(nombre, cliente);
     }
-    const p = await perfiles.guardar({
+    const base = {
       cliente, slug, nombre, tipo: body.tipo === 'profesional' ? 'profesional' : 'particular',
       descripcion: texto(body.descripcion, 600), foto, actualizado: new Date().toISOString()
-    }, 'cliente');
+    };
+    // Mi garaje: ciudad, Instagram, portada y qué quiere recibir (si llegan; sin sql/garaje.sql se guarda lo de siempre)
+    const extra = {};
+    if ('ciudad' in body) extra.ciudad = texto(body.ciudad, 60).replace(/[<>]/g, '');
+    if ('instagram' in body) extra.instagram = texto(body.instagram, 40).replace(/^@+/, '').replace(/[^\w.]/g, '');
+    if ('portada' in body) {
+      const portada = String(body.portada || '');
+      if (portada && !propia.test(portada)) return json(400, { ok: false, error: 'datos', campo: 'portada' });
+      extra.portada = portada;
+    }
+    if (body.avisos && typeof body.avisos === 'object') extra.avisos = { eventos: Boolean(body.avisos.eventos), tienda: Boolean(body.avisos.tienda), coches: Boolean(body.avisos.coches) };
+    let p;
+    try { p = await perfiles.guardar({ ...base, ...extra }, 'cliente'); } catch (e) {
+      if (!Object.keys(extra).length) throw e;
+      p = await perfiles.guardar(base, 'cliente');
+    }
     // Sus anuncios publicados llevan el nombre y el tipo nuevos (tarjetas, ficha y su perfil público)
     if (cfg.shopifyTienda && cfg.shopifyClientId) {
       try { await nombreEnSusAnuncios(cfg, cliente, p, deps); } catch (e) { console.error(e); }
@@ -865,7 +881,9 @@ export function tablaAnuncios(cfg, fetchImpl = fetch, nombreTabla = 'anuncios') 
 /** Lo público de un perfil: lo que se enseña en su página y en sus anuncios (sin el id del cliente) */
 export const perfilPublico = (cfg, p) => p && ({
   slug: p.slug, nombre: p.nombre, tipo: p.tipo === 'profesional' ? 'profesional' : 'particular', descripcion: p.descripcion || '',
-  foto: p.foto ? urlFoto(cfg, p.foto) : ''
+  foto: p.foto ? urlFoto(cfg, p.foto) : '',
+  // Mi garaje (sql/garaje.sql): ciudad, Instagram y foto de portada
+  ciudad: p.ciudad || '', instagram: p.instagram || '', portada: p.portada ? urlFoto(cfg, p.portada) : ''
 });
 
 /** Guarda los cambios de un anuncio (panel › Editar) */
@@ -912,6 +930,15 @@ export async function atenderPanel(req, cfg, deps) {
   const seccion = req.query.estado || (req.method === 'GET' ? 'ventas' : '');
   // Anuncios › En la web: todos los anuncios de la tienda y su editor (fichas.mjs)
   if (seccion === 'fichas' || seccion === 'ficha') return rutasFichas({ ...req, query: { ...req.query, estado: seccion } }, cfg, deps, html);
+  // Clientes › Garajes: los coches de «Mi garaje» y lo que quiere recibir cada uno (garaje.mjs)
+  if (seccion === 'garajes') {
+    let coches = [], perfiles = [], error = '';
+    try {
+      coches = await (deps.garaje || tablaAnuncios(cfg, deps.fetch, 'garaje')).leer('select=*&order=creado.desc&limit=2000');
+      perfiles = await (deps.perfiles || tablaAnuncios(cfg, deps.fetch, 'perfiles')).leer('select=*&limit=5000');
+    } catch (e) { error = 'Los garajes se guardan desde que ejecutes sql/garaje.sql en Supabase › SQL Editor.'; }
+    return html(paginaGarajes(coches.map((c) => ({ ...c, fotos: (c.fotos || []).map((f) => urlFoto(cfg, f)) })), perfiles, { error, marco, tienda: cfg.tienda }));
+  }
   // Clientes › Alquiler: la lista de espera del alquiler (alquiler.mjs)
   if (seccion === 'alquiler') {
     let lista = [], error = '';

@@ -45,7 +45,7 @@ export async function registrarEvento(db, body, cliente, headers = {}) {
 export const SECCIONES = [
   ['ventas', 'Ventas', [['ventas', 'Ventas'], ['meses', 'Por meses'], ['ofertas', 'Ofertas'], ['enlazar', 'Enlazar a mano'], ['importar', 'Importar Excel']], ['operacion']],
   ['fichas', 'Anuncios', [['fichas', 'En la web'], ['cobros', 'Cobros comunidad'], ['pendiente', 'Por revisar'], ['cambios', 'Cambios'], ['aprobado', 'Aprobados'], ['publicado', 'Publicados'], ['vendido', 'Vendidos'], ['cancelados', 'Cancelados']], ['ficha', 'rechazado', 'retirado', 'cobrar', 'tarifa']],
-  ['clientes', 'Clientes', [['clientes', 'Interesados'], ['anunciantes', 'Anunciantes · comunidad'], ['duenos', 'Propietarios · gestión'], ['alquiler', 'Alquiler · lista de espera']], ['cliente', 'anunciante']],
+  ['clientes', 'Clientes', [['clientes', 'Interesados'], ['anunciantes', 'Anunciantes · comunidad'], ['duenos', 'Propietarios · gestión'], ['garajes', 'Garajes'], ['alquiler', 'Alquiler · lista de espera']], ['cliente', 'anunciante']],
   ['estadisticas', 'Estadísticas web', [], ['anuncio']],
   ['herramientas', 'Herramientas', [['ubicaciones', 'Ubicaciones'], ['propietarios', 'Propietario en las fichas'], ['avisos', 'Avisos al móvil'], ['correos', 'Emails']], []]
 ];
