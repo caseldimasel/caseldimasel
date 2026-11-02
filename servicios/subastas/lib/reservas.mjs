@@ -18,6 +18,7 @@
 import { esc, perfilPublico, tablaAnuncios, urlFoto } from './circulo.mjs';
 import { datos, enviarCorreo, P, plantilla } from './correos.mjs';
 import { USOS } from './garaje.mjs';
+import { leerTarifa, precioMes } from './comunidad.mjs';
 
 export const PLAZO_H = 24;           // horas que tiene el dueño para responder
 import { createHmac } from 'node:crypto';
@@ -68,7 +69,33 @@ async function perfiles(cfg, deps, ids) {
   const ps = await tabla(cfg, deps, 'perfiles').leer(`cliente=in.(${l.map((x) => `"${x.replace(/"/g, '')}"`).join(',')})&select=*`).catch(() => []);
   return Object.fromEntries(ps.map((p) => [String(p.cliente), p]));
 }
-const anfitrion = (cfg, p) => (p ? { nombre: p.nombre || 'Dueño', foto: p.foto ? urlFoto(cfg, p.foto) : '', ciudad: p.ciudad || '', slug: p.slug || '', desde: p.creado || p.actualizado || '' } : { nombre: 'Dueño', foto: '', ciudad: '' });
+const anfitrion = (cfg, p) => (p ? { nombre: p.nombre || 'Dueño', foto: p.foto ? urlFoto(cfg, p.foto) : '', ciudad: p.ciudad || '', slug: p.slug || '', tipo: p.tipo === 'profesional' ? 'profesional' : 'particular', desde: p.creado || p.actualizado || '' } : { nombre: 'Dueño', foto: '', ciudad: '', slug: '', tipo: 'particular' });
+
+/** Anuncios de alquiler, como los de venta: el primero de cada persona gratis; los siguientes, de pago (la tarifa de
+ *  Ajustes: tarifa.cobrar y sus tramos). Mientras no se cobre (tarifa.cobrar = false), todos se ven. Map id → info */
+export function cuotasAlquiler(coches, tarifa, ahora = Date.now()) {
+  const porDueno = {};
+  for (const c of coches) (porDueno[c.cliente] ||= []).push(c);
+  const info = new Map();
+  for (const l of Object.values(porDueno)) {
+    l.sort((a, b) => Date.parse(a.creado || 0) - Date.parse(b.creado || 0) || Number(a.id) - Number(b.id));
+    l.forEach((c, i) => {
+      const gratis = i === 0;
+      const pagado = c.alq_hasta && Date.parse(c.alq_hasta) > ahora;
+      info.set(Number(c.id), { gratis, precio: gratis ? 0 : precioMes(tarifa, i + 1), pagado_hasta: c.alq_hasta || null, activo: !tarifa.cobrar || gratis || Boolean(pagado) });
+    });
+  }
+  return info;
+}
+const tarifaDe = (cfg, deps) => leerTarifa(deps.ajustes || tablaAnuncios(cfg, deps.fetch, 'ajustes'));
+
+/** Lo que se sabe del dueño: reseñas de todos sus coches y cuántas veces ha alquilado */
+async function statsDueno(cfg, deps, dueno, ids) {
+  const tS = tabla(cfg, deps, 'reservas_resenas'), tR = tabla(cfg, deps, 'reservas');
+  const res = ids.length ? await tS.leer(`coche_id=in.(${ids.join(',')})&rol=eq.huesped&order=creado.desc&limit=200`).catch(() => []) : [];
+  const rs = await tR.leer(`dueno=eq.${encodeURIComponent(dueno)}&estado=eq.aceptada&select=desde,hasta,estado,creado,pago`).catch(() => []);
+  return { resenas: res, nota: media(res), n: res.length, alquileres: rs.filter((r) => estadoActual(r) === 'completada').length };
+}
 const media = (l) => (l.length ? Math.round((l.reduce((s, x) => s + Number(x.nota), 0) / l.length) * 100) / 100 : 0);
 
 /** La tarjeta de un anuncio */
@@ -88,7 +115,7 @@ const urlReservas = (cfg) => `${cfg.tienda}/pages/vende-con-nosotros?view=perfil
 
 /** Todas las rutas del alquiler tipo Airbnb (null si no es suya) */
 export async function rutasReservas({ ruta, method, body }, cliente, cfg, deps) {
-  const R = ['api/alquiler/coches', 'api/alquiler/coche', 'api/alquiler/reservar', 'api/alquiler/reservas', 'api/alquiler/reserva', 'api/alquiler/mensajes', 'api/alquiler/resena'];
+  const R = ['api/alquiler/coches', 'api/alquiler/coche', 'api/alquiler/dueno', 'api/alquiler/reservar', 'api/alquiler/reservas', 'api/alquiler/reserva', 'api/alquiler/mensajes', 'api/alquiler/resena'];
   if (!R.includes(ruta)) return null;
   const json = (status, b, cache = 'no-store') => ({ status, headers: { 'Content-Type': 'application/json', 'Cache-Control': cache }, body: JSON.stringify(b) });
   const tG = tabla(cfg, deps, 'garaje'), tR = tabla(cfg, deps, 'reservas'), tM = tabla(cfg, deps, 'reservas_mensajes'), tS = tabla(cfg, deps, 'reservas_resenas');
@@ -99,7 +126,9 @@ export async function rutasReservas({ ruta, method, body }, cliente, cfg, deps) 
     try {
       const desde = DIA.test(body.desde) ? body.desde : '', hasta = DIA.test(body.hasta) ? body.hasta : desde;
       const ciudad = clip(body.ciudad, 60).toLowerCase(), conductor = ['con', 'sin'].includes(body.conductor) ? body.conductor : '';
-      let coches = (await tG.leer('alquiler=eq.true&visible=eq.true&order=creado.desc&limit=200')).filter((c) => Number(c.alq?.precio) > 0);
+      let coches = (await tG.leer('alquiler=eq.true&visible=eq.true&order=creado.desc&limit=500')).filter((c) => Number(c.alq?.precio) > 0);
+      const cuotas = cuotasAlquiler(coches, await tarifaDe(cfg, deps));
+      coches = coches.filter((c) => cuotas.get(Number(c.id))?.activo !== false);
       if (ciudad) coches = coches.filter((c) => String(c.alq?.ciudad || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').includes(ciudad.normalize('NFD').replace(/[̀-ͯ]/g, '')));
       if (conductor) coches = coches.filter((c) => c.alq?.conductor === conductor || c.alq?.conductor === 'ambos');
       const ids = coches.map((c) => Number(c.id));
@@ -115,13 +144,35 @@ export async function rutasReservas({ ruta, method, body }, cliente, cfg, deps) 
     try {
       const [c] = await tG.leer(`id=eq.${Number(body.id)}&alquiler=eq.true&limit=1`);
       if (!c || c.visible === false) return json(404, { ok: false, error: 'no-existe' });
+      const suyo = String(c.cliente) === String(cliente);
+      const suyos = await tG.leer(`cliente=eq.${encodeURIComponent(c.cliente)}&alquiler=eq.true&visible=eq.true&select=id,cliente,creado,alq_hasta`).catch(() => [c]);
+      if (!suyo && cuotasAlquiler(suyos, await tarifaDe(cfg, deps)).get(Number(c.id))?.activo === false) return json(404, { ok: false, error: 'no-existe' });
       const rs = await tR.leer(`coche_id=eq.${Number(c.id)}&select=desde,hasta,estado,creado`).catch(() => []);
       const res = await tS.leer(`coche_id=eq.${Number(c.id)}&order=creado.desc&limit=100`).catch(() => []);
       const ps = await perfiles(cfg, deps, [c.cliente]);
-      const otros = (await tG.leer(`cliente=eq.${encodeURIComponent(c.cliente)}&alquiler=eq.true&visible=eq.true&select=id`).catch(() => [])).length;
-      return json(200, { ok: true, coche: { ...anuncio(cfg, c, ps[String(c.cliente)], res), suyo: String(c.cliente) === String(cliente) },
+      const otros = suyos.length;
+      const st = await statsDueno(cfg, deps, c.cliente, suyos.map((x) => Number(x.id)));
+      return json(200, { ok: true, coche: { ...anuncio(cfg, c, ps[String(c.cliente)], res), suyo },
+        dueno: { nota: st.nota, resenas: st.n, alquileres: st.alquileres, coches: otros },
         ocupado: [...(c.bloqueos || []), ...ocupadas(rs)], comision: cfg.alquilerCobrar ? comision(cfg) : 0, anfitrion_coches: otros,
         resenas: res.filter((r) => r.rol === 'huesped').map((r) => ({ nombre: r.nombre || 'Miembro de Sidonia', nota: r.nota, texto: r.texto, creado: r.creado })) }, cliente ? 'no-store' : 'public, max-age=30');
+    } catch (e) { return falta(e); }
+  }
+
+  // ------------------------------------------------------------------ El perfil de un dueño: sus coches en alquiler y sus reseñas
+  if (ruta === 'api/alquiler/dueno' && method === 'GET') {
+    try {
+      const slug = String(body.slug || '').toLowerCase().replace(/[^a-z0-9-]/g, '').slice(0, 80);
+      if (!slug) return json(400, { ok: false, error: 'datos' });
+      const [p] = await tabla(cfg, deps, 'perfiles').leer(`slug=eq.${slug}&limit=1`);
+      if (!p) return json(200, { ok: true, coches: [], resenas: [], nota: 0, n: 0, alquileres: 0 });
+      let coches = (await tG.leer(`cliente=eq.${encodeURIComponent(p.cliente)}&alquiler=eq.true&visible=eq.true&order=creado.desc&limit=50`)).filter((c) => Number(c.alq?.precio) > 0);
+      const cuotas = cuotasAlquiler(coches, await tarifaDe(cfg, deps));
+      coches = coches.filter((c) => cuotas.get(Number(c.id))?.activo !== false);
+      const st = await statsDueno(cfg, deps, p.cliente, coches.map((c) => Number(c.id)));
+      const deC = Object.fromEntries(coches.map((c) => [Number(c.id), titulo(c)]));
+      return json(200, { ok: true, perfil: anfitrion(cfg, p), coches: coches.map((c) => anuncio(cfg, c, p, st.resenas)), nota: st.nota, n: st.n, alquileres: st.alquileres,
+        resenas: st.resenas.slice(0, 20).map((r) => ({ nombre: r.nombre || 'Miembro de Sidonia', nota: r.nota, texto: r.texto, creado: r.creado, coche: deC[Number(r.coche_id)] || '' })) }, 'public, max-age=60');
     } catch (e) { return falta(e); }
   }
 
@@ -325,6 +376,18 @@ export async function rutasPagoReserva({ ruta, query }, cfg, deps) {
     cancel_url: urlReservas(cfg)
   });
   return { status: 303, headers: { Location: s.url, 'Cache-Control': 'no-store' }, body: '' };
+}
+
+/** Panel › Garajes: un mes más pagado de un anuncio de alquiler (los de pago) */
+export async function accionPanelGarajes(b, cfg, deps) {
+  if (b.accion !== 'alq-mes' || !Number(b.id)) return '';
+  const tG = tabla(cfg, deps, 'garaje');
+  const [c] = await tG.leer(`id=eq.${Number(b.id)}&select=id,alq_hasta&limit=1`);
+  if (!c) return '';
+  const d = new Date(Math.max(c.alq_hasta ? Date.parse(c.alq_hasta) : 0, Date.now()));
+  d.setMonth(d.getMonth() + 1);
+  await tG.cambiar(c.id, { alq_hasta: d.toISOString() });
+  return '';
 }
 
 /** Panel: marcar que ya se le ha pagado al dueño */

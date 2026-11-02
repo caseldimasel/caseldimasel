@@ -29,7 +29,8 @@ import { avisarCliente, avisarTodos, avisoCambios, avisoPublicado, avisoRechazad
 import { navPanel, paginaEstadisticas, ponerContadores } from './estadisticas.mjs';
 import { marco, rutasOperaciones } from './operaciones.mjs';
 import { accionPanelAlquiler, paginaAlquiler } from './alquiler.mjs';
-import { accionPanelReservas, tablaReservasPanel } from './reservas.mjs';
+import { accionPanelGarajes, accionPanelReservas, cuotasAlquiler, tablaReservasPanel } from './reservas.mjs';
+import { leerTarifa as leerTarifaAlq } from './comunidad.mjs';
 import { paginaGarajes } from './garaje.mjs';
 import { paginaOpiniones } from './opiniones.mjs';
 import { rutasFichas } from './fichas.mjs';
@@ -935,11 +936,13 @@ export async function atenderPanel(req, cfg, deps) {
   // Clientes › Garajes: los coches de «Mi garaje» y lo que quiere recibir cada uno (garaje.mjs)
   if (seccion === 'garajes') {
     let coches = [], perfiles = [], error = '';
+    if (req.method === 'POST' && req.body && req.body.accion === 'alq-mes') { try { await accionPanelGarajes(req.body, cfg, deps); } catch (e) { error = 'Ejecuta otra vez sql/reservas.sql en Supabase (tiene una columna nueva).'; } }
     try {
       coches = await (deps.garaje || tablaAnuncios(cfg, deps.fetch, 'garaje')).leer('select=*&order=creado.desc&limit=2000');
       perfiles = await (deps.perfiles || tablaAnuncios(cfg, deps.fetch, 'perfiles')).leer('select=*&limit=5000');
     } catch (e) { error = 'Los garajes se guardan desde que ejecutes sql/garaje.sql en Supabase › SQL Editor.'; }
-    return html(paginaGarajes(coches.map((c) => ({ ...c, fotos: (c.fotos || []).map((f) => urlFoto(cfg, f)) })), perfiles, { error, marco, tienda: cfg.tienda }));
+    const cuotas = cuotasAlquiler(coches.filter((c) => c.alquiler && c.visible !== false), await leerTarifaAlq(deps.ajustes || tablaAnuncios(cfg, deps.fetch, 'ajustes')));
+    return html(paginaGarajes(coches.map((c) => ({ ...c, fotos: (c.fotos || []).map((f) => urlFoto(cfg, f)), cuota: cuotas.get(Number(c.id)) || null })), perfiles, { error, marco, tienda: cfg.tienda }));
   }
   // Clientes › Opiniones: lo que cuenta la comunidad de cada profesional; «Ocultar» la quita de la web (opiniones.mjs)
   if (seccion === 'opiniones') {

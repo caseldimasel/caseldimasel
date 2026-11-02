@@ -63,3 +63,8 @@ alter table reservas add column if not exists stripe_sesion text not null defaul
 alter table reservas add column if not exists pagado        timestamptz;
 alter table reservas add column if not exists pagado_dueno  timestamptz;               -- cuándo le pagasteis al dueño
 notify pgrst, 'reload schema';
+
+-- Anuncios de alquiler, como los de venta: el primero de cada persona, gratis; los siguientes, de pago (la tarifa de
+-- Ajustes). alq_hasta: hasta cuándo está pagado (si se cobra). Se apunta desde el panel › Clientes › Garajes.
+alter table garaje add column if not exists alq_hasta timestamptz;
+notify pgrst, 'reload schema';

@@ -129,7 +129,13 @@ export async function rutasGaraje({ ruta, method, body }, cliente, cfg, deps) {
     try {
       const coches = await tG.leer(`cliente=eq.${encodeURIComponent(cliente)}&order=creado.desc&limit=${GARAJE_MAX}`);
       const [p] = await tP.leer(`cliente=eq.${encodeURIComponent(cliente)}&limit=1`).catch(() => []);
-      return json(200, { ok: true, coches: coches.map((c) => ({ ...cochePublico(cfg, c), alq: c.alq || {}, visible: c.visible !== false, rutas: c.fotos || [] })), perfil: perfilGaraje(cfg, p) || null });
+      // Como en la venta: el primer anuncio de alquiler, gratis; los siguientes, de pago (si se cobra)
+      const { leerTarifa, precioMes } = await import('./comunidad.mjs');
+      const { cuotasAlquiler } = await import('./reservas.mjs');
+      const tarifa = await leerTarifa(deps.ajustes || tablaAnuncios(cfg, deps.fetch, 'ajustes'));
+      const cuotas = cuotasAlquiler(coches.filter((c) => c.alquiler && c.visible !== false), tarifa);
+      return json(200, { ok: true, cobrar: Boolean(tarifa.cobrar), precio_siguiente: tarifa.cobrar ? precioMes(tarifa, cuotas.size + 1) : null,
+        coches: coches.map((c) => ({ ...cochePublico(cfg, c), alq: c.alq || {}, visible: c.visible !== false, rutas: c.fotos || [], cuota: cuotas.get(Number(c.id)) || null })), perfil: perfilGaraje(cfg, p) || null });
     } catch (e) { return falta(e); }
   }
   // Añadir o cambiar un coche
@@ -194,7 +200,7 @@ export function paginaGarajes(coches, perfiles, { error = '', marco, tienda = 'h
     const foto = (c.fotos || [])[0];
     return `<tr><td class="izq">${foto ? `<img src="${esc(foto)}" alt="" style="width:64px;height:48px;object-fit:cover;border-radius:8px;vertical-align:middle;margin-right:10px">` : ''}<b>${esc([c.marca, c.modelo, c.anio].filter(Boolean).join(' '))}</b>${c.apodo ? `<span class="sub">«${esc(c.apodo)}»</span>` : ''}</td>
       <td class="izq">${p.slug ? `<a href="${esc(tienda)}/pages/vende-con-nosotros?view=garaje&u=${encodeURIComponent(p.slug)}" target="_blank" rel="noopener">${esc(p.nombre || '—')}</a>` : esc(p.nombre || '—')}${p.ciudad ? `<span class="sub">${esc(p.ciudad)}</span>` : ''}</td>
-      <td>${Number(c.likes) || 0}</td><td>${c.alquiler ? '<span class="si">Sí</span>' : '—'}</td><td>${c.visible === false ? 'Oculto' : 'Público'}</td><td class="izq">${fecha(c.creado)}</td></tr>`;
+      <td>${Number(c.likes) || 0}</td><td>${c.alquiler ? (c.cuota ? (c.cuota.gratis ? '<span class="si">Gratis</span>' : `${c.cuota.activo ? '<span class="si">Activo</span>' : 'Sin pagar'}<span class="sub">${c.cuota.precio} €/mes${c.cuota.pagado_hasta ? ` · hasta ${fecha(c.cuota.pagado_hasta)}` : ''}</span><form method="post" action="?estado=garajes"><input type="hidden" name="accion" value="alq-mes"><input type="hidden" name="id" value="${Number(c.id)}"><button class="btn">+1 mes pagado</button></form>`) : '<span class="si">Sí</span>') : '—'}</td><td>${c.visible === false ? 'Oculto' : 'Público'}</td><td class="izq">${fecha(c.creado)}</td></tr>`;
   }).join('');
   return marco('Garajes', 'garajes', `
 ${error ? `<p class="aviso mal">${esc(error)}</p>` : ''}
@@ -207,7 +213,7 @@ ${error ? `<p class="aviso mal">${esc(error)}</p>` : ''}
   <div class="kpi"><span>Quieren coches</span><b>${av('coches')}</b><small>avisos de coches como los suyos</small></div>
 </div>
 <div class="card"><div class="tabla"><table>
-  <thead><tr><th class="izq">Coche</th><th class="izq">Dueño</th><th>Me gusta</th><th>Lo alquilaría</th><th>Se ve</th><th class="izq">Añadido</th></tr></thead>
+  <thead><tr><th class="izq">Coche</th><th class="izq">Dueño</th><th>Me gusta</th><th>Alquiler</th><th>Se ve</th><th class="izq">Añadido</th></tr></thead>
   <tbody>${filas || '<tr><td colspan="6" class="vacio">Aún nadie ha añadido su coche a su garaje.</td></tr>'}</tbody>
 </table></div></div>
 <p class="nota">Los coches que la comunidad enseña en «Mi garaje», aunque no los venda. Los que marcan «Lo alquilaría» entran también en Clientes › Alquiler.</p>`);

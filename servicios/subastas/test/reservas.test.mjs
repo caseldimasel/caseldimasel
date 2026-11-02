@@ -119,3 +119,25 @@ test('reservas: si algún día se cobra (ALQUILER_COBRAR=1): precio + 15 % de se
   const mal = await atender({ method: 'GET', ruta: 'alquiler/pagar', query: { r: u.searchParams.get('r'), f: 'x' }, body: {}, directo: true, headers: {} }, cfgP, deps);
   assert.match(mal.body, /Enlace no válido/);
 });
+
+test('reservas: como la venta, el primer anuncio de alquiler gratis y los siguientes de pago (solo si se cobra)', async () => {
+  const { cuotasAlquiler } = await import('../lib/reservas.mjs');
+  const coches = [{ id: 1, cliente: 'a', creado: '2026-01-01' }, { id: 2, cliente: 'a', creado: '2026-02-01' }, { id: 3, cliente: 'a', creado: '2026-03-01', alq_hasta: '2099-01-01' }, { id: 4, cliente: 'b', creado: '2026-03-01' }];
+  const gratis = cuotasAlquiler(coches, { cobrar: false, tramos: [{ desde: 1, precio: 12.9 }] });
+  assert.equal([...gratis.values()].every((x) => x.activo), true, 'sin cobrar, todos se ven');
+  const pago = cuotasAlquiler(coches, { cobrar: true, tramos: [{ desde: 1, precio: 12.9 }] });
+  assert.deepEqual([1, 2, 3, 4].map((i) => pago.get(i).activo), [true, false, true, true]);
+  assert.equal(pago.get(1).gratis, true); assert.equal(pago.get(2).precio, 12.9);
+});
+
+test('reservas: el perfil del dueño enseña sus coches en alquiler, sus reseñas y cuántas veces ha alquilado', async () => {
+  const { api, deps } = preparar();
+  deps.perfiles.filas[0].slug = 'marta-1a2b'; deps.perfiles.filas[0].tipo = 'profesional';
+  deps.reservas.filas.push({ id: 9, coche_id: 7, dueno: '55', cliente: '77', desde: dia(-5), hasta: dia(-3), estado: 'aceptada', pago: '', creado: new Date().toISOString() });
+  deps.reservas_resenas.filas.push({ id: 1, reserva_id: 9, coche_id: 7, rol: 'huesped', nombre: 'Lucía G.', nota: 5, texto: 'Todo perfecto', creado: new Date().toISOString() });
+  const d = await api('api/alquiler/dueno', { slug: 'marta-1a2b' }, {}, 'GET');
+  assert.equal(d.coches.length, 1); assert.equal(d.alquileres, 1); assert.equal(d.n, 1); assert.equal(d.perfil.tipo, 'profesional');
+  assert.equal(d.resenas[0].coche, 'Alfa Romeo Spider 1975');
+  const f = await api('api/alquiler/coche', { id: 7 }, {}, 'GET');
+  assert.deepEqual(f.dueno, { nota: 5, resenas: 1, alquileres: 1, coches: 1 });
+});
