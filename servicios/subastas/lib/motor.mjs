@@ -21,7 +21,7 @@
  *   gestion?a=&f=                → «¿Lo vendemos nosotros?»: de anuncio de la comunidad a gestión de venta (gestion.mjs)
  *   pagar?a=&f=                  → pagar un anuncio de la comunidad con Stripe, renovación cada mes (comunidad.mjs)
  */
-import { recibirAlquiler } from './alquiler.mjs';
+import { contactarAlquiler, peticionesPublicas, recibirAlquiler } from './alquiler.mjs';
 import { rutasGaraje } from './garaje.mjs';
 import { rutasOpiniones } from './opiniones.mjs';
 import { rutasLikes } from './likes.mjs';
@@ -305,6 +305,11 @@ export async function atender(req, cfg, deps) {
   if (ruta === 'api/oferta' && req.method === 'POST') return json(200, await recibirOferta(body, cliente, cfg, deps));
   // Alquiler (próximamente): la lista de espera de «Alquila un coche con alma» (alquiler.mjs)
   if (ruta === 'api/alquiler' && req.method === 'POST') return json(200, await recibirAlquiler(body, cliente, cfg, deps));
+  // «Lo que busca la gente» (sin datos personales) y «Tengo uno así» / «Me interesa alquilarlo» (con su sesión)
+  if (ruta === 'api/alquiler/peticiones' && req.method === 'GET') {
+    try { return { ...json(200, { ok: true, peticiones: await peticionesPublicas(cfg, deps) }), headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=60' } }; } catch (e) { return json(200, { ok: false, error: 'sin-tabla', peticiones: [] }); }
+  }
+  if (ruta === 'api/alquiler/contactar' && req.method === 'POST') return json(200, await contactarAlquiler(body, cliente, cfg, deps));
 
   // Comunidad: el repaso diario (recordar el pago a quien le caduca y, si se quiere, retirar los caducados)
   if (ruta === 'api/comunidad/revisar') {
