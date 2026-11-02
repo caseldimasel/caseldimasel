@@ -469,7 +469,7 @@ export function circleProducts(products) {
   const sellers = [['Enrique', 'enrique-4f2a', '+34612345678', 'particular'], ['Iñaki', 'inaki-91c0', '+34699112233', 'particular'], ['Enrique', 'enrique-4f2a', '+34612345678', 'particular'], ['Clásicos Luis', 'clasicos-luis-07bd', '+34655443322', 'profesional']];
   return base.map((p, i) => {
     const [nombre, slug, tel, tipo] = sellers[i % sellers.length];
-    const metafields = { ...(p.metafields || {}), custom: { ...((p.metafields || {}).custom || {}), vendedor_nombre: { value: nombre }, vendedor_slug: { value: slug }, vendedor_telefono: { value: tel }, vendedor_tipo: { value: tipo } } };
+    const metafields = { ...(p.metafields || {}), custom: { ...((p.metafields || {}).custom || {}), vendedor_nombre: { value: nombre }, vendedor_slug: { value: slug }, vendedor_telefono: { value: tel }, vendedor_tipo: { value: tipo }, anuncio_id: { value: String(100 + i) } } };
     // Sin vídeo: sus fotos y las de los demás, para tener una galería de varias
     const photos = [p, ...base.filter((o) => o !== p)].flatMap((o) => (o.media || []).filter((m) => m.media_type === 'image')).slice(0, 9)
       .map((m, k) => ({ ...m, position: k + 1 }));
