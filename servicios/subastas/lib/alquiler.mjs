@@ -14,6 +14,7 @@
  */
 import { esc, tablaAnuncios } from './circulo.mjs';
 import { datos, enviarCorreo, P, plantilla } from './correos.mjs';
+import { tapar } from './chat.mjs';
 
 const EMAIL = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 const clip = (t, n) => String(t ?? '').replace(/[\u0000-\u001f]/g, ' ').trim().slice(0, n);
@@ -105,7 +106,7 @@ export async function recibirAlquiler(body, cliente, cfg, deps) {
 /* ---------------------------------------------------------------------------- Peticiones y contactos */
 const DIAS_PETICION = 90;
 /** Lo que se enseña de una petición: nada de quién es (solo la inicial) */
-export const peticionPublica = (x) => ({ id: x.id, busca: x.busca || '', para: x.para || '', para_txt: PARA[x.para] || '', fecha: x.fecha || '', ciudad: x.ciudad || '', conductor: x.conductor || '', inicial: String(x.nombre || '').trim().charAt(0).toUpperCase(), creado: x.creado });
+export const peticionPublica = (x) => ({ id: x.id, chat: Boolean(x.cliente), busca: x.busca || '', para: x.para || '', para_txt: PARA[x.para] || '', fecha: x.fecha || '', ciudad: x.ciudad || '', conductor: x.conductor || '', inicial: String(x.nombre || '').trim().charAt(0).toUpperCase(), creado: x.creado });
 
 export async function peticionesPublicas(cfg, deps) {
   const t = deps.alquiler || tablaAnuncios(cfg, deps.fetch, 'alquiler');
@@ -114,15 +115,16 @@ export async function peticionesPublicas(cfg, deps) {
   return l.map(peticionPublica);
 }
 
-function correoContacto(cfg, { titulo, previa, intro, filasDatos, quien, mensaje }) {
+/** Sidonia hace de intermediario: a la otra persona no le llega el contacto de quien escribe (solo al equipo) */
+function correoContacto(cfg, { titulo, previa, intro, filasDatos, quien, mensaje, equipo = false }) {
   const wa = quien.telefono ? `https://wa.me/${tel(quien.telefono)}` : '';
   return plantilla(cfg, null, {
     titulo, previa,
-    cuerpo: P(intro) + datos(filasDatos) + (mensaje ? P(esc(mensaje)) : '')
-      + P(`Para hablarlo, escribe a <b>${esc(quien.nombre)}</b>:`) + datos([['Email', quien.email], ...(quien.telefono ? [['Teléfono', quien.telefono]] : [])])
-      + (wa ? P(`<a href="${esc(wa)}" style="color:#1a1a1a;font-weight:600">Escribirle por WhatsApp &rarr;</a>`) : '')
-      + P('Sidonia todavía no gestiona el alquiler: acordadlo entre vosotros y, si queréis ayuda, respondednos a este email.'),
-    boton: `Responder a ${quien.nombre.split(' ')[0]}`, enlace: `mailto:${quien.email}`, sinDudas: true
+    cuerpo: P(intro) + datos(filasDatos) + (mensaje ? P(esc(tapar(mensaje))) : '')
+      + (equipo
+        ? P(`Contacto de <b>${esc(quien.nombre)}</b> (solo para el equipo):`) + datos([['Email', quien.email], ...(quien.telefono ? [['Teléfono', quien.telefono]] : [])]) + (wa ? P(`<a href="${esc(wa)}" style="color:#1a1a1a;font-weight:600">WhatsApp &rarr;</a>`) : '')
+        : P('¿Te interesa? Responde a este email o entra en Sidonia y lo organizamos nosotros: así nadie comparte su teléfono hasta que la reserva está confirmada y pagada.')),
+    boton: equipo ? `Escribir a ${quien.nombre.split(' ')[0]}` : 'Ir a Sidonia', enlace: equipo ? `mailto:${quien.email}` : `${cfg.tienda}/pages/vende-con-nosotros?view=alquiler`, sinDudas: true
   });
 }
 
@@ -147,9 +149,10 @@ export async function contactarAlquiler(body, cliente, cfg, deps) {
       if (!p || p.publico === false || p.estado === 'cerrada') return { ok: false, error: 'no-existe' };
       para = p.email;
       asunto = `Tienen un coche para ti: ${q.coche}`;
-      html = correoContacto(cfg, { titulo: 'Un dueño tiene lo que buscas', previa: `${q.nombre} tiene un ${q.coche}.`,
+      html = correoContacto.bind(null, cfg, { titulo: 'Un dueño tiene lo que buscas', previa: `${q.nombre} tiene un ${q.coche}.`,
         intro: `Hola ${esc(String(p.nombre || '').split(' ')[0])}: has pedido en Sidonia ${p.busca ? `<b>${esc(p.busca)}</b>` : 'un coche'}${p.ciudad ? ` en ${esc(p.ciudad)}` : ''}${p.fecha ? ` para ${esc(p.fecha)}` : ''}. Un miembro de la comunidad te propone el suyo:`,
         filasDatos: [['Coche', q.coche], ...(q.fecha ? [['Cuándo', q.fecha]] : [])], quien: q, mensaje: q.mensaje });
+      html = { otro: html(), equipo: correoContacto(cfg, { titulo: 'Un dueño tiene lo que buscas', previa: '', intro: `Petición #${p.id} (${esc(p.busca || '')}) de ${esc(p.nombre || '')} &lt;${esc(p.email || '')}&gt;. Le propone:`, filasDatos: [['Coche', q.coche], ...(q.fecha ? [['Cuándo', q.fecha]] : [])], quien: q, mensaje: q.mensaje, equipo: true }) };
     } else {
       const tG = deps.garaje || tablaAnuncios(cfg, deps.fetch, 'garaje');
       const [c] = await tG.leer(`id=eq.${q.coche_id}&alquiler=eq.true&limit=1`);
@@ -160,17 +163,19 @@ export async function contactarAlquiler(body, cliente, cfg, deps) {
       const [d] = await tA.leer(`cliente=eq.${encodeURIComponent(c.cliente)}&rol=eq.poner&email=neq.&order=creado.desc&limit=1`).catch(() => []);
       para = d?.email || '';
       asunto = `Quieren alquilar tu ${titulo}`;
-      html = correoContacto(cfg, { titulo: 'Quieren alquilar tu coche', previa: `${q.nombre} quiere alquilar tu ${titulo}.`,
+      const fn = (equipo) => correoContacto(cfg, { titulo: 'Quieren alquilar tu coche', equipo, previa: `${q.nombre} quiere alquilar tu ${titulo}.`,
         intro: `Hola${d?.nombre ? ` ${esc(d.nombre.split(' ')[0])}` : ''}: a <b>${esc(q.nombre)}</b> le interesa alquilar tu <b>${esc(titulo)}</b>, que tienes en Sidonia.`,
         filasDatos: [...(q.fecha ? [['Cuándo', q.fecha]] : [])], quien: q, mensaje: q.mensaje });
+      html = { otro: fn(false), equipo: fn(true) };
     }
     await tC.guardar({ ...q, cliente: String(cliente) }, 'id').catch((e) => console.error(e));
   } catch (e) {
     console.error(e);
     return { ok: false, error: /alquiler|relation|does not exist|42P01|column/.test(String(e.message)) ? 'sin-tabla' : 'motor' };
   }
-  const enviado = para ? Boolean(await enviar(para, asunto, html, q.email)) : false;
-  for (const e of cfg.avisosEquipo || []) await enviar(e, `[Alquiler] ${asunto}${para ? '' : ' (sin email del otro: escribidle vosotros)'}`, html, q.email);
+  const equipoEmail = (cfg.avisosEquipo || [])[0] || '';
+  const enviado = para ? Boolean(await enviar(para, asunto, html.otro, equipoEmail)) : false;
+  for (const e of cfg.avisosEquipo || []) await enviar(e, `[Alquiler] ${asunto}${para ? '' : ' (sin email del otro: escribidle vosotros)'}`, html.equipo, q.email);
   return { ok: true, enviado };
 }
 

@@ -34,7 +34,9 @@ function preparar(alq = {}) {
 const pedir = { coche_id: 7, desde: dia(10), hasta: dia(12), nombre: 'Lucía Gómez', email: 'lucia@x.es', telefono: '611111111', mensaje: 'Hola, es para mi boda, ¿puede ser?', para: 'boda' };
 
 test('reservas: precio, disponibilidad y estados que se calculan solos', () => {
-  assert.deepEqual(precio({ precio: 150, fianza: 500 }, '2027-06-10', '2027-06-12'), { dias: 3, precio_dia: 150, subtotal: 450, tarifa: 0, total: 450, fianza: 500 });
+  assert.deepEqual(precio({ precio: 150, fianza: 500 }, '2027-06-10', '2027-06-12', 0), { dias: 3, precio_dia: 150, subtotal: 450, tarifa: 0, total: 450, fianza: 500 });
+  assert.deepEqual(precio({ precio: 150 }, '2027-06-10', '2027-06-12', 15), { dias: 3, precio_dia: 150, subtotal: 450, tarifa: 68, total: 518, fianza: 0 });
+  assert.equal(estadoActual({ estado: 'aceptada', pago: 'pendiente', hasta: '2099-01-01', respondida: new Date(Date.now() - 25 * 3600e3).toISOString() }), 'caducada', 'sin pagar en 24 h');
   assert.equal(libre({ bloqueos: [['2027-06-11', '2027-06-11']] }, [], '2027-06-10', '2027-06-12'), false);
   assert.equal(libre({ bloqueos: [] }, [{ desde: '2027-06-12', hasta: '2027-06-14', estado: 'aceptada', creado: new Date().toISOString() }], '2027-06-10', '2027-06-11'), true);
   assert.equal(estadoActual({ estado: 'pendiente', creado: new Date(Date.now() - 25 * 3600e3).toISOString() }), 'caducada');
@@ -90,4 +92,30 @@ test('reservas: con reserva inmediata queda confirmada al momento; mínimo de d�
   assert.equal(r.reserva.estado, 'aceptada');
   assert.equal((await api('api/alquiler/reserva', { id: r.reserva.id, accion: 'cancelar' }, quien('77'))).estado, 'cancelada');
   assert.equal((await api('api/alquiler/reservar', pedir, quien('88'))).reserva.estado, 'aceptada', 'vuelve a estar libre');
+});
+
+test('reservas: Sidonia cobra (precio + 15 % de servicio) y hasta pagar no se ve el contacto', async () => {
+  const cfgP = config({ SUBASTAS_CLAVE: 'k', ADMIN_CLAVE: 'panel', RESEND_API_KEY: 're_x', AVISOS_EQUIPO: 'equipo@sidonia.es', TIENDA_URL: 'https://sidonia.es', SERVIDOR_URL: 'https://motor.test', SUPABASE_URL: 'https://x.supabase.co', SUPABASE_SERVICE_KEY: 's', STRIPE_SECRET_KEY: 'sk_test' });
+  const { deps } = preparar({ inmediata: true });
+  const llamadas = [];
+  deps.stripe = async (m, path, b) => { llamadas.push([m, path, b]); return m === 'POST' ? { url: 'https://checkout.stripe.test/x' } : { metadata: { reserva: String(deps.reservas.filas[0].id) }, payment_status: 'paid' }; };
+  const api = (ruta, body = {}, q = {}, method = 'POST') => atender({ method, ruta, query: { ...q, ...(method === 'GET' ? body : {}) }, body, directo: true, headers: {} }, cfgP, deps);
+  const r = JSON.parse((await api('api/alquiler/reservar', pedir, quien('77'))).body);
+  assert.equal(r.reserva.tarifa, 68); assert.equal(r.reserva.total, 518);
+  assert.match(r.reserva.pagar, /\/tienda\/alquiler\/pagar\?r=\d+&f=/);
+  let v = JSON.parse((await api('api/alquiler/reservas', {}, quien('77'), 'GET')).body);
+  assert.equal(v.viajes[0].otro.telefono, undefined, 'aceptada pero sin pagar: sin contacto');
+  // A Stripe y vuelta
+  const u = new URL(r.reserva.pagar);
+  const ir = await atender({ method: 'GET', ruta: 'alquiler/pagar', query: Object.fromEntries(u.searchParams), body: {}, directo: true, headers: {} }, cfgP, deps);
+  assert.equal(ir.status, 303); assert.equal(ir.headers.Location, 'https://checkout.stripe.test/x');
+  assert.equal(llamadas[0][2].line_items[0].price_data.unit_amount, 51800);
+  const vuelta = await atender({ method: 'GET', ruta: 'alquiler/pagado', query: { ...Object.fromEntries(u.searchParams), session_id: 'cs_test_1' }, body: {}, directo: true, headers: {} }, cfgP, deps);
+  assert.equal(vuelta.status, 303);
+  assert.equal(deps.reservas.filas[0].pago, 'pagado');
+  v = JSON.parse((await api('api/alquiler/reservas', {}, quien('77'), 'GET')).body);
+  assert.equal(v.viajes[0].otro.telefono, '600000000');
+  // Firma mala
+  const mal = await atender({ method: 'GET', ruta: 'alquiler/pagar', query: { r: u.searchParams.get('r'), f: 'x' }, body: {}, directo: true, headers: {} }, cfgP, deps);
+  assert.match(mal.body, /Enlace no válido/);
 });

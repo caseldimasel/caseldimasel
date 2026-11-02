@@ -29,7 +29,7 @@ import { avisarCliente, avisarTodos, avisoCambios, avisoPublicado, avisoRechazad
 import { navPanel, paginaEstadisticas, ponerContadores } from './estadisticas.mjs';
 import { marco, rutasOperaciones } from './operaciones.mjs';
 import { accionPanelAlquiler, paginaAlquiler } from './alquiler.mjs';
-import { tablaReservasPanel } from './reservas.mjs';
+import { accionPanelReservas, tablaReservasPanel } from './reservas.mjs';
 import { paginaGarajes } from './garaje.mjs';
 import { paginaOpiniones } from './opiniones.mjs';
 import { rutasFichas } from './fichas.mjs';
@@ -956,7 +956,7 @@ export async function atenderPanel(req, cfg, deps) {
     let lista = [], error = '';
     let contactos = [];
     if (req.method === 'POST' && req.body && req.body.accion) {
-      try { error = await accionPanelAlquiler(req.body, cfg, deps); } catch (e) { error = 'No se ha podido guardar: ejecuta otra vez sql/alquiler.sql en Supabase › SQL Editor (tiene columnas nuevas).'; }
+      try { error = (await accionPanelReservas(req.body, cfg, deps)) || (req.body.accion === 'reserva-pagada-dueno' ? '' : await accionPanelAlquiler(req.body, cfg, deps)); } catch (e) { error = 'No se ha podido guardar: ejecuta otra vez sql/alquiler.sql en Supabase › SQL Editor (tiene columnas nuevas).'; }
     }
     try { lista = await (deps.alquiler || tablaAnuncios(cfg, deps.fetch, 'alquiler')).leer('select=*&order=creado.desc&limit=2000'); } catch (e) { error = 'La lista se apunta aquí desde que ejecutes sql/alquiler.sql en Supabase › SQL Editor (mientras, os llega por email).'; }
     try { contactos = await (deps.alquiler_contactos || tablaAnuncios(cfg, deps.fetch, 'alquiler_contactos')).leer('select=*&order=creado.desc&limit=500'); } catch (e) { /* sin la tabla aún */ }

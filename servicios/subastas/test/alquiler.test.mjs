@@ -92,8 +92,10 @@ test('alquiler: la petición pública se ve sin datos personales; un dueño cont
   assert.equal(r.ok, true); assert.equal(r.enviado, true);
   const a = correos.find((c) => c.to.includes('lucia@x.es'));
   assert.match(a.subject, /Tienen un coche para ti: Alfa Romeo Spider 1975 rojo/);
-  assert.match(a.html, /p@x\.es/); assert.equal(a.reply_to, 'p@x.es');
-  assert.ok(correos.some((c) => c.to.includes('equipo@sidonia.es')));
+  assert.equal(/p@x\.es|611222333/.test(a.html), false, 'Sidonia hace de intermediario: sin el contacto del dueño');
+  assert.equal(a.reply_to, 'equipo@sidonia.es');
+  const eq = correos.find((c) => c.to.includes('equipo@sidonia.es'));
+  assert.match(eq.html, /p@x\.es/);
   assert.equal(deps.alquiler_contactos.filas.length, 1);
   // Cerrada desde el panel: ya no se ve
   await atenderPanel({ method: 'POST', query: { estado: 'alquiler' }, body: { accion: 'peticion-estado', id: String(id), valor: 'cerrada' }, headers: auth }, cfg, deps);

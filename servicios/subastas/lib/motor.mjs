@@ -25,7 +25,8 @@ import { contactarAlquiler, peticionesPublicas, recibirAlquiler } from './alquil
 import { rutasGaraje } from './garaje.mjs';
 import { rutasOpiniones } from './opiniones.mjs';
 import { rutasLikes } from './likes.mjs';
-import { rutasReservas } from './reservas.mjs';
+import { rutasPagoReserva, rutasReservas } from './reservas.mjs';
+import { rutasChat } from './chat.mjs';
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { rutasTienda } from './circulo.mjs';
 import { cuentaFirebase, registrarDispositivo } from './avisos.mjs';
@@ -43,6 +44,8 @@ export function config(env = process.env) {
     supabaseUrl: (env.SUPABASE_URL || '').replace(/\/$/, ''),
     supabaseKey: env.SUPABASE_SERVICE_KEY || '',     // clave de servicio (solo en el servidor)
     stripeKey: env.STRIPE_SECRET_KEY || '',
+    // Alquiler: tarifa de servicio de Sidonia, en % sobre el precio (como Airbnb). ALQUILER_COMISION en Vercel; 15 si no está
+    alquilerComision: Math.max(0, Math.min(50, Number(env.ALQUILER_COMISION ?? 15) || 0)),
     stripeWebhook: env.STRIPE_WEBHOOK_SECRET || '',  // firma de los avisos de Stripe (pagos de los anuncios: api/stripe.js)
     // Este servidor (para los enlaces de pago): Vercel lo da solo; SERVIDOR_URL si se quiere otro
     servidor: (env.SERVIDOR_URL || (env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${env.VERCEL_PROJECT_PRODUCTION_URL}` : '')).replace(/\/$/, ''),
@@ -258,8 +261,10 @@ export async function atender(req, cfg, deps) {
     // Pagar un anuncio de la comunidad (enlace firmado, sin sesión): la página y la vuelta de Stripe
     if (ruta === 'pagar' || ruta === 'pagar/ok') return rutasPago({ ruta, method: req.method, query: req.query || {}, body: req.body || {} }, cfg, deps);
     // «¿Lo vendemos nosotros?» (enlace firmado del email, sin sesión): gestion.mjs
+    // Pagar una reserva de alquiler (enlace firmado): a Stripe y la vuelta (reservas.mjs)
+    if (ruta === 'alquiler/pagar' || ruta === 'alquiler/pagado') return rutasPagoReserva({ ruta, query: req.query || {} }, cfg, deps);
     if (ruta === 'gestion') return rutasGestion({ method: req.method, query: req.query || {}, body: req.body || {} }, cfg, deps);
-    if (!/^api\/(anuncio|anuncios|visita|perfil|push|alertas|evento|comunidad|oferta|alquiler|garaje|opiniones|likes)(\/|$)/.test(ruta)) return json(404, { ok: false, error: 'ruta' });
+    if (!/^api\/(anuncio|anuncios|visita|perfil|push|alertas|evento|comunidad|oferta|alquiler|garaje|opiniones|likes|chat)(\/|$)/.test(ruta)) return json(404, { ok: false, error: 'ruta' });
   } else if (!comprobarProxy(req.query, cfg.secreto)) return json(401, { ok: false, error: 'firma' });
   const cliente = !req.directo && req.query.logged_in_customer_id ? String(req.query.logged_in_customer_id) : clienteFirmado(req.query, cfg.clave);
   // El tema mandó quién es, pero la firma no cuadra: la «Clave del motor» del tema no es la SUBASTAS_CLAVE de Vercel
@@ -335,6 +340,11 @@ export async function atender(req, cfg, deps) {
     if (r) return r;
   }
 
+  // Mensajes dentro de Sidonia: venta de la comunidad, alquiler y peticiones (chat.mjs)
+  if (ruta.startsWith('api/chat')) {
+    const r = await rutasChat({ ruta, method: req.method, body: req.method === 'GET' ? { ...req.query } : body }, cliente, cfg, deps);
+    if (r) return r;
+  }
   // «Me gusta» de profesionales y eventos (likes.mjs)
   if (ruta === 'api/likes') return rutasLikes({ ruta, method: req.method, body: req.method === 'GET' ? { ...req.query } : body }, cliente, cfg, deps);
   // Profesionales: las opiniones de la comunidad sobre cada taller (opiniones.mjs)

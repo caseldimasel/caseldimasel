@@ -7,7 +7,10 @@
  * - Se hablan por mensajes dentro de Sidonia (con aviso por email). El teléfono, el email y dónde se entrega el coche
  *   solo se ven cuando la reserva está confirmada.
  * - Al acabar, cada uno deja su reseña: quien alquila, del coche y su dueño; el dueño, de quien lo alquiló.
- * - Sin cobros todavía: se enseña el precio y se paga al dueño en la entrega (la comisión de Sidonia está a 0).
+ * - Sidonia hace de intermediario, como Airbnb: quien alquila paga en Sidonia el precio + la tarifa de servicio
+ *   (cfg.alquilerComision %, 15 por defecto) cuando el dueño acepta (o al momento con reserva inmediata), con Stripe.
+ *   Hasta que paga, nadie ve el contacto del otro ni dónde se recoge. Al dueño se le paga su precio después (panel).
+ *   Sin Stripe configurado, se paga al dueño en la entrega.
  *
  * Público:  GET api/alquiler/coches?desde=&hasta=&ciudad=&conductor=   GET api/alquiler/coche?id=
  * Sesión:   POST api/alquiler/reservar   GET api/alquiler/reservas   POST api/alquiler/reserva { id, accion }
@@ -18,7 +21,11 @@ import { datos, enviarCorreo, P, plantilla } from './correos.mjs';
 import { USOS } from './garaje.mjs';
 
 export const PLAZO_H = 24;           // horas que tiene el dueño para responder
-export const COMISION = 0;           // % de Sidonia (lanzamiento: 0)
+import { createHmac } from 'node:crypto';
+export const COMISION = 15;          // % de Sidonia si no se dice otra cosa (cfg.alquilerComision)
+const comision = (cfg) => (cfg && Number.isFinite(cfg.alquilerComision) ? cfg.alquilerComision : COMISION);
+const firmaR = (cfg, id) => createHmac('sha256', String(cfg.clave || cfg.secreto || 'sidonia')).update(`reserva.${Number(id)}`).digest('hex').slice(0, 32);
+export const urlPagar = (cfg, id) => `${cfg.servidor}/tienda/alquiler/pagar?r=${Number(id)}&f=${firmaR(cfg, id)}`;
 const DIA = /^\d{4}-\d{2}-\d{2}$/;
 const EMAIL = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 const clip = (t, n) => String(t ?? '').replace(/\r\n?/g, '\n').replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g, '').trim().slice(0, n);
@@ -33,16 +40,20 @@ const CONDUCE = { con: 'Con su dueño al volante', sin: 'Sin conductor (lo condu
 /** El estado de verdad: las pendientes caducan a las 24 h y las aceptadas pasadas están completadas */
 export function estadoActual(r, ahora = Date.now()) {
   if (r.estado === 'pendiente' && ahora - Date.parse(r.creado) > PLAZO_H * 3600e3) return 'caducada';
+  // Aceptada pero sin pagar en 24 h: se libera
+  if (r.estado === 'aceptada' && r.pago === 'pendiente' && ahora - Date.parse(r.respondida || r.creado) > PLAZO_H * 3600e3) return 'caducada';
   if (r.estado === 'aceptada' && String(r.hasta) < new Date(ahora + 3600e3).toISOString().slice(0, 10)) return 'completada';
   return r.estado;
 }
 /** El precio, como en Airbnb: precio × días + comisión (0 por ahora) */
-export function precio(alq, desde, hasta) {
+export function precio(alq, desde, hasta, pct = COMISION) {
   const dias = diasEntre(desde, hasta);
   const sub = (Number(alq.precio) || 0) * dias;
-  const tarifa = Math.round((sub * COMISION) / 100);
+  const tarifa = Math.round((sub * pct) / 100);
   return { dias, precio_dia: Number(alq.precio) || 0, subtotal: sub, tarifa, total: sub + tarifa, fianza: Number(alq.fianza) || 0 };
 }
+/** Confirmada de verdad: aceptada y pagada (o sin pago en Sidonia) */
+export const confirmada = (r) => { const e = estadoActual(r); return (e === 'aceptada' || e === 'completada') && r.pago !== 'pendiente'; };
 const ocupadas = (rs) => rs.filter((r) => estadoActual(r) === 'aceptada').map((r) => [String(r.desde), String(r.hasta)]);
 export function libre(coche, reservas, desde, hasta) {
   return ![...(coche.bloqueos || []), ...ocupadas(reservas)].some(([a, b]) => solapa(desde, hasta, a, b));
@@ -97,7 +108,7 @@ export async function rutasReservas({ ruta, method, body }, cliente, cfg, deps) 
       if (desde) coches = coches.filter((c) => libre(c, rs.filter((r) => Number(r.coche_id) === Number(c.id)), desde, hasta) && diasEntre(desde, hasta) >= (Number(c.alq?.minimo) || 1));
       const res = ids.length ? await tS.leer(`coche_id=in.(${ids.join(',')})&rol=eq.huesped&select=coche_id,nota,rol`).catch(() => []) : [];
       const ps = await perfiles(cfg, deps, coches.map((c) => c.cliente));
-      return json(200, { ok: true, coches: coches.map((c) => anuncio(cfg, c, ps[String(c.cliente)], res)), comision: COMISION }, cliente ? 'no-store' : 'public, max-age=30');
+      return json(200, { ok: true, coches: coches.map((c) => anuncio(cfg, c, ps[String(c.cliente)], res)), comision: comision(cfg) }, cliente ? 'no-store' : 'public, max-age=30');
     } catch (e) { return falta(e); }
   }
   // ------------------------------------------------------------------ Un coche: ficha, calendario, reseñas y anfitrión
@@ -110,7 +121,7 @@ export async function rutasReservas({ ruta, method, body }, cliente, cfg, deps) 
       const ps = await perfiles(cfg, deps, [c.cliente]);
       const otros = (await tG.leer(`cliente=eq.${encodeURIComponent(c.cliente)}&alquiler=eq.true&visible=eq.true&select=id`).catch(() => [])).length;
       return json(200, { ok: true, coche: { ...anuncio(cfg, c, ps[String(c.cliente)], res), suyo: String(c.cliente) === String(cliente) },
-        ocupado: [...(c.bloqueos || []), ...ocupadas(rs)], comision: COMISION, anfitrion_coches: otros,
+        ocupado: [...(c.bloqueos || []), ...ocupadas(rs)], comision: comision(cfg), anfitrion_coches: otros,
         resenas: res.filter((r) => r.rol === 'huesped').map((r) => ({ nombre: r.nombre || 'Miembro de Sidonia', nota: r.nota, texto: r.texto, creado: r.creado })) }, cliente ? 'no-store' : 'public, max-age=30');
     } catch (e) { return falta(e); }
   }
@@ -131,7 +142,7 @@ export async function rutasReservas({ ruta, method, body }, cliente, cfg, deps) 
       const [c] = await tG.leer(`id=eq.${Number(body.coche_id)}&alquiler=eq.true&limit=1`);
       if (!c || c.visible === false || !(Number(c.alq?.precio) > 0)) return json(404, { ok: false, error: 'no-existe' });
       if (String(c.cliente) === String(cliente)) return json(400, { ok: false, error: 'suyo' });
-      const pr = precio(c.alq, desde, hasta);
+      const pr = precio(c.alq, desde, hasta, cfg.stripeKey ? comision(cfg) : 0);
       if (pr.dias < (Number(c.alq.minimo) || 1)) return json(400, { ok: false, error: 'minimo', minimo: Number(c.alq.minimo) });
       if (pr.dias > 60) return json(400, { ok: false, error: 'fechas' });
       const rs = await tR.leer(`coche_id=eq.${Number(c.id)}&select=desde,hasta,estado,creado`);
@@ -139,8 +150,9 @@ export async function rutasReservas({ ruta, method, body }, cliente, cfg, deps) 
       const mias = await tR.leer(`cliente=eq.${encodeURIComponent(cliente)}&estado=eq.pendiente&select=id,creado`).catch(() => []);
       if (mias.filter((r) => estadoActual(r) === 'pendiente').length >= 5) return json(200, { ok: false, error: 'muchas' });
       const estado = c.alq.inmediata ? 'aceptada' : 'pendiente';
-      const r = await tR.guardar({ coche_id: Number(c.id), dueno: String(c.cliente), cliente: String(cliente), desde, hasta, dias: pr.dias, precio_dia: pr.precio_dia, total: pr.total, estado,
-        ...q, ...(estado === 'aceptada' ? { respondida: new Date().toISOString() } : {}) }, 'id');
+      const cobrar = Boolean(cfg.stripeKey);
+      const r = await tR.guardar({ coche_id: Number(c.id), dueno: String(c.cliente), cliente: String(cliente), desde, hasta, dias: pr.dias, precio_dia: pr.precio_dia, total: pr.total, tarifa: pr.tarifa,
+        pago: cobrar && estado === 'aceptada' ? 'pendiente' : '', estado, ...q, ...(estado === 'aceptada' ? { respondida: new Date().toISOString() } : {}) }, 'id');
       if (q.mensaje) await tM.guardar({ reserva_id: Number(r.id), de: String(cliente), texto: q.mensaje }, 'id').catch(() => null);
       // Emails: al dueño (solicitud o reserva hecha), a quien alquila (enviada o confirmada) y copia al equipo
       const d = await emailDueno(cfg, deps, c.cliente);
@@ -153,10 +165,10 @@ export async function rutasReservas({ ruta, method, body }, cliente, cfg, deps) 
       await correo(cfg, d.email, estado === 'aceptada' ? `Reserva confirmada: tu ${titulo(c)}` : `Solicitud de reserva: tu ${titulo(c)}`, aDueno, deps);
       await correo(cfg, q.email, estado === 'aceptada' ? `Reserva confirmada: ${titulo(c)}` : `Solicitud enviada: ${titulo(c)}`, {
         titulo: estado === 'aceptada' ? '¡Reserva confirmada!' : 'Solicitud enviada', previa: `${titulo(c)}, del ${fechaTxt(desde)} al ${fechaTxt(hasta)}.`,
-        cuerpo: P(estado === 'aceptada' ? 'Tu reserva está confirmada. En Sidonia tienes ya el contacto del dueño y dónde se entrega el coche.' : `El dueño tiene ${PLAZO_H} horas para responder. No se te cobra nada: el pago se acuerda con el dueño.`) + datos(filas),
-        boton: 'Ver mi reserva', enlace: urlReservas(cfg) }, deps);
+        cuerpo: P(estado === 'aceptada' ? (cobrar ? `Paga en las próximas ${PLAZO_H} horas para confirmarla: en cuanto pagues, verás el contacto del dueño y dónde se recoge.` : 'Tu reserva está confirmada. En Sidonia tienes ya el contacto del dueño y dónde se entrega el coche.') : `El dueño tiene ${PLAZO_H} horas para responder. Hasta que acepte no se te cobra nada.`) + datos(filas),
+        boton: estado === 'aceptada' && cobrar ? 'Pagar y confirmar' : 'Ver mi reserva', enlace: estado === 'aceptada' && cobrar ? urlPagar(cfg, r.id) : urlReservas(cfg) }, deps);
       for (const e of cfg.avisosEquipo || []) await correo(cfg, e, `[Alquiler] ${estado === 'aceptada' ? 'Reserva' : 'Solicitud'}: ${titulo(c)} · ${q.nombre}`, aDueno, deps, q.email);
-      return json(200, { ok: true, reserva: { id: r.id, estado, ...pr } });
+      return json(200, { ok: true, reserva: { id: r.id, estado, ...pr, ...(r.pago === 'pendiente' ? { pagar: urlPagar(cfg, r.id) } : {}) } });
     } catch (e) { return falta(e); }
   }
 
@@ -175,15 +187,17 @@ export async function rutasReservas({ ruta, method, body }, cliente, cfg, deps) 
       const ver = async (r, rol) => {
         const c = deC[Number(r.coche_id)] || {};
         const estado = estadoActual(r);
-        const confirmada = estado === 'aceptada' || estado === 'completada';
+        const conf = confirmada(r);
         let otro;
         if (rol === 'cliente') {
-          if (confirmada && !contactos[r.dueno]) contactos[r.dueno] = await emailDueno(cfg, deps, r.dueno);
-          otro = { nombre: ps[String(r.dueno)]?.nombre || 'Anfitrión', ...(confirmada ? { email: contactos[r.dueno].email, telefono: contactos[r.dueno].telefono } : {}) };
-        } else otro = { nombre: r.nombre || ps[String(r.cliente)]?.nombre || 'Cliente', ...(confirmada ? { email: r.email, telefono: r.telefono } : {}) };
-        return { id: r.id, rol, estado, desde: r.desde, hasta: r.hasta, dias: r.dias, precio_dia: r.precio_dia, total: r.total, para: r.para, creado: r.creado,
+          if (conf && !contactos[r.dueno]) contactos[r.dueno] = await emailDueno(cfg, deps, r.dueno);
+          otro = { nombre: ps[String(r.dueno)]?.nombre || 'Anfitrión', ...(conf ? { email: contactos[r.dueno].email, telefono: contactos[r.dueno].telefono } : {}) };
+        } else otro = { nombre: r.nombre || ps[String(r.cliente)]?.nombre || 'Cliente', ...(conf ? { email: r.email, telefono: r.telefono } : {}) };
+        return { id: r.id, rol, estado, desde: r.desde, hasta: r.hasta, dias: r.dias, precio_dia: r.precio_dia, total: r.total, tarifa: Number(r.tarifa) || 0, para: r.para, creado: r.creado,
+          pago: r.pago || '', ...(rol === 'cliente' && estado === 'aceptada' && r.pago === 'pendiente' ? { pagar: urlPagar(cfg, r.id) } : {}),
+          gana: (Number(r.total) || 0) - (Number(r.tarifa) || 0), pagado_dueno: r.pagado_dueno || null,
           caduca: estado === 'pendiente' ? new Date(Date.parse(r.creado) + PLAZO_H * 3600e3).toISOString() : null,
-          coche: { id: c.id, titulo: titulo(c), foto: (c.fotos || [])[0] ? urlFoto(cfg, c.fotos[0]) : '', ciudad: c.alq?.ciudad || '', ...(confirmada ? { entrega: c.alq?.entrega || '' } : {}) },
+          coche: { id: c.id, titulo: titulo(c), foto: (c.fotos || [])[0] ? urlFoto(cfg, c.fotos[0]) : '', ciudad: c.alq?.ciudad || '', ...(conf ? { entrega: c.alq?.entrega || '' } : {}) },
           otro, resena_hecha: res.some((x) => Number(x.reserva_id) === Number(r.id) && x.rol === (rol === 'cliente' ? 'huesped' : 'anfitrion')) };
       };
       return json(200, { ok: true, viajes: await Promise.all(comoCliente.map((r) => ver(r, 'cliente'))), solicitudes: await Promise.all(comoDueno.map((r) => ver(r, 'dueno'))) });
@@ -214,15 +228,17 @@ export async function rutasReservas({ ruta, method, body }, cliente, cfg, deps) 
       } else if (rol === 'dueno' && estado === 'pendiente' && accion === 'rechazar') nuevo = 'rechazada';
       else if (accion === 'cancelar' && (estado === 'pendiente' || (estado === 'aceptada' && String(r.desde) > hoyISO()))) nuevo = 'cancelada';
       else return json(400, { ok: false, error: 'estado' });
-      await tR.cambiar(r.id, { estado: nuevo, respondida: new Date().toISOString() });
+      const pagoNuevo = nuevo === 'aceptada' && cfg.stripeKey ? { pago: 'pendiente' } : {};
+      await tR.cambiar(r.id, { estado: nuevo, respondida: new Date().toISOString(), ...pagoNuevo });
       const t = titulo(c || {});
-      const TXT = { aceptada: ['¡Reserva confirmada!', `El dueño ha aceptado tu reserva del ${t}. Ya tienes su contacto y dónde se entrega el coche en Sidonia.`],
+      const TXT = { aceptada: cfg.stripeKey ? ['¡Han aceptado tu reserva!', `El dueño ha aceptado tu reserva del ${t}. Págala en las próximas ${PLAZO_H} horas para confirmarla: después verás su contacto y dónde se recoge.`] : ['¡Reserva confirmada!', `El dueño ha aceptado tu reserva del ${t}. Ya tienes su contacto y dónde se entrega el coche en Sidonia.`],
         rechazada: ['Solicitud no aceptada', `El dueño no puede alquilarte el ${t} esas fechas. Mira otros coches en Sidonia: seguro que hay uno para ti.`],
         cancelada: ['Reserva cancelada', `La reserva del ${t} (${fechaTxt(r.desde)} → ${fechaTxt(r.hasta)}) se ha cancelado.`] };
       const [tt, cuerpo] = TXT[nuevo];
       const d = await emailDueno(cfg, deps, r.dueno);
       const para = rol === 'dueno' ? r.email : d.email;
-      await correo(cfg, para, `${tt}: ${t}`, { titulo: tt, previa: cuerpo, cuerpo: P(cuerpo), boton: 'Ver en Sidonia', enlace: urlReservas(cfg) }, deps);
+      const pagar = nuevo === 'aceptada' && cfg.stripeKey && rol === 'dueno';
+      await correo(cfg, para, `${tt}: ${t}`, { titulo: tt, previa: cuerpo, cuerpo: P(cuerpo), boton: pagar ? `Pagar ${Number(r.total)} € y confirmar` : 'Ver en Sidonia', enlace: pagar ? urlPagar(cfg, r.id) : urlReservas(cfg) }, deps);
       for (const e of cfg.avisosEquipo || []) await correo(cfg, e, `[Alquiler] ${tt}: ${t}`, { titulo: tt, previa: cuerpo, cuerpo: P(cuerpo), boton: 'Panel', enlace: `${cfg.servidor}/admin?estado=alquiler` }, deps);
       return json(200, { ok: true, estado: nuevo });
     } catch (e) { return falta(e); }
@@ -250,7 +266,7 @@ export async function rutasReservas({ ruta, method, body }, cliente, cfg, deps) 
     try {
       const s = await suya(body.id);
       if (!s) return json(404, { ok: false, error: 'no-existe' });
-      if (estadoActual(s.r) !== 'completada') return json(400, { ok: false, error: 'estado' });
+      if (estadoActual(s.r) !== 'completada' || s.r.pago === 'pendiente') return json(400, { ok: false, error: 'estado' });
       const nota = Math.round(Number(body.nota)), texto = clip(body.texto, 1500);
       if (!(nota >= 1 && nota <= 5)) return json(400, { ok: false, error: 'nota' });
       if (texto.length < 10) return json(400, { ok: false, error: 'texto' });
@@ -264,16 +280,74 @@ export async function rutasReservas({ ruta, method, body }, cliente, cfg, deps) 
   return json(404, { ok: false, error: 'ruta' });
 }
 
+/* ---------------------------------------------------------------------------- Pagar (Stripe) */
+const pagina = (cfg, titulo, texto, enlace, boton) => ({ status: 200, headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' },
+  body: `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(titulo)} · SIDONIA</title>
+<style>body{margin:0;font-family:Inter,system-ui,sans-serif;background:#f4f3f0;color:#1a1a1a;display:grid;place-items:center;min-height:100vh;padding:20px;box-sizing:border-box}main{max-width:440px;background:#fff;border-radius:22px;padding:30px;box-shadow:0 20px 50px -30px rgba(0,0,0,.4);text-align:center}h1{font-size:24px;margin:0 0 10px}p{color:#555;line-height:1.55}a{display:inline-block;margin-top:14px;padding:13px 22px;border-radius:999px;background:#1a1a1a;color:#fff;text-decoration:none;font-weight:700}.l{letter-spacing:6px;font-weight:700;margin-bottom:18px}</style></head>
+<body><main><div class="l">SIDONIA</div><h1>${esc(titulo)}</h1><p>${texto}</p>${enlace ? `<a href="${esc(enlace)}">${esc(boton || 'Volver a Sidonia')}</a>` : ''}</main></body></html>` });
+
+/** /tienda/alquiler/pagar?r=&f= (a Stripe) y /tienda/alquiler/pagado?r=&f=&session_id= (la vuelta) */
+export async function rutasPagoReserva({ ruta, query }, cfg, deps) {
+  const id = Number(query.r);
+  if (!id || query.f !== firmaR(cfg, id)) return pagina(cfg, 'Enlace no válido', 'Este enlace no es correcto. Entra en Sidonia › Mi perfil › Reservas.', urlReservas(cfg));
+  const tR = tabla(cfg, deps, 'reservas'), tG = tabla(cfg, deps, 'garaje');
+  const [r] = await tR.leer(`id=eq.${id}&limit=1`);
+  if (!r) return pagina(cfg, 'Reserva no encontrada', 'No encontramos esta reserva.', urlReservas(cfg));
+  const [c] = await tG.leer(`id=eq.${Number(r.coche_id)}&limit=1`).catch(() => []);
+  const t = titulo(c || {});
+  const st = deps.stripe || (await import('./motor.mjs')).stripe(cfg, deps.fetch);
+  if (ruta === 'alquiler/pagado') {
+    const sid = String(query.session_id || '');
+    if (r.pago !== 'pagado' && /^cs_[A-Za-z0-9_]+$/.test(sid)) {
+      const s = await st('GET', `checkout/sessions/${sid}`).catch(() => null);
+      if (s && String(s.metadata?.reserva) === String(id) && s.payment_status === 'paid') {
+        await tR.cambiar(id, { pago: 'pagado', pagado: new Date().toISOString(), stripe_sesion: sid });
+        const d = await emailDueno(cfg, deps, r.dueno);
+        const filas = [['Coche', t], ['Fechas', `${fechaTxt(r.desde)} → ${fechaTxt(r.hasta)}`], ['Pagado', `${Number(r.total)} €`]];
+        await correo(cfg, r.email, `Reserva confirmada: ${t}`, { titulo: '¡Reserva confirmada!', previa: `${t}, del ${fechaTxt(r.desde)} al ${fechaTxt(r.hasta)}.`,
+          cuerpo: P('Pago recibido: tu reserva está confirmada. Ya tienes en Sidonia el contacto del dueño y dónde se recoge el coche.') + datos([...filas, ...(c?.alq?.entrega ? [['Dónde se recoge', c.alq.entrega]] : []), ...(d.telefono ? [['Teléfono del dueño', d.telefono]] : [])]), boton: 'Ver mi reserva', enlace: urlReservas(cfg) }, deps);
+        await correo(cfg, d.email, `Reserva pagada: tu ${t}`, { titulo: '¡Reserva pagada!', previa: `${r.nombre} ha pagado la reserva de tu ${t}.`,
+          cuerpo: P(`<b>${esc(r.nombre)}</b> ha pagado la reserva. Os toca quedar: ya tenéis los dos el contacto del otro en Sidonia.`) + datos([['Coche', t], ['Fechas', `${fechaTxt(r.desde)} → ${fechaTxt(r.hasta)}`], ['Para ti', `${Number(r.total) - Number(r.tarifa || 0)} €`], ...(r.telefono ? [['Su teléfono', r.telefono]] : [])])
+            + P('Te pagamos tu parte cuando se haya hecho la entrega.'), boton: 'Ver la reserva', enlace: urlReservas(cfg) }, deps);
+        for (const e of cfg.avisosEquipo || []) await correo(cfg, e, `[Alquiler] Pagada: ${t} · ${Number(r.total)} €`, { titulo: 'Reserva pagada', previa: t, cuerpo: datos([...filas, ['Para el dueño', `${Number(r.total) - Number(r.tarifa || 0)} €`], ['Sidonia', `${Number(r.tarifa || 0)} €`]]), boton: 'Panel', enlace: `${cfg.servidor}/admin?estado=alquiler` }, deps);
+      }
+    }
+    return { status: 303, headers: { Location: `${urlReservas(cfg)}`, 'Cache-Control': 'no-store' }, body: '' };
+  }
+  if (r.pago === 'pagado') return pagina(cfg, 'Ya está pagada', `La reserva del ${esc(t)} ya está pagada y confirmada.`, urlReservas(cfg), 'Ver mis reservas');
+  if (estadoActual(r) !== 'aceptada' || r.pago !== 'pendiente') return pagina(cfg, 'No se puede pagar', 'Esta reserva ya no está pendiente de pago (ha caducado, se ha cancelado o aún no la ha aceptado el dueño).', urlReservas(cfg), 'Ver mis reservas');
+  if (!cfg.stripeKey) return pagina(cfg, 'Aún no se puede pagar aquí', 'Escríbenos y te decimos cómo pagar tu reserva.', urlReservas(cfg));
+  const s = await st('POST', 'checkout/sessions', {
+    mode: 'payment', locale: 'es', customer_email: r.email || undefined,
+    line_items: [{ quantity: 1, price_data: { currency: 'eur', unit_amount: Math.round(Number(r.total) * 100), product_data: { name: `Alquiler: ${t}`.slice(0, 250), description: `Del ${fechaTxt(r.desde)} al ${fechaTxt(r.hasta)} (${r.dias} días) · incluye la tarifa de servicio de Sidonia` } } }],
+    metadata: { reserva: String(id) }, payment_intent_data: { metadata: { reserva: String(id) }, description: `Reserva #${id} · ${t}` },
+    expires_at: Math.floor(Date.now() / 1000) + 3600,
+    success_url: `${cfg.servidor}/tienda/alquiler/pagado?r=${id}&f=${firmaR(cfg, id)}&session_id={CHECKOUT_SESSION_ID}`,
+    cancel_url: urlReservas(cfg)
+  });
+  return { status: 303, headers: { Location: s.url, 'Cache-Control': 'no-store' }, body: '' };
+}
+
+/** Panel: marcar que ya se le ha pagado al dueño */
+export async function accionPanelReservas(b, cfg, deps) {
+  if (b.accion !== 'reserva-pagada-dueno' || !Number(b.id)) return '';
+  await tabla(cfg, deps, 'reservas').cambiar(Number(b.id), { pagado_dueno: new Date().toISOString() });
+  return '';
+}
+
 /* ---------------------------------------------------------------------------- Panel › Clientes › Alquiler: reservas */
 export function tablaReservasPanel(reservas, coches = []) {
   if (!reservas.length) return '';
   const deC = Object.fromEntries(coches.map((c) => [Number(c.id), c]));
   const EST = { pendiente: 'Pendiente', aceptada: 'Confirmada', rechazada: 'Rechazada', cancelada: 'Cancelada', caducada: 'Caducada', completada: 'Completada' };
-  return `<h2 style="margin:22px 0 8px">Reservas</h2><div class="card"><div class="tabla"><table>
-  <thead><tr><th class="izq">Coche</th><th class="izq">Fechas</th><th>Total</th><th class="izq">Quien alquila</th><th class="izq">Estado</th></tr></thead>
+  const pagadas = reservas.filter((r) => r.pago === 'pagado');
+  const ganado = pagadas.reduce((s, r) => s + (Number(r.tarifa) || 0), 0), debe = pagadas.filter((r) => !r.pagado_dueno).reduce((s, r) => s + Number(r.total) - (Number(r.tarifa) || 0), 0);
+  return `<h2 style="margin:22px 0 8px">Reservas</h2><div class="kpis"><div class="kpi"><span>Reservas pagadas</span><b>${pagadas.length}</b><small>${reservas.length} en total</small></div><div class="kpi"><span>Comisión de Sidonia</span><b>${ganado} €</b><small>de las pagadas</small></div><div class="kpi"><span>Por pagar a dueños</span><b>${debe} €</b><small>tras la entrega</small></div></div><div class="card"><div class="tabla"><table>
+  <thead><tr><th class="izq">Coche</th><th class="izq">Fechas</th><th>Total</th><th>Sidonia</th><th>Para el dueño</th><th class="izq">Quien alquila</th><th class="izq">Estado</th><th class="izq">Pago</th></tr></thead>
   <tbody>${reservas.map((r) => `<tr><td class="izq"><b>${esc(titulo(deC[Number(r.coche_id)] || {}) || `#${Number(r.coche_id)}`)}</b></td>
-    <td class="izq">${esc(String(r.desde))} → ${esc(String(r.hasta))}<span class="sub">${Number(r.dias)} días</span></td><td>${Number(r.total)} €</td>
-    <td class="izq">${esc(r.nombre)}<span class="sub">${esc(r.email)}${r.telefono ? ` · ${esc(r.telefono)}` : ''}</span></td><td class="izq">${EST[estadoActual(r)] || esc(r.estado)}</td></tr>`).join('')}</tbody>
+    <td class="izq">${esc(String(r.desde))} → ${esc(String(r.hasta))}<span class="sub">${Number(r.dias)} días</span></td><td>${Number(r.total)} €</td><td>${Number(r.tarifa || 0)} €</td><td>${Number(r.total) - Number(r.tarifa || 0)} €</td>
+    <td class="izq">${esc(r.nombre)}<span class="sub">${esc(r.email)}${r.telefono ? ` · ${esc(r.telefono)}` : ''}</span></td><td class="izq">${EST[estadoActual(r)] || esc(r.estado)}</td>
+    <td class="izq">${r.pago === 'pagado' ? `<span class="si">Pagado</span>${r.pagado_dueno ? '<span class="sub">Pagado al dueño</span>' : `<form method="post" action="?estado=alquiler"><input type="hidden" name="accion" value="reserva-pagada-dueno"><input type="hidden" name="id" value="${Number(r.id)}"><button class="btn">Ya le pagamos al dueño</button></form>`}` : r.pago === 'pendiente' ? 'Esperando el pago' : 'En la entrega'}</td></tr>`).join('')}</tbody>
 </table></div></div>`;
 }
 export { perfilPublico };

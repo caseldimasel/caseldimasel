@@ -55,3 +55,11 @@ create table if not exists reservas_resenas (
 create index if not exists reservas_resenas_coche on reservas_resenas (coche_id, creado desc);
 alter table reservas_resenas enable row level security;
 notify pgrst, 'reload schema';
+
+-- Sidonia hace de intermediario: cobra la reserva (precio + tarifa de servicio) y paga al dueño después
+alter table reservas add column if not exists tarifa        int  not null default 0;   -- tarifa de servicio de Sidonia (€)
+alter table reservas add column if not exists pago          text not null default '';  -- '' (se paga en la entrega) · pendiente · pagado
+alter table reservas add column if not exists stripe_sesion text not null default '';
+alter table reservas add column if not exists pagado        timestamptz;
+alter table reservas add column if not exists pagado_dueno  timestamptz;               -- cuándo le pagasteis al dueño
+notify pgrst, 'reload schema';
