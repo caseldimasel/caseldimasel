@@ -110,7 +110,7 @@ function barras(items) {
     : '<p class="vacio">Aún sin datos.</p>';
 }
 
-const NOMBRE_CANAL = { whatsapp: 'WhatsApp (nuestros coches)', chat: 'Chat de Sidonia (coches de dueños)', llamar: 'Llamada', email: 'Email', registro: 'Les pedimos la cuenta', otro: 'Otro' };
+const NOMBRE_CANAL = { whatsapp: 'WhatsApp (nuestros coches)', chat: 'Chat de Sidonia (coches de dueños)', llamar: 'Llamada (coches de dueños)', email: 'Email', registro: 'Les pedimos la cuenta', otro: 'Otro' };
 const NOMBRE_ORIGEN = (o) => ({ directo: 'Directo / sin origen', 'instagram': 'Instagram', 'google': 'Google', 'facebook': 'Facebook', 'whatsapp': 'WhatsApp', 'tiktok': 'TikTok', 'youtube': 'YouTube', 'linkedin': 'LinkedIn', 'x': 'X (Twitter)', 'bing': 'Bing', 'app': 'App de Sidonia', 'email': 'Email (alertas)' }[o] || o);
 
 const CSS_BUSCADOR = `
@@ -174,7 +174,7 @@ ${error ? `<p class="error">No se han podido leer las estadísticas: ${esc(/even
 <div class="kpis">
   ${kpi(a.visitantes, b.visitantes, 'Visitantes', 'personas distintas (por navegador)', 'visitantes')}
   ${kpi(a.vistas, b.vistas, 'Fichas vistas', 'veces que se ha abierto un anuncio', 'vistas')}
-  ${kpi(a.contactos, b.contactos, 'Contactos', 'WhatsApp en los nuestros; chat de Sidonia en los de dueños', 'contactos')}
+  ${kpi(a.contactos, b.contactos, 'Contactos', 'WhatsApp en los nuestros; chat o llamada en los de dueños', 'contactos')}
   ${kpi(a.likes, b.likes, 'Me gusta', 'corazones puestos', 'likes')}
   ${kpi(a.compartidos, b.compartidos, 'Compartidos', '', 'compartidos')}
   ${kpi(d.registros, d.registros_antes, 'Registros nuevos', 'cuentas nuevas', 'registros')}
