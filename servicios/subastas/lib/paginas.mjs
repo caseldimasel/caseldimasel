@@ -14,7 +14,9 @@ export const PAGINAS = [
   { handle: 'publicar', titulo: 'Publicar', plantilla: 'publicar' },
   { handle: 'subastas', titulo: 'Subastas', plantilla: 'subastas' },
   { handle: 'perfil', titulo: 'Mi perfil', plantilla: 'perfil' },
-  { handle: 'tienda', titulo: 'Tienda', plantilla: 'tienda' }
+  { handle: 'tienda', titulo: 'Tienda', plantilla: 'tienda' },
+  // Interna: la propuesta para Arka (sin enlaces en la web y fuera de los buscadores)
+  { handle: 'propuesta-arka', titulo: 'Propuesta para Arka', plantilla: 'propuesta-arka' }
 ];
 
 const Q_PAGINAS = `{ pages(first: 250) { nodes { id handle title templateSuffix isPublished } } }`;

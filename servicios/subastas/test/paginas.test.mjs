@@ -57,7 +57,7 @@ test('panel › Páginas de la web: el botón las crea y avisa si el tema no tie
   assert.match(get.body, /Crear y enlazar las páginas/);
   assert.match(get.body, /No existe/);
   const r = await atenderPanel({ method: 'POST', query: { estado: 'paginas' }, body: { accion: 'paginas' }, headers: auth }, cfg, { db: async () => [], gql });
-  assert.match(r.body, /Listo: 6 creadas, 1 con su plantilla puesta/);
+  assert.match(r.body, new RegExp(`Listo: ${PAGINAS.length - 2} creadas, 1 con su plantilla puesta`));
   assert.match(r.body, /no tiene la plantilla de Eventos/);
   assert.match(r.body, /https:\/\/sidonia\.es\/pages\/eventos/);
 });
