@@ -1,7 +1,7 @@
 /* SIDONIA · Estadísticas de la web: lo que pasa en sidonia.es y en la app, en el panel (/admin › Estadísticas).
  *
  * El tema (snippets/sidonia-estadisticas.liquid) apunta cada cosa con POST /tienda/api/evento:
- *   visita (una por sesión del navegador, con de dónde viene), vista (una ficha), contacto (WhatsApp, llamar, email, o
+ *   visita (una por sesión del navegador, con de dónde viene), vista (una ficha), contacto (WhatsApp, chat de Sidonia, llamar, email, o
  *   «registro» si le pedimos la cuenta antes), like / unlike (el corazón), compartir, busqueda, alerta y oferta.
  * Sin datos personales: un número al azar por navegador y, si ha entrado con su cuenta, su id de cliente.
  * La base de datos: sql/estadisticas.sql (tabla eventos y la función que lo resume todo).
@@ -11,7 +11,7 @@ import { ESTADOS, esc } from './circulo.mjs';
 import { cajaActividad, CSS_ACTIVIDAD, miniFoto, SCRIPT_VIVO } from './actividad.mjs';
 
 export const TIPOS = ['visita', 'vista', 'contacto', 'like', 'unlike', 'compartir', 'busqueda', 'alerta', 'oferta'];
-const CANALES = ['whatsapp', 'llamar', 'email', 'registro'];
+const CANALES = ['whatsapp', 'chat', 'llamar', 'email', 'registro'];
 const BOT = /bot|crawl|spider|slurp|preview|facebookexternalhit|headless|lighthouse/i;
 
 const corto = (v, n) => (v == null ? '' : String(v).replace(/\s+/g, ' ').trim().slice(0, n));
@@ -110,7 +110,7 @@ function barras(items) {
     : '<p class="vacio">Aún sin datos.</p>';
 }
 
-const NOMBRE_CANAL = { whatsapp: 'WhatsApp', llamar: 'Llamada', email: 'Email', registro: 'Les pedimos la cuenta', otro: 'Otro' };
+const NOMBRE_CANAL = { whatsapp: 'WhatsApp (nuestros coches)', chat: 'Chat de Sidonia (coches de dueños)', llamar: 'Llamada', email: 'Email', registro: 'Les pedimos la cuenta', otro: 'Otro' };
 const NOMBRE_ORIGEN = (o) => ({ directo: 'Directo / sin origen', 'instagram': 'Instagram', 'google': 'Google', 'facebook': 'Facebook', 'whatsapp': 'WhatsApp', 'tiktok': 'TikTok', 'youtube': 'YouTube', 'linkedin': 'LinkedIn', 'x': 'X (Twitter)', 'bing': 'Bing', 'app': 'App de Sidonia', 'email': 'Email (alertas)' }[o] || o);
 
 const CSS_BUSCADOR = `
@@ -174,7 +174,7 @@ ${error ? `<p class="error">No se han podido leer las estadísticas: ${esc(/even
 <div class="kpis">
   ${kpi(a.visitantes, b.visitantes, 'Visitantes', 'personas distintas (por navegador)', 'visitantes')}
   ${kpi(a.vistas, b.vistas, 'Fichas vistas', 'veces que se ha abierto un anuncio', 'vistas')}
-  ${kpi(a.contactos, b.contactos, 'Contactos', 'WhatsApp, llamada o email al vendedor', 'contactos')}
+  ${kpi(a.contactos, b.contactos, 'Contactos', 'WhatsApp en los nuestros; chat de Sidonia en los de dueños', 'contactos')}
   ${kpi(a.likes, b.likes, 'Me gusta', 'corazones puestos', 'likes')}
   ${kpi(a.compartidos, b.compartidos, 'Compartidos', '', 'compartidos')}
   ${kpi(d.registros, d.registros_antes, 'Registros nuevos', 'cuentas nuevas', 'registros')}
