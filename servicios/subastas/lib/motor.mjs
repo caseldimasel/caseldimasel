@@ -6,7 +6,7 @@
  *
  * Rutas (detrás de /apps/sidonia):
  *   GET  api/estado?h=a,b        → { ahora, subastas: [...] }
- *   POST api/pujar     { handle, importe, tipo, intento }
+ *   POST api/pujar     { handle, importe, tipo, intento } (la primera puja de cada uno: la invitación al evento, invitaciones.mjs)
  *   POST api/comentar  { handle, texto, respuesta_a }
  *   POST api/seguir    { handle, on }
  *   POST api/sincronizar { datos, firma } → crea o pone al día la subasta con lo que pone en Shopify (ver abajo)
@@ -36,6 +36,7 @@ import { registrarEvento } from './estadisticas.mjs';
 import { revisarComunidad, rutasPago } from './comunidad.mjs';
 import { ofrecerGestion, rutasGestion } from './gestion.mjs';
 import { recibirOferta } from './ofertas.mjs';
+import { guardarInvitacion, invitarSiToca, leerInvitacion } from './invitaciones.mjs';
 
 export const VERSION = 'icono-app-invertido-2026-10-28';
 
@@ -285,6 +286,9 @@ export async function atender(req, cfg, deps) {
   if (ruta === 'api/sincronizar' && req.method === 'POST') {
     const d = leerDatos(body.datos, body.firma, cfg.clave);
     if (!d) return json(400, { ok: false, error: 'datos' });
+    // La invitación al evento para quien puja (si la ficha la tiene): lib/invitaciones.mjs
+    const inv = body.invitacion ? leerInvitacion(d.handle, body.invitacion, body.invitacion_firma, cfg.clave) : null;
+    if (inv) await guardarInvitacion(cfg, deps, d.handle, inv, d.titulo).catch((e) => console.error('Sidonia · invitación', e));
     return json(200, await db('sidonia_sincronizar', {
       p_handle: d.handle, p_titulo: d.titulo, p_inicio: new Date(d.inicio * 1000).toISOString(), p_fin: new Date(d.fin * 1000).toISOString(),
       p_salida: d.salida, p_reserva: d.reserva, p_version: d.t, p_cliente: cliente
@@ -379,7 +383,10 @@ export async function atender(req, cfg, deps) {
       if (!body.handle || !(importe > 0)) return json(400, { ok: false, error: 'datos' });
       const tipo = body.tipo === 'maxima' ? 'maxima' : 'directa';
       const intento = body.intento ? String(body.intento).slice(0, 80) : null;
-      return json(200, await db('sidonia_pujar', { p_handle: String(body.handle), p_cliente: cliente, p_importe: importe, p_tipo: tipo, p_intento: intento }));
+      const r = await db('sidonia_pujar', { p_handle: String(body.handle), p_cliente: cliente, p_importe: importe, p_tipo: tipo, p_intento: intento });
+      // Ha pujado (aunque otra máxima la supere al momento): si la subasta invita a un evento, el email (una vez)
+      if (r && !r.repetida && (r.ok || r.error === 'superado')) await invitarSiToca(cfg, deps, { handle: String(body.handle), cliente });
+      return json(200, r);
     }
     if (ruta === 'api/comentar') {
       const texto = String(body.texto || '').trim();

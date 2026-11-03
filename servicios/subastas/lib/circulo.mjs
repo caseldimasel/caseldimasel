@@ -907,6 +907,14 @@ export function tablaAnuncios(cfg, fetchImpl = fetch, nombreTabla = 'anuncios') 
       });
       if (!r.ok) await fallo(r);
       return (await r.json())[0];
+    },
+    // Apuntar una fila solo si no existe ya (por su clave única): true si se apuntó ahora, false si ya estaba
+    async apuntar(fila, clave) {
+      const r = await fetchImpl(`${cfg.supabaseUrl}/rest/v1/${nombreTabla}?on_conflict=${clave}`, {
+        method: 'POST', headers: { ...cabeceras, Prefer: 'resolution=ignore-duplicates,return=representation' }, body: JSON.stringify(fila), signal: AbortSignal.timeout(8000)
+      });
+      if (!r.ok) await fallo(r);
+      return (await r.json()).length > 0;
     }
   };
 }
