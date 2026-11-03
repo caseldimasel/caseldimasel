@@ -24,6 +24,9 @@ const tabla = (cfg, deps, nombre) => deps[nombre] || tablaAnuncios(cfg, deps.fet
 const ent = (v, min, max) => { const n = Math.round(Number(v)); return Number.isFinite(n) ? Math.min(max, Math.max(min, n)) : 0; };
 const DIA = /^\d{4}-\d{2}-\d{2}$/;
 export const USOS = ['boda', 'rodaje', 'finde', 'ruta', 'evento'];
+export const SEGUROS = { terceros: 'a terceros', ampliado: 'a terceros ampliado', 'todo-riesgo-franquicia': 'a todo riesgo con franquicia', 'todo-riesgo': 'a todo riesgo' };
+/** Lo del anuncio de alquiler que no se enseña en público (va solo en el contrato) */
+export const alqPublico = (alq = {}) => { const { entrega, matricula, seguro_poliza, vtc, ...pub } = alq; return { ...pub, con_licencia: Boolean(vtc) }; };
 /** El anuncio de alquiler (como en Airbnb): precio por día, fianza, km, quién conduce, dónde, normas, reserva inmediata… */
 export function leerAlq(a = {}) {
   return {
@@ -31,7 +34,14 @@ export function leerAlq(a = {}) {
     plazas: ent(a.plazas, 0, 9), cambio: ['manual', 'auto'].includes(a.cambio) ? a.cambio : '',
     conductor: ['con', 'sin', 'ambos'].includes(a.conductor) ? a.conductor : 'con',
     ciudad: texto(a.ciudad, 80), entrega: texto(a.entrega, 300), normas: texto(a.normas, 2000),
-    inmediata: Boolean(a.inmediata), usos: (Array.isArray(a.usos) ? a.usos : []).filter((u) => USOS.includes(u))
+    inmediata: Boolean(a.inmediata), usos: (Array.isArray(a.usos) ? a.usos : []).filter((u) => USOS.includes(u)),
+    // Para el contrato (alquiler con pago en la web): el coche, su seguro y su ITV, y la autorización si es con conductor
+    matricula: texto(a.matricula, 12).toUpperCase().replace(/[\s-]/g, ''),
+    seguro_compania: texto(a.seguro_compania, 60), seguro_poliza: texto(a.seguro_poliza, 40),
+    seguro_tipo: SEGUROS[a.seguro_tipo] ? a.seguro_tipo : '', seguro_cubre: Boolean(a.seguro_cubre),
+    itv_hasta: DIA.test(a.itv_hasta) ? a.itv_hasta : '', vtc: texto(a.vtc, 40),
+    km_extra: Math.min(10, Math.max(0, Math.round((Number(a.km_extra) || 0) * 100) / 100)),
+    edad_min: ent(a.edad_min, 18, 99) || 25, carne_min: a.carne_min === undefined || a.carne_min === '' ? 3 : ent(a.carne_min, 0, 30)
   };
 }
 export const leerBloqueos = (l) => (Array.isArray(l) ? l : []).filter((x) => Array.isArray(x) && DIA.test(x[0]) && DIA.test(x[1] || x[0])).map((x) => [x[0], x[1] || x[0]].sort()).slice(0, 200);
@@ -62,7 +72,7 @@ export const cochePublico = (cfg, c, dueno = null, liked = false) => ({
   titulo: [c.marca, c.modelo, c.anio].filter(Boolean).join(' '),
   fotos: (c.fotos || []).map((f) => urlFoto(cfg, f)), alquiler: Boolean(c.alquiler), alquiler_como: c.alquiler_como || '',
   likes: Number(c.likes) || 0, liked, creado: c.creado,
-  alq: (() => { const { entrega, ...pub } = c.alq || {}; return pub; })(), bloqueos: c.bloqueos || [],
+  alq: alqPublico(c.alq || {}), bloqueos: c.bloqueos || [],
   ...(dueno ? { dueno: { slug: dueno.slug, nombre: dueno.nombre, foto: dueno.foto ? urlFoto(cfg, dueno.foto) : '', ciudad: dueno.ciudad || '' } } : {})
 });
 
@@ -134,8 +144,11 @@ export async function rutasGaraje({ ruta, method, body }, cliente, cfg, deps) {
       const { cuotasAlquiler } = await import('./reservas.mjs');
       const tarifa = await leerTarifa(deps.ajustes || tablaAnuncios(cfg, deps.fetch, 'ajustes'));
       const cuotas = cuotasAlquiler(coches.filter((c) => c.alquiler && c.visible !== false), tarifa);
-      return json(200, { ok: true, cobrar: Boolean(tarifa.cobrar), precio_siguiente: tarifa.cobrar ? precioMes(tarifa, cuotas.size + 1) : null,
-        coches: coches.map((c) => ({ ...cochePublico(cfg, c), alq: c.alq || {}, visible: c.visible !== false, rutas: c.fotos || [], cuota: cuotas.get(Number(c.id)) || null })), perfil: perfilGaraje(cfg, p) || null });
+      // Alquiler con pago en la web: lo que le falta a cada coche para poder alquilarse (seguro, ITV, cobros…)
+      const { faltaParaAlquilar } = await import('./cobros.mjs');
+      return json(200, { ok: true, cobrar: Boolean(tarifa.cobrar), precio_siguiente: tarifa.cobrar ? precioMes(tarifa, cuotas.size + 1) : null, pago_web: Boolean(cfg.alquilerCobrar),
+        coches: coches.map((c) => ({ ...cochePublico(cfg, c), alq: c.alq || {}, visible: c.visible !== false, rutas: c.fotos || [], cuota: cuotas.get(Number(c.id)) || null,
+          falta: c.alquiler ? faltaParaAlquilar(c, p, cfg.alquilerCobrar) : [] })), perfil: perfilGaraje(cfg, p) || null });
     } catch (e) { return falta(e); }
   }
   // Añadir o cambiar un coche

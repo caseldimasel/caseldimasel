@@ -94,32 +94,6 @@ test('reservas: con reserva inmediata queda confirmada al momento; mínimo de d�
   assert.equal((await api('api/alquiler/reservar', pedir, quien('88'))).reserva.estado, 'aceptada', 'vuelve a estar libre');
 });
 
-test('reservas: si algún día se cobra (ALQUILER_COBRAR=1): precio + 15 % de servicio y hasta pagar no se ve el contacto', async () => {
-  const cfgP = config({ SUBASTAS_CLAVE: 'k', ADMIN_CLAVE: 'panel', RESEND_API_KEY: 're_x', AVISOS_EQUIPO: 'equipo@sidonia.es', TIENDA_URL: 'https://sidonia.es', SERVIDOR_URL: 'https://motor.test', SUPABASE_URL: 'https://x.supabase.co', SUPABASE_SERVICE_KEY: 's', STRIPE_SECRET_KEY: 'sk_test', ALQUILER_COBRAR: '1', ALQUILER_COMISION: '15' });
-  const { deps } = preparar({ inmediata: true });
-  const llamadas = [];
-  deps.stripe = async (m, path, b) => { llamadas.push([m, path, b]); return m === 'POST' ? { url: 'https://checkout.stripe.test/x' } : { metadata: { reserva: String(deps.reservas.filas[0].id) }, payment_status: 'paid' }; };
-  const api = (ruta, body = {}, q = {}, method = 'POST') => atender({ method, ruta, query: { ...q, ...(method === 'GET' ? body : {}) }, body, directo: true, headers: {} }, cfgP, deps);
-  const r = JSON.parse((await api('api/alquiler/reservar', pedir, quien('77'))).body);
-  assert.equal(r.reserva.tarifa, 68); assert.equal(r.reserva.total, 518);
-  assert.match(r.reserva.pagar, /\/tienda\/alquiler\/pagar\?r=\d+&f=/);
-  let v = JSON.parse((await api('api/alquiler/reservas', {}, quien('77'), 'GET')).body);
-  assert.equal(v.viajes[0].otro.telefono, undefined, 'aceptada pero sin pagar: sin contacto');
-  // A Stripe y vuelta
-  const u = new URL(r.reserva.pagar);
-  const ir = await atender({ method: 'GET', ruta: 'alquiler/pagar', query: Object.fromEntries(u.searchParams), body: {}, directo: true, headers: {} }, cfgP, deps);
-  assert.equal(ir.status, 303); assert.equal(ir.headers.Location, 'https://checkout.stripe.test/x');
-  assert.equal(llamadas[0][2].line_items[0].price_data.unit_amount, 51800);
-  const vuelta = await atender({ method: 'GET', ruta: 'alquiler/pagado', query: { ...Object.fromEntries(u.searchParams), session_id: 'cs_test_1' }, body: {}, directo: true, headers: {} }, cfgP, deps);
-  assert.equal(vuelta.status, 303);
-  assert.equal(deps.reservas.filas[0].pago, 'pagado');
-  v = JSON.parse((await api('api/alquiler/reservas', {}, quien('77'), 'GET')).body);
-  assert.equal(v.viajes[0].otro.telefono, '600000000');
-  // Firma mala
-  const mal = await atender({ method: 'GET', ruta: 'alquiler/pagar', query: { r: u.searchParams.get('r'), f: 'x' }, body: {}, directo: true, headers: {} }, cfgP, deps);
-  assert.match(mal.body, /Enlace no válido/);
-});
-
 test('reservas: como la venta, el primer anuncio de alquiler gratis y los siguientes de pago (solo si se cobra)', async () => {
   const { cuotasAlquiler } = await import('../lib/reservas.mjs');
   const coches = [{ id: 1, cliente: 'a', creado: '2026-01-01' }, { id: 2, cliente: 'a', creado: '2026-02-01' }, { id: 3, cliente: 'a', creado: '2026-03-01', alq_hasta: '2099-01-01' }, { id: 4, cliente: 'b', creado: '2026-03-01' }];

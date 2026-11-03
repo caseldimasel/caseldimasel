@@ -25,7 +25,8 @@ import { contactarAlquiler, peticionesPublicas, recibirAlquiler } from './alquil
 import { rutasGaraje } from './garaje.mjs';
 import { rutasOpiniones } from './opiniones.mjs';
 import { rutasLikes } from './likes.mjs';
-import { rutasPagoReserva, rutasReservas } from './reservas.mjs';
+import { revisarReservas, rutasPagoReserva, rutasReservas } from './reservas.mjs';
+import { rutasCobros } from './cobros.mjs';
 import { rutasChat } from './chat.mjs';
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { rutasTienda } from './circulo.mjs';
@@ -48,6 +49,8 @@ export function config(env = process.env) {
     // (con STRIPE_SECRET_KEY) y ALQUILER_COMISION (% de tarifa de servicio). Por defecto, ni cobro ni comisión.
     alquilerCobrar: env.ALQUILER_COBRAR === '1' && Boolean(env.STRIPE_SECRET_KEY),
     alquilerComision: Math.max(0, Math.min(50, Number(env.ALQUILER_COMISION ?? 0) || 0)),
+    // Los datos de Sidonia en las condiciones y los contratos del alquiler (no son secretos)
+    razonSocial: env.SIDONIA_RAZON_SOCIAL || '', nif: env.SIDONIA_NIF || '', domicilio: env.SIDONIA_DOMICILIO || '', emailLegal: env.SIDONIA_EMAIL_LEGAL || '',
     stripeWebhook: env.STRIPE_WEBHOOK_SECRET || '',  // firma de los avisos de Stripe (pagos de los anuncios: api/stripe.js)
     // Este servidor (para los enlaces de pago): Vercel lo da solo; SERVIDOR_URL si se quiere otro
     servidor: (env.SERVIDOR_URL || (env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${env.VERCEL_PROJECT_PRODUCTION_URL}` : '')).replace(/\/$/, ''),
@@ -264,7 +267,7 @@ export async function atender(req, cfg, deps) {
     if (ruta === 'pagar' || ruta === 'pagar/ok') return rutasPago({ ruta, method: req.method, query: req.query || {}, body: req.body || {} }, cfg, deps);
     // «¿Lo vendemos nosotros?» (enlace firmado del email, sin sesión): gestion.mjs
     // Pagar una reserva de alquiler (enlace firmado): a Stripe y la vuelta (reservas.mjs)
-    if (ruta === 'alquiler/pagar' || ruta === 'alquiler/pagado') return rutasPagoReserva({ ruta, query: req.query || {} }, cfg, deps);
+    if (/^alquiler\/(pagar|pagado|contrato|contrato-modelo|condiciones)$/.test(ruta)) return rutasPagoReserva({ ruta, query: req.query || {} }, cfg, deps);
     if (ruta === 'gestion') return rutasGestion({ method: req.method, query: req.query || {}, body: req.body || {} }, cfg, deps);
     if (!/^api\/(anuncio|anuncios|visita|perfil|push|alertas|evento|comunidad|oferta|alquiler|garaje|opiniones|likes|chat)(\/|$)/.test(ruta)) return json(404, { ok: false, error: 'ruta' });
   } else if (!comprobarProxy(req.query, cfg.secreto)) return json(401, { ok: false, error: 'firma' });
@@ -314,8 +317,16 @@ export async function atender(req, cfg, deps) {
   // Alquiler (próximamente): la lista de espera de «Alquila un coche con alma» (alquiler.mjs)
   if (ruta === 'api/alquiler' && req.method === 'POST') return json(200, await recibirAlquiler(body, cliente, cfg, deps));
   // Alquiler como Airbnb: buscar, ficha, reservar, reservas, mensajes y reseñas (reservas.mjs)
+  if (ruta === 'api/alquiler/revisar') {
+    const auth = String((req.headers || {}).authorization || '');
+    if (!cfg.cronSecreto || auth !== `Bearer ${cfg.cronSecreto}`) return json(401, { ok: false, error: 'cron' });
+    return json(200, { ok: true, ...(await revisarReservas(cfg, deps)) });
+  }
   if (ruta.startsWith('api/alquiler/')) {
-    const r = await rutasReservas({ ruta, method: req.method, body: req.method === 'GET' ? { ...req.query } : body }, cliente, cfg, deps);
+    const h = req.headers || {};
+    const quien = { ip: String(h['x-forwarded-for'] || h['x-real-ip'] || '').split(',')[0].trim(), ua: String(h['user-agent'] || '') };
+    const datosPeticion = { ruta, method: req.method, body: req.method === 'GET' ? { ...req.query } : body, ...quien };
+    const r = (await rutasCobros(datosPeticion, cliente, cfg, deps)) || (await rutasReservas(datosPeticion, cliente, cfg, deps));
     if (r) return r;
   }
   // «Lo que busca la gente» (sin datos personales) y «Tengo uno así» / «Me interesa alquilarlo» (con su sesión)

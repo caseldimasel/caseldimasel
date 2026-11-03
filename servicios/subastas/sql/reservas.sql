@@ -68,3 +68,22 @@ notify pgrst, 'reload schema';
 -- Ajustes). alq_hasta: hasta cuándo está pagado (si se cobra). Se apunta desde el panel › Clientes › Garajes.
 alter table garaje add column if not exists alq_hasta timestamptz;
 notify pgrst, 'reload schema';
+
+-- Pago en la web (Stripe Connect) y contratos firmados: datos de quien alquila para el contrato, el contrato que se
+-- firma (texto y huella), las firmas de los dos, el pago (retenido, cobrado, liberado o devuelto) y la transferencia
+-- al dueño. Y del dueño: sus datos para el contrato y su cuenta de cobros en Stripe.
+alter table reservas add column if not exists datos            jsonb   not null default '{}'::jsonb;   -- dni, nacimiento, domicilio, carné
+alter table reservas add column if not exists contrato         jsonb;                                    -- { version, html, hash }
+alter table reservas add column if not exists firma_cliente    jsonb;                                    -- { nombre, documento, fecha, ip, ua, hash, condiciones }
+alter table reservas add column if not exists firma_dueno      jsonb;
+alter table reservas add column if not exists stripe_pi        text    not null default '';
+alter table reservas add column if not exists stripe_transfer  text    not null default '';
+alter table reservas add column if not exists transferido      timestamptz;
+alter table reservas add column if not exists reembolso        numeric not null default 0;
+alter table reservas add column if not exists reembolso_tarifa boolean not null default false;
+alter table reservas add column if not exists cancelada_por    text    not null default '';
+create index if not exists reservas_pago on reservas (pago, stripe_transfer);
+alter table perfiles add column if not exists alq_legal     jsonb   not null default '{}'::jsonb;      -- nombre, dni, domicilio, teléfono, aceptó las condiciones
+alter table perfiles add column if not exists stripe_cuenta text    not null default '';
+alter table perfiles add column if not exists cobros_ok     boolean not null default false;
+notify pgrst, 'reload schema';

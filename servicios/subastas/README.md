@@ -271,3 +271,26 @@ PGTEST="-h localhost -U postgres" npm test # además, el motor contra un Postgre
 - Verificar el móvil por SMS en el registro.
 - Pasar a Shopify la puja actual al terminar (metacampos), para que el listado quede bien aunque no haya JavaScript.
 - Responder comentarios como «Vendedor» o «Sidonia».
+
+## Alquiler con pago en la web (Stripe Connect, contratos firmados)
+
+Sidonia es el intermediario: pone en contacto, genera el contrato que firman las dos partes y cobra **por cuenta del
+dueño** con Stripe Connect (el dueño es el vendedor del cargo; Sidonia se queda su tarifa de servicio). Al pedir el coche
+se **retiene** el importe; si el dueño acepta en 24 h (firmando el contrato) se cobra, y si no, se libera. Su parte se le
+transfiere el día que empieza el alquiler (cron diario `api/alquiler/revisar`). Cancelaciones según la política de
+`lib/contratos.mjs` (100 % con 7 días o más, 50 % del alquiler entre 7 días y 48 h, nada después; si cancela el dueño, todo).
+
+- `lib/contratos.mjs`: condiciones del servicio, contrato de arrendamiento (sin y con conductor), acta de entrega,
+  política de cancelación. **Que lo revise un abogado antes de abrir.**
+- `lib/cobros.mjs`: datos del dueño para el contrato y su alta en Stripe (cuentas Express).
+- `lib/reservas.mjs`: retener, cobrar, liberar, devolver, transferir; páginas `/tienda/alquiler/contrato`,
+  `/tienda/alquiler/contrato-modelo`, `/tienda/alquiler/condiciones`.
+
+Puesta en marcha:
+1. **Supabase:** ejecuta otra vez `sql/reservas.sql`.
+2. **Stripe › Connect:** actívalo (plataforma, cuentas Express, España) y rellena el perfil de la plataforma.
+3. **Stripe › Webhooks:** al endpoint `/api/stripe`, añade el evento `checkout.session.completed` (si no estaba).
+4. **Vercel › variables:** `ALQUILER_COBRAR=1`, `ALQUILER_COMISION` (% de tarifa de servicio que paga quien alquila;
+   de ahí salen también las comisiones de Stripe), `SIDONIA_RAZON_SOCIAL`, `SIDONIA_NIF`, `SIDONIA_DOMICILIO`,
+   `SIDONIA_EMAIL_LEGAL`, y `CRON_SECRET` (ya existía). Redeploy.
+5. **Tema:** Ajustes del tema › Sidonia · Próximamente › desmarca «Alquiler» cuando queráis abrirlo.

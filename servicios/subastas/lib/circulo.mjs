@@ -998,7 +998,7 @@ export async function atenderPanel(req, cfg, deps) {
       const rs = await (deps.reservas || tablaAnuncios(cfg, deps.fetch, 'reservas')).leer('select=*&order=creado.desc&limit=500');
       const ids = [...new Set(rs.map((r) => Number(r.coche_id)))];
       const cs = ids.length ? await (deps.garaje || tablaAnuncios(cfg, deps.fetch, 'garaje')).leer(`id=in.(${ids.join(',')})&select=id,marca,modelo,anio`) : [];
-      extra = tablaReservasPanel(rs, cs);
+      extra = tablaReservasPanel(rs, cs, cfg);
     } catch (e) { /* sin sql/reservas.sql aún */ }
     const ver = ['todos', 'alquilar', 'poner'].includes(req.query.ver) ? req.query.ver : 'todos';
     return html(paginaAlquiler(lista, { ver, error, marco, contactos, extra }));
