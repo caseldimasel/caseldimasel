@@ -280,6 +280,9 @@ se **retiene** el importe; si el dueño acepta en 24 h (firmando el contrato) se
 transfiere el día que empieza el alquiler (cron diario `api/alquiler/revisar`). Cancelaciones según la política de
 `lib/contratos.mjs` (100 % con 7 días o más, 50 % del alquiler entre 7 días y 48 h, nada después; si cancela el dueño, todo).
 
+- **Con y sin conductor son dos servicios**: cada uno con su precio por día (`alq.precio` sin conductor, `alq.precio_con`
+  con conductor, con `horas` incluidas al día y `hora_extra`), sus datos (carné y edad sin conductor; recogida y pasajeros
+  con conductor) y su contrato. Con conductor solo si el dueño tiene autorización VTC; si no, se ofrece sin conductor.
 - `lib/contratos.mjs`: condiciones del servicio, contrato de arrendamiento (sin y con conductor), acta de entrega,
   política de cancelación. **Que lo revise un abogado antes de abrir.**
 - `lib/cobros.mjs`: datos del dueño para el contrato y su alta en Stripe (cuentas Express).

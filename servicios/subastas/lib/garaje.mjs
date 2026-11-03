@@ -30,7 +30,7 @@ export const alqPublico = (alq = {}) => { const { entrega, matricula, seguro_pol
 /** El anuncio de alquiler (como en Airbnb): precio por día, fianza, km, quién conduce, dónde, normas, reserva inmediata… */
 export function leerAlq(a = {}) {
   return {
-    precio: ent(a.precio, 0, 20000), fianza: ent(a.fianza, 0, 100000), km: ent(a.km, 0, 5000), minimo: ent(a.minimo, 1, 30) || 1,
+    precio: ent(a.precio, 0, 20000), precio_con: ent(a.precio_con, 0, 20000), horas: ent(a.horas, 0, 24) || 8, hora_extra: ent(a.hora_extra, 0, 2000), fianza: ent(a.fianza, 0, 100000), km: ent(a.km, 0, 5000), minimo: ent(a.minimo, 1, 30) || 1,
     plazas: ent(a.plazas, 0, 9), cambio: ['manual', 'auto'].includes(a.cambio) ? a.cambio : '',
     conductor: ['con', 'sin', 'ambos'].includes(a.conductor) ? a.conductor : 'con',
     ciudad: texto(a.ciudad, 80), entrega: texto(a.entrega, 300), normas: texto(a.normas, 2000),

@@ -202,3 +202,37 @@ test('alquiler con pago: el dueño pone sus datos y se da de alta en Stripe', as
   assert.equal(cuenta.type, 'express'); assert.equal(cuenta.country, 'ES'); assert.equal(cuenta.business_profile.mcc, '7512');
   assert.equal(deps.perfiles.filas[0].stripe_cuenta, 'acct_nuevo');
 });
+
+test('con y sin conductor: cada servicio con su precio, sus datos y su contrato', async () => {
+  const { precio } = await import('../lib/reservas.mjs');
+  const { precioDe } = await import('../lib/cobros.mjs');
+  const A = { ...ALQ, conductor: 'ambos', precio: 150, precio_con: 400, horas: 6, hora_extra: 60, vtc: 'VTC-1', plazas: 4 };
+  assert.equal(precioDe(A, 'sin'), 150); assert.equal(precioDe(A, 'con'), 400);
+  assert.equal(precioDe({ conductor: 'con', precio: 300 }, 'con'), 300, 'anuncios antiguos solo con conductor');
+  assert.equal(precioDe({ conductor: 'con', precio: 300 }, 'sin'), 0);
+  const pc = precio(A, dia(10), dia(10), 10, 'con');
+  assert.deepEqual([pc.precio_dia, pc.total, pc.fianza], [400, 440, 0], 'con conductor: sin fianza');
+  assert.equal(precio(A, dia(10), dia(10), 10, 'sin').fianza, 500);
+  // Reservar con conductor: precio con conductor, sin carné, con recogida y pasajeros; contrato con conductor
+  const { api, deps, stripe } = preparar({ alq: A });
+  const l = await api('api/alquiler/coche', { id: 7 }, {}, 'GET');
+  assert.deepEqual(l.coche.alq.precios, { sin: 150, con: 400 }); assert.equal(l.coche.alq.precio, 150, 'el «desde»');
+  const sin = { ...pedir, carne_num: '', carne_fecha: '', nacimiento: '2005-01-01', conductor: 'con', desde: dia(10), hasta: dia(10) };
+  assert.equal((await api('api/alquiler/reservar', { ...sin, recogida: '' }, quien('77'))).error, 'recogida');
+  const r = await api('api/alquiler/reservar', { ...sin, recogida: 'Iglesia de San Jerónimo, Madrid', pasajeros: 9 }, quien('77'));
+  assert.equal(r.ok, true, 'con conductor no hace falta carné ni la edad para conducir');
+  assert.equal(r.reserva.total, 440);
+  const fila = deps.reservas.filas.at(-1);
+  assert.equal(fila.conductor, 'con'); assert.equal(fila.datos.pasajeros, 3, 'como mucho las plazas menos el conductor'); assert.equal(fila.datos.carne_num, '');
+  assert.match(fila.contrato.html, /con conductor/); assert.match(fila.contrato.html, /6 horas de servicio por día/); assert.match(fila.contrato.html, /60 € por hora/);
+  assert.match(fila.contrato.html, /Iglesia de San Jerónimo/); assert.match(fila.contrato.html, /VTC-1/); assert.doesNotMatch(fila.contrato.html, /Fianza\.<\/b> El Arrendatario entregará/);
+  assert.equal(stripe.find((x) => x[1] === 'checkout/sessions')[2].line_items[0].price_data.unit_amount, 40000);
+  // Sin conductor en el mismo coche: su precio y su contrato
+  const r2 = await api('api/alquiler/reservar', { ...pedir, conductor: 'sin', desde: dia(20), hasta: dia(21) }, quien('78'));
+  assert.equal(r2.reserva.total, 330);
+  assert.match(deps.reservas.filas.at(-1).contrato.html, /sin conductor/); assert.match(deps.reservas.filas.at(-1).contrato.html, /Fianza\.<\/b> El Arrendatario entregará/);
+  // Sin autorización VTC, el mismo coche solo se ofrece sin conductor
+  const { api: api2 } = preparar({ alq: { ...A, vtc: '' } });
+  const l2 = await api2('api/alquiler/coche', { id: 7 }, {}, 'GET');
+  assert.deepEqual(l2.coche.alq.precios, { sin: 150, con: 0 });
+});

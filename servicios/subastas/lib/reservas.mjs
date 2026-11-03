@@ -20,7 +20,7 @@ import { datos, enviarCorreo, P, plantilla } from './correos.mjs';
 import { USOS, alqPublico, SEGUROS } from './garaje.mjs';
 import { leerTarifa, precioMes } from './comunidad.mjs';
 import { conFirmas, condicionesAlquiler, contratoAlquiler, contratoParaFirmar, paginaDocumento, reembolso, VERSION_CONDICIONES } from './contratos.mjs';
-import { conductorEfectivo, cobrosListos, datosListos, documentoValido, faltaParaAlquilar, normDoc, perfilCobros } from './cobros.mjs';
+import { conductorEfectivo, cobrosListos, datosListos, documentoValido, faltaParaAlquilar, normDoc, perfilCobros, precioDe, tienePrecio } from './cobros.mjs';
 
 export const PLAZO_H = 24;           // horas que tiene el dueño para responder
 import { createHmac } from 'node:crypto';
@@ -60,13 +60,16 @@ export function estadoActual(r, ahora = Date.now()) {
   if (r.estado === 'aceptada' && String(r.hasta) < new Date(ahora + 3600e3).toISOString().slice(0, 10)) return 'completada';
   return r.estado;
 }
-/** El precio, como en Airbnb: precio × días + comisión (0 por ahora) */
-export function precio(alq, desde, hasta, pct = COMISION) {
+/** El precio, como en Airbnb: precio por día del servicio (con o sin conductor) × días + tarifa de servicio */
+export function precio(alq, desde, hasta, pct = COMISION, modo = 'sin') {
   const dias = diasEntre(desde, hasta);
-  const sub = (Number(alq.precio) || 0) * dias;
+  const pd = precioDe(alq, modo === 'con' ? 'con' : 'sin');
+  const sub = pd * dias;
   const tarifa = Math.round((sub * pct) / 100);
-  return { dias, precio_dia: Number(alq.precio) || 0, subtotal: sub, tarifa, total: sub + tarifa, fianza: Number(alq.fianza) || 0 };
+  return { dias, precio_dia: pd, subtotal: sub, tarifa, total: sub + tarifa, fianza: modo === 'con' ? 0 : Number(alq.fianza) || 0 };
 }
+/** El servicio que pide quien alquila: el que ofrece el coche, o el que elija si ofrece los dos */
+const modoDe = (alq, cobrar, pedido) => { const k = conductorEfectivo(alq || {}, cobrar); return k === 'ambos' ? (pedido === 'con' ? 'con' : 'sin') : k === 'con' ? 'con' : 'sin'; };
 /** Confirmada de verdad: aceptada y pagada (o sin pago en Sidonia) */
 export const confirmada = (r) => { const e = estadoActual(r); return (e === 'aceptada' || e === 'completada') && !['pendiente', 'sin-pagar', 'autorizado'].includes(r.pago); };
 const ocupadas = (rs) => rs.filter((r) => estadoActual(r) === 'aceptada').map((r) => [String(r.desde), String(r.hasta)]);
@@ -116,6 +119,9 @@ const media = (l) => (l.length ? Math.round((l.reduce((s, x) => s + Number(x.not
 /** La tarjeta de un anuncio */
 function anuncio(cfg, c, p, resenas = [], liked = false) {
   const alq = { ...alqPublico(c.alq || {}), conductor: conductorEfectivo(c.alq || {}, cfg.alquilerCobrar) };
+  // Precio por día de cada servicio que se ofrece de verdad (con conductor solo si se puede) y el «desde»
+  const ps = { sin: alq.conductor === 'con' ? 0 : precioDe(c.alq || {}, 'sin'), con: alq.conductor === 'sin' ? 0 : precioDe(c.alq || {}, 'con') };
+  alq.precios = ps; alq.precio = Math.min(...[ps.sin, ps.con].filter((x) => x > 0)) || 0;
   const rs = resenas.filter((r) => r.rol === 'huesped' && Number(r.coche_id) === Number(c.id));
   return { id: c.id, tipo: c.tipo, titulo: titulo(c), apodo: c.apodo || '', marca: c.marca, modelo: c.modelo, anio: c.anio,
     historia: c.historia || '', mods: c.mods || '', fotos: (c.fotos || []).map((f) => urlFoto(cfg, f)), alq, likes: Number(c.likes) || 0, liked,
@@ -139,7 +145,8 @@ export function datosContrato(r, c, pD, emailD = '', tapado = false) {
   const coche = { marca: c.marca, modelo: c.modelo, anio: c.anio, ...a };
   if (tapado) { coche.matricula = ''; coche.seguro_poliza = ''; coche.vtc = a.vtc ? 'la indicada al confirmar' : ''; }
   return {
-    reserva: { id: r.id, desde: r.desde, hasta: r.hasta, dias: r.dias, precio_dia: r.precio_dia, total: r.total, tarifa: r.tarifa, para: r.para, conductor: r.conductor === 'con' ? 'con' : 'sin', lugar: tapado ? a.ciudad : a.entrega || a.ciudad },
+    reserva: { id: r.id, desde: r.desde, hasta: r.hasta, dias: r.dias, precio_dia: r.precio_dia, total: r.total, tarifa: r.tarifa, para: r.para, conductor: r.conductor === 'con' ? 'con' : 'sin',
+      lugar: r.conductor === 'con' ? (r.datos && r.datos.recogida) || '' : tapado ? a.ciudad : a.entrega || a.ciudad, pasajeros: (r.datos && r.datos.pasajeros) || '' },
     coche: { ...coche, seguro_tipo: SEGUROS[a.seguro_tipo] || a.seguro_tipo || '' },
     dueno: tapado ? { nombre: l.nombre } : { nombre: l.nombre, dni: l.dni, domicilio: l.domicilio, telefono: l.telefono, email: emailD },
     cliente: { nombre: r.nombre, email: r.email, telefono: r.telefono, ...(r.datos || {}) }
@@ -250,7 +257,7 @@ export async function rutasReservas({ ruta, method, body, ip = '', ua = '' }, cl
     try {
       const desde = DIA.test(body.desde) ? body.desde : '', hasta = DIA.test(body.hasta) ? body.hasta : desde;
       const ciudad = clip(body.ciudad, 60).toLowerCase(), conductor = ['con', 'sin'].includes(body.conductor) ? body.conductor : '';
-      let coches = (await tG.leer('alquiler=eq.true&visible=eq.true&order=creado.desc&limit=500')).filter((c) => Number(c.alq?.precio) > 0);
+      let coches = (await tG.leer('alquiler=eq.true&visible=eq.true&order=creado.desc&limit=500')).filter((c) => tienePrecio(c.alq || {}));
       const cuotas = cuotasAlquiler(coches, await tarifaDe(cfg, deps));
       coches = coches.filter((c) => cuotas.get(Number(c.id))?.activo !== false);
       if (cfg.alquilerCobrar) { const pp = await perfiles(cfg, deps, coches.map((c) => c.cliente)); coches = coches.filter((c) => !faltaParaAlquilar(c, pp[String(c.cliente)], true).length); }
@@ -295,7 +302,7 @@ export async function rutasReservas({ ruta, method, body, ip = '', ua = '' }, cl
       if (!slug) return json(400, { ok: false, error: 'datos' });
       const [p] = await tabla(cfg, deps, 'perfiles').leer(`slug=eq.${slug}&limit=1`);
       if (!p) return json(200, { ok: true, coches: [], resenas: [], nota: 0, n: 0, alquileres: 0 });
-      let coches = (await tG.leer(`cliente=eq.${encodeURIComponent(p.cliente)}&alquiler=eq.true&visible=eq.true&order=creado.desc&limit=50`)).filter((c) => Number(c.alq?.precio) > 0);
+      let coches = (await tG.leer(`cliente=eq.${encodeURIComponent(p.cliente)}&alquiler=eq.true&visible=eq.true&order=creado.desc&limit=50`)).filter((c) => tienePrecio(c.alq || {}));
       const cuotas = cuotasAlquiler(coches, await tarifaDe(cfg, deps));
       coches = coches.filter((c) => cuotas.get(Number(c.id))?.activo !== false);
       const st = await statsDueno(cfg, deps, p.cliente, coches.map((c) => Number(c.id)));
@@ -319,9 +326,12 @@ export async function rutasReservas({ ruta, method, body, ip = '', ua = '' }, cl
     if (q.mensaje.length < 10) return json(400, { ok: false, error: 'mensaje' });
     try {
       const [c] = await tG.leer(`id=eq.${Number(body.coche_id)}&alquiler=eq.true&limit=1`);
-      if (!c || c.visible === false || !(Number(c.alq?.precio) > 0)) return json(404, { ok: false, error: 'no-existe' });
+      if (!c || c.visible === false || !tienePrecio(c.alq || {})) return json(404, { ok: false, error: 'no-existe' });
       if (String(c.cliente) === String(cliente)) return json(400, { ok: false, error: 'suyo' });
-      const pr = precio(c.alq, desde, hasta, cfg.alquilerCobrar ? comision(cfg) : 0);
+      const modo = modoDe(c.alq, cfg.alquilerCobrar, q.conductor);
+      q.conductor = modo;
+      const pr = precio(c.alq, desde, hasta, cfg.alquilerCobrar ? comision(cfg) : 0, modo);
+      if (!(pr.precio_dia > 0)) return json(400, { ok: false, error: 'modo' });
       if (pr.dias < (Number(c.alq.minimo) || 1)) return json(400, { ok: false, error: 'minimo', minimo: Number(c.alq.minimo) });
       if (pr.dias > 60) return json(400, { ok: false, error: 'fechas' });
       const rs = await tR.leer(`coche_id=eq.${Number(c.id)}&select=desde,hasta,estado,creado`);
@@ -332,10 +342,11 @@ export async function rutasReservas({ ruta, method, body, ip = '', ua = '' }, cl
       if (cfg.alquilerCobrar) {
         const pD = await perfilCobros(cfg, deps, c.cliente);
         if (faltaParaAlquilar(c, pD, true).length) return json(200, { ok: false, error: 'no-disponible' });
-        const k = conductorEfectivo(c.alq, true);
-        const conductor = k === 'ambos' ? (q.conductor || 'sin') : k;
+        const conductor = modo;
         const x = { dni: normDoc(body.dni), nacimiento: DIA.test(body.nacimiento) ? body.nacimiento : '', domicilio: clip(body.domicilio, 250),
-          carne_num: conductor === 'sin' ? clip(body.carne_num, 30).toUpperCase() : '', carne_fecha: conductor === 'sin' && DIA.test(body.carne_fecha) ? body.carne_fecha : '' };
+          carne_num: conductor === 'sin' ? clip(body.carne_num, 30).toUpperCase() : '', carne_fecha: conductor === 'sin' && DIA.test(body.carne_fecha) ? body.carne_fecha : '',
+          ...(conductor === 'con' ? { pasajeros: Math.max(1, Math.min(Number(c.alq.plazas) ? Number(c.alq.plazas) - 1 : 8, Math.round(Number(body.pasajeros)) || 1)), recogida: clip(body.recogida, 300) } : {}) };
+        if (conductor === 'con' && x.recogida.length < 5) return json(400, { ok: false, error: 'recogida' });
         if (q.nombre.split(/\s+/).length < 2) return json(400, { ok: false, error: 'nombre' });
         if (!/^\+?[\d\s]{9,15}$/.test(q.telefono)) return json(400, { ok: false, error: 'telefono' });
         if (!documentoValido(x.dni)) return json(400, { ok: false, error: 'dni' });
@@ -551,9 +562,8 @@ export async function rutasPagoReserva({ ruta, query }, cfg, deps) {
     const [c] = Number(query.coche) ? await tG.leer(`id=eq.${Number(query.coche)}&alquiler=eq.true&limit=1`).catch(() => []) : [];
     const pD = c ? await perfilCobros(cfg, deps, c.cliente) : null;
     const desde = DIA.test(query.desde) ? query.desde : '', hasta = DIA.test(query.hasta) ? query.hasta : desde;
-    const pr = c && desde ? precio(c.alq || {}, desde, hasta, comision(cfg)) : {};
-    const k = conductorEfectivo((c && c.alq) || {}, true);
-    const conductor = k === 'ambos' ? (query.conductor === 'con' ? 'con' : 'sin') : k === 'con' ? 'con' : 'sin';
+    const conductor = modoDe((c && c.alq) || {}, true, query.conductor);
+    const pr = c && desde ? precio(c.alq || {}, desde, hasta, comision(cfg), conductor) : {};
     const d = datosContrato({ id: '', desde, hasta, dias: pr.dias, precio_dia: pr.precio_dia, total: pr.total, tarifa: pr.tarifa, para: '', conductor, nombre: '', email: '', telefono: '', datos: {} }, c || { alq: {} }, pD, '', true);
     return html(paginaDocumento('Contrato de alquiler', `<p class="meta"><b>Modelo para leer antes de reservar.</b> Al reservar se rellena con tus datos y con los del dueño (su documento, domicilio y contacto, la matrícula y la póliza del seguro se muestran al confirmarse la reserva), y lo firmáis los dos.</p>${contratoAlquiler(cfg, d)}`));
   }

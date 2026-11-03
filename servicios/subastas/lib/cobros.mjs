@@ -118,8 +118,12 @@ export async function rutasCobros({ ruta, method, body, ip }, cliente, cfg, deps
 export function faltaParaAlquilar(c, p, cobrar, hoy = new Date(Date.now() + 3600e3).toISOString().slice(0, 10)) {
   const a = (c && c.alq) || {};
   const f = [];
-  if (!(Number(a.precio) > 0)) f.push('precio');
+  const precioFalta = () => f.includes('precio');
+  if (!tienePrecio(a)) f.push('precio');
   if (!cobrar) return f;
+  // Ofrece los dos pero no tiene la autorización VTC: se alquila sin conductor, y entonces necesita ese precio
+  if (!precioFalta() && a.conductor === 'ambos' && !a.vtc && !(precioDe(a, 'sin') > 0)) f.push('precio');
+  if (!precioFalta() && a.conductor === 'ambos' && a.vtc && !(precioDe(a, 'con') > 0)) f.push('precio');
   if (!a.matricula) f.push('matricula');
   if (!a.seguro_compania || !a.seguro_poliza || !a.seguro_tipo || !a.seguro_cubre) f.push('seguro');
   if (!a.itv_hasta || a.itv_hasta < hoy) f.push('itv');
@@ -128,5 +132,12 @@ export function faltaParaAlquilar(c, p, cobrar, hoy = new Date(Date.now() + 3600
   if (!cobrosListos(p)) f.push('cobros');
   return f;
 }
+/** Precio por día de cada servicio: 'sin' (lo conduce quien alquila) o 'con' (con conductor). Los anuncios antiguos
+ *  «solo con conductor» tienen su precio en «precio». 0 = no se ofrece. */
+export function precioDe(a = {}, modo = 'sin') {
+  if (modo === 'con') return a.conductor === 'sin' ? 0 : Number(a.precio_con) || (a.conductor === 'con' ? Number(a.precio) || 0 : 0);
+  return a.conductor === 'con' ? 0 : Number(a.precio) || 0;
+}
+export const tienePrecio = (a = {}) => precioDe(a, 'sin') > 0 || precioDe(a, 'con') > 0;
 /** Con pago en la web, el alquiler con conductor solo si el dueño tiene la autorización (VTC); si no, sin conductor */
 export const conductorEfectivo = (a = {}, cobrar) => (!cobrar || a.vtc ? a.conductor || 'con' : 'sin');
