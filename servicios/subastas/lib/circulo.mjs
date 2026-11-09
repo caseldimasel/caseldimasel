@@ -26,6 +26,7 @@ import { createHash } from 'node:crypto';
 import { rellenarPropietarios } from './propietarios.mjs';
 import { rellenarUbicaciones } from './ubicaciones.mjs';
 import { ponerPaginas } from './paginas.mjs';
+import { paginaPreventas } from './preventa.mjs';
 import { avisarCliente, avisarTodos, avisoCambios, avisoPublicado, avisoRechazado } from './avisos.mjs';
 import { navPanel, paginaEstadisticas, ponerContadores } from './estadisticas.mjs';
 import { marco, rutasOperaciones } from './operaciones.mjs';
@@ -607,6 +608,7 @@ export function paginaPanel(cfg, lista, { estado = 'pendiente', aviso = '' } = {
   if (estado === 'propietarios') return paginaPanelHtml(pestañas, aviso, paginaPropietarios(cfg, lista));
   if (estado === 'ubicaciones') return paginaPanelHtml(pestañas, aviso, paginaUbicaciones(cfg, lista));
   if (estado === 'paginas') return paginaPanelHtml(pestañas, aviso, paginaPaginas(cfg, lista));
+  if (estado === 'preventas') return paginaPanelHtml(pestañas, aviso, paginaPreventas(cfg, lista || []));
   if (estado === 'cambios') return paginaPanelHtml(pestañas, aviso, lista.map((a) => tarjetaCambios(cfg, a)).join('') || '<p class="vacio">No hay cambios por revisar.</p>');
   const tarjetas = lista.map((a) => `
   <article class="a">
@@ -816,7 +818,8 @@ ${pestañas}
 /** Panel › Herramientas: lo que se usa de vez en cuando */
 function paginaHerramientas() {
   const h = (href, titulo, texto) => `<article class="a"><div class="cuerpo"><h2><a href="${href}" style="color:inherit">${titulo} ›</a></h2><p class="meta">${texto}</p></div></article>`;
-  return h('?estado=paginas', 'Páginas de la web', 'Crea en Shopify las páginas de Sidonia que falten (Eventos, Profesionales, Alquiler…) con su plantilla, y mira si el tema las tiene.')
+  return h('?estado=preventas', 'Reservas de la SIDONIA RD10', 'Cuántas radios hay reservadas (sin cobrar), quién las ha reservado y cuánto supondría. Para decidir el pedido a fábrica.')
+    + h('?estado=paginas', 'Páginas de la web', 'Crea en Shopify las páginas de Sidonia que falten (Eventos, Profesionales, Alquiler…) con su plantilla, y mira si el tema las tiene.')
     + h('?estado=ubicaciones', 'Ubicaciones', 'Pone a cada producto de la tienda su provincia (para la tarjeta y el filtro «Localización»), sacada de la descripción.')
     + h('?estado=propietarios', 'Propietario en las fichas', 'Saca de la historia de cada coche de Sidonia el nombre de su dueño, para enseñarlo en la ficha («Propietario: Carlos»).')
     + h('?estado=correos', 'Emails', 'Cómo se ve cada email que mandamos a los dueños (recibido, mejoras, publicado, pagos…) y mandarte una prueba.')
@@ -1127,6 +1130,15 @@ export async function atenderPanel(req, cfg, deps) {
       }
     }
     return html(paginaPanel(cfg, informe, { estado: 'propietarios', aviso }));
+  }
+  if (req.query.estado === 'preventas') {
+    let filas = [];
+    let aviso = '';
+    try { filas = await (deps.preventas || tablaAnuncios(cfg, deps.fetch, 'preventas')).leer('select=*&order=creado.desc&limit=1000'); } catch (e) {
+      console.error(e);
+      aviso = /preventas|relation/.test(String(e.message)) ? 'Falta la tabla: ejecuta sql/preventa.sql en Supabase › SQL Editor.' : `Error: ${e.message}`;
+    }
+    return html(paginaPanel(cfg, filas, { estado: 'preventas', aviso }));
   }
   if (req.query.estado === 'paginas') {
     let res = null;

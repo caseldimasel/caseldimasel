@@ -15,6 +15,7 @@ export const PAGINAS = [
   { handle: 'subastas', titulo: 'Subastas', plantilla: 'subastas' },
   { handle: 'perfil', titulo: 'Mi perfil', plantilla: 'perfil' },
   { handle: 'tienda', titulo: 'Tienda', plantilla: 'tienda' },
+  { handle: 'sidonia-rd10', titulo: 'SIDONIA RD10', plantilla: 'rd10' },
   // Interna: la propuesta para Arka (sin enlaces en la web y fuera de los buscadores)
   { handle: 'propuesta-arka', titulo: 'Propuesta para Arka', plantilla: 'propuesta-arka' }
 ];

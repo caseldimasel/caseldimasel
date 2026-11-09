@@ -20,6 +20,7 @@
  *   POST api/oferta              → «Hacer una oferta»: al dueño o al equipo, y el resumen al comprador (ofertas.mjs)
  *   gestion?a=&f=                → «¿Lo vendemos nosotros?»: de anuncio de la comunidad a gestión de venta (gestion.mjs)
  *   pagar?a=&f=                  → pagar un anuncio de la comunidad con Stripe, renovación cada mes (comunidad.mjs)
+ *   (directo) api/preventa/…, preventa/vuelta|cancelar → reservas sin cobro de la SIDONIA RD10 (preventa.mjs)
  */
 import { contactarAlquiler, peticionesPublicas, recibirAlquiler } from './alquiler.mjs';
 import { rutasGaraje } from './garaje.mjs';
@@ -37,6 +38,7 @@ import { revisarComunidad, rutasPago } from './comunidad.mjs';
 import { ofrecerGestion, rutasGestion } from './gestion.mjs';
 import { recibirOferta } from './ofertas.mjs';
 import { guardarInvitacion, invitarSiToca, leerInvitacion } from './invitaciones.mjs';
+import { rutasPreventa } from './preventa.mjs';
 
 export const VERSION = 'icono-app-invertido-2026-10-28';
 
@@ -270,6 +272,8 @@ export async function atender(req, cfg, deps) {
     // Pagar una reserva de alquiler (enlace firmado): a Stripe y la vuelta (reservas.mjs)
     if (/^alquiler\/(pagar|pagado|contrato|contrato-modelo|condiciones)$/.test(ruta)) return rutasPagoReserva({ ruta, query: req.query || {} }, cfg, deps);
     if (ruta === 'gestion') return rutasGestion({ method: req.method, query: req.query || {}, body: req.body || {} }, cfg, deps);
+    // Reservas sin cobro (la SIDONIA RD10): el formulario, la vuelta de Stripe, cancelar y el contador (preventa.mjs)
+    if (/^(api\/)?preventa\//.test(ruta)) return (await rutasPreventa({ ruta, method: req.method, query: req.query || {}, body: req.body || {} }, cfg, deps)) || json(404, { ok: false, error: 'ruta' });
     if (!/^api\/(anuncio|anuncios|visita|perfil|push|alertas|evento|comunidad|oferta|alquiler|garaje|opiniones|likes|chat)(\/|$)/.test(ruta)) return json(404, { ok: false, error: 'ruta' });
   } else if (!comprobarProxy(req.query, cfg.secreto)) return json(401, { ok: false, error: 'firma' });
   const cliente = !req.directo && req.query.logged_in_customer_id ? String(req.query.logged_in_customer_id) : clienteFirmado(req.query, cfg.clave);
