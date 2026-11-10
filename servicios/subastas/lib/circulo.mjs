@@ -26,7 +26,7 @@ import { createHash } from 'node:crypto';
 import { rellenarPropietarios } from './propietarios.mjs';
 import { rellenarUbicaciones } from './ubicaciones.mjs';
 import { ponerPaginas } from './paginas.mjs';
-import { paginaPreventas } from './preventa.mjs';
+import { accionPanelPreventas, contarVistas, paginaPreventas } from './preventa.mjs';
 import { avisarCliente, avisarTodos, avisoCambios, avisoPublicado, avisoRechazado } from './avisos.mjs';
 import { navPanel, paginaEstadisticas, ponerContadores } from './estadisticas.mjs';
 import { marco, rutasOperaciones } from './operaciones.mjs';
@@ -602,13 +602,13 @@ function formEditar(cfg, a) {
   </details>`;
 }
 
-export function paginaPanel(cfg, lista, { estado = 'pendiente', aviso = '' } = {}) {
+export function paginaPanel(cfg, lista, { estado = 'pendiente', aviso = '', vistas = null } = {}) {
   const fmt = (n) => (n ? `${Number(n).toLocaleString('es-ES')} €` : 'A consultar');
   const pestañas = navPanel(estado);
   if (estado === 'propietarios') return paginaPanelHtml(pestañas, aviso, paginaPropietarios(cfg, lista));
   if (estado === 'ubicaciones') return paginaPanelHtml(pestañas, aviso, paginaUbicaciones(cfg, lista));
   if (estado === 'paginas') return paginaPanelHtml(pestañas, aviso, paginaPaginas(cfg, lista));
-  if (estado === 'preventas') return paginaPanelHtml(pestañas, aviso, paginaPreventas(cfg, lista || []));
+  if (estado === 'preventas') return paginaPanelHtml(pestañas, aviso, paginaPreventas(cfg, lista || [], { vistas }));
   if (estado === 'cambios') return paginaPanelHtml(pestañas, aviso, lista.map((a) => tarjetaCambios(cfg, a)).join('') || '<p class="vacio">No hay cambios por revisar.</p>');
   const tarjetas = lista.map((a) => `
   <article class="a">
@@ -1134,11 +1134,18 @@ export async function atenderPanel(req, cfg, deps) {
   if (req.query.estado === 'preventas') {
     let filas = [];
     let aviso = '';
+    if (req.method === 'POST' && req.body && req.body.accion) {
+      try { aviso = await accionPanelPreventas(req.body, cfg, deps); } catch (e) {
+        console.error(e);
+        aviso = /column|avisado|pago_id|fallida|check/.test(String(e.message)) ? 'Falta poner al día la tabla: ejecuta otra vez sql/preventa.sql en Supabase › SQL Editor.' : `Error: ${e.message}`;
+      }
+    }
     try { filas = await (deps.preventas || tablaAnuncios(cfg, deps.fetch, 'preventas')).leer('select=*&order=creado.desc&limit=1000'); } catch (e) {
       console.error(e);
       aviso = /preventas|relation/.test(String(e.message)) ? 'Falta la tabla: ejecuta sql/preventa.sql en Supabase › SQL Editor.' : `Error: ${e.message}`;
     }
-    return html(paginaPanel(cfg, filas, { estado: 'preventas', aviso }));
+    const vistas = await (deps.contarVistas || contarVistas)(cfg, deps, 'sidonia-rd10').catch(() => null);
+    return html(paginaPanel(cfg, filas, { estado: 'preventas', aviso, vistas }));
   }
   if (req.query.estado === 'paginas') {
     let res = null;

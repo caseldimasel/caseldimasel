@@ -82,3 +82,60 @@ test('volver solo a la tienda; panel con el total', async () => {
   assert.match(h, /<b style="font-size:28px">2<\/b> radios reservadas por 1 persona/);
   assert.match(h, /198 €/);
 });
+
+test('condiciones, «ya la hemos pedido» y cobrar desde el panel', async () => {
+  const { filas, stripeCalls, correos, deps } = fakes();
+  const cd = await ir(deps, 'preventa/condiciones');
+  assert.equal(cd.status, 200);
+  assert.match(cd.body, /Condiciones de la reserva/);
+  assert.match(cd.body, /Al reservar no se cobra nada/);
+  // Dos reservas con tarjeta guardada
+  filas.push({ id: 1, producto: 'rd10', nombre: 'Ana Uno', email: 'a@b.es', cantidad: 1, precio: 99, estado: 'reservada', stripe_cliente: 'cus_1', metodo_pago: 'pm_1', tarjeta: 'Visa •••• 4242' });
+  filas.push({ id: 2, producto: 'rd10', nombre: 'Bea Dos', email: 'b@b.es', cantidad: 2, precio: 99, estado: 'reservada', stripe_cliente: 'cus_2', metodo_pago: 'pm_2' });
+  const { accionPanelPreventas } = await import('../lib/preventa.mjs');
+  assert.match(await accionPanelPreventas({ accion: 'avisar', entrega: 'mediados de enero' }, cfg, deps), /2 emails/);
+  assert.match(correos[0].subject, /Ya hemos pedido tu SIDONIA RD10/);
+  assert.match(correos[0].html, /mediados de enero/);
+  assert.ok(filas.every((f) => f.avisado));
+  assert.match(await accionPanelPreventas({ accion: 'avisar', entrega: 'enero' }, cfg, deps), /0 emails/, 'no repite');
+  // Sin confirmar el número exacto no cobra
+  assert.match(await accionPanelPreventas({ accion: 'cobrar', confirmo: '5' }, cfg, deps), /No se ha cobrado nada/);
+  // Stripe: la 1 se cobra, la 2 la rechaza el banco
+  deps.stripe = async (m, path, body) => {
+    stripeCalls.push([m, path, body]);
+    if (path === 'payment_intents') {
+      if (body.customer === 'cus_2') throw new Error('Stripe payment_intents 402: authentication_required');
+      return { id: 'pi_1', status: 'succeeded' };
+    }
+    if (path === 'checkout/sessions') return { url: 'https://checkout.stripe.com/c/pay/cs_test_2' };
+    if (path.startsWith('checkout/sessions/')) return { payment_status: 'paid', payment_intent: 'pi_2', metadata: { reserva: '2' } };
+    throw new Error(path);
+  };
+  const aviso = await accionPanelPreventas({ accion: 'cobrar', confirmo: '2' }, cfg, deps);
+  assert.match(aviso, /Cobradas 1\. 1 no se han podido cobrar/);
+  const pi = stripeCalls.find((c) => c[1] === 'payment_intents' && c[2].customer === 'cus_1')[2];
+  assert.deepEqual([pi.amount, pi.off_session, pi.confirm], ['9900', 'true', 'true']);
+  assert.equal(filas[0].estado, 'cobrada');
+  assert.equal(filas[1].estado, 'fallida');
+  assert.match(filas[1].error, /authentication_required/);
+  const pend = correos.find((c) => /Falta el pago/.test(c.subject));
+  const enlace = /href="([^"]*preventa\/pagar[^"]*)"/.exec(pend.html)[1].replace(/&amp;/g, '&');
+  const u = new URL(enlace);
+  // El enlace del email lleva a pagar con Stripe y la vuelta la marca como cobrada
+  const pg = await ir(deps, 'preventa/pagar', 'GET', Object.fromEntries(u.searchParams));
+  assert.equal(pg.status, 303);
+  const ses = stripeCalls.findLast((c) => c[1] === 'checkout/sessions')[2];
+  assert.equal(ses.mode, 'payment');
+  assert.equal(ses['line_items[0][quantity]'], '2');
+  assert.equal(ses['line_items[0][price_data][unit_amount]'], '9900');
+  const vuelta = await ir(deps, 'preventa/pagado', 'GET', { ...Object.fromEntries(u.searchParams), session_id: 'cs_test_2' });
+  assert.match(vuelta.body, /Pagada/);
+  assert.equal(filas[1].estado, 'cobrada');
+  const h = paginaPreventas(cfg, filas.map((f) => ({ ...f, creado: '2026-11-10T10:00:00Z' })));
+  assert.match(h, /2 cobradas/);
+});
+
+test('panel: visitas de la página y qué parte reserva', () => {
+  const h = paginaPreventas(cfg, [{ creado: '2026-11-10T10:00:00Z', nombre: 'A', email: 'a@b.es', cantidad: 1, precio: 99, estado: 'reservada' }], { vistas: { vistas: 60, personas: 40 } });
+  assert.match(h, /<b>60<\/b> visitas a la página de la RD10 de <b>40<\/b> personas · reserva el 2,5 %/);
+});

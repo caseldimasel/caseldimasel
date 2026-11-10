@@ -9,10 +9,16 @@
  *   POST api/preventa/reservar { producto, nombre, email, telefono, cantidad, precio, acepto, volver } → { ok, url } (a Stripe)
  *   GET  preventa/vuelta?r=&f=&session_id=   → marca la reserva con su tarjeta, manda el email y vuelve a la web
  *   GET  preventa/cancelar?r=&f=            → cancela la reserva (enlace del email)
+ *   GET  preventa/condiciones               → las condiciones de la reserva (enlazadas desde la web)
+ *   GET  preventa/pagar?r=&f=               → si el cobro automático falló: pagar con Stripe (enlace del email)
+ *   GET  preventa/pagado?r=&f=&session_id=  → vuelta de ese pago
+ * Panel › Herramientas › Reservas RD10: «Ya la hemos pedido» (email a todas las reservas) y «Cobrar» (con la tarjeta
+ * guardada, sin que la persona tenga que hacer nada; si su banco pide confirmarlo, le llega el enlace para pagar).
  */
 import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 import { tablaAnuncios, esc } from './circulo.mjs';
 import { enviarCorreo, plantilla, P, datos, lista } from './correos.mjs';
+import { paginaDocumento, sidonia } from './contratos.mjs';
 
 export const PRODUCTOS = { rd10: { nombre: 'SIDONIA RD10', max: 3 } };
 
@@ -152,6 +158,41 @@ export async function rutasPreventa({ ruta, method, query = {}, body = {} }, cfg
       if (fila.estado !== 'cancelada') await t.cambiar(id, { estado: 'cancelada', cancelado: new Date().toISOString() });
       return paginaSimple(cfg, 'Reserva cancelada', `Hemos cancelado tu reserva de la ${esc(PRODUCTOS[fila.producto]?.nombre || 'radio')}. No se te ha cobrado nada.`);
     }
+    if (ruta === 'preventa/condiciones') {
+      return { status: 200, headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'public, max-age=600' }, body: paginaDocumento('Condiciones de la reserva', condicionesPreventa(cfg)) };
+    }
+
+    if (ruta === 'preventa/pagar' || ruta === 'preventa/pagado') {
+      const id = Number(query.r);
+      if (!firmaOk(cfg.clave, id, query.f)) return paginaSimple(cfg, 'Enlace no válido', 'Este enlace no es correcto.');
+      const [fila] = await t.leer(`id=eq.${id}&limit=1`);
+      if (!fila) return paginaSimple(cfg, 'No encontramos la reserva', 'Escríbenos y lo miramos.');
+      if (fila.estado === 'cobrada') return paginaSimple(cfg, 'Ya está pagada', 'Tu SIDONIA RD10 ya está pagada. ¡Gracias!');
+      if (fila.estado === 'cancelada') return paginaSimple(cfg, 'Reserva cancelada', 'Esta reserva está cancelada. Si quieres la radio, escríbenos.');
+      const st = await stripeDe(cfg, deps);
+      if (ruta === 'preventa/pagar') {
+        const f = firma(cfg.clave, id);
+        const s2 = await st('POST', 'checkout/sessions', {
+          mode: 'payment', ...(fila.stripe_cliente ? { customer: fila.stripe_cliente } : { customer_email: fila.email }), locale: 'es', 'payment_method_types[0]': 'card',
+          'line_items[0][quantity]': String(fila.cantidad || 1),
+          'line_items[0][price_data][currency]': 'eur',
+          'line_items[0][price_data][unit_amount]': String(Math.round(Number(fila.precio) * 100)),
+          'line_items[0][price_data][product_data][name]': PRODUCTOS[fila.producto]?.nombre || 'SIDONIA RD10',
+          success_url: `${cfg.servidor}/tienda/preventa/pagado?r=${id}&f=${f}&session_id={CHECKOUT_SESSION_ID}`,
+          cancel_url: cfg.tienda || 'https://sidonia.es',
+          metadata: { sidonia: 'preventa', reserva: String(id) }
+        });
+        return redirect(s2.url);
+      }
+      const sid = String(query.session_id || '');
+      if (!/^cs_[A-Za-z0-9_]+$/.test(sid)) return paginaSimple(cfg, 'Falta el pago', 'No hemos recibido el pago. Prueba otra vez con el enlace de tu email.');
+      const s3 = await st('GET', `checkout/sessions/${sid}`);
+      if (s3.payment_status !== 'paid' || String(s3.metadata?.reserva) !== String(id)) return paginaSimple(cfg, 'Falta el pago', 'No hemos recibido el pago. Prueba otra vez con el enlace de tu email.');
+      await t.cambiar(id, { estado: 'cobrada', pago_id: s3.payment_intent || sid, cobrado: new Date().toISOString(), error: null });
+      const m = correoCobrada(cfg, fila);
+      await enviarCorreo(cfg, fila.email, m.asunto, m.html, deps.fetch || fetch).catch(() => {});
+      return paginaSimple(cfg, '¡Pagada!', `Tu ${esc(PRODUCTOS[fila.producto]?.nombre || 'radio')} está pagada. Te escribimos cuando salga hacia tu casa.`);
+    }
     return null;
   } catch (e) {
     console.error('Sidonia · preventa', e);
@@ -159,15 +200,182 @@ export async function rutasPreventa({ ruta, method, query = {}, body = {} }, cfg
   }
 }
 
-/** Panel › Herramientas › Reservas: el contador y la lista */
-export function paginaPreventas(cfg, filas = []) {
+/** Panel › Herramientas › Reservas: el contador, los botones «Ya la hemos pedido» y «Cobrar», y la lista */
+export function paginaPreventas(cfg, filas = [], { vistas = null } = {}) {
   const res = filas.filter((f) => f.estado === 'reservada');
   const uds = res.reduce((s, f) => s + (Number(f.cantidad) || 1), 0);
   const ingresos = res.reduce((s, f) => s + (Number(f.cantidad) || 1) * (Number(f.precio) || 0), 0);
-  const est = { reservada: 'Reservada', pendiente: 'Sin terminar (no guardó la tarjeta)', cancelada: 'Cancelada', cobrada: 'Cobrada' };
-  const tr = filas.map((f) => `<tr><td>${esc(new Date(f.creado).toLocaleString('es-ES', { timeZone: 'Europe/Madrid' }))}</td><td>${esc(f.nombre)}<br><small>${esc(f.email)}${f.telefono ? ` · ${esc(f.telefono)}` : ''}</small></td><td>${Number(f.cantidad) || 1}</td><td>${esc(eur(f.precio || 0))}</td><td>${esc(est[f.estado] || f.estado)}${f.tarjeta ? `<br><small>${esc(f.tarjeta)}</small>` : ''}</td></tr>`).join('');
+  const cobradas = filas.filter((f) => f.estado === 'cobrada');
+  const fallidas = filas.filter((f) => f.estado === 'fallida');
+  const sinAviso = res.filter((f) => !f.avisado).length;
+  const est = { reservada: 'Reservada', pendiente: 'Sin terminar (no guardó la tarjeta)', cancelada: 'Cancelada', cobrada: 'Cobrada', fallida: 'Cobro fallido: tiene el enlace para pagar' };
+  const tr = filas.map((f) => `<tr><td>${esc(new Date(f.creado).toLocaleString('es-ES', { timeZone: 'Europe/Madrid' }))}</td><td>${esc(f.nombre)}<br><small>${esc(f.email)}${f.telefono ? ` · ${esc(f.telefono)}` : ''}</small></td><td>${Number(f.cantidad) || 1}</td><td>${esc(eur(f.precio || 0))}</td><td>${esc(est[f.estado] || f.estado)}${f.tarjeta ? `<br><small>${esc(f.tarjeta)}</small>` : ''}${f.avisado && f.estado === 'reservada' ? '<br><small>Avisada del pedido</small>' : ''}${f.error ? `<br><small>${esc(f.error)}</small>` : ''}</td></tr>`).join('');
+  const acciones = res.length ? `<form method="post" class="acc" style="margin:14px 0">
+  <b>1 · Ya la hemos pedido a fábrica</b>
+  <p class="nota">Manda un email a quienes tienen la radio reservada y aún no lo han recibido (${sinAviso}): que ya está pedida, la fecha estimada y el botón para cancelar. No se cobra nada.</p>
+  <input name="entrega" required maxlength="80" placeholder="Entrega estimada, p. ej. «mediados de enero»" style="min-width:280px">
+  <button name="accion" value="avisar" class="si">Mandar el email</button>
+</form>
+<form method="post" class="acc" style="margin:14px 0">
+  <b>2 · Cobrar (cuando las radios estén aquí para enviarlas)</b>
+  <p class="nota">Cobra con la tarjeta guardada de cada reserva y le manda un email. Si un banco pide confirmarlo, a esa persona le llega un enlace para pagar. Va de 25 en 25: si hay más, pulsa otra vez.</p>
+  <label class="avisar"><input type="checkbox" name="confirmo" value="${res.length}" required> Sí, cobrar ahora ${res.length} ${res.length === 1 ? 'reserva' : 'reservas'} (${esc(eur(ingresos))})</label>
+  <button name="accion" value="cobrar" class="no">Cobrar</button>
+</form>` : '';
   return `<h2 style="margin:0 0 6px">SIDONIA RD10 · reservas</h2>
 <p class="res"><b style="font-size:28px">${uds}</b> radios reservadas por ${res.length} ${res.length === 1 ? 'persona' : 'personas'} · si se cobran todas, ${esc(eur(ingresos))} (IVA incluido)</p>
-<p class="nota">No se ha cobrado nada a nadie: guardan la tarjeta y se cobra al enviar. «Sin terminar» son quienes empezaron y no guardaron la tarjeta. Para decidir el pedido de 500 nos fijamos en unas 150 reservas.</p>
+${vistas != null ? `<p class="nota"><b>${vistas.vistas.toLocaleString('es-ES')}</b> visitas a la página de la RD10 de <b>${vistas.personas.toLocaleString('es-ES')}</b> personas${vistas.personas ? ` · reserva el ${(res.length / vistas.personas * 100).toLocaleString('es-ES', { maximumFractionDigits: 1 })} %` : ''} (desde que se cuentan)</p>` : ''}
+${cobradas.length || fallidas.length ? `<p class="nota">${cobradas.length} cobradas · ${fallidas.length} con el cobro pendiente (tienen el enlace para pagar)</p>` : ''}
+<p class="nota">Las reservas no se cobran: guardan la tarjeta y se cobra al enviar. «Sin terminar» son quienes empezaron y no guardaron la tarjeta. Para decidir el pedido de 500 nos fijamos en unas 150 reservas. <a href="${esc(cfg.servidor || '')}/tienda/preventa/condiciones" target="_blank">Condiciones de la reserva</a></p>
+${acciones}
 <div style="overflow-x:auto"><table><thead><tr><th>Cuándo</th><th>Quién</th><th>Uds.</th><th>Precio</th><th>Estado</th></tr></thead><tbody>${tr || '<tr><td colspan="5" class="vacio">Aún no hay reservas.</td></tr>'}</tbody></table></div>`;
+}
+
+/** Visitas a la página del producto (tabla eventos de las estadísticas: «vista» con su handle) */
+export async function contarVistas(cfg, deps, handle) {
+  const t = tablaAnuncios(cfg, deps.fetch, 'eventos');
+  const filas = [];
+  for (let pag = 0; pag < 30; pag += 1) { // Supabase da como mucho 1000 filas por llamada
+    const trozo = await t.leer(`select=sesion&tipo=eq.vista&handle=eq.${encodeURIComponent(handle)}&order=id.asc&limit=1000&offset=${pag * 1000}`);
+    filas.push(...trozo);
+    if (trozo.length < 1000) break;
+  }
+  return { vistas: filas.length, personas: new Set(filas.map((f) => f.sesion || Math.random())).size };
+}
+
+/** Botones del panel. Devuelve el aviso a mostrar. */
+export async function accionPanelPreventas(body = {}, cfg, deps, producto = 'rd10') {
+  if (body.accion === 'avisar') {
+    const entrega = clip(body.entrega, 80);
+    if (!entrega) return 'Escribe la fecha estimada de entrega.';
+    const r = await avisarPedido(cfg, deps, producto, entrega);
+    return `Listo: ${r.avisadas} emails mandados.${r.faltan > 0 ? ` Faltan ${r.faltan}: pulsa otra vez.` : ''}`;
+  }
+  if (body.accion === 'cobrar') {
+    const filas = await tabla(cfg, deps).leer(`producto=eq.${encodeURIComponent(producto)}&estado=eq.reservada&select=*&order=creado.asc`);
+    if (String(body.confirmo) !== String(filas.length)) return 'No se ha cobrado nada: la lista ha cambiado. Revísala y vuelve a confirmar.';
+    let ok = 0, mal = 0;
+    for (const r of filas.slice(0, 25)) { const x = await cobrarReserva(cfg, deps, r); if (x.ok) ok += 1; else mal += 1; }
+    const faltan = Math.max(0, filas.length - 25);
+    return `Cobradas ${ok}.${mal ? ` ${mal} no se han podido cobrar: les ha llegado el enlace para pagar.` : ''}${faltan ? ` Faltan ${faltan}: confirma y pulsa otra vez.` : ''}`;
+  }
+  return '';
+}
+
+/* ---------------------------------------------------------------------------- Condiciones */
+export function condicionesPreventa(cfg = {}) {
+  const sd = sidonia(cfg);
+  const dato = (v) => (v ? esc(v) : '<span class="hueco">pendiente</span>');
+  return `<h1>Condiciones de la reserva</h1>
+<p class="meta">SIDONIA RD10 · Versión 2026-11-10</p>
+<h2>1. Quién vende</h2>
+<p>${dato(sd.razon)} · NIF ${dato(sd.nif)} · ${dato(sd.domicilio)} · <a href="mailto:${esc(sd.email)}">${esc(sd.email)}</a> · ${esc(sd.web)}</p>
+<h2>2. Qué es una reserva</h2>
+<p>Reservar no es comprar todavía. Dejas tu nombre y tu email y guardas tu tarjeta con Stripe, nuestro proveedor de pagos. <b>Al reservar no se cobra nada.</b> Sidonia no ve ni guarda el número de tu tarjeta.</p>
+<h2>3. Fabricación por encargo</h2>
+<p>La SIDONIA RD10 se fabrica por encargo. Según las reservas, decidimos cuántas unidades pedimos a fábrica. Cuando hagamos el pedido te escribiremos con la fecha estimada de entrega. Si al final no se hace el pedido, te avisaremos, cancelaremos tu reserva y no se te cobrará nada.</p>
+<h2>4. Precio</h2>
+<p>Se te cobra el precio que aceptaste al reservar, por cada unidad reservada, con el IVA y el envío a la península incluidos. Si después sube el precio, a ti se te respeta el de tu reserva.</p>
+<h2>5. Cuándo se cobra</h2>
+<p>Al reservar aceptas que, cuando tu radio esté lista para enviarse, se cobre el total en la tarjeta que guardaste, sin que tengas que hacer nada. Si el cobro no se puede hacer (por ejemplo, porque tu banco pide confirmarlo o la tarjeta ha caducado), te mandamos un enlace para pagar. Si no se paga en 7 días desde ese aviso, la reserva se cancela.</p>
+<h2>6. Cancelar la reserva</h2>
+<p>Puedes cancelarla cuando quieras antes de que se cobre, sin ningún coste, con el botón del email de tu reserva o escribiéndonos.</p>
+<h2>7. Desistimiento y devolución</h2>
+<p>Una vez recibida, tienes 14 días naturales para devolverla sin dar explicaciones, como marca la ley. Escríbenos y te diremos cómo enviarla. Te devolveremos lo que pagaste en un máximo de 14 días desde que nos comuniques que la devuelves, una vez recibida la radio.</p>
+<h2>8. Garantía</h2>
+<p>La radio tiene la garantía legal de 3 años por falta de conformidad. Si falla, escríbenos y lo solucionamos: reparación, cambio o devolución del dinero, según el caso.</p>
+<h2>9. Compatibilidad</h2>
+<p>La SIDONIA RD10 es una radio de tamaño 1 DIN. Comprueba que tu coche tiene hueco 1 DIN, o escríbenos antes de reservar. Algunos coches necesitan un marco o un cableado adaptador, que no se incluyen salvo que se indique.</p>
+<h2>10. Tus datos</h2>
+<p>Usamos tu nombre, tu email y, si nos lo das, tu teléfono solo para gestionar tu reserva, el cobro, el envío y la garantía. Stripe trata los datos de tu tarjeta según su propia política de privacidad. Puedes pedirnos ver, corregir o borrar tus datos escribiendo a ${esc(sd.email)}.</p>
+<h2>11. Ley y contacto</h2>
+<p>Se aplica la ley española de consumo. Para cualquier duda o reclamación, escríbenos a ${esc(sd.email)}.</p>`;
+}
+
+/* ---------------------------------------------------------------------------- «Ya la hemos pedido» y cobrar */
+export function correoPedido(cfg, r, entrega, cancelar) {
+  const p = PRODUCTOS[r.producto];
+  return {
+    asunto: `Ya hemos pedido tu ${p.nombre}`,
+    html: plantilla(cfg, null, {
+      titulo: 'Ya está pedida', previa: `Entrega estimada: ${entrega}.`,
+      cuerpo: P(`Hola ${esc(String(r.nombre || '').split(/\s+/)[0])}:`)
+        + P(`Buenas noticias: hemos hecho el pedido a fábrica y tu <b>${esc(p.nombre)}</b> está en camino.`)
+        + datos([['Entrega estimada', entrega], ['Unidades', String(r.cantidad)], ['Total', `${eur((Number(r.precio) || 0) * (Number(r.cantidad) || 1))} (se cobra al enviarla)`]])
+        + P('Todavía no te hemos cobrado nada. Lo haremos cuando tu radio salga hacia tu casa, y te avisaremos.')
+        + P('Si has cambiado de idea, aún puedes cancelar sin coste con el botón de abajo.'),
+      boton: 'Cancelar mi reserva', enlace: cancelar
+    })
+  };
+}
+export function correoCobrada(cfg, r) {
+  const p = PRODUCTOS[r.producto];
+  return {
+    asunto: `Tu ${p.nombre} sale hacia tu casa`,
+    html: plantilla(cfg, null, {
+      titulo: '¡Ya va de camino!', previa: 'Hemos cobrado tu reserva y la preparamos para enviarla.',
+      cuerpo: P(`Hola ${esc(String(r.nombre || '').split(/\s+/)[0])}:`)
+        + P(`Hemos cobrado tu reserva de la <b>${esc(p.nombre)}</b> y la preparamos para enviártela.`)
+        + datos([['Unidades', String(r.cantidad)], ['Total cobrado', eur((Number(r.precio) || 0) * (Number(r.cantidad) || 1))], ...(r.tarjeta ? [['Tarjeta', r.tarjeta]] : [])])
+        + P('Tienes 14 días desde que la recibas para devolverla si no te convence, y 3 años de garantía. Cualquier cosa, responde a este email.'),
+      boton: 'Ver la SIDONIA RD10', enlace: `${cfg.tienda || 'https://sidonia.es'}/pages/sidonia-rd10`
+    })
+  };
+}
+export function correoPagoPendiente(cfg, r, pagar) {
+  const p = PRODUCTOS[r.producto];
+  return {
+    asunto: `Falta el pago de tu ${p.nombre}`,
+    html: plantilla(cfg, null, {
+      titulo: 'Falta un paso', previa: 'No hemos podido cobrar con tu tarjeta guardada. Paga con el enlace.',
+      cuerpo: P(`Hola ${esc(String(r.nombre || '').split(/\s+/)[0])}:`)
+        + P(`Tu <b>${esc(p.nombre)}</b> está lista para enviarse, pero no hemos podido cobrarla con la tarjeta que guardaste (puede que tu banco pida confirmarlo o que la tarjeta haya caducado).`)
+        + datos([['Total', eur((Number(r.precio) || 0) * (Number(r.cantidad) || 1))]])
+        + P('Paga con el botón de abajo y te la enviamos. Si no se paga en 7 días, la reserva se cancelará.'),
+      boton: 'Pagar mi radio', enlace: pagar
+    })
+  };
+}
+
+/** Avisa a todas las reservas de que ya está pedida. Devuelve cuántos emails se mandaron. */
+export async function avisarPedido(cfg, deps, producto, entrega, max = 60) {
+  const t = tabla(cfg, deps);
+  const filas = await t.leer(`producto=eq.${encodeURIComponent(producto)}&estado=eq.reservada&select=*`);
+  let n = 0;
+  for (const r of filas) {
+    if (r.avisado) continue;
+    if (n >= max) break;
+    const cancelar = `${cfg.servidor}/tienda/preventa/cancelar?r=${r.id}&f=${firma(cfg.clave, r.id)}`;
+    const m = correoPedido(cfg, r, entrega, cancelar);
+    const ok = await enviarCorreo(cfg, r.email, m.asunto, m.html, deps.fetch || fetch).catch((e) => { console.error(e); return false; });
+    if (ok) { n += 1; await t.cambiar(r.id, { avisado: new Date().toISOString() }); }
+  }
+  return { avisadas: n, faltan: filas.filter((r) => !r.avisado).length - n };
+}
+
+/** Cobra una reserva con su tarjeta guardada (sin que la persona esté). Si no se puede, le manda el enlace para pagar. */
+export async function cobrarReserva(cfg, deps, r) {
+  const t = tabla(cfg, deps);
+  const st = await stripeDe(cfg, deps);
+  const total = Math.round((Number(r.precio) || 0) * (Number(r.cantidad) || 1) * 100);
+  try {
+    if (!r.stripe_cliente || !r.metodo_pago) throw new Error('sin tarjeta guardada');
+    const pi = await st('POST', 'payment_intents', {
+      amount: String(total), currency: 'eur', customer: r.stripe_cliente, payment_method: r.metodo_pago,
+      off_session: 'true', confirm: 'true', description: `${PRODUCTOS[r.producto]?.nombre || 'Reserva'} · reserva ${r.id}`,
+      metadata: { sidonia: 'preventa', reserva: String(r.id) }
+    });
+    if (pi.status !== 'succeeded') throw new Error(`estado ${pi.status}`);
+    await t.cambiar(r.id, { estado: 'cobrada', pago_id: pi.id, cobrado: new Date().toISOString(), error: null });
+    const m = correoCobrada(cfg, r);
+    await enviarCorreo(cfg, r.email, m.asunto, m.html, deps.fetch || fetch).catch(() => {});
+    return { ok: true };
+  } catch (e) {
+    const motivo = String(e.message || e).slice(0, 300);
+    await t.cambiar(r.id, { estado: 'fallida', error: motivo });
+    const pagar = `${cfg.servidor}/tienda/preventa/pagar?r=${r.id}&f=${firma(cfg.clave, r.id)}`;
+    const m = correoPagoPendiente(cfg, r, pagar);
+    await enviarCorreo(cfg, r.email, m.asunto, m.html, deps.fetch || fetch).catch(() => {});
+    return { ok: false, error: motivo };
+  }
 }
