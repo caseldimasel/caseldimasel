@@ -9,6 +9,7 @@
 import { CABECERA, ESTILO_PANEL, FAVICON } from './marca.mjs';
 import { ESTADOS, esc } from './circulo.mjs';
 import { cajaActividad, CSS_ACTIVIDAD, miniFoto, SCRIPT_VIVO } from './actividad.mjs';
+import { cajaContactos, CSS_CONTACTOS } from './conversaciones.mjs';
 
 export const TIPOS = ['visita', 'vista', 'contacto', 'like', 'unlike', 'compartir', 'busqueda', 'alerta', 'oferta'];
 const CANALES = ['whatsapp', 'chat', 'llamar', 'email', 'registro'];
@@ -46,7 +47,7 @@ export const SECCIONES = [
   ['ventas', 'Ventas', [['ventas', 'Ventas'], ['meses', 'Por meses'], ['ofertas', 'Ofertas'], ['enlazar', 'Enlazar a mano'], ['importar', 'Importar Excel']], ['operacion']],
   ['fichas', 'Anuncios', [['fichas', 'En la web'], ['cobros', 'Cobros comunidad'], ['pendiente', 'Por revisar'], ['cambios', 'Cambios'], ['aprobado', 'Aprobados'], ['publicado', 'Publicados'], ['vendido', 'Vendidos'], ['cancelados', 'Cancelados']], ['ficha', 'rechazado', 'retirado', 'cobrar', 'tarifa']],
   ['clientes', 'Clientes', [['clientes', 'Interesados'], ['anunciantes', 'Anunciantes · comunidad'], ['duenos', 'Propietarios · gestión'], ['garajes', 'Garajes'], ['opiniones', 'Opiniones de profesionales'], ['alquiler', 'Alquiler · lista de espera']], ['cliente', 'anunciante']],
-  ['estadisticas', 'Estadísticas web', [], ['anuncio']],
+  ['estadisticas', 'Estadísticas web', [['estadisticas', 'Web'], ['conversaciones', 'Conversaciones']], ['anuncio', 'chat']],
   ['herramientas', 'Herramientas', [['preventas', 'Reservas RD10'], ['paginas', 'Páginas de la web'], ['ubicaciones', 'Ubicaciones'], ['propietarios', 'Propietario en las fichas'], ['avisos', 'Avisos al móvil'], ['correos', 'Emails']], []]
 ];
 let contadores = {};
@@ -120,7 +121,7 @@ const CSS_BUSCADOR = `
   .buscador a { color: var(--suave); font-size: 14px; }
 `;
 
-export function paginaEstadisticas(datos, { dias = 30, error = '', tienda = 'https://sidonia.es', actividad = null, fotos = {}, busqueda = null } = {}) {
+export function paginaEstadisticas(datos, { dias = 30, error = '', tienda = 'https://sidonia.es', actividad = null, fotos = {}, busqueda = null, contactos: quien = null } = {}) {
   const d = datos || {};
   const a = d.actual || {};
   const b = d.anterior || {};
@@ -165,11 +166,12 @@ export function paginaEstadisticas(datos, { dias = 30, error = '', tienda = 'htt
 
   return `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Estadísticas web · Panel de Sidonia</title><meta name="robots" content="noindex">${FAVICON}
-<style>${ESTILO}${CSS_ACTIVIDAD}${CSS_BUSCADOR}</style></head><body>
+<style>${ESTILO}${CSS_ACTIVIDAD}${CSS_BUSCADOR}${CSS_CONTACTOS}</style></head><body>
 ${CABECERA}
 ${pestañas}
 ${buscador}
 <div class="per">${periodos}</div>
+${cajaContactos(quien, { tienda, dias })}
 ${error ? `<p class="error">No se han podido leer las estadísticas: ${esc(/eventos|sidonia_estadisticas|function/.test(error) ? 'falta ejecutar sql/estadisticas.sql en Supabase › SQL Editor.' : error)}</p>` : ''}
 <div class="kpis">
   ${kpi(a.visitantes, b.visitantes, 'Visitantes', 'personas distintas (por navegador)', 'visitantes')}

@@ -29,6 +29,7 @@ import { ponerPaginas } from './paginas.mjs';
 import { accionPanelPreventas, contarVistas, paginaPreventas } from './preventa.mjs';
 import { avisarCliente, avisarTodos, avisoCambios, avisoPublicado, avisoRechazado } from './avisos.mjs';
 import { navPanel, paginaEstadisticas, ponerContadores } from './estadisticas.mjs';
+import { CSS_CONTACTOS, leerConversacion, listaConversaciones, paginaConversacionesHtml, paginaConversacionHtml, resumenContactos } from './conversaciones.mjs';
 import { marco, rutasOperaciones } from './operaciones.mjs';
 import { accionPanelAlquiler, paginaAlquiler } from './alquiler.mjs';
 import { accionPanelGarajes, accionPanelReservas, cuotasAlquiler, tablaReservasPanel } from './reservas.mjs';
@@ -1074,7 +1075,22 @@ export async function atenderPanel(req, cfg, deps) {
         }));
       } catch (e) { busqueda.error = `No se ha podido buscar: ${e.message || e}`; }
     }
-    return html(paginaEstadisticas(datos, { dias, error, tienda: cfg.tienda, actividad, fotos, busqueda }));
+    let contactos = null;
+    try { contactos = await resumenContactos(cfg, deps, dias); } catch (e) { console.error(e); }
+    return html(paginaEstadisticas(datos, { dias, error, tienda: cfg.tienda, actividad, fotos, busqueda, contactos }));
+  }
+  if (req.query.estado === 'conversaciones' || req.query.estado === 'chat') {
+    const dias = [7, 30, 90, 365].includes(Number(req.query.dias)) ? Number(req.query.dias) : 30;
+    let cuerpo = '';
+    try {
+      cuerpo = req.query.estado === 'chat'
+        ? paginaConversacionHtml(await leerConversacion(cfg, deps, req.query.id), { tienda: cfg.tienda })
+        : paginaConversacionesHtml(await listaConversaciones(cfg, deps, dias), { dias });
+    } catch (e) {
+      console.error(e);
+      cuerpo = `<p class="error">${/chats|relation/.test(String(e.message)) ? 'Falta la tabla del chat: ejecuta sql/chat.sql en Supabase › SQL Editor.' : esc(`Error: ${e.message}`)}</p>`;
+    }
+    return html(paginaPanelHtml(navPanel(req.query.estado), '', `<style>${CSS_CONTACTOS}</style>${cuerpo}`));
   }
   // Email al dueño: el aviso del panel dice si ha salido, si falta Resend o si ha fallado
   const correoAlDueno = async (a, avisar, c) => {
