@@ -614,11 +614,11 @@ export function paginaPanel(cfg, lista, { estado = 'pendiente', aviso = '', vist
   <article class="a">
     <div class="fotos">${(a.fotos || []).map((f, i) => `<a href="${esc(urlFoto(cfg, f))}" target="_blank"><img src="${esc(urlFoto(cfg, f))}" alt="" loading="lazy">${i === 0 ? '<b>Portada</b>' : ''}</a>`).join('')}</div>
     <div class="cuerpo">
-      <p class="meta">#${a.id} · ${esc(a.tipo)} · ${new Date(a.creado).toLocaleString('es-ES', { timeZone: 'Europe/Madrid' })} · <span class="est est-${esc(a.estado)}">${esc(ESTADOS[a.estado] || a.estado)}</span>${a.quiere_gestion ? ' · <span class="est est-gestion">Quiere que lo vendamos</span>' : ''}${a.mejoras?.pedido && ['pendiente', 'aprobado'].includes(a.estado) ? (a.mejoras.editado ? ' · <span class="est est-publicado">Ya lo ha mejorado</span>' : ' · <span class="est est-pendiente">Mejoras pedidas</span>') : ''}</p>
+      <p class="meta">#${a.id} · ${new Date(a.creado).toLocaleString('es-ES', { timeZone: 'Europe/Madrid', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })} · <span class="est est-${esc(a.estado)}">${esc(ESTADOS[a.estado] || a.estado)}</span>${a.quiere_gestion ? ' · <span class="est est-gestion">Quiere que lo vendamos</span>' : ''}${a.mejoras?.pedido && ['pendiente', 'aprobado'].includes(a.estado) ? (a.mejoras.editado ? ' · <span class="est est-publicado">Ya lo ha mejorado</span>' : ' · <span class="est est-pendiente">Mejoras pedidas</span>') : ''}</p>
       <h2>${esc(a.titulo)} <small>${fmt(a.precio)} · ${esc(a.ubicacion)}</small></h2>
-      <p class="vend">Lo vende <b>${esc(a.vendedor_nombre)}</b> (${a.vendedor_tipo === 'profesional' ? 'profesional' : 'particular'}) · <a href="tel:${esc(a.telefono)}">${esc(a.telefono)}</a>${a.email ? ` · ${esc(a.email)}` : ''} · ${(a.fotos || []).length} fotos</p>
+      <p class="vend"><b>${esc(a.vendedor_nombre)}</b>${a.vendedor_tipo === 'profesional' ? ' · profesional' : ''} · <a href="tel:${esc(a.telefono)}">Llamar</a> · <a href="https://wa.me/${esc(((d) => (d.length === 9 ? `34${d}` : d))(String(a.telefono || '').replace(/\D/g, '')))}" target="_blank">WhatsApp</a>${a.email ? ` · <a href="mailto:${esc(a.email)}">Email</a>` : ''} · ${(a.fotos || []).length} fotos</p>
       <p class="res">${esc(a.resumen)}</p>
-      <details><summary>Historia, mecánica y ficha técnica</summary>
+      <details><summary>Ver todo el anuncio</summary>
         <h3>Historia</h3>${parrafos(a.historia)}
         <h3>${a.tipo === 'casa' ? 'Estado y reformas' : 'Mecánica y estado'}</h3>${parrafos(a.mecanica)}
         <h3>Ficha técnica</h3><table>${(a.ficha || []).map(([k, v]) => `<tr><th>${esc(k)}</th><td>${esc(v)}</td></tr>`).join('')}</table>
@@ -630,7 +630,7 @@ export function paginaPanel(cfg, lista, { estado = 'pendiente', aviso = '', vist
       <form method="post" class="acc">
         <input type="hidden" name="id" value="${a.id}">
         ${['pendiente', 'aprobado'].includes(a.estado) ? '<button name="accion" value="publicar" class="si">Aprobar y publicar en Shopify</button>' : ''}
-        ${a.estado === 'pendiente' ? '<textarea name="nota" rows="2" placeholder="Motivo si lo rechazas: le llega al dueño por email (p. ej. «Las fotos tienen poca luz: ¿puedes hacer otras de día?»)"></textarea><button name="accion" value="rechazar" class="no">Rechazar</button>' : ''}
+        ${a.estado === 'pendiente' ? '<textarea name="nota" rows="2" placeholder="Motivo del rechazo (le llega por email)"></textarea><button name="accion" value="rechazar" class="no">Rechazar</button>' : ''}
         ${a.estado === 'publicado' ? `${a.reservado ? '<button name="accion" value="en_venta">Quitar «Reservado»</button>' : '<button name="accion" value="reservado">Reservado</button>'}<button name="accion" value="vendido">Vendido</button><button name="accion" value="retirar" class="no">Marcar como retirado</button>` : ''}
         ${['pendiente', 'aprobado'].includes(a.estado) ? `<label class="avisar"><input type="checkbox" name="avisar" value="1" checked> Avisar al dueño por email${a.email ? ` (${esc(a.email)})` : ' (no tenemos su email)'}</label>` : ''}
       </form>
@@ -752,7 +752,7 @@ function paginaPanelHtml(pestañas, aviso, tarjetas) {
   .fotos img { width: 150px; height: 112px; object-fit: cover; border-radius: 10px; display: block; }
   .fotos b { position: absolute; left: 6px; top: 6px; padding: 2px 8px; border-radius: 6px; background: var(--verde); color: var(--verde-tinta); font-size: 11px; font-weight: 800; }
   .a h2 { margin: 0; font-size: 20px; letter-spacing: 0; text-transform: none; color: var(--texto); } .a h2 small { color: var(--flojo); font-size: 14px; }
-  .meta, .vend { margin: 0; font-size: 13px; color: var(--suave); } .res { margin: 0; }
+  .meta, .vend { margin: 0; font-size: 13px; color: var(--suave); } .res { margin: 0; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
   .est { padding: 2px 8px; border-radius: 6px; font-weight: 800; background: var(--caja-3); color: var(--suave); }
   .est-pendiente, .est-aprobado { background: var(--amarillo-fondo); color: var(--amarillo); } .est-publicado { background: var(--azul-fondo); color: var(--azul); }
   .est-vendido { background: var(--verde-fondo); color: var(--verde); } .est-rechazado, .est-retirado { background: var(--rojo-fondo); color: var(--rojo); }
