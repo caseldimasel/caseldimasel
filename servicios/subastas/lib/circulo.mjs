@@ -631,6 +631,7 @@ export function paginaPanel(cfg, lista, { estado = 'pendiente', aviso = '', vist
         <input type="hidden" name="id" value="${a.id}">
         ${['pendiente', 'aprobado'].includes(a.estado) ? '<button name="accion" value="publicar" class="si">Aprobar y publicar en Shopify</button>' : ''}
         ${a.estado === 'pendiente' ? '<textarea name="nota" rows="2" placeholder="Motivo del rechazo (le llega por email)"></textarea><button name="accion" value="rechazar" class="no">Rechazar</button>' : ''}
+        ${a.estado === 'publicado' ? '<button name="accion" value="resubir" onclick="return confirm(\'¿Lo habéis borrado de Shopify? Se vuelve a crear la ficha con sus fotos, historia y precio.\')">Volver a subir a Shopify</button>' : ''}
         ${a.estado === 'publicado' ? `${a.reservado ? '<button name="accion" value="en_venta">Quitar «Reservado»</button>' : '<button name="accion" value="reservado">Reservado</button>'}<button name="accion" value="vendido">Vendido</button><button name="accion" value="retirar" class="no">Marcar como retirado</button>` : ''}
         ${['pendiente', 'aprobado'].includes(a.estado) ? `<label class="avisar"><input type="checkbox" name="avisar" value="1" checked> Avisar al dueño por email${a.email ? ` (${esc(a.email)})` : ' (no tenemos su email)'}</label>` : ''}
       </form>
@@ -1229,6 +1230,18 @@ export async function atenderPanel(req, cfg, deps) {
         await db('sidonia_anuncio_estado', { p_id: id, p_estado: 'publicado', p_nota: '', p_producto: p.handle });
         aviso = `Publicado: ${p.url}.` + await altaComunidad(cfg, deps, a) + await correo(correoPublicado(cfg, a, p.url)) + await movil(a, avisoPublicado(a, p.url));
         estado = 'publicado';
+      } else if (accion === 'resubir' && a.estado === 'publicado') {
+        // Se borró sin querer de Shopify: se vuelve a crear con lo que hay en el anuncio (si de verdad ya no está)
+        const gql = deps.gql || shopifyAdmin(cfg);
+        if (a.producto) {
+          let sigue = true;
+          try { await productoPorHandle(a.producto, gql); } catch (e) { if (/No encuentro/.test(e.message)) sigue = false; else throw e; }
+          if (sigue) throw new Error(`El anuncio #${id} sigue en Shopify («${a.producto}»): no hace falta subirlo otra vez.`);
+        }
+        const p = await publicarEnShopify(cfg, a, gql);
+        await db('sidonia_anuncio_estado', { p_id: id, p_estado: 'publicado', p_nota: a.nota || '', p_producto: p.handle });
+        if (a.reservado) await marcarSituacion(cfg, { ...a, producto: p.handle }, 'reservado', { ...deps, db }).catch((e) => console.error(e));
+        aviso = `Subido otra vez a Shopify: ${p.url}`;
       } else if (accion === 'mejoras') {
         // En vez de rechazar: recomendaciones al dueño (sigue por revisar)
         const m = leerMejoras(req.body);

@@ -493,3 +493,23 @@ test('panel › Herramientas › Emails: vista previa de cada email (con un anun
   assert.match(enviados[0].subject, /^\[Prueba\] El .* se renueva tu anuncio/);
   assert.equal(recursoPanel('logo').headers['Content-Type'], 'image/png');
 });
+
+test('panel: «Volver a subir a Shopify» solo si se borró de Shopify', async () => {
+  const auth = { authorization: `Basic ${Buffer.from('equipo:panel-secreto').toString('base64')}` };
+  const anuncio = { id: 25, ...validar(bueno(), '7001').datos, estado: 'publicado', producto: 'bmw-z3' };
+  const llamadas = [];
+  const db = async (fn, a) => { llamadas.push([fn, a]); return fn === 'sidonia_anuncios_lista' ? [anuncio] : fn === 'sidonia_anuncio_uno' ? anuncio : { ok: true }; };
+  let existe = true;
+  const gql = async (query) => (/products\(first: 1/.test(query) ? { products: { nodes: existe ? [{ id: 'P0', handle: 'bmw-z3', variants: { nodes: [] }, media: { nodes: [] } }] : [] } }
+    : /productCreate/.test(query) ? { productCreate: { product: { id: 'P', handle: 'bmw-z3-1', variants: { nodes: [] } }, userErrors: [] } }
+      : /publications/.test(query) && !/publishablePublish/.test(query) ? { publications: { nodes: [] } } : {});
+  const lista = await atenderPanel({ method: 'GET', query: { estado: 'publicado' }, headers: auth }, cfg, { db, gql });
+  assert.match(lista.body, /value="resubir"/);
+  const no = await atenderPanel({ method: 'POST', query: {}, body: { id: '25', accion: 'resubir' }, headers: auth }, cfg, { db, gql });
+  assert.match(no.body, /sigue en Shopify/);
+  assert.ok(!llamadas.some((c) => c[0] === 'sidonia_anuncio_estado'), 'no duplica');
+  existe = false;
+  const si = await atenderPanel({ method: 'POST', query: {}, body: { id: '25', accion: 'resubir' }, headers: auth }, cfg, { db, gql });
+  assert.match(si.body, /Subido otra vez a Shopify: https:\/\/sidonia\.es\/products\/bmw-z3-1/);
+  assert.deepEqual(llamadas.find((c) => c[0] === 'sidonia_anuncio_estado')[1], { p_id: 25, p_estado: 'publicado', p_nota: '', p_producto: 'bmw-z3-1' });
+});
