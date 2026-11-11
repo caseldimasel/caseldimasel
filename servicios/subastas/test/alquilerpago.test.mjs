@@ -9,7 +9,7 @@ import { reembolso, condicionesAlquiler } from '../lib/contratos.mjs';
 import { dniValido, documentoValido, faltaParaAlquilar } from '../lib/cobros.mjs';
 
 const cfg = config({ SUBASTAS_CLAVE: 'k', RESEND_API_KEY: 're_x', AVISOS_EQUIPO: 'equipo@sidonia.es', TIENDA_URL: 'https://sidonia.es', SERVIDOR_URL: 'https://motor.test',
-  SUPABASE_URL: 'https://x.supabase.co', SUPABASE_SERVICE_KEY: 's', STRIPE_SECRET_KEY: 'sk_test', ALQUILER_COBRAR: '1', ALQUILER_COMISION: '10',
+  SUPABASE_URL: 'https://x.supabase.co', SUPABASE_SERVICE_KEY: 's', STRIPE_SECRET_KEY: 'sk_test', ALQUILER_COBRAR: '1', ALQUILER_COMISION: '10', ALQUILER_IVA: '0',
   SIDONIA_RAZON_SOCIAL: 'Sidonia Garage S.L.', SIDONIA_NIF: 'B00000000', CRON_SECRET: 'cron' });
 const quien = (c) => { const t = String(Math.floor(Date.now() / 1000)); return { c, ct: t, cf: createHmac('sha256', 'k').update(`${c}.${t}`).digest('hex') }; };
 function memo(filas = [], clave = 'id') {
@@ -254,4 +254,14 @@ test('por horas: un precio por hora para todo, mínimo de horas y varios días c
   assert.deepEqual([fila.horas, fila.desde, fila.hasta, fila.dias, fila.para], [7.5, dia(10), dia(11), 2, 'rodaje']);
   assert.match(fila.contrato.html, /de 10:00 a 14:30 h/); assert.match(fila.contrato.html, /120 € por hora/);
   assert.equal(stripe.find((x) => x[1] === 'checkout/sessions')[2].line_items[0].price_data.unit_amount, 90000);
+});
+
+test('la comisión de Sidonia va más IVA: 15 % + 21 % = 18,15 % del alquiler', async () => {
+  const { tarifaPct, precioHoras } = await import('../lib/reservas.mjs');
+  const c = config({ ALQUILER_COBRAR: '1', STRIPE_SECRET_KEY: 'sk', ALQUILER_COMISION: '15' });
+  assert.equal(tarifaPct(c), 18.15);
+  const p = precioHoras({ hora: 100, min_horas: 2 }, [{ dia: dia(10), de: '10:00', a: '14:00' }], '', tarifaPct(c));
+  assert.deepEqual([p.subtotal, p.tarifa, p.total], [400, 73, 473]);
+  const { condicionesAlquiler } = await import('../lib/contratos.mjs');
+  assert.match(condicionesAlquiler(c), /15 % del precio del alquiler, más el 21 % de IVA/);
 });

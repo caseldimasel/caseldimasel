@@ -52,6 +52,8 @@ export function config(env = process.env) {
     // (con STRIPE_SECRET_KEY) y ALQUILER_COMISION (% de tarifa de servicio). Por defecto, ni cobro ni comisión.
     alquilerCobrar: env.ALQUILER_COBRAR === '1' && Boolean(env.STRIPE_SECRET_KEY),
     alquilerComision: Math.max(0, Math.min(50, Number(env.ALQUILER_COMISION ?? 0) || 0)),
+    // La comisión va más IVA (ALQUILER_IVA, por defecto el 21 %)
+    alquilerIva: Math.max(0, Math.min(30, Number(env.ALQUILER_IVA ?? 21))),
     // Los datos de Sidonia en las condiciones y los contratos del alquiler (no son secretos)
     razonSocial: env.SIDONIA_RAZON_SOCIAL || '', nif: env.SIDONIA_NIF || '', domicilio: env.SIDONIA_DOMICILIO || '', emailLegal: env.SIDONIA_EMAIL_LEGAL || '',
     stripeWebhook: env.STRIPE_WEBHOOK_SECRET || '',  // firma de los avisos de Stripe (pagos de los anuncios: api/stripe.js)

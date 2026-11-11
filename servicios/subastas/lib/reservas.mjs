@@ -26,6 +26,9 @@ export const PLAZO_H = 24;           // horas que tiene el dueño para responder
 import { createHmac } from 'node:crypto';
 export const COMISION = 0;           // % de Sidonia si no se dice otra cosa (cfg.alquilerComision)
 const comision = (cfg) => (cfg && Number.isFinite(cfg.alquilerComision) ? cfg.alquilerComision : COMISION);
+const ivaDe = (cfg) => (cfg && Number.isFinite(cfg.alquilerIva) ? cfg.alquilerIva : 21);
+/** La tarifa de servicio que paga quien alquila: la comisión de Sidonia más su IVA (15 % + 21 % = 18,15 % del alquiler) */
+export const tarifaPct = (cfg) => Math.round(comision(cfg) * (1 + ivaDe(cfg) / 100) * 10000) / 10000;
 const firmaR = (cfg, id) => createHmac('sha256', String(cfg.clave || cfg.secreto || 'sidonia')).update(`reserva.${Number(id)}`).digest('hex').slice(0, 32);
 export const urlPagar = (cfg, id) => `${cfg.servidor}/tienda/alquiler/pagar?r=${Number(id)}&f=${firmaR(cfg, id)}`;
 export const urlContrato = (cfg, id) => `${cfg.servidor}/tienda/alquiler/contrato?r=${Number(id)}&f=${firmaR(cfg, id)}`;
@@ -204,7 +207,7 @@ async function sesionPago(cfg, deps, r, c, pD) {
     mode: 'payment', locale: 'es', ...(r.email ? { customer_email: r.email } : {}),
     line_items: [
       { quantity: 1, price_data: { currency: 'eur', unit_amount: cent(alquiler), product_data: { name: `Alquiler: ${t}`.slice(0, 250), description: `Del ${fechaTxt(r.desde)} al ${fechaTxt(r.hasta)} (${r.dias} ${Number(r.dias) === 1 ? 'día' : 'días'}). Lo alquila ${pD.alq_legal.nombre.split(' ')[0]}.` } } },
-      ...(Number(r.tarifa) > 0 ? [{ quantity: 1, price_data: { currency: 'eur', unit_amount: cent(r.tarifa), product_data: { name: 'Tarifa de servicio de Sidonia' } } }] : [])
+      ...(Number(r.tarifa) > 0 ? [{ quantity: 1, price_data: { currency: 'eur', unit_amount: cent(r.tarifa), product_data: { name: `Tarifa de servicio de Sidonia (${comision(cfg)} % + IVA)` } } }] : [])
     ],
     metadata: { reserva: String(r.id) },
     payment_intent_data: { capture_method: inmediata ? 'automatic' : 'manual', on_behalf_of: pD.stripe_cuenta, transfer_group: `reserva-${Number(r.id)}`,
@@ -310,7 +313,7 @@ export async function rutasReservas({ ruta, method, body, ip = '', ua = '' }, cl
       if (desde) coches = coches.filter((c) => libre(c, rs.filter((r) => Number(r.coche_id) === Number(c.id)), desde, hasta) && diasEntre(desde, hasta) >= (Number(c.alq?.minimo) || 1));
       const res = ids.length ? await tS.leer(`coche_id=in.(${ids.join(',')})&rol=eq.huesped&select=coche_id,nota,rol`).catch(() => []) : [];
       const ps = await perfiles(cfg, deps, coches.map((c) => c.cliente));
-      return json(200, { ok: true, coches: coches.map((c) => anuncio(cfg, c, ps[String(c.cliente)], res)), comision: cfg.alquilerCobrar ? comision(cfg) : 0 }, cliente ? 'no-store' : 'public, max-age=30');
+      return json(200, { ok: true, coches: coches.map((c) => anuncio(cfg, c, ps[String(c.cliente)], res)), comision: cfg.alquilerCobrar ? comision(cfg) : 0, iva: ivaDe(cfg), tarifa_pct: cfg.alquilerCobrar ? tarifaPct(cfg) : 0 }, cliente ? 'no-store' : 'public, max-age=30');
     } catch (e) { return falta(e); }
   }
   // ------------------------------------------------------------------ Un coche: ficha, calendario, reseñas y anfitrión
@@ -332,7 +335,7 @@ export async function rutasReservas({ ruta, method, body, ip = '', ua = '' }, cl
       return json(200, { ok: true, coche: { ...anuncio(cfg, c, ps[String(c.cliente)], res), suyo, ...(suyo ? { falta } : {}) }, cobrar: Boolean(cfg.alquilerCobrar),
         contrato_modelo: `${cfg.servidor}/tienda/alquiler/contrato-modelo?coche=${Number(c.id)}`, condiciones: `${cfg.servidor}/tienda/alquiler/condiciones`,
         dueno: { nota: st.nota, resenas: st.n, alquileres: st.alquileres, coches: otros },
-        ocupado: [...(c.bloqueos || []), ...ocupadas(rs)], ocupado_horas: horasOcupadas(rs), planes: PLANES, comision: cfg.alquilerCobrar ? comision(cfg) : 0, anfitrion_coches: otros,
+        ocupado: [...(c.bloqueos || []), ...ocupadas(rs)], ocupado_horas: horasOcupadas(rs), planes: PLANES, comision: cfg.alquilerCobrar ? comision(cfg) : 0, iva: ivaDe(cfg), tarifa_pct: cfg.alquilerCobrar ? tarifaPct(cfg) : 0, anfitrion_coches: otros,
         resenas: res.filter((r) => r.rol === 'huesped').map((r) => ({ nombre: r.nombre || 'Miembro de Sidonia', nota: r.nota, texto: r.texto, creado: r.creado })) }, cliente ? 'no-store' : 'public, max-age=30');
     } catch (e) { return falta(e); }
   }
@@ -377,7 +380,7 @@ export async function rutasReservas({ ruta, method, body, ip = '', ua = '' }, cl
       q.conductor = modo;
       const plan = tramos && !(Number(c.alq.hora) > 0) ? String(body.plan || '') : '';
       if (tramos && !(precioHora(c.alq, plan) > 0)) return json(400, { ok: false, error: 'plan' });
-      const pr = tramos ? precioHoras(c.alq, tramos, plan, cfg.alquilerCobrar ? comision(cfg) : 0) : precio(c.alq, desde, hasta, cfg.alquilerCobrar ? comision(cfg) : 0, modo);
+      const pr = tramos ? precioHoras(c.alq, tramos, plan, cfg.alquilerCobrar ? tarifaPct(cfg) : 0) : precio(c.alq, desde, hasta, cfg.alquilerCobrar ? tarifaPct(cfg) : 0, modo);
       if (!(pr.precio_dia > 0)) return json(400, { ok: false, error: 'modo' });
       if (!tramos && pr.dias < (Number(c.alq.minimo) || 1)) return json(400, { ok: false, error: 'minimo', minimo: Number(c.alq.minimo) });
       if (pr.dias > 60) return json(400, { ok: false, error: 'fechas' });
@@ -611,7 +614,7 @@ export async function rutasPagoReserva({ ruta, query }, cfg, deps) {
     const pD = c ? await perfilCobros(cfg, deps, c.cliente) : null;
     const desde = DIA.test(query.desde) ? query.desde : '', hasta = DIA.test(query.hasta) ? query.hasta : desde;
     const conductor = modoDe((c && c.alq) || {}, true, query.conductor);
-    const pr = c && desde ? precio(c.alq || {}, desde, hasta, comision(cfg), conductor) : {};
+    const pr = c && desde ? precio(c.alq || {}, desde, hasta, tarifaPct(cfg), conductor) : {};
     const d = datosContrato({ id: '', desde, hasta, dias: pr.dias, precio_dia: pr.precio_dia, total: pr.total, tarifa: pr.tarifa, para: '', conductor, nombre: '', email: '', telefono: '', datos: {} }, c || { alq: {} }, pD, '', true);
     return html(paginaDocumento('Contrato de alquiler', `<p class="meta"><b>Modelo para leer antes de reservar.</b> Al reservar se rellena con tus datos y con los del dueño (su documento, domicilio y contacto, la matrícula y la póliza del seguro se muestran al confirmarse la reserva), y lo firmáis los dos.</p>${contratoAlquiler(cfg, d)}`));
   }
