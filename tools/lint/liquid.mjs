@@ -227,6 +227,7 @@ function analyze(file) {
     try {
       const d = JSON.parse(sch[1]);
       const ajustes = [...(d.settings || []), ...(d.blocks || []).flatMap((b) => b.settings || [])];
+      for (const n of [d.name, ...(d.presets || []).map((x) => x.name)]) if (typeof n === 'string' && !n.startsWith('t:') && n.length > 25) err(file, src.slice(0, sch.index).split('\n').length, `el nombre «${n}» tiene ${n.length} caracteres y Shopify solo admite 25 (rechaza el archivo entero)`);
       for (const x of ajustes) if (typeof x.label === 'string' && !x.label.startsWith('t:') && x.label.length > 70) err(file, src.slice(0, sch.index).split('\n').length, `ajuste «${x.id}»: la etiqueta tiene ${x.label.length} caracteres y Shopify solo admite 70 (rechaza el archivo entero)`);
     } catch (e) { err(file, src.slice(0, sch.index).split('\n').length, `schema con JSON inválido: ${e.message}`); }
   }
