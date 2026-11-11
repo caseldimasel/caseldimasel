@@ -25,7 +25,7 @@ import { CABECERA, ESTILO_PANEL, FAVICON, recursoPanel } from './marca.mjs';
 import { createHash } from 'node:crypto';
 import { rellenarPropietarios } from './propietarios.mjs';
 import { rellenarUbicaciones } from './ubicaciones.mjs';
-import { ponerPaginas } from './paginas.mjs';
+import { ponerPaginas, ponerPoliticas } from './paginas.mjs';
 import { accionPanelPreventas, contarVistas, paginaPreventas } from './preventa.mjs';
 import { avisarCliente, avisarTodos, avisoCambios, avisoPublicado, avisoRechazado } from './avisos.mjs';
 import { navPanel, paginaEstadisticas, ponerContadores } from './estadisticas.mjs';
@@ -718,10 +718,10 @@ function paginaUbicaciones(cfg, informe) {
 /** Panel › Páginas de la web: las páginas de Sidonia en Shopify, con su plantilla (lib/paginas.mjs) */
 function paginaPaginas(cfg, res) {
   const tienda = esc(cfg.tienda || '');
-  const txt = { creada: 'Creada ahora', enlazada: 'Plantilla puesta ahora', ok: 'Bien', falta: 'No existe', 'sin-plantilla': 'Sin su plantilla', error: 'Error' };
+  const txt = { creada: 'Creada ahora', enlazada: 'Plantilla puesta ahora', ok: 'Bien', falta: 'No existe', 'sin-plantilla': 'Sin su plantilla', error: 'Error', politica: 'Texto nuevo puesto' };
   const filas = (res?.informe || []).map((r) => `<tr><td><a href="${tienda}${esc(r.url)}" target="_blank">${esc(r.titulo)}</a> <small>${esc(r.url)}</small></td>
     <td>${esc(txt[r.estado] || r.estado)}${r.antes ? ` <small>(tenía «${esc(r.antes)}»)</small>` : ''}${r.oculta ? ' <small>· oculta en Shopify</small>' : ''}${r.error ? ` <small>${esc(r.error)}</small>` : ''}</td>
-    <td>${r.plantillaEnTema === null ? '<span class="vacio">—</span>' : r.plantillaEnTema ? 'Sí' : '<b style="color:#b3261e">No está en el tema</b>'}</td></tr>`).join('');
+    <td>${r.plantillaEnTema === undefined ? '<span class="vacio">política</span>' : r.plantillaEnTema === null ? '<span class="vacio">—</span>' : r.plantillaEnTema ? 'Sí' : '<b style="color:#b3261e">No está en el tema</b>'}</td></tr>`).join('');
   const faltan = (res?.informe || []).filter((r) => r.plantillaEnTema === false);
   const tema = res?.tema || {};
   const avisoTema = faltan.length
@@ -736,7 +736,9 @@ function paginaPaginas(cfg, res) {
     <p class="res">Crea en Shopify las páginas de Sidonia que falten (Eventos, Profesionales, Alquiler…) con su plantilla puesta, y a las que
       ya existen les pone su plantilla. Así el menú lleva a /pages/eventos y se ve bien. No cambia el texto de ninguna página ni publica las que
       tengáis ocultas.</p>
-    <form method="post" class="acc"><button name="accion" value="paginas" class="si">Crear y enlazar las páginas</button></form>
+    <p class="res">Y copia los textos legales nuevos (privacidad, términos, información de contacto y aviso legal) en las políticas de
+      Shopify, las que salen al pagar. Necesita los permisos write_online_store_pages, read_themes y write_legal_policies en la app.</p>
+    <form method="post" class="acc"><button name="accion" value="paginas" class="si">Crear las páginas y poner los textos legales</button></form>
     ${avisoTema}
     ${filas ? `<table class="diff"><tr><th>Página</th><th>Estado</th><th>Plantilla en el tema</th></tr>${filas}</table>` : ''}
   </div></article>`;
@@ -1170,10 +1172,13 @@ export async function atenderPanel(req, cfg, deps) {
     try {
       if (!cfg.shopifyTienda || !cfg.shopifyClientId) throw new Error('Faltan SHOPIFY_TIENDA y SHOPIFY_CLIENT_ID en Vercel.');
       const hacer = req.method === 'POST' && req.body.accion === 'paginas';
-      res = await ponerPaginas(deps.gql || shopifyAdmin(cfg, deps.fetch), { hacer });
+      const gql = deps.gql || shopifyAdmin(cfg, deps.fetch);
+      res = await ponerPaginas(gql, { hacer });
       if (hacer) {
+        // Y los textos legales de la web en las políticas de Shopify (las que salen al pagar)
+        res.informe.push(...(await ponerPoliticas(gql, cfg, deps.fetch)));
         const n = (e) => res.informe.filter((r) => r.estado === e).length;
-        aviso = `Listo: ${n('creada')} creadas, ${n('enlazada')} con su plantilla puesta${n('error') ? `, ${n('error')} con error` : ''}.`;
+        aviso = `Listo: ${n('creada')} páginas creadas, ${n('enlazada')} con su plantilla puesta, ${n('politica')} políticas de Shopify con los textos nuevos${n('error') ? `, ${n('error')} con error (míralo abajo)` : ''}.`;
       }
     } catch (e) {
       console.error(e);
