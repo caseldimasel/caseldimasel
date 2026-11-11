@@ -14,7 +14,7 @@
  */
 import { createHash } from 'node:crypto';
 
-export const VERSION_CONDICIONES = '2026-11-12';
+export const VERSION_CONDICIONES = '2026-11-12b';
 export const VERSION_CONTRATO = '2026-11-03';
 
 const esc = (t) => String(t ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -96,6 +96,30 @@ ${sec('6. Cancelaciones y devoluciones', ul(POLITICA_CANCELACION), 'Las devoluci
   'Al tratarse de un servicio de alquiler de vehículos para una fecha o un periodo determinados, no se aplica el derecho de desistimiento de 14 días previsto para los contratos a distancia (artículo 103, letra l, del texto refundido de la Ley General para la Defensa de los Consumidores y Usuarios). La cancelación se rige por la política anterior.')}
 ${sec('6 bis. Calendario y disponibilidad',
   'El dueño es el único responsable de mantener al día el calendario de su vehículo: los días que no puede alquilarlo (viajes, taller, uso propio…) debe marcarlos como no disponibles. Si acepta una reserva y después no puede prestar el servicio, se considera cancelación del dueño: se devuelve a quien alquila todo lo pagado y Sidonia puede ocultar o retirar sus anuncios.')}
+${sec('6 ter. Qué pasa si…',
+  'Para que cualquiera de estos casos cuente, hay que <b>comunicarlo por el chat de Sidonia</b> (o al email de Sidonia) en el plazo indicado y, si se puede, con fotos o vídeos con fecha. Lo que no quede por escrito en Sidonia será difícil de comprobar.',
+  ul([
+    '<b>El dueño no se presenta</b>, o llega más de 30 minutos tarde sin avisar y sin acuerdo con quien alquila: se considera cancelación del dueño. Se devuelve a quien alquila todo lo pagado, tarifa de servicio incluida; el dueño no cobra nada y Sidonia puede retirar sus anuncios. Hay que comunicarlo en las 24 horas siguientes a la hora prevista.',
+    '<b>Quien alquila no se presenta</b> o no está en el lugar acordado: el dueño espera al menos 30 minutos, que cuentan dentro del tiempo contratado. Si pasada 1 hora desde la hora acordada no se presenta ni avisa, se considera no presentado y no se devuelve el importe.',
+    '<b>Retrasos</b> de cualquiera de las partes: el tiempo del servicio cuenta desde la hora acordada. Si quien alquila llega tarde, no se amplía el servicio salvo que el dueño acepte; si el dueño llega tarde, debe compensar ese tiempo dentro de lo posible o se descuenta la parte proporcional.',
+    '<b>El vehículo no está en condiciones o no es el anunciado</b> (otro vehículo, averiado, inseguro o en un estado muy distinto del de las fotos): quien alquila puede rechazarlo al empezar, comunicándolo con fotos o vídeo por el chat de Sidonia en esa misma hora. Se considera cancelación del dueño y se devuelve todo lo pagado.',
+    '<b>Avería durante el servicio</b>: el dueño hará lo posible por continuar o por ofrecer una alternativa que quien alquila acepte. Si el servicio no puede terminarse, se devuelve la parte proporcional de las horas no prestadas; si la avería impide lo esencial del servicio (por ejemplo, llegar a la ceremonia), se devuelve todo lo pagado. Los daños o gastos adicionales se reclaman entre las partes.',
+    '<b>Más tiempo del contratado</b>: solo si el dueño acepta. Las horas adicionales se acuerdan por escrito en el chat de Sidonia, al mismo precio por hora del anuncio y por fracciones de media hora. Hasta que Sidonia permita pagarlas en la plataforma, se pagan directamente al dueño, que debe dar un justificante; Sidonia no interviene en ese pago ni responde de él.',
+    '<b>El dueño pide más dinero</b> del precio de la reserva (salvo horas adicionales aceptadas por escrito o daños acreditados): quien alquila no está obligado a pagarlo y debe comunicarlo a Sidonia. Pedir pagos fuera de lo acordado puede suponer la suspensión de la cuenta del dueño.',
+    '<b>Daños al vehículo</b> causados por quien alquila o sus acompañantes (manchas, roturas, quemaduras…): responde quien alquila frente al dueño, que debe comunicarlo en las 24 horas siguientes con fotos. Las partes lo arreglan entre ellas; Sidonia no retiene, cobra ni decide sobre los daños, aunque puede facilitar la información de la reserva.',
+    '<b>Accidente</b>: se aplica el seguro del vehículo, que es responsabilidad del dueño. Las partes deben avisar a los servicios de emergencia si hace falta y hacer el parte. Sidonia no es parte del accidente ni de su indemnización.',
+    '<b>Fuerza mayor</b> (alerta meteorológica roja, cierre de carreteras, catástrofe, orden de la autoridad o enfermedad grave acreditada de una de las partes que impida el servicio): cualquiera de las partes puede cancelar y se devuelve todo lo pagado, tarifa de servicio incluida, sin indemnización entre ellas.',
+    '<b>Comportamiento</b>: está prohibido fumar dentro del vehículo, llevar más pasajeros que plazas, consumir alcohol de forma que ponga en riesgo la seguridad o comportarse de manera peligrosa u ofensiva. Si ocurre, el dueño puede dar por terminado el servicio sin devolución. El dueño debe conducir de forma prudente, sin alcohol ni drogas y respetando las normas de tráfico.',
+    '<b>Itinerario y paradas</b>: se acuerdan antes por el chat. El dueño puede negarse a recorridos o paradas inseguros o que no permitan las normas de tráfico. Los peajes y aparcamientos que generen las paradas pedidas por quien alquila los paga quien alquila, salvo otro acuerdo.',
+    '<b>Decoración, fotos y rodajes</b>: decorar el vehículo necesita permiso del dueño y no puede dañarlo. Hacer fotos personales está permitido; el uso profesional o publicitario de las imágenes (rodajes, anuncios) necesita acuerdo expreso con el dueño.',
+    '<b>Niños</b>: quien alquila se ocupa de que los menores viajen conforme a la normativa de seguridad vial (por ejemplo, con el sistema de retención que corresponda). El dueño puede negarse a llevarlos si no se cumple.',
+    '<b>Objetos olvidados</b>: el dueño los guardará y los devolverá a quien alquila, que se hace cargo de recogerlos o de los gastos de envío.',
+    '<b>Comunicaciones</b>: recomendamos hablar siempre por el chat de Sidonia. Lo que se acuerde por otros medios no podrá comprobarse si hay un problema.'
+  ]))}
+${sec('6 quáter. Reclamaciones entre las partes',
+  'Si algo sale mal, cualquiera de las partes puede reclamar a Sidonia por el chat o por email en las 24 horas siguientes al final del servicio, explicando qué ha pasado y aportando pruebas (fotos, vídeos, mensajes).',
+  'Mientras Sidonia revisa la reclamación puede retener la transferencia al dueño, como máximo 15 días. Sidonia escuchará a las dos partes y decidirá, aplicando estas condiciones y las pruebas aportadas, solo sobre el destino de las cantidades que tenga retenidas (pagar al dueño o devolver a quien alquila, en todo o en parte). Esta decisión no impide que cualquiera de las partes acuda a los tribunales o a los servicios de consumo, y Sidonia no responde de otras cantidades ni de los daños que reclamen entre ellas.',
+  'Sidonia puede cancelar una reserva y devolver lo pagado si detecta fraude, un riesgo para la seguridad de las personas o un incumplimiento grave de estas condiciones.')}
 ${sec('7. Fianza, daños, multas y combustible',
   'La fianza, si el dueño la pide, la entregan y devuelven las partes directamente entre ellas, en la forma que acuerden, según el contrato de alquiler. Sidonia no cobra, retiene ni devuelve fianzas, y no decide sobre daños, combustible, kilómetros, multas ni otras reclamaciones entre las partes, que se rigen por su contrato.',
   'Recomendamos hacer y enviar por la mensajería de Sidonia fotos fechadas del vehículo, del cuentakilómetros y del nivel de combustible en la entrega y en la devolución, y rellenar el acta del anexo del contrato.')}
