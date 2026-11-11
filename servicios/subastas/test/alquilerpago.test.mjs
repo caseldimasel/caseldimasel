@@ -64,9 +64,14 @@ test('alquiler con pago: DNI, documento y lo que falta para poder alquilar', () 
 
 test('alquiler con pago: política de cancelación', () => {
   const r = { total: 495, tarifa: 45, desde: dia(30) };
-  assert.deepEqual(reembolso(r, 'cliente'), { importe: 495, tarifa: true, motivo: reembolso(r, 'cliente').motivo });
-  assert.equal(reembolso({ ...r, desde: dia(4) }, 'cliente').importe, 225);
-  assert.equal(reembolso({ ...r, desde: dia(1) }, 'cliente').importe, 0);
+  assert.deepEqual(reembolso(r, 'cliente'), { importe: 495, tarifa: true, motivo: reembolso(r, 'cliente').motivo }, '14 días o más: todo');
+  assert.equal(reembolso({ ...r, desde: dia(10) }, 'cliente').importe, 225, 'entre 14 y 7 días: la mitad del alquiler');
+  assert.equal(reembolso({ ...r, desde: dia(4) }, 'cliente').importe, 0, 'menos de 7 días: nada');
+  // Con la señal pagada y el resto sin cobrar: a más de 14 días se devuelve la señal y la tarifa; entre 14 y 7, nada (la señal es menos de la mitad)
+  const sen = { ...r, resto: 315 };
+  assert.equal(reembolso({ ...sen, desde: dia(30) }, 'cliente').importe, 180);
+  assert.equal(reembolso({ ...sen, desde: dia(10) }, 'cliente').importe, 0);
+  assert.equal(paraDueno({ ...sen, reembolso: 0 }), 135, 'el dueño se queda la señal');
   assert.equal(reembolso({ ...r, desde: dia(1) }, 'dueno').importe, 495);
   assert.equal(paraDueno({ total: 495, tarifa: 45, reembolso: 225, reembolso_tarifa: false }), 225);
   assert.equal(paraDueno({ total: 495, tarifa: 45, reembolso: 495, reembolso_tarifa: true }), 0);
@@ -123,17 +128,17 @@ test('alquiler con pago: solicitud con contrato firmado, retención, el dueño f
   assert.equal(fila.pago, 'pagado'); assert.equal(fila.estado, 'aceptada'); assert.equal(fila.firma_dueno.nombre, 'Marta Ruiz Pérez');
   v = await api('api/alquiler/reservas', {}, quien('77'), 'GET');
   assert.equal(v.viajes[0].otro.telefono, '600000000'); assert.equal(v.viajes[0].coche.entrega, 'Calle Secreta 1');
-  assert.equal(v.viajes[0].si_cancelo.importe, 495);
+  assert.equal(v.viajes[0].si_cancelo.importe, 225, 'a 10 días: la mitad del alquiler');
   // El contrato firmado por los dos
   const con = await api('alquiler/contrato', {}, Object.fromEntries(new URL(v.viajes[0].contrato).searchParams), 'GET');
   assert.match(con.body, /Lucía Gómez Sanz/); assert.match(con.body, /Marta Ruiz Pérez · 12345678Z/); assert.match(con.body, /Firmado por las dos partes/);
   assert.doesNotMatch(con.body, /Pendiente de firma/);
-  // Cancela quien alquila con 10 días: se devuelve todo
+  // Cancela quien alquila con 10 días: se devuelve la mitad del alquiler (la tarifa no)
   const ca = await api('api/alquiler/reserva', { id: fila.id, accion: 'cancelar' }, quien('77'));
-  assert.equal(ca.reembolso, 495);
+  assert.equal(ca.reembolso, 225);
   const ref = stripe.find((x) => x[1] === 'refunds')[2];
-  assert.equal(ref.amount, 49500); assert.equal(ref.payment_intent, 'pi_1');
-  assert.equal(fila.pago, 'devuelto'); assert.equal(fila.cancelada_por, 'cliente');
+  assert.equal(ref.amount, 22500); assert.equal(ref.payment_intent, 'pi_1');
+  assert.equal(fila.pago, 'devuelto-parcial'); assert.equal(fila.cancelada_por, 'cliente');
 });
 
 test('alquiler con pago: rechazar libera la retención; caducar también; cancelar tarde paga la mitad al dueño el día que empieza', async () => {
@@ -150,8 +155,8 @@ test('alquiler con pago: rechazar libera la retención; caducar también; cancel
   assert.equal(estadoActual(r2), 'caducada');
   await ponerAlDia(cfg, deps, r2);
   assert.equal(deps.reservas.filas.at(-1).pago, 'liberado');
-  // Pagada y cancelada por quien alquila a 4 días: se devuelve la mitad del alquiler; el día que empieza, la otra mitad al dueño
-  const r3 = { ...fila, id: 901, estado: 'aceptada', pago: 'pagado', stripe_pi: 'pi_1', stripe_transfer: '', desde: dia(4), hasta: dia(5), total: 330, tarifa: 30 };
+  // Pagada y cancelada por quien alquila a 10 días: se devuelve la mitad del alquiler; el día que empezaba, la otra mitad al dueño
+  const r3 = { ...fila, id: 901, estado: 'aceptada', pago: 'pagado', stripe_pi: 'pi_1', stripe_transfer: '', desde: dia(10), hasta: dia(11), total: 330, tarifa: 30, resto: 0 };
   deps.reservas.filas.push(r3);
   const ca = await api('api/alquiler/reserva', { id: 901, accion: 'cancelar' }, quien('77'));
   assert.equal(ca.reembolso, 150); assert.equal(r3.pago, 'devuelto-parcial');
@@ -264,4 +269,54 @@ test('la comisión de Sidonia va más IVA: 15 % + 21 % = 18,15 % del alquiler', 
   assert.deepEqual([p.subtotal, p.tarifa, p.total], [400, 73, 473]);
   const { condicionesAlquiler } = await import('../lib/contratos.mjs');
   assert.match(condicionesAlquiler(c), /15 % del precio del alquiler, más el 21 % de IVA/);
+});
+
+test('pago en dos veces: señal al reservar, el resto 14 días antes, impago y al dueño 24 h después del servicio', async () => {
+  const { partes } = await import('../lib/reservas.mjs');
+  assert.deepEqual(partes(495, 45, dia(10)), { a_cuenta: 495, resto: 0 }, 'a menos de 14 días, todo');
+  assert.deepEqual(partes(495, 45, dia(40)), { a_cuenta: 180, resto: 315 }, 'señal: 30 % de 450 + 45');
+  const { api, deps, stripe } = preparar();
+  const pide = { ...pedir, desde: dia(40), hasta: dia(40) };
+  const r = await api('api/alquiler/reservar', pide, quien('77'));
+  assert.equal(r.ok, true); assert.deepEqual([r.reserva.a_cuenta, r.reserva.resto], [60, 105], '1 día: 150 de alquiler + 15 de tarifa; señal 45 + 15, resto 105');
+  const ses = stripe.find((x) => x[1] === 'checkout/sessions')[2];
+  assert.equal(ses.line_items[0].price_data.unit_amount, 4500); assert.match(ses.line_items[0].price_data.product_data.name, /Señal \(30 %\)/);
+  assert.equal(ses.payment_intent_data.setup_future_usage, 'off_session'); assert.equal(ses.customer_creation, 'always');
+  // Ya aceptada y pagada la señal: hasta 14 días antes, nada; luego se cobra el resto con la tarjeta guardada
+  const fila = deps.reservas.filas.at(-1);
+  Object.assign(fila, { estado: 'aceptada', pago: 'pagado', stripe_pi: 'pi_1', stripe_transfer: '' });
+  const llamadas = [];
+  let falla = false;
+  deps.stripe = async (m, path, b) => {
+    llamadas.push([m, path, b]);
+    if (path === 'payment_intents/pi_1') return { id: 'pi_1', latest_charge: 'ch_1', amount_received: 6000, customer: 'cus_1', payment_method: 'pm_1' };
+    if (path === 'payment_intents/pi_2') return { id: 'pi_2', latest_charge: 'ch_2', amount_received: 10500 };
+    if (path === 'payment_intents' && m === 'POST') { if (falla) throw new Error('Stripe 402: card_declined'); return { id: 'pi_2', status: 'succeeded' }; }
+    if (path === 'transfers') return { id: `tr_${llamadas.filter((x) => x[1] === 'transfers').length}` };
+    if (path === 'refunds') return { id: 're_1' };
+    return {};
+  };
+  const { ponerAlDia } = await import('../lib/reservas.mjs');
+  await ponerAlDia(cfg, deps, fila);
+  assert.ok(!llamadas.some((x) => x[1] === 'payment_intents' && x[0] === 'POST'), 'aún faltan más de 14 días');
+  fila.desde = fila.hasta = dia(13);
+  await ponerAlDia(cfg, deps, fila);
+  const p2 = llamadas.find((x) => x[1] === 'payment_intents' && x[0] === 'POST')[2];
+  assert.deepEqual([p2.amount, p2.customer, p2.payment_method, p2.off_session, p2.on_behalf_of], [10500, 'cus_1', 'pm_1', 'true', 'acct_1']);
+  assert.equal(fila.resto_pi, 'pi_2'); assert.ok(fila.resto_pagado);
+  // Tras el servicio (24 h después), al dueño: 45 de la señal (sin la tarifa) y 105 del resto
+  fila.desde = fila.hasta = dia(-2);
+  await ponerAlDia(cfg, deps, fila);
+  const trs = llamadas.filter((x) => x[1] === 'transfers').map((x) => [x[2].amount, x[2].source_transaction]);
+  assert.deepEqual(trs, [[4500, 'ch_1'], [10500, 'ch_2']]);
+  assert.equal(fila.stripe_transfer, 'tr_1,tr_2');
+  // Si el cobro del resto falla: email con el enlace; a las 48 h sin pagar, se cancela
+  const otra = { ...fila, id: 950, desde: dia(10), hasta: dia(10), resto_pi: null, resto_pagado: null, resto_aviso: null, stripe_transfer: '', estado: 'aceptada', pago: 'pagado' };
+  deps.reservas.filas.push(otra);
+  falla = true;
+  await ponerAlDia(cfg, deps, otra);
+  assert.ok(otra.resto_aviso); assert.match(otra.resto_error, /card_declined/);
+  await ponerAlDia(cfg, deps, otra, Date.now() + 49 * 3600e3);
+  assert.equal(otra.estado, 'cancelada'); assert.equal(otra.cancelada_por, 'impago');
+  assert.equal(paraDueno(otra), 45, 'el dueño se queda la señal');
 });

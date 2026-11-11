@@ -14,7 +14,7 @@
  */
 import { createHash } from 'node:crypto';
 
-export const VERSION_CONDICIONES = '2026-11-11b';
+export const VERSION_CONDICIONES = '2026-11-11c';
 export const VERSION_CONTRATO = '2026-11-03';
 
 const esc = (t) => String(t ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -35,20 +35,26 @@ export const sidonia = (cfg = {}) => ({
  *  - Entre 7 días y 48 horas antes: se devuelve la mitad del alquiler (la tarifa de servicio no).
  *  - Con menos de 48 horas: no se devuelve nada.
  */
+/* Pago en dos veces (como «paga una parte ahora» de Airbnb): si faltan más de DIAS_RESTO días, al reservar se paga la
+ * señal (SENAL_PCT % del alquiler) más la tarifa de Sidonia, y el resto se cobra solo DIAS_RESTO días antes. */
+export const SENAL_PCT = 30, DIAS_RESTO = 14, DIAS_MITAD = 7;
+/** Lo que ha pagado de verdad del alquiler (sin la tarifa): todo, o la señal si el resto aún no se ha cobrado */
+export const alquilerPagado = (r) => { const alquiler = (Number(r.total) || 0) - (Number(r.tarifa) || 0); return Number(r.resto) > 0 && !r.resto_pagado ? alquiler - Number(r.resto) : alquiler; };
 export function reembolso(r, quien, ahora = Date.now()) {
-  const total = Number(r.total) || 0, tarifa = Number(r.tarifa) || 0, alquiler = total - tarifa;
-  if (quien === 'dueno' || quien === 'sistema') return { importe: total, tarifa: true, motivo: 'Se devuelve todo.' };
+  const tarifa = Number(r.tarifa) || 0, alquiler = (Number(r.total) || 0) - tarifa, pagadoAlq = alquilerPagado(r), pagado = pagadoAlq + tarifa;
+  if (quien === 'dueno' || quien === 'sistema') return { importe: pagado, tarifa: true, motivo: 'Se devuelve todo lo pagado.' };
   const inicio = Date.parse(`${String(r.desde).slice(0, 10)}T10:00:00+01:00`);
   const horas = (inicio - ahora) / 3600e3;
-  if (horas >= 7 * 24) return { importe: total, tarifa: true, motivo: 'Cancelas con 7 días o más de antelación: se te devuelve todo.' };
-  if (horas >= 48) return { importe: Math.round(alquiler * 50) / 100, tarifa: false, motivo: 'Cancelas entre 7 días y 48 horas antes: se te devuelve la mitad del alquiler (la tarifa de servicio no).' };
-  return { importe: 0, tarifa: false, motivo: 'Cancelas con menos de 48 horas: no se devuelve el importe.' };
+  if (horas >= DIAS_RESTO * 24) return { importe: pagado, tarifa: true, motivo: `Cancelas con ${DIAS_RESTO} días o más de antelación: se te devuelve todo lo pagado.` };
+  if (horas >= DIAS_MITAD * 24) return { importe: Math.max(0, Math.round((pagadoAlq - alquiler * 0.5) * 100) / 100), tarifa: false, motivo: `Cancelas entre ${DIAS_RESTO} y ${DIAS_MITAD} días antes: el dueño se queda la mitad del alquiler y se te devuelve el resto de lo pagado (la tarifa de servicio no).` };
+  return { importe: 0, tarifa: false, motivo: `Cancelas con menos de ${DIAS_MITAD} días: no se devuelve el importe.` };
 }
 export const POLITICA_CANCELACION = [
   'Si el dueño no acepta la solicitud en 24 horas, la rechaza o cancela una reserva ya aceptada, se devuelve a quien alquila el 100 % de lo pagado, tarifa de servicio incluida.',
-  'Si quien alquila cancela con 7 días o más de antelación al inicio, se le devuelve el 100 % de lo pagado.',
-  'Si cancela entre 7 días y 48 horas antes del inicio, se le devuelve el 50 % del precio del alquiler; la tarifa de servicio no se devuelve.',
-  'Si cancela con menos de 48 horas, o no se presenta a la entrega, no se devuelve el importe.',
+  'Cancelación gratuita: si quien alquila cancela con 14 días o más de antelación al inicio, se le devuelve el 100 % de lo pagado, tarifa de servicio incluida.',
+  'Si cancela entre 14 y 7 días antes del inicio, el dueño se queda la mitad del precio del alquiler y se devuelve el resto de lo pagado; la tarifa de servicio no se devuelve.',
+  'Si cancela con menos de 7 días, o no se presenta, no se devuelve el importe.',
+  'Si la reserva se hace con más de 14 días de antelación, al reservar se paga una señal del 30 % del alquiler más la tarifa de servicio, y el resto se cobra automáticamente en la misma tarjeta 14 días antes del inicio. Si ese cobro no se puede hacer y no se paga en las 48 horas siguientes con el enlace que se envía, la reserva se cancela con las reglas anteriores.',
   'Si el vehículo no puede entregarse por causa del dueño (avería, falta de documentación o de seguro en vigor, etc.), se considera cancelación del dueño.'
 ];
 

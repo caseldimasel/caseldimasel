@@ -93,3 +93,12 @@ alter table reservas add column if not exists tramos jsonb;                 -- [
 alter table reservas add column if not exists horas  numeric(6,1);         -- horas facturadas (con el mínimo del plan por día)
 alter table reservas add column if not exists plan   text not null default '';
 notify pgrst, 'reload schema';
+
+-- Pago en dos veces (2026-11): señal al reservar (30 % + tarifa) y el resto 14 días antes; el dueño cobra 24 h después
+alter table reservas add column if not exists a_cuenta     int;           -- lo que se paga al reservar (señal + tarifa, o todo)
+alter table reservas add column if not exists resto        int not null default 0;
+alter table reservas add column if not exists resto_pi     text;
+alter table reservas add column if not exists resto_pagado timestamptz;
+alter table reservas add column if not exists resto_aviso  timestamptz;
+alter table reservas add column if not exists resto_error  text not null default '';
+notify pgrst, 'reload schema';

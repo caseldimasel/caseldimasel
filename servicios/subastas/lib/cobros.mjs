@@ -3,7 +3,7 @@
  *   servicio de alquiler. Se guardan en perfiles.alq_legal.
  * - Da de alta su cuenta de cobros en Stripe (identidad y cuenta bancaria; lo pide Stripe, no Sidonia). Se guarda
  *   perfiles.stripe_cuenta y, cuando Stripe la habilita, perfiles.cobros_ok.
- * - Cada pago se cobra «por cuenta» del dueño (on_behalf_of) y se le transfiere el día que empieza el alquiler.
+ * - Cada pago se cobra «por cuenta» del dueño (on_behalf_of) y se le transfiere 24 h después del servicio.
  *
  * Sesión:  GET  api/alquiler/cobros                      → { cobrar, datos, cuenta, listo, version }
  *          POST api/alquiler/cobros { accion: 'datos', nombre, dni, domicilio, telefono, acepto }

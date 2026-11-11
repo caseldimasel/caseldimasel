@@ -272,7 +272,7 @@ export async function atender(req, cfg, deps) {
     if (ruta === 'pagar' || ruta === 'pagar/ok') return rutasPago({ ruta, method: req.method, query: req.query || {}, body: req.body || {} }, cfg, deps);
     // «¿Lo vendemos nosotros?» (enlace firmado del email, sin sesión): gestion.mjs
     // Pagar una reserva de alquiler (enlace firmado): a Stripe y la vuelta (reservas.mjs)
-    if (/^alquiler\/(pagar|pagado|contrato|contrato-modelo|condiciones)$/.test(ruta)) return rutasPagoReserva({ ruta, query: req.query || {} }, cfg, deps);
+    if (/^alquiler\/(pagar|pagado|pagar-resto|resto-pagado|contrato|contrato-modelo|condiciones)$/.test(ruta)) return rutasPagoReserva({ ruta, query: req.query || {} }, cfg, deps);
     if (ruta === 'gestion') return rutasGestion({ method: req.method, query: req.query || {}, body: req.body || {} }, cfg, deps);
     // Reservas sin cobro (la SIDONIA RD10): el formulario, la vuelta de Stripe, cancelar y el contador (preventa.mjs)
     if (/^(api\/)?preventa\//.test(ruta)) return (await rutasPreventa({ ruta, method: req.method, query: req.query || {}, body: req.body || {} }, cfg, deps)) || json(404, { ok: false, error: 'ruta' });
