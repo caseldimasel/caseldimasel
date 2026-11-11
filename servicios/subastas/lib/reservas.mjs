@@ -48,7 +48,7 @@ export const diasEntre = (a, b) => Math.round((Date.parse(b) - Date.parse(a)) / 
 const solapa = (a1, a2, b1, b2) => a1 <= b2 && b1 <= a2;
 const titulo = (c) => [c.marca, c.modelo, c.anio].filter(Boolean).join(' ');
 const fechaTxt = (d) => new Date(`${d}T12:00:00Z`).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Europe/Madrid' });
-const CONDUCE = { con: 'Con su dueño al volante', sin: 'Sin conductor (lo conduces tú)', ambos: 'Con o sin conductor' };
+const CONDUCE = { con: 'Con su dueño al volante', sin: 'Con su dueño al volante', ambos: 'Con su dueño al volante' };
 
 /** El estado de verdad: las pendientes caducan a las 24 h y las aceptadas pasadas están completadas */
 export function estadoActual(r, ahora = Date.now()) {
@@ -61,12 +61,12 @@ export function estadoActual(r, ahora = Date.now()) {
   return r.estado;
 }
 /** El precio, como en Airbnb: precio por día del servicio (con o sin conductor) × días + tarifa de servicio */
-export function precio(alq, desde, hasta, pct = COMISION, modo = 'sin') {
+export function precio(alq, desde, hasta, pct = COMISION, modo = 'con') {
   const dias = diasEntre(desde, hasta);
-  const pd = precioDe(alq, modo === 'con' ? 'con' : 'sin');
+  const pd = precioDe(alq, 'con');
   const sub = pd * dias;
   const tarifa = Math.round((sub * pct) / 100);
-  return { dias, precio_dia: pd, subtotal: sub, tarifa, total: sub + tarifa, fianza: modo === 'con' ? 0 : Number(alq.fianza) || 0 };
+  return { dias, precio_dia: pd, subtotal: sub, tarifa, total: sub + tarifa, fianza: 0 };
 }
 /* ------------------------------------------------------------------ Por horas
  * Cada reserva por horas lleva sus tramos: [{ dia: 'AAAA-MM-DD', de: '10:00', a: '14:00' }, …] (uno por día, de media
@@ -83,13 +83,13 @@ export function leerTramos(l) {
 }
 export const horasTramo = (x) => (minutos(x.a) - minutos(x.de)) / 60;
 /** El precio por horas: €/hora del plan × horas (cada día, al menos el mínimo del plan) + tarifa de servicio */
-export function precioHoras(alq, tramos, plan, pct = COMISION, modo = 'sin') {
+export function precioHoras(alq, tramos, plan, pct = COMISION, modo = 'con') {
   const ph = precioHora(alq, plan, modo);
   const min = Number(alq?.planes?.[plan]?.min) || 1;
   const horas = tramos.reduce((n, x) => n + Math.max(horasTramo(x), min), 0);
   const sub = Math.round(ph * horas);
   const tarifa = Math.round((sub * pct) / 100);
-  return { dias: tramos.length, horas, precio_hora: ph, min, precio_dia: ph, subtotal: sub, tarifa, total: sub + tarifa, fianza: modo === 'con' ? 0 : Number(alq.fianza) || 0 };
+  return { dias: tramos.length, horas, precio_hora: ph, min, precio_dia: ph, subtotal: sub, tarifa, total: sub + tarifa, fianza: 0 };
 }
 /** Las horas ya ocupadas de un coche (reservas por horas aceptadas): [{ dia, de, a }] */
 export const horasOcupadas = (rs) => rs.filter((r) => estadoActual(r) === 'aceptada' && Array.isArray(r.tramos) && r.tramos.length).flatMap((r) => r.tramos);
@@ -111,7 +111,7 @@ export function cuandoTxt(r) {
 }
 
 /** El servicio que pide quien alquila: el que ofrece el coche, o el que elija si ofrece los dos */
-const modoDe = (alq, cobrar, pedido) => { const k = conductorEfectivo(alq || {}, cobrar); return k === 'ambos' ? (pedido === 'con' ? 'con' : 'sin') : k === 'con' ? 'con' : 'sin'; };
+const modoDe = () => 'con'; // siempre con su dueño al volante
 /** Confirmada de verdad: aceptada y pagada (o sin pago en Sidonia) */
 export const confirmada = (r) => { const e = estadoActual(r); return (e === 'aceptada' || e === 'completada') && !['pendiente', 'sin-pagar', 'autorizado'].includes(r.pago); };
 const ocupadas = (rs) => rs.filter((r) => estadoActual(r) === 'aceptada' && !(Array.isArray(r.tramos) && r.tramos.length)).map((r) => [String(r.desde), String(r.hasta)]);
@@ -592,7 +592,7 @@ export async function rutasReservas({ ruta, method, body, ip = '', ua = '' }, cl
 /* ---------------------------------------------------------------------------- Pagar (Stripe) */
 const pagina = (cfg, titulo, texto, enlace, boton) => ({ status: 200, headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' },
   body: `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(titulo)} · SIDONIA</title>
-<style>body{margin:0;font-family:Inter,system-ui,sans-serif;background:#f4f3f0;color:#1a1a1a;display:grid;place-items:center;min-height:100vh;padding:20px;box-sizing:border-box}main{max-width:440px;background:#fff;border-radius:22px;padding:30px;box-shadow:0 20px 50px -30px rgba(0,0,0,.4);text-align:center}h1{font-size:24px;margin:0 0 10px}p{color:#555;line-height:1.55}a{display:inline-block;margin-top:14px;padding:13px 22px;border-radius:999px;background:#1a1a1a;color:#fff;text-decoration:none;font-weight:700}.l{letter-spacing:6px;font-weight:700;margin-bottom:18px}</style></head>
+<style>body{margin:0;font-family:Inter,system-ui,sans-serif;background:#f4f4f4;color:#1a1a1a;display:grid;place-items:center;min-height:100vh;padding:20px;box-sizing:border-box}main{max-width:440px;background:#fff;border-radius:22px;padding:30px;box-shadow:0 20px 50px -30px rgba(0,0,0,.4);text-align:center}h1{font-size:24px;margin:0 0 10px}p{color:#555;line-height:1.55}a{display:inline-block;margin-top:14px;padding:13px 22px;border-radius:999px;background:#1a1a1a;color:#fff;text-decoration:none;font-weight:700}.l{letter-spacing:6px;font-weight:700;margin-bottom:18px}</style></head>
 <body><main><div class="l">SIDONIA</div><h1>${esc(titulo)}</h1><p>${texto}</p>${enlace ? `<a href="${esc(enlace)}">${esc(boton || 'Volver a Sidonia')}</a>` : ''}</main></body></html>` });
 
 /** Páginas del alquiler (sin sesión):

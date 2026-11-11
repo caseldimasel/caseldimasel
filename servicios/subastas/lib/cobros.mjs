@@ -138,10 +138,10 @@ export function precioHora(a = {}, plan, modo = 'sin') {
 export const desdeHora = (a = {}) => { const l = planesDe(a).map(([, x]) => Number(x.hora)); return l.length ? Math.min(...l) : 0; };
 /** Precio por día de cada servicio: 'sin' (lo conduce quien alquila) o 'con' (con conductor). Los anuncios antiguos
  *  «solo con conductor» tienen su precio en «precio». 0 = no se ofrece. */
-export function precioDe(a = {}, modo = 'sin') {
-  if (modo === 'con') return a.conductor === 'sin' ? 0 : Number(a.precio_con) || (a.conductor === 'con' ? Number(a.precio) || 0 : 0);
-  return a.conductor === 'con' ? 0 : Number(a.precio) || 0;
+export function precioDe(a = {}, modo = 'con') {
+  if (modo !== 'con') return 0;
+  return Number(a.precio_con) || Number(a.precio) || 0;
 }
 export const tienePrecio = (a = {}) => planesDe(a).length > 0 || precioDe(a, 'sin') > 0 || precioDe(a, 'con') > 0;
-/** Lo que ofrece el dueño (él responde de las autorizaciones que necesite: Sidonia solo intermedia) */
-export const conductorEfectivo = (a = {}) => a.conductor || 'con';
+/** En Sidonia el coche siempre lo conduce su dueño (o quien él ponga al volante bajo su responsabilidad): no hay alquiler sin conductor */
+export const conductorEfectivo = () => 'con';

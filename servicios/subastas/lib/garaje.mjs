@@ -43,7 +43,8 @@ export function leerAlq(a = {}) {
   return {
     precio: ent(a.precio, 0, 20000), precio_con: ent(a.precio_con, 0, 20000), horas: ent(a.horas, 0, 24) || 8, hora_extra: ent(a.hora_extra, 0, 2000), fianza: ent(a.fianza, 0, 100000), km: ent(a.km, 0, 5000), minimo: ent(a.minimo, 1, 30) || 1,
     plazas: ent(a.plazas, 0, 9), cambio: ['manual', 'auto'].includes(a.cambio) ? a.cambio : '',
-    conductor: ['con', 'sin', 'ambos'].includes(a.conductor) ? a.conductor : 'con',
+    // Siempre con su dueño al volante: en Sidonia nadie conduce el coche de otro (sin licencias ni seguros de alquiler sin conductor)
+    conductor: 'con',
     ciudad: texto(a.ciudad, 80), entrega: texto(a.entrega, 300), normas: texto(a.normas, 2000),
     inmediata: Boolean(a.inmediata), usos: (Array.isArray(a.usos) ? a.usos : []).filter((u) => USOS.includes(u)),
     // Para el contrato (alquiler con pago en la web): el coche, su seguro y su ITV, y la autorización si es con conductor
@@ -54,7 +55,7 @@ export function leerAlq(a = {}) {
     km_extra: Math.min(10, Math.max(0, Math.round((Number(a.km_extra) || 0) * 100) / 100)),
     edad_min: ent(a.edad_min, 18, 99) || 25, carne_min: a.carne_min === undefined || a.carne_min === '' ? 3 : ent(a.carne_min, 0, 30),
     // Por horas (como Airbnb, pero por horas): «desde X €/hora» en cada plan, y lo que suma con conductor si ofrece los dos
-    planes: leerPlanes(a.planes), extra_con: ent(a.extra_con, 0, 2000),
+    planes: leerPlanes(a.planes), extra_con: 0,
     // Declaración responsable del dueño: el seguro, el conductor, las licencias y la ITV son cosa suya (Sidonia solo intermedia)
     declara: Boolean(a.declara)
   };
@@ -71,7 +72,7 @@ export function leerCoche(b = {}, cliente = '') {
     marca: texto(b.marca, 40), modelo: texto(b.modelo, 60), anio: anio && anio >= 1885 && anio <= new Date().getFullYear() + 1 ? anio : null,
     apodo: texto(b.apodo, 40), historia: texto(b.historia, 4000), mods: texto(b.mods, 2000),
     fotos: (Array.isArray(b.fotos) ? b.fotos : []).map(String).filter((f) => propia.test(f)).slice(0, FOTOS),
-    alquiler: Boolean(b.alquiler), alquiler_como: ['con', 'sin', 'igual'].includes(b.alquiler_como) ? b.alquiler_como : '',
+    alquiler: Boolean(b.alquiler), alquiler_como: b.alquiler ? 'con' : '',
     visible: b.visible !== false,
     ...(b.alq ? { alq: leerAlq(b.alq) } : {}), ...(b.bloqueos ? { bloqueos: leerBloqueos(b.bloqueos) } : {})
   };

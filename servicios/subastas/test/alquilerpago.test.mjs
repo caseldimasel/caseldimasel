@@ -27,7 +27,7 @@ function memo(filas = [], clave = 'id') {
 }
 const dia = (n) => new Date(Date.now() + n * 864e5).toISOString().slice(0, 10);
 const LEGAL = { nombre: 'Marta Ruiz Pérez', dni: '12345678Z', domicilio: 'Calle Mayor 1, 28013 Madrid', telefono: '600000000', acepto: '2026-11-01T10:00:00Z', version: '2026-11-03' };
-const ALQ = { precio: 150, fianza: 500, km: 200, minimo: 1, conductor: 'sin', ciudad: 'Madrid', entrega: 'Calle Secreta 1', matricula: '1234ABC', seguro_compania: 'Mutua', seguro_poliza: 'POL-999',
+const ALQ = { precio: 150, fianza: 500, km: 200, minimo: 1, conductor: 'con', plazas: 4, ciudad: 'Madrid', entrega: 'Calle Secreta 1', matricula: '1234ABC', seguro_compania: 'Mutua', seguro_poliza: 'POL-999',
   seguro_tipo: 'todo-riesgo', seguro_cubre: true, itv_hasta: dia(300), edad_min: 25, carne_min: 3, declara: true };
 function preparar({ alq = {}, perfil = {} } = {}) {
   const correos = [], stripe = [];
@@ -51,7 +51,7 @@ function preparar({ alq = {}, perfil = {} } = {}) {
   return { deps, api, correos, stripe, setPi: (e) => { piEstado = e; } };
 }
 const pedir = { coche_id: 7, desde: dia(10), hasta: dia(12), nombre: 'Lucía Gómez Sanz', email: 'lucia@x.es', telefono: '611111111', mensaje: 'Hola, es para mi boda, ¿puede ser?', para: 'boda',
-  dni: '87654321X', nacimiento: '1990-05-01', domicilio: 'Calle Luna 3, Sevilla', carne_num: '87654321X', carne_fecha: '2010-01-01', acepto: '1', firma: 'lucía gómez sanz' };
+  dni: '87654321X', nacimiento: '1990-05-01', domicilio: 'Calle Luna 3, Sevilla', carne_num: '87654321X', carne_fecha: '2010-01-01', acepto: '1', firma: 'lucía gómez sanz', recogida: 'Iglesia de San Jerónimo, Madrid', pasajeros: 2 };
 
 test('alquiler con pago: DNI, documento y lo que falta para poder alquilar', () => {
   assert.equal(dniValido('12345678Z'), true); assert.equal(dniValido('12345678A'), false); assert.equal(dniValido('X1234567L'), true);
@@ -83,9 +83,9 @@ test('alquiler con pago: sin cuenta de cobros o sin la declaración del dueño, 
   const l = await api('api/alquiler/coches', {}, {}, 'GET');
   assert.equal(l.coches.length, 1);
   assert.equal(l.coches[0].alq.matricula, undefined, 'la matrícula no es pública'); assert.equal(l.coches[0].alq.seguro_poliza, undefined);
-  // Con conductor: lo ofrece el dueño bajo su responsabilidad (Sidonia no pide la VTC)
+  // Siempre con su dueño al volante, aunque el anuncio dijera otra cosa
   ({ api } = preparar({ alq: { conductor: 'ambos' } }));
-  assert.equal((await api('api/alquiler/coche', { id: 7 }, {}, 'GET')).coche.alq.conductor, 'ambos');
+  assert.equal((await api('api/alquiler/coche', { id: 7 }, {}, 'GET')).coche.alq.conductor, 'con');
 });
 
 test('alquiler con pago: solicitud con contrato firmado, retención, el dueño firma y se cobra; cancelar con 7 días devuelve todo', async () => {
@@ -94,8 +94,8 @@ test('alquiler con pago: solicitud con contrato firmado, retención, el dueño f
   assert.equal((await api('api/alquiler/reservar', { ...pedir, dni: '87654321Y' }, quien('77'))).error, 'dni');
   assert.equal((await api('api/alquiler/reservar', { ...pedir, firma: 'Otra Persona' }, quien('77'))).error, 'firma');
   assert.equal((await api('api/alquiler/reservar', { ...pedir, acepto: '' }, quien('77'))).error, 'acepto');
-  assert.equal((await api('api/alquiler/reservar', { ...pedir, nacimiento: '2003-01-01' }, quien('77'))).error, 'edad');
-  assert.equal((await api('api/alquiler/reservar', { ...pedir, carne_fecha: dia(-300) }, quien('77'))).error, 'carne-antiguedad');
+  assert.equal((await api('api/alquiler/reservar', { ...pedir, nacimiento: dia(-365 * 10) }, quien('77'))).error, 'nacimiento', 'mayor de edad');
+  assert.equal((await api('api/alquiler/reservar', { ...pedir, nacimiento: '2003-01-01', carne_fecha: '' }, quien('77'))).ok, true, 'no conduce: ni edad para conducir ni carné');
   // Bien: se guarda el contrato firmado por quien alquila y se va a Stripe a retener
   const r = await api('api/alquiler/reservar', pedir, quien('77'), 'POST', { 'x-forwarded-for': '81.2.3.4, 10.0.0.1', 'user-agent': 'Prueba' });
   assert.equal(r.ok, true); assert.equal(r.pagar, 'https://checkout.stripe.test/x');
@@ -183,7 +183,7 @@ test('alquiler con pago: el modelo de contrato y las condiciones se leen sin dat
   const { api } = preparar();
   const m = await api('alquiler/contrato-modelo', {}, { coche: '7', desde: dia(10), hasta: dia(12) }, 'GET');
   assert.equal(m.status, 200);
-  assert.match(m.body, /Contrato de arrendamiento de vehículo sin conductor/); assert.match(m.body, /Marta Ruiz Pérez/);
+  assert.match(m.body, /Contrato de arrendamiento de vehículo con conductor/); assert.match(m.body, /Marta Ruiz Pérez/);
   assert.doesNotMatch(m.body, /1234ABC|POL-999|12345678Z|Calle Secreta|Calle Mayor/);
   const c = await api('alquiler/condiciones', {}, {}, 'GET');
   assert.match(c.body, /Condiciones del servicio de alquiler/);
@@ -205,45 +205,29 @@ test('alquiler con pago: el dueño pone sus datos y se da de alta en Stripe', as
   assert.equal(deps.perfiles.filas[0].stripe_cuenta, 'acct_nuevo');
 });
 
-test('con y sin conductor: cada servicio con su precio, sus datos y su contrato', async () => {
-  const { precio } = await import('../lib/reservas.mjs');
-  const { precioDe } = await import('../lib/cobros.mjs');
-  const A = { ...ALQ, conductor: 'ambos', precio: 150, precio_con: 400, horas: 6, hora_extra: 60, vtc: 'VTC-1', plazas: 4 };
-  assert.equal(precioDe(A, 'sin'), 150); assert.equal(precioDe(A, 'con'), 400);
-  assert.equal(precioDe({ conductor: 'con', precio: 300 }, 'con'), 300, 'anuncios antiguos solo con conductor');
-  assert.equal(precioDe({ conductor: 'con', precio: 300 }, 'sin'), 0);
-  const pc = precio(A, dia(10), dia(10), 10, 'con');
-  assert.deepEqual([pc.precio_dia, pc.total, pc.fianza], [400, 440, 0], 'con conductor: sin fianza');
-  assert.equal(precio(A, dia(10), dia(10), 10, 'sin').fianza, 500);
-  // Reservar con conductor: precio con conductor, sin carné, con recogida y pasajeros; contrato con conductor
-  const { api, deps, stripe } = preparar({ alq: A });
+test('siempre con su dueño al volante: no hay alquiler sin conductor', async () => {
+  const { precioDe, conductorEfectivo } = await import('../lib/cobros.mjs');
+  const { leerAlq } = await import('../lib/garaje.mjs');
+  assert.equal(leerAlq({ conductor: 'sin' }).conductor, 'con', 'aunque lo pida, se guarda con conductor');
+  assert.equal(conductorEfectivo({ conductor: 'ambos' }), 'con');
+  assert.equal(precioDe({ conductor: 'sin', precio: 150 }, 'sin'), 0); assert.equal(precioDe({ precio: 300 }, 'con'), 300);
+  const { api, deps } = preparar({ alq: { ...ALQ, conductor: 'ambos', precio_con: 400 } });
   const l = await api('api/alquiler/coche', { id: 7 }, {}, 'GET');
-  assert.deepEqual(l.coche.alq.precios, { sin: 150, con: 400 }); assert.equal(l.coche.alq.precio, 150, 'el «desde»');
-  const sin = { ...pedir, carne_num: '', carne_fecha: '', nacimiento: '2005-01-01', conductor: 'con', desde: dia(10), hasta: dia(10) };
-  assert.equal((await api('api/alquiler/reservar', { ...sin, recogida: '' }, quien('77'))).error, 'recogida');
-  const r = await api('api/alquiler/reservar', { ...sin, recogida: 'Iglesia de San Jerónimo, Madrid', pasajeros: 9 }, quien('77'));
-  assert.equal(r.ok, true, 'con conductor no hace falta carné ni la edad para conducir');
-  assert.equal(r.reserva.total, 440);
+  assert.equal(l.coche.alq.conductor, 'con');
+  // Aunque se pida «sin conductor», la reserva es con su dueño al volante: recogida y pasajeros, sin carné
+  assert.equal((await api('api/alquiler/reservar', { ...pedir, conductor: 'sin', recogida: '' }, quien('77'))).error, 'recogida');
+  const r = await api('api/alquiler/reservar', { ...pedir, conductor: 'sin', desde: dia(10), hasta: dia(10), pasajeros: 9 }, quien('77'));
+  assert.equal(r.ok, true); assert.equal(r.reserva.fianza, 0);
   const fila = deps.reservas.filas.at(-1);
   assert.equal(fila.conductor, 'con'); assert.equal(fila.datos.pasajeros, 3, 'como mucho las plazas menos el conductor'); assert.equal(fila.datos.carne_num, '');
-  assert.match(fila.contrato.html, /con conductor/); assert.match(fila.contrato.html, /6 horas de servicio por día/); assert.match(fila.contrato.html, /60 € por hora/);
-  assert.match(fila.contrato.html, /Iglesia de San Jerónimo/); assert.match(fila.contrato.html, /VTC-1/); assert.doesNotMatch(fila.contrato.html, /Fianza\.<\/b> El Arrendatario entregará/);
-  assert.equal(stripe.find((x) => x[1] === 'checkout/sessions')[2].line_items[0].price_data.unit_amount, 40000);
-  // Sin conductor en el mismo coche: su precio y su contrato
-  const r2 = await api('api/alquiler/reservar', { ...pedir, conductor: 'sin', desde: dia(20), hasta: dia(21) }, quien('78'));
-  assert.equal(r2.reserva.total, 330);
-  assert.match(deps.reservas.filas.at(-1).contrato.html, /sin conductor/); assert.match(deps.reservas.filas.at(-1).contrato.html, /Fianza\.<\/b> El Arrendatario entregará/);
-  // Sin el número de VTC en el anuncio también se ofrece con conductor: es responsabilidad del dueño
-  const { api: api2 } = preparar({ alq: { ...A, vtc: '' } });
-  const l2 = await api2('api/alquiler/coche', { id: 7 }, {}, 'GET');
-  assert.deepEqual(l2.coche.alq.precios, { sin: 150, con: 400 });
+  assert.match(fila.contrato.html, /con conductor/); assert.doesNotMatch(fila.contrato.html, /Fianza\.<\/b> El Arrendatario entregará/);
 });
 
 test('por horas: «desde X €/hora» por plan, mínimo de horas y varios días con sus horas', async () => {
   const { precioHoras, leerTramos, libreHoras, cuandoTxt } = await import('../lib/reservas.mjs');
   const { leerAlq } = await import('../lib/garaje.mjs');
   const { desdeHora } = await import('../lib/cobros.mjs');
-  const A = { ...ALQ, ...leerAlq({ ...ALQ, conductor: 'ambos', extra_con: 30, planes: { boda: { hora: 120, min: 3 }, rodaje: { hora: 80, min: 4 }, ruta: { hora: 0 } } }) };
+  const A = { ...ALQ, ...leerAlq({ ...ALQ, planes: { boda: { hora: 120, min: 3 }, rodaje: { hora: 80, min: 4 }, ruta: { hora: 0 } } }) };
   assert.deepEqual(Object.keys(A.planes), ['boda', 'rodaje'], 'solo los planes con precio');
   assert.equal(desdeHora(A), 80);
   // Tramos: uno por día, de media en media hora
@@ -251,10 +235,9 @@ test('por horas: «desde X €/hora» por plan, mínimo de horas y varios días 
   assert.equal(leerTramos([{ dia: dia(10), de: '10:15', a: '12:00' }]), null);
   const t = leerTramos([{ dia: dia(11), de: '17:00', a: '19:00' }, { dia: dia(10), de: '10:00', a: '14:30' }]);
   assert.equal(t[0].dia, dia(10), 'ordenados');
-  // 4,5 h + 2 h (que se cobran como el mínimo: 3 h) = 7,5 h × 120 € = 900 €; con conductor +30 €/h
-  const p = precioHoras(A, t, 'boda', 15, 'sin');
-  assert.deepEqual([p.horas, p.precio_hora, p.subtotal, p.tarifa, p.total], [7.5, 120, 900, 135, 1035]);
-  assert.equal(precioHoras(A, t, 'boda', 15, 'con').precio_hora, 150);
+  // 4,5 h + 2 h (que se cobran como el mínimo: 3 h) = 7,5 h × 120 € = 900 € (siempre con su dueño al volante)
+  const p = precioHoras(A, t, 'boda', 15);
+  assert.deepEqual([p.horas, p.precio_hora, p.subtotal, p.tarifa, p.total, p.fianza], [7.5, 120, 900, 135, 1035, 0]);
   // Libre: se puede reservar la tarde de un día que tiene la mañana reservada, pero no a la vez
   const rs = [{ desde: dia(10), hasta: dia(10), estado: 'aceptada', creado: new Date().toISOString(), tramos: [{ dia: dia(10), de: '10:00', a: '13:00' }] }];
   assert.equal(libreHoras({ bloqueos: [] }, rs, [{ dia: dia(10), de: '13:00', a: '16:00' }]), true);
@@ -266,7 +249,7 @@ test('por horas: «desde X €/hora» por plan, mínimo de horas y varios días 
   const f = await api('api/alquiler/coche', { id: 7 }, {}, 'GET');
   assert.equal(f.coche.alq.planes.boda.hora, 120);
   assert.equal((await api('api/alquiler/reservar', { ...pedir, tramos: [{ dia: dia(10), de: '10:00', a: '14:30' }], plan: 'evento' }, quien('77'))).error, 'plan', 'un plan que no ofrece');
-  const r = await api('api/alquiler/reservar', { ...pedir, conductor: 'sin', tramos: t, plan: 'boda' }, quien('77'));
+  const r = await api('api/alquiler/reservar', { ...pedir, tramos: t, plan: 'boda' }, quien('77'));
   assert.equal(r.ok, true);
   const fila = deps.reservas.filas.at(-1);
   assert.deepEqual([fila.plan, fila.horas, fila.desde, fila.hasta, fila.dias], ['boda', 7.5, dia(10), dia(11), 2]);

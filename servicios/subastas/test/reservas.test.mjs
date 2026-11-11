@@ -34,7 +34,7 @@ function preparar(alq = {}) {
 const pedir = { coche_id: 7, desde: dia(10), hasta: dia(12), nombre: 'Lucía Gómez', email: 'lucia@x.es', telefono: '611111111', mensaje: 'Hola, es para mi boda, ¿puede ser?', para: 'boda' };
 
 test('reservas: precio, disponibilidad y estados que se calculan solos', () => {
-  assert.deepEqual(precio({ precio: 150, fianza: 500 }, '2027-06-10', '2027-06-12', 0), { dias: 3, precio_dia: 150, subtotal: 450, tarifa: 0, total: 450, fianza: 500 });
+  assert.deepEqual(precio({ precio: 150, fianza: 500 }, '2027-06-10', '2027-06-12', 0), { dias: 3, precio_dia: 150, subtotal: 450, tarifa: 0, total: 450, fianza: 0 }, 'con su dueño al volante: sin fianza');
   assert.deepEqual(precio({ precio: 150 }, '2027-06-10', '2027-06-12', 15), { dias: 3, precio_dia: 150, subtotal: 450, tarifa: 68, total: 518, fianza: 0 });
   assert.equal(estadoActual({ estado: 'aceptada', pago: 'pendiente', hasta: '2099-01-01', respondida: new Date(Date.now() - 25 * 3600e3).toISOString() }), 'caducada', 'sin pagar en 24 h');
   assert.equal(libre({ bloqueos: [['2027-06-11', '2027-06-11']] }, [], '2027-06-10', '2027-06-12'), false);

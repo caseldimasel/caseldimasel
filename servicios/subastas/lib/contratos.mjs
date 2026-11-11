@@ -14,7 +14,7 @@
  */
 import { createHash } from 'node:crypto';
 
-export const VERSION_CONDICIONES = '2026-11-11';
+export const VERSION_CONDICIONES = '2026-11-11b';
 export const VERSION_CONTRATO = '2026-11-03';
 
 const esc = (t) => String(t ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -73,7 +73,7 @@ ${sec('3. Requisitos para usar el servicio',
     '<b>Dueños:</b> ser titular del vehículo o estar autorizado por su titular para alquilarlo; tener en vigor el seguro obligatorio y la ITV; tener un seguro que cubra la conducción por el arrendatario durante el alquiler (muchas pólizas particulares lo excluyen: es responsabilidad del dueño comprobarlo con su aseguradora); entregar el vehículo en buen estado y con su documentación; y cumplir sus obligaciones fiscales.',
     '<b>Alquiler con conductor:</b> el alquiler de un vehículo con conductor a cambio de un precio puede requerir en España una autorización administrativa (por ejemplo, VTC) y el seguro obligatorio de viajeros. Es responsabilidad exclusiva del dueño tenerlos y cumplir la normativa de transporte; el conductor lo pone y lo designa el dueño, bajo su responsabilidad.',
     '<b>Declaración responsable del dueño:</b> al publicar su anuncio, el dueño declara que es titular del vehículo o está autorizado para alquilarlo; que tiene en vigor el seguro, la ITV, las licencias y las autorizaciones que exija el uso que ofrece; que el conductor que, en su caso, designe tiene el permiso y la habilitación necesarios; y que responde frente al arrendatario y frente a terceros de todo ello. Sidonia no comprueba estos extremos ni responde de ellos.',
-    '<b>Arrendatarios:</b> si van a conducir, tener permiso de conducción válido en España y en vigor, y cumplir la edad y la antigüedad del permiso que exija cada dueño (por defecto, 25 años y 3 años de permiso).']))}
+    '<b>Siempre con su dueño al volante:</b> en Sidonia no hay alquiler sin conductor. El vehículo lo conduce siempre su dueño (o el conductor que él ponga, bajo su exclusiva responsabilidad); el arrendatario y sus acompañantes viajan como pasajeros y nunca lo conducen.']))}
 ${sec('4. Cómo funciona una reserva',
   ul(['El arrendatario elige fechas, rellena sus datos, acepta estas condiciones y firma el contrato de alquiler.',
     'Al enviar la solicitud, se <b>retiene</b> el importe en su tarjeta, pero no se cobra. El dueño tiene 24 horas para aceptarla.',
@@ -84,7 +84,7 @@ ${sec('5. Precio, pagos y tarifa de servicio',
   `El precio del alquiler lo fija libremente el dueño. Al precio se suma la tarifa de servicio de Sidonia${pct ? ` (${pct} % del precio del alquiler)` : ''}, que se muestra antes de reservar, incluye los impuestos aplicables y retribuye el servicio de intermediación.`,
   'Los pagos los procesa Stripe Payments Europe, Ltd., entidad autorizada, a través de su servicio Stripe Connect. El dueño debe darse de alta en Stripe (datos de identidad y cuenta bancaria) para poder recibir reservas. El precio del alquiler se cobra por cuenta del dueño, que figura como vendedor del cargo, y se le transfiere el día en que empieza el alquiler; desde ahí, Stripe lo abona en su cuenta bancaria según su calendario de pagos. Sidonia no tiene a su disposición fondos de los usuarios fuera de la cuenta de pagos gestionada por Stripe.',
   'El pago de la reserva por la plataforma libera al arrendatario de su obligación de pago frente al dueño por el importe pagado. Las partes no deben pagarse el alquiler fuera de Sidonia. Los importes adicionales que prevea el contrato (horas o kilómetros extra, combustible, daños, sanciones) los liquidan las partes directamente entre sí.',
-  'Hay dos servicios distintos, cada uno con su precio y su contrato: <b>sin conductor</b> (el arrendatario conduce el vehículo) y <b>con conductor</b> (el dueño, o quien él designe, conduce y el arrendatario y sus acompañantes viajan como pasajeros, con unas horas de servicio incluidas al día).')}
+  'El servicio es siempre <b>con conductor</b>: el dueño conduce y el arrendatario y sus acompañantes viajan como pasajeros, con el itinerario, las paradas y las horas que se acuerden. El precio es por horas según el plan (boda, rodaje, evento, ruta…), con un mínimo de horas por día.')}
 ${sec('6. Cancelaciones y devoluciones', ul(POLITICA_CANCELACION), 'Las devoluciones se hacen a la misma tarjeta con la que se pagó, normalmente en un plazo de 5 a 10 días hábiles según el banco.')}
 ${sec('7. Fianza, daños, multas y combustible',
   'La fianza, si el dueño la pide, la entregan y devuelven las partes directamente entre ellas, en la forma que acuerden, según el contrato de alquiler. Sidonia no cobra, retiene ni devuelve fianzas, y no decide sobre daños, combustible, kilómetros, multas ni otras reclamaciones entre las partes, que se rigen por su contrato.',
@@ -251,7 +251,7 @@ export function contratoParaFirmar(cfg, d) {
 export function paginaDocumento(titulo, cuerpo, { pie = '' } = {}) {
   return `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>${esc(titulo)} · SIDONIA</title>
 <style>
-body{margin:0;background:#f4f3f0;color:#1a1a1a;font:15px/1.6 Inter,system-ui,-apple-system,sans-serif}
+body{margin:0;background:#f4f4f4;color:#1a1a1a;font:15px/1.6 Inter,system-ui,-apple-system,sans-serif}
 main{max-width:780px;margin:24px auto;background:#fff;border-radius:18px;padding:36px clamp(18px,5vw,48px);box-shadow:0 20px 50px -30px rgba(0,0,0,.35)}
 .l{letter-spacing:6px;font-weight:700;margin-bottom:22px}
 h1{font-size:24px;line-height:1.2;margin:0 0 6px;text-transform:uppercase}h2{font-size:17px;margin:26px 0 8px}h3{font-size:15px;margin:18px 0 6px}
