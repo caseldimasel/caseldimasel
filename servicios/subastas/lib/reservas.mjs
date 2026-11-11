@@ -20,7 +20,7 @@ import { datos, enviarCorreo, P, plantilla } from './correos.mjs';
 import { USOS, PLANES, alqPublico, SEGUROS } from './garaje.mjs';
 import { leerTarifa, precioMes } from './comunidad.mjs';
 import { conFirmas, condicionesAlquiler, contratoAlquiler, contratoParaFirmar, paginaDocumento, reembolso, VERSION_CONDICIONES } from './contratos.mjs';
-import { conductorEfectivo, cobrosListos, datosListos, desdeHora, documentoValido, faltaParaAlquilar, normDoc, perfilCobros, planesDe, precioDe, precioHora, tienePrecio } from './cobros.mjs';
+import { conductorEfectivo, cobrosListos, datosListos, desdeHora, documentoValido, faltaParaAlquilar, minHoras, normDoc, perfilCobros, planesDe, porHoras, precioDe, precioHora, tienePrecio } from './cobros.mjs';
 
 export const PLAZO_H = 24;           // horas que tiene el dueño para responder
 import { createHmac } from 'node:crypto';
@@ -82,10 +82,10 @@ export function leerTramos(l) {
   return t.sort((x, y) => x.dia.localeCompare(y.dia));
 }
 export const horasTramo = (x) => (minutos(x.a) - minutos(x.de)) / 60;
-/** El precio por horas: €/hora del plan × horas (cada día, al menos el mínimo del plan) + tarifa de servicio */
-export function precioHoras(alq, tramos, plan, pct = COMISION, modo = 'con') {
-  const ph = precioHora(alq, plan, modo);
-  const min = Number(alq?.planes?.[plan]?.min) || 1;
+/** El precio por horas: €/hora del coche × horas (cada día, al menos el mínimo) + tarifa de servicio */
+export function precioHoras(alq, tramos, plan, pct = COMISION) {
+  const ph = precioHora(alq, plan);
+  const min = minHoras(alq, plan);
   const horas = tramos.reduce((n, x) => n + Math.max(horasTramo(x), min), 0);
   const sub = Math.round(ph * horas);
   const tarifa = Math.round((sub * pct) / 100);
@@ -358,7 +358,7 @@ export async function rutasReservas({ ruta, method, body, ip = '', ua = '' }, cl
 
   // ------------------------------------------------------------------ Reservar (solicitud o reserva inmediata)
   if (ruta === 'api/alquiler/reservar' && method === 'POST') {
-    // Por horas: los tramos (uno por día) y el plan; si no, por días (desde–hasta)
+    // Por horas: los tramos (uno por día); si no, por días (desde–hasta)
     const tramos = body.tramos === undefined ? null : leerTramos(body.tramos);
     if (body.tramos !== undefined && !tramos) return json(400, { ok: false, error: 'horas' });
     const desde = tramos ? tramos[0].dia : String(body.desde || ''), hasta = tramos ? tramos[tramos.length - 1].dia : String(body.hasta || body.desde || '');
@@ -375,15 +375,15 @@ export async function rutasReservas({ ruta, method, body, ip = '', ua = '' }, cl
       if (String(c.cliente) === String(cliente)) return json(400, { ok: false, error: 'suyo' });
       const modo = modoDe(c.alq, cfg.alquilerCobrar, q.conductor);
       q.conductor = modo;
-      const plan = tramos ? String(body.plan || '') : '';
-      if (tramos && !(precioHora(c.alq, plan, modo) > 0)) return json(400, { ok: false, error: 'plan' });
-      const pr = tramos ? precioHoras(c.alq, tramos, plan, cfg.alquilerCobrar ? comision(cfg) : 0, modo) : precio(c.alq, desde, hasta, cfg.alquilerCobrar ? comision(cfg) : 0, modo);
+      const plan = tramos && !(Number(c.alq.hora) > 0) ? String(body.plan || '') : '';
+      if (tramos && !(precioHora(c.alq, plan) > 0)) return json(400, { ok: false, error: 'plan' });
+      const pr = tramos ? precioHoras(c.alq, tramos, plan, cfg.alquilerCobrar ? comision(cfg) : 0) : precio(c.alq, desde, hasta, cfg.alquilerCobrar ? comision(cfg) : 0, modo);
       if (!(pr.precio_dia > 0)) return json(400, { ok: false, error: 'modo' });
       if (!tramos && pr.dias < (Number(c.alq.minimo) || 1)) return json(400, { ok: false, error: 'minimo', minimo: Number(c.alq.minimo) });
       if (pr.dias > 60) return json(400, { ok: false, error: 'fechas' });
       const rs = await tR.leer(`coche_id=eq.${Number(c.id)}&select=desde,hasta,estado,creado,tramos`);
       if (tramos ? !libreHoras(c, rs, tramos) : !libre(c, rs, desde, hasta)) return json(200, { ok: false, error: 'ocupado' });
-      const porHoras = tramos ? { tramos, horas: pr.horas, plan, para: q.para || ({ boda: 'boda', rodaje: 'rodaje', evento: 'evento', ruta: 'ruta', escapada: 'finde' })[plan] || '' } : {};
+      const conHoras = tramos ? { tramos, horas: pr.horas, plan, para: q.para || ({ boda: 'boda', rodaje: 'rodaje', evento: 'evento', ruta: 'ruta', escapada: 'finde' })[plan] || '' } : {};
       const mias = await tR.leer(`cliente=eq.${encodeURIComponent(cliente)}&estado=eq.pendiente&select=id,creado`).catch(() => []);
       if (mias.filter((r) => estadoActual(r) === 'pendiente').length >= 5) return json(200, { ok: false, error: 'muchas' });
       // ---- Con pago en la web: datos para el contrato, firma de quien alquila y a Stripe (retener o cobrar)
@@ -411,7 +411,7 @@ export async function rutasReservas({ ruta, method, body, ip = '', ua = '' }, cl
         if (!body.acepto) return json(400, { ok: false, error: 'acepto' });
         if (!igual(body.firma, q.nombre)) return json(400, { ok: false, error: 'firma' });
         const r = await tR.guardar({ coche_id: Number(c.id), dueno: String(c.cliente), cliente: String(cliente), desde, hasta, dias: pr.dias, precio_dia: pr.precio_dia, total: pr.total, tarifa: pr.tarifa,
-          pago: 'sin-pagar', estado: 'pendiente', ...q, ...porHoras, conductor, datos: x }, 'id');
+          pago: 'sin-pagar', estado: 'pendiente', ...q, ...conHoras, conductor, datos: x }, 'id');
         const d = await emailDueno(cfg, deps, c.cliente);
         const doc = contratoParaFirmar(cfg, datosContrato(r, c, pD, d.email));
         const firma_cliente = { nombre: q.nombre, documento: x.dni, fecha: new Date().toISOString(), ip: clip(ip, 60), ua: clip(ua, 200), hash: doc.hash, condiciones: VERSION_CONDICIONES };
@@ -423,11 +423,11 @@ export async function rutasReservas({ ruta, method, body, ip = '', ua = '' }, cl
       const estado = c.alq.inmediata ? 'aceptada' : 'pendiente';
       const cobrar = false;
       const r = await tR.guardar({ coche_id: Number(c.id), dueno: String(c.cliente), cliente: String(cliente), desde, hasta, dias: pr.dias, precio_dia: pr.precio_dia, total: pr.total, tarifa: pr.tarifa,
-        pago: cobrar && estado === 'aceptada' ? 'pendiente' : '', estado, ...q, ...porHoras, ...(estado === 'aceptada' ? { respondida: new Date().toISOString() } : {}) }, 'id');
+        pago: cobrar && estado === 'aceptada' ? 'pendiente' : '', estado, ...q, ...conHoras, ...(estado === 'aceptada' ? { respondida: new Date().toISOString() } : {}) }, 'id');
       if (q.mensaje) await tM.guardar({ reserva_id: Number(r.id), de: String(cliente), texto: q.mensaje }, 'id').catch(() => null);
       // Emails: al dueño (solicitud o reserva hecha), a quien alquila (enviada o confirmada) y copia al equipo
       const d = await emailDueno(cfg, deps, c.cliente);
-      const filas = [['Coche', titulo(c)], ['Cuándo', cuandoTxt({ desde, hasta, dias: pr.dias, ...porHoras })], ...(porHoras.plan ? [['Plan', PLANES[porHoras.plan]]] : []), ['Total', `${pr.total} €`], ...(q.para && !porHoras.plan ? [['Para', q.para]] : [])];
+      const filas = [['Coche', titulo(c)], ['Cuándo', cuandoTxt({ desde, hasta, dias: pr.dias, ...conHoras })], ...(conHoras.plan ? [['Plan', PLANES[conHoras.plan]]] : []), ['Total', `${pr.total} €`], ...(q.para && !conHoras.plan ? [['Para', q.para]] : [])];
       const aDueno = { titulo: estado === 'aceptada' ? '¡Tienes una reserva!' : 'Te han pedido tu coche',
         previa: `${q.nombre} quiere tu ${titulo(c)}.`,
         cuerpo: P(`<b>${esc(q.nombre.split(' ')[0])}</b> ${estado === 'aceptada' ? 'ha reservado' : 'quiere alquilar'} tu <b>${esc(titulo(c))}</b>:`) + datos(filas) + P(esc(q.mensaje))

@@ -128,20 +128,24 @@ export function faltaParaAlquilar(c, p, cobrar) {
 }
 /** Los planes por horas que ofrece: [[clave, { hora, min }], …] */
 export const planesDe = (a = {}) => Object.entries(a.planes || {}).filter(([, x]) => Number(x?.hora) > 0);
-/** €/hora de un plan en un servicio: con conductor suma lo que el dueño pone de más si ofrece los dos */
-export function precioHora(a = {}, plan, modo = 'sin') {
+/** €/hora del coche: un precio para todo (los anuncios de antes, con un precio por plan, usan el del plan) */
+export function precioHora(a = {}, plan) {
+  if (Number(a.hora) > 0) return Number(a.hora);
   const x = (a.planes || {})[plan];
-  if (!(Number(x?.hora) > 0)) return 0;
-  return Number(x.hora) + (modo === 'con' && a.conductor === 'ambos' ? Number(a.extra_con) || 0 : 0);
+  return Number(x?.hora) > 0 ? Number(x.hora) : 0;
 }
-/** «Desde» (el plan más barato), para las tarjetas */
-export const desdeHora = (a = {}) => { const l = planesDe(a).map(([, x]) => Number(x.hora)); return l.length ? Math.min(...l) : 0; };
+/** Mínimo de horas por día de reserva */
+export const minHoras = (a = {}, plan) => Number(a.hora) > 0 ? Number(a.min_horas) || 1 : Number(a.planes?.[plan]?.min) || 1;
+/** ¿Se alquila por horas? */
+export const porHoras = (a = {}) => Number(a.hora) > 0 || planesDe(a).length > 0;
+/** El precio por hora para las tarjetas (con los anuncios de antes, el plan más barato) */
+export const desdeHora = (a = {}) => { if (Number(a.hora) > 0) return Number(a.hora); const l = planesDe(a).map(([, x]) => Number(x.hora)); return l.length ? Math.min(...l) : 0; };
 /** Precio por día de cada servicio: 'sin' (lo conduce quien alquila) o 'con' (con conductor). Los anuncios antiguos
  *  «solo con conductor» tienen su precio en «precio». 0 = no se ofrece. */
 export function precioDe(a = {}, modo = 'con') {
   if (modo !== 'con') return 0;
   return Number(a.precio_con) || Number(a.precio) || 0;
 }
-export const tienePrecio = (a = {}) => planesDe(a).length > 0 || precioDe(a, 'sin') > 0 || precioDe(a, 'con') > 0;
+export const tienePrecio = (a = {}) => porHoras(a) || precioDe(a, 'sin') > 0 || precioDe(a, 'con') > 0;
 /** En Sidonia el coche siempre lo conduce su dueño (o quien él ponga al volante bajo su responsabilidad): no hay alquiler sin conductor */
 export const conductorEfectivo = () => 'con';

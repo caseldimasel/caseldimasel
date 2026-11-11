@@ -223,36 +223,35 @@ test('siempre con su dueño al volante: no hay alquiler sin conductor', async ()
   assert.match(fila.contrato.html, /con conductor/); assert.doesNotMatch(fila.contrato.html, /Fianza\.<\/b> El Arrendatario entregará/);
 });
 
-test('por horas: «desde X €/hora» por plan, mínimo de horas y varios días con sus horas', async () => {
+test('por horas: un precio por hora para todo, mínimo de horas y varios días con sus horas', async () => {
   const { precioHoras, leerTramos, libreHoras, cuandoTxt } = await import('../lib/reservas.mjs');
   const { leerAlq } = await import('../lib/garaje.mjs');
   const { desdeHora } = await import('../lib/cobros.mjs');
-  const A = { ...ALQ, ...leerAlq({ ...ALQ, planes: { boda: { hora: 120, min: 3 }, rodaje: { hora: 80, min: 4 }, ruta: { hora: 0 } } }) };
-  assert.deepEqual(Object.keys(A.planes), ['boda', 'rodaje'], 'solo los planes con precio');
-  assert.equal(desdeHora(A), 80);
+  const A = { ...ALQ, ...leerAlq({ ...ALQ, hora: 120, min_horas: 3 }) };
+  assert.deepEqual([A.hora, A.min_horas, desdeHora(A)], [120, 3, 120]);
   // Tramos: uno por día, de media en media hora
   assert.equal(leerTramos([{ dia: dia(10), de: '10:00', a: '09:00' }]), null);
   assert.equal(leerTramos([{ dia: dia(10), de: '10:15', a: '12:00' }]), null);
   const t = leerTramos([{ dia: dia(11), de: '17:00', a: '19:00' }, { dia: dia(10), de: '10:00', a: '14:30' }]);
   assert.equal(t[0].dia, dia(10), 'ordenados');
-  // 4,5 h + 2 h (que se cobran como el mínimo: 3 h) = 7,5 h × 120 € = 900 € (siempre con su dueño al volante)
-  const p = precioHoras(A, t, 'boda', 15);
+  // 4,5 h + 2 h (que se cobran como el mínimo: 3 h) = 7,5 h × 120 € = 900 €, sea boda, rodaje o lo que sea
+  const p = precioHoras(A, t, '', 15);
   assert.deepEqual([p.horas, p.precio_hora, p.subtotal, p.tarifa, p.total, p.fianza], [7.5, 120, 900, 135, 1035, 0]);
+  // Los anuncios de antes, con un precio por plan, siguen funcionando
+  assert.equal(precioHoras({ planes: { boda: { hora: 100, min: 2 } } }, [{ dia: dia(10), de: '10:00', a: '11:00' }], 'boda', 0).total, 200);
   // Libre: se puede reservar la tarde de un día que tiene la mañana reservada, pero no a la vez
   const rs = [{ desde: dia(10), hasta: dia(10), estado: 'aceptada', creado: new Date().toISOString(), tramos: [{ dia: dia(10), de: '10:00', a: '13:00' }] }];
   assert.equal(libreHoras({ bloqueos: [] }, rs, [{ dia: dia(10), de: '13:00', a: '16:00' }]), true);
   assert.equal(libreHoras({ bloqueos: [] }, rs, [{ dia: dia(10), de: '12:00', a: '14:00' }]), false);
   assert.equal(libreHoras({ bloqueos: [[dia(12), dia(12)]] }, [], [{ dia: dia(12), de: '10:00', a: '11:00' }]), false, 'día bloqueado');
   assert.match(cuandoTxt({ tramos: t, horas: 7.5 }), /10:00–14:30 · .*17:00–19:00 \(7,5 h\)/);
-  // Reservar por horas: se guarda con sus tramos, el plan y el contrato por horas
+  // Reservar por horas: se guarda con sus tramos y el contrato por horas
   const { api, deps, stripe } = preparar({ alq: A });
-  const f = await api('api/alquiler/coche', { id: 7 }, {}, 'GET');
-  assert.equal(f.coche.alq.planes.boda.hora, 120);
-  assert.equal((await api('api/alquiler/reservar', { ...pedir, tramos: [{ dia: dia(10), de: '10:00', a: '14:30' }], plan: 'evento' }, quien('77'))).error, 'plan', 'un plan que no ofrece');
-  const r = await api('api/alquiler/reservar', { ...pedir, tramos: t, plan: 'boda' }, quien('77'));
+  assert.equal((await api('api/alquiler/coche', { id: 7 }, {}, 'GET')).coche.alq.hora, 120);
+  const r = await api('api/alquiler/reservar', { ...pedir, tramos: t, para: 'rodaje' }, quien('77'));
   assert.equal(r.ok, true);
   const fila = deps.reservas.filas.at(-1);
-  assert.deepEqual([fila.plan, fila.horas, fila.desde, fila.hasta, fila.dias], ['boda', 7.5, dia(10), dia(11), 2]);
+  assert.deepEqual([fila.horas, fila.desde, fila.hasta, fila.dias, fila.para], [7.5, dia(10), dia(11), 2, 'rodaje']);
   assert.match(fila.contrato.html, /de 10:00 a 14:30 h/); assert.match(fila.contrato.html, /120 € por hora/);
   assert.equal(stripe.find((x) => x[1] === 'checkout/sessions')[2].line_items[0].price_data.unit_amount, 90000);
 });

@@ -55,6 +55,8 @@ export function leerAlq(a = {}) {
     km_extra: Math.min(10, Math.max(0, Math.round((Number(a.km_extra) || 0) * 100) / 100)),
     edad_min: ent(a.edad_min, 18, 99) || 25, carne_min: a.carne_min === undefined || a.carne_min === '' ? 3 : ent(a.carne_min, 0, 30),
     // Por horas (como Airbnb, pero por horas): «desde X €/hora» en cada plan, y lo que suma con conductor si ofrece los dos
+    // Un precio por hora para todo (boda, rodaje, evento…) y un mínimo de horas por día de reserva
+    hora: ent(a.hora, 0, 5000), min_horas: ent(a.min_horas, 1, 24) || 1,
     planes: leerPlanes(a.planes), extra_con: 0,
     // Declaración responsable del dueño: el seguro, el conductor, las licencias y la ITV son cosa suya (Sidonia solo intermedia)
     declara: Boolean(a.declara)
