@@ -24,6 +24,17 @@ const tabla = (cfg, deps, nombre) => deps[nombre] || tablaAnuncios(cfg, deps.fet
 const ent = (v, min, max) => { const n = Math.round(Number(v)); return Number.isFinite(n) ? Math.min(max, Math.max(min, n)) : 0; };
 const DIA = /^\d{4}-\d{2}-\d{2}$/;
 export const USOS = ['boda', 'rodaje', 'finde', 'ruta', 'evento'];
+/** Los planes del alquiler por horas: el dueño pone «desde X €/hora» y un mínimo de horas en los que ofrece */
+export const PLANES = { boda: 'Boda', rodaje: 'Rodaje o sesión de fotos', evento: 'Evento', ruta: 'Ruta o paseo', escapada: 'Escapada o día entero' };
+export function leerPlanes(p = {}) {
+  const o = {};
+  for (const k of Object.keys(PLANES)) {
+    const x = p && p[k];
+    const hora = ent(x?.hora, 0, 5000);
+    if (hora > 0) o[k] = { hora, min: ent(x?.min, 1, 24) || 1 };
+  }
+  return o;
+}
 export const SEGUROS = { terceros: 'a terceros', ampliado: 'a terceros ampliado', 'todo-riesgo-franquicia': 'a todo riesgo con franquicia', 'todo-riesgo': 'a todo riesgo' };
 /** Lo del anuncio de alquiler que no se enseña en público (va solo en el contrato) */
 export const alqPublico = (alq = {}) => { const { entrega, matricula, seguro_poliza, vtc, ...pub } = alq; return { ...pub, con_licencia: Boolean(vtc) }; };
@@ -41,7 +52,11 @@ export function leerAlq(a = {}) {
     seguro_tipo: SEGUROS[a.seguro_tipo] ? a.seguro_tipo : '', seguro_cubre: Boolean(a.seguro_cubre),
     itv_hasta: DIA.test(a.itv_hasta) ? a.itv_hasta : '', vtc: texto(a.vtc, 40),
     km_extra: Math.min(10, Math.max(0, Math.round((Number(a.km_extra) || 0) * 100) / 100)),
-    edad_min: ent(a.edad_min, 18, 99) || 25, carne_min: a.carne_min === undefined || a.carne_min === '' ? 3 : ent(a.carne_min, 0, 30)
+    edad_min: ent(a.edad_min, 18, 99) || 25, carne_min: a.carne_min === undefined || a.carne_min === '' ? 3 : ent(a.carne_min, 0, 30),
+    // Por horas (como Airbnb, pero por horas): «desde X €/hora» en cada plan, y lo que suma con conductor si ofrece los dos
+    planes: leerPlanes(a.planes), extra_con: ent(a.extra_con, 0, 2000),
+    // Declaración responsable del dueño: el seguro, el conductor, las licencias y la ITV son cosa suya (Sidonia solo intermedia)
+    declara: Boolean(a.declara)
   };
 }
 export const leerBloqueos = (l) => (Array.isArray(l) ? l : []).filter((x) => Array.isArray(x) && DIA.test(x[0]) && DIA.test(x[1] || x[0])).map((x) => [x[0], x[1] || x[0]].sort()).slice(0, 200);

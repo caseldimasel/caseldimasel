@@ -115,29 +115,33 @@ export async function rutasCobros({ ruta, method, body, ip }, cliente, cfg, deps
 
 /** Qué le falta a un coche para poder alquilarse con pago en la web (vacío: listo).
  *  precio · matricula · seguro (compañía, póliza, tipo y que cubra a quien alquila) · itv · vtc (con conductor) · datos · cobros */
-export function faltaParaAlquilar(c, p, cobrar, hoy = new Date(Date.now() + 3600e3).toISOString().slice(0, 10)) {
+export function faltaParaAlquilar(c, p, cobrar) {
   const a = (c && c.alq) || {};
   const f = [];
-  const precioFalta = () => f.includes('precio');
   if (!tienePrecio(a)) f.push('precio');
   if (!cobrar) return f;
-  // Ofrece los dos pero no tiene la autorización VTC: se alquila sin conductor, y entonces necesita ese precio
-  if (!precioFalta() && a.conductor === 'ambos' && !a.vtc && !(precioDe(a, 'sin') > 0)) f.push('precio');
-  if (!precioFalta() && a.conductor === 'ambos' && a.vtc && !(precioDe(a, 'con') > 0)) f.push('precio');
-  if (!a.matricula) f.push('matricula');
-  if (!a.seguro_compania || !a.seguro_poliza || !a.seguro_tipo || !a.seguro_cubre) f.push('seguro');
-  if (!a.itv_hasta || a.itv_hasta < hoy) f.push('itv');
-  if (a.conductor === 'con' && !a.vtc) f.push('vtc');
+  // Sidonia solo intermedia (como Airbnb): el dueño declara que el seguro, el conductor, las licencias y la ITV son cosa suya
+  if (!a.declara) f.push('declara');
   if (!datosListos(p)) f.push('datos');
   if (!cobrosListos(p)) f.push('cobros');
   return f;
 }
+/** Los planes por horas que ofrece: [[clave, { hora, min }], …] */
+export const planesDe = (a = {}) => Object.entries(a.planes || {}).filter(([, x]) => Number(x?.hora) > 0);
+/** €/hora de un plan en un servicio: con conductor suma lo que el dueño pone de más si ofrece los dos */
+export function precioHora(a = {}, plan, modo = 'sin') {
+  const x = (a.planes || {})[plan];
+  if (!(Number(x?.hora) > 0)) return 0;
+  return Number(x.hora) + (modo === 'con' && a.conductor === 'ambos' ? Number(a.extra_con) || 0 : 0);
+}
+/** «Desde» (el plan más barato), para las tarjetas */
+export const desdeHora = (a = {}) => { const l = planesDe(a).map(([, x]) => Number(x.hora)); return l.length ? Math.min(...l) : 0; };
 /** Precio por día de cada servicio: 'sin' (lo conduce quien alquila) o 'con' (con conductor). Los anuncios antiguos
  *  «solo con conductor» tienen su precio en «precio». 0 = no se ofrece. */
 export function precioDe(a = {}, modo = 'sin') {
   if (modo === 'con') return a.conductor === 'sin' ? 0 : Number(a.precio_con) || (a.conductor === 'con' ? Number(a.precio) || 0 : 0);
   return a.conductor === 'con' ? 0 : Number(a.precio) || 0;
 }
-export const tienePrecio = (a = {}) => precioDe(a, 'sin') > 0 || precioDe(a, 'con') > 0;
-/** Con pago en la web, el alquiler con conductor solo si el dueño tiene la autorización (VTC); si no, sin conductor */
-export const conductorEfectivo = (a = {}, cobrar) => (!cobrar || a.vtc ? a.conductor || 'con' : 'sin');
+export const tienePrecio = (a = {}) => planesDe(a).length > 0 || precioDe(a, 'sin') > 0 || precioDe(a, 'con') > 0;
+/** Lo que ofrece el dueño (él responde de las autorizaciones que necesite: Sidonia solo intermedia) */
+export const conductorEfectivo = (a = {}) => a.conductor || 'con';

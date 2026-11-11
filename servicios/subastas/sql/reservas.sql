@@ -87,3 +87,9 @@ alter table perfiles add column if not exists alq_legal     jsonb   not null def
 alter table perfiles add column if not exists stripe_cuenta text    not null default '';
 alter table perfiles add column if not exists cobros_ok     boolean not null default false;
 notify pgrst, 'reload schema';
+
+-- Por horas (2026-11): reservas de uno o varios días con sus horas, y el plan (boda, rodaje, evento, ruta, escapada)
+alter table reservas add column if not exists tramos jsonb;                 -- [{"dia":"2027-06-12","de":"10:00","a":"14:00"}, …]
+alter table reservas add column if not exists horas  numeric(6,1);         -- horas facturadas (con el mínimo del plan por día)
+alter table reservas add column if not exists plan   text not null default '';
+notify pgrst, 'reload schema';

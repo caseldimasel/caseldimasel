@@ -28,7 +28,7 @@ function memo(filas = [], clave = 'id') {
 const dia = (n) => new Date(Date.now() + n * 864e5).toISOString().slice(0, 10);
 const LEGAL = { nombre: 'Marta Ruiz Pérez', dni: '12345678Z', domicilio: 'Calle Mayor 1, 28013 Madrid', telefono: '600000000', acepto: '2026-11-01T10:00:00Z', version: '2026-11-03' };
 const ALQ = { precio: 150, fianza: 500, km: 200, minimo: 1, conductor: 'sin', ciudad: 'Madrid', entrega: 'Calle Secreta 1', matricula: '1234ABC', seguro_compania: 'Mutua', seguro_poliza: 'POL-999',
-  seguro_tipo: 'todo-riesgo', seguro_cubre: true, itv_hasta: dia(300), edad_min: 25, carne_min: 3 };
+  seguro_tipo: 'todo-riesgo', seguro_cubre: true, itv_hasta: dia(300), edad_min: 25, carne_min: 3, declara: true };
 function preparar({ alq = {}, perfil = {} } = {}) {
   const correos = [], stripe = [];
   let piEstado = 'requires_capture';
@@ -57,7 +57,9 @@ test('alquiler con pago: DNI, documento y lo que falta para poder alquilar', () 
   assert.equal(dniValido('12345678Z'), true); assert.equal(dniValido('12345678A'), false); assert.equal(dniValido('X1234567L'), true);
   assert.equal(documentoValido('PAB123456'), true); assert.equal(documentoValido('87654321Y'), false);
   assert.deepEqual(faltaParaAlquilar({ alq: ALQ }, { alq_legal: LEGAL, stripe_cuenta: 'a', cobros_ok: true }, true), []);
-  assert.deepEqual(faltaParaAlquilar({ alq: { ...ALQ, conductor: 'con', seguro_cubre: false } }, { alq_legal: LEGAL }, true), ['seguro', 'vtc', 'cobros']);
+  // Sidonia solo intermedia: no pide póliza ni VTC, solo la declaración responsable del dueño, sus datos y su cuenta de cobros
+  assert.deepEqual(faltaParaAlquilar({ alq: { ...ALQ, conductor: 'con', seguro_cubre: false } }, { alq_legal: LEGAL }, true), ['cobros']);
+  assert.deepEqual(faltaParaAlquilar({ alq: { ...ALQ, declara: false } }, { alq_legal: LEGAL, stripe_cuenta: 'a', cobros_ok: true }, true), ['declara']);
 });
 
 test('alquiler con pago: política de cancelación', () => {
@@ -71,19 +73,19 @@ test('alquiler con pago: política de cancelación', () => {
   assert.match(condicionesAlquiler(cfg), /no es parte/); assert.match(condicionesAlquiler(cfg), /Sidonia Garage S\.L\./);
 });
 
-test('alquiler con pago: sin cuenta de cobros o sin seguro, el coche no se ve', async () => {
+test('alquiler con pago: sin cuenta de cobros o sin la declaración del dueño, el coche no se ve', async () => {
   let { api } = preparar({ perfil: { cobros_ok: false } });
   assert.equal((await api('api/alquiler/coches', {}, {}, 'GET')).coches.length, 0);
   assert.equal((await api('api/alquiler/coche', { id: 7 }, {}, 'GET')).ok, false);
-  ({ api } = preparar({ alq: { seguro_cubre: false } }));
+  ({ api } = preparar({ alq: { declara: false } }));
   assert.equal((await api('api/alquiler/coches', {}, {}, 'GET')).coches.length, 0);
   ({ api } = preparar());
   const l = await api('api/alquiler/coches', {}, {}, 'GET');
   assert.equal(l.coches.length, 1);
   assert.equal(l.coches[0].alq.matricula, undefined, 'la matrícula no es pública'); assert.equal(l.coches[0].alq.seguro_poliza, undefined);
-  // Con conductor sin autorización VTC: se alquila sin conductor
+  // Con conductor: lo ofrece el dueño bajo su responsabilidad (Sidonia no pide la VTC)
   ({ api } = preparar({ alq: { conductor: 'ambos' } }));
-  assert.equal((await api('api/alquiler/coche', { id: 7 }, {}, 'GET')).coche.alq.conductor, 'sin');
+  assert.equal((await api('api/alquiler/coche', { id: 7 }, {}, 'GET')).coche.alq.conductor, 'ambos');
 });
 
 test('alquiler con pago: solicitud con contrato firmado, retención, el dueño firma y se cobra; cancelar con 7 días devuelve todo', async () => {
@@ -231,8 +233,43 @@ test('con y sin conductor: cada servicio con su precio, sus datos y su contrato'
   const r2 = await api('api/alquiler/reservar', { ...pedir, conductor: 'sin', desde: dia(20), hasta: dia(21) }, quien('78'));
   assert.equal(r2.reserva.total, 330);
   assert.match(deps.reservas.filas.at(-1).contrato.html, /sin conductor/); assert.match(deps.reservas.filas.at(-1).contrato.html, /Fianza\.<\/b> El Arrendatario entregará/);
-  // Sin autorización VTC, el mismo coche solo se ofrece sin conductor
+  // Sin el número de VTC en el anuncio también se ofrece con conductor: es responsabilidad del dueño
   const { api: api2 } = preparar({ alq: { ...A, vtc: '' } });
   const l2 = await api2('api/alquiler/coche', { id: 7 }, {}, 'GET');
-  assert.deepEqual(l2.coche.alq.precios, { sin: 150, con: 0 });
+  assert.deepEqual(l2.coche.alq.precios, { sin: 150, con: 400 });
+});
+
+test('por horas: «desde X €/hora» por plan, mínimo de horas y varios días con sus horas', async () => {
+  const { precioHoras, leerTramos, libreHoras, cuandoTxt } = await import('../lib/reservas.mjs');
+  const { leerAlq } = await import('../lib/garaje.mjs');
+  const { desdeHora } = await import('../lib/cobros.mjs');
+  const A = { ...ALQ, ...leerAlq({ ...ALQ, conductor: 'ambos', extra_con: 30, planes: { boda: { hora: 120, min: 3 }, rodaje: { hora: 80, min: 4 }, ruta: { hora: 0 } } }) };
+  assert.deepEqual(Object.keys(A.planes), ['boda', 'rodaje'], 'solo los planes con precio');
+  assert.equal(desdeHora(A), 80);
+  // Tramos: uno por día, de media en media hora
+  assert.equal(leerTramos([{ dia: dia(10), de: '10:00', a: '09:00' }]), null);
+  assert.equal(leerTramos([{ dia: dia(10), de: '10:15', a: '12:00' }]), null);
+  const t = leerTramos([{ dia: dia(11), de: '17:00', a: '19:00' }, { dia: dia(10), de: '10:00', a: '14:30' }]);
+  assert.equal(t[0].dia, dia(10), 'ordenados');
+  // 4,5 h + 2 h (que se cobran como el mínimo: 3 h) = 7,5 h × 120 € = 900 €; con conductor +30 €/h
+  const p = precioHoras(A, t, 'boda', 15, 'sin');
+  assert.deepEqual([p.horas, p.precio_hora, p.subtotal, p.tarifa, p.total], [7.5, 120, 900, 135, 1035]);
+  assert.equal(precioHoras(A, t, 'boda', 15, 'con').precio_hora, 150);
+  // Libre: se puede reservar la tarde de un día que tiene la mañana reservada, pero no a la vez
+  const rs = [{ desde: dia(10), hasta: dia(10), estado: 'aceptada', creado: new Date().toISOString(), tramos: [{ dia: dia(10), de: '10:00', a: '13:00' }] }];
+  assert.equal(libreHoras({ bloqueos: [] }, rs, [{ dia: dia(10), de: '13:00', a: '16:00' }]), true);
+  assert.equal(libreHoras({ bloqueos: [] }, rs, [{ dia: dia(10), de: '12:00', a: '14:00' }]), false);
+  assert.equal(libreHoras({ bloqueos: [[dia(12), dia(12)]] }, [], [{ dia: dia(12), de: '10:00', a: '11:00' }]), false, 'día bloqueado');
+  assert.match(cuandoTxt({ tramos: t, horas: 7.5 }), /10:00–14:30 · .*17:00–19:00 \(7,5 h\)/);
+  // Reservar por horas: se guarda con sus tramos, el plan y el contrato por horas
+  const { api, deps, stripe } = preparar({ alq: A });
+  const f = await api('api/alquiler/coche', { id: 7 }, {}, 'GET');
+  assert.equal(f.coche.alq.planes.boda.hora, 120);
+  assert.equal((await api('api/alquiler/reservar', { ...pedir, tramos: [{ dia: dia(10), de: '10:00', a: '14:30' }], plan: 'evento' }, quien('77'))).error, 'plan', 'un plan que no ofrece');
+  const r = await api('api/alquiler/reservar', { ...pedir, conductor: 'sin', tramos: t, plan: 'boda' }, quien('77'));
+  assert.equal(r.ok, true);
+  const fila = deps.reservas.filas.at(-1);
+  assert.deepEqual([fila.plan, fila.horas, fila.desde, fila.hasta, fila.dias], ['boda', 7.5, dia(10), dia(11), 2]);
+  assert.match(fila.contrato.html, /de 10:00 a 14:30 h/); assert.match(fila.contrato.html, /120 € por hora/);
+  assert.equal(stripe.find((x) => x[1] === 'checkout/sessions')[2].line_items[0].price_data.unit_amount, 90000);
 });

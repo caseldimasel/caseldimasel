@@ -14,7 +14,7 @@
  */
 import { createHash } from 'node:crypto';
 
-export const VERSION_CONDICIONES = '2026-11-03';
+export const VERSION_CONDICIONES = '2026-11-11';
 export const VERSION_CONTRATO = '2026-11-03';
 
 const esc = (t) => String(t ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -71,7 +71,8 @@ ${sec('2. Qué no es Sidonia',
 ${sec('3. Requisitos para usar el servicio',
   ul(['Ser mayor de edad, tener capacidad para contratar y facilitar datos verdaderos, completos y actualizados.',
     '<b>Dueños:</b> ser titular del vehículo o estar autorizado por su titular para alquilarlo; tener en vigor el seguro obligatorio y la ITV; tener un seguro que cubra la conducción por el arrendatario durante el alquiler (muchas pólizas particulares lo excluyen: es responsabilidad del dueño comprobarlo con su aseguradora); entregar el vehículo en buen estado y con su documentación; y cumplir sus obligaciones fiscales.',
-    '<b>Alquiler con conductor:</b> el alquiler de un vehículo con conductor a cambio de un precio requiere en España la autorización administrativa correspondiente (VTC) y el seguro obligatorio de viajeros. Solo pueden ofrecerlo los dueños que la tengan y la indiquen en su anuncio.',
+    '<b>Alquiler con conductor:</b> el alquiler de un vehículo con conductor a cambio de un precio puede requerir en España una autorización administrativa (por ejemplo, VTC) y el seguro obligatorio de viajeros. Es responsabilidad exclusiva del dueño tenerlos y cumplir la normativa de transporte; el conductor lo pone y lo designa el dueño, bajo su responsabilidad.',
+    '<b>Declaración responsable del dueño:</b> al publicar su anuncio, el dueño declara que es titular del vehículo o está autorizado para alquilarlo; que tiene en vigor el seguro, la ITV, las licencias y las autorizaciones que exija el uso que ofrece; que el conductor que, en su caso, designe tiene el permiso y la habilitación necesarios; y que responde frente al arrendatario y frente a terceros de todo ello. Sidonia no comprueba estos extremos ni responde de ellos.',
     '<b>Arrendatarios:</b> si van a conducir, tener permiso de conducción válido en España y en vigor, y cumplir la edad y la antigüedad del permiso que exija cada dueño (por defecto, 25 años y 3 años de permiso).']))}
 ${sec('4. Cómo funciona una reserva',
   ul(['El arrendatario elige fechas, rellena sus datos, acepta estas condiciones y firma el contrato de alquiler.',
@@ -147,12 +148,14 @@ export function contratoAlquiler(cfg, d) {
   const objeto = cl('Objeto',
     `El Arrendador cede al Arrendatario el uso temporal del vehículo ${hueco(veh)}, matrícula ${hueco(c.matricula)}${conConductor ? `, con conductor facilitado por el Arrendador, para el traslado del Arrendatario y de sus acompañantes (${r.pasajeros ? `${esc(r.pasajeros)} ${Number(r.pasajeros) === 1 ? 'pasajero' : 'pasajeros'}` : 'los pasajeros que se indiquen'}, con un máximo de ${hueco(c.plazas ? Number(c.plazas) - 1 : '', '___')})` : ''}, a cambio del precio pactado y en las condiciones de este contrato. Los datos del vehículo y su documentación figuran en el Anexo I.`);
   const duracion = cl('Duración, entrega y devolución',
-    `El arrendamiento empieza el <b>${hueco(fecha(r.desde))}</b> y termina el <b>${hueco(fecha(r.hasta))}</b> (${hueco(r.dias, '__')} ${Number(r.dias) === 1 ? 'día' : 'días'}).`,
+    Array.isArray(r.tramos) && r.tramos.length
+      ? `El ${conConductor ? 'servicio' : 'arrendamiento'} se presta en estos días y horas: <b>${r.tramos.map((x) => `${esc(fecha(x.dia))}, de ${esc(x.de)} a ${esc(x.a)} h`).join('; ')}</b> (${Number(r.horas) || ''} horas facturadas en total, contando el mínimo por día del plan).`
+      : `El arrendamiento empieza el <b>${hueco(fecha(r.desde))}</b> y termina el <b>${hueco(fecha(r.hasta))}</b> (${hueco(r.dias, '__')} ${Number(r.dias) === 1 ? 'día' : 'días'}).`,
     `${conConductor ? 'La recogida de los pasajeros' : 'La entrega y la devolución del vehículo'} se harán en ${hueco(r.lugar, '______________________________')}, o en el lugar que las partes acuerden por la mensajería de Sidonia, a la hora acordada por ese mismo medio. A falta de acuerdo, ${conConductor ? 'el servicio empezará a las 10:00 horas de cada día' : 'la entrega será a las 10:00 horas del primer día y la devolución a las 20:00 horas del último'}.`,
     conConductor ? `El precio incluye hasta <b>${hueco(c.horas || 8, '__')} horas de servicio por día</b>, contadas desde la hora de recogida pactada hasta el fin del servicio, incluidas las esperas. El horario, el itinerario y las paradas se acordarán por escrito por la mensajería de Sidonia antes del inicio. Cada hora adicional, o fracción superior a 15 minutos, que el Arrendatario solicite y el conductor acepte se abonará a razón de <b>${Number(c.hora_extra) > 0 ? eur(c.hora_extra) : hueco('', '____ €')} por hora</b>. Los cambios de itinerario no pactados podrán ser rechazados por el conductor.`
       : 'Si el vehículo se devuelve con más de 2 horas de retraso sin acuerdo del Arrendador, el Arrendatario abonará el precio de un día adicional por cada día o fracción de retraso, sin perjuicio de los daños y perjuicios que el retraso cause. La no devolución del vehículo podrá ser denunciada por el Arrendador ante la autoridad.');
   const precioCl = cl('Precio y pago',
-    `El precio del ${conConductor ? 'servicio' : 'alquiler'} es de <b>${eur(alquiler)}</b> (${eur(r.precio_dia)} por día${conConductor ? ' de servicio con conductor' : ''}). El Arrendatario lo ha abonado a través de la plataforma Sidonia, mediante el proveedor de pagos Stripe, por cuenta del Arrendador. El pago así hecho libera al Arrendatario de su obligación de pago por ese importe. ${Number(r.tarifa) ? `La tarifa de servicio de Sidonia (${eur(r.tarifa)}) retribuye el servicio de intermediación de Sidonia y no forma parte del precio del alquiler.` : ''}`,
+    `El precio del ${conConductor ? 'servicio' : 'alquiler'} es de <b>${eur(alquiler)}</b> (${Array.isArray(r.tramos) && r.tramos.length ? `${eur(r.precio_dia)} por hora` : `${eur(r.precio_dia)} por día`}${conConductor ? ' de servicio con conductor' : ''}). El Arrendatario lo ha abonado a través de la plataforma Sidonia, mediante el proveedor de pagos Stripe, por cuenta del Arrendador. El pago así hecho libera al Arrendatario de su obligación de pago por ese importe. ${Number(r.tarifa) ? `La tarifa de servicio de Sidonia (${eur(r.tarifa)}) retribuye el servicio de intermediación de Sidonia y no forma parte del precio del alquiler.` : ''}`,
     'Los importes adicionales que prevé este contrato (horas o kilómetros extra, combustible, daños, sanciones o gastos) no están incluidos en el precio y los liquidan las partes directamente entre sí, contra justificante.',
     'El Arrendador es el único responsable de declarar los ingresos que obtenga por este contrato y de cumplir las obligaciones fiscales que le correspondan.',
     !conConductor && Number(c.fianza) > 0
