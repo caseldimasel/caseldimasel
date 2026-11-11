@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import { createHmac } from 'node:crypto';
 import { atender, config } from '../lib/motor.mjs';
 import { estadoActual, paraDueno, ponerAlDia, revisarReservas } from '../lib/reservas.mjs';
-import { reembolso, condicionesAlquiler } from '../lib/contratos.mjs';
+import { reembolso, condicionesAlquiler, VERSION_CONDICIONES } from '../lib/contratos.mjs';
 import { dniValido, documentoValido, faltaParaAlquilar } from '../lib/cobros.mjs';
 
 const cfg = config({ SUBASTAS_CLAVE: 'k', RESEND_API_KEY: 're_x', AVISOS_EQUIPO: 'equipo@sidonia.es', TIENDA_URL: 'https://sidonia.es', SERVIDOR_URL: 'https://motor.test',
@@ -26,7 +26,7 @@ function memo(filas = [], clave = 'id') {
     guardar: async (x, k = clave) => { const ks = k.split(','); const ya = filas.find((y) => ks.every((kk) => kk in x && String(y[kk]) === String(x[kk]))); if (ya) return Object.assign(ya, x); const n = { id: sig++, creado: new Date().toISOString(), ...x }; filas.push(n); return n; } };
 }
 const dia = (n) => new Date(Date.now() + n * 864e5).toISOString().slice(0, 10);
-const LEGAL = { nombre: 'Marta Ruiz Pérez', dni: '12345678Z', domicilio: 'Calle Mayor 1, 28013 Madrid', telefono: '600000000', acepto: '2026-11-01T10:00:00Z', version: '2026-11-03' };
+const LEGAL = { nombre: 'Marta Ruiz Pérez', dni: '12345678Z', domicilio: 'Calle Mayor 1, 28013 Madrid', telefono: '600000000', acepto: '2026-11-01T10:00:00Z', version: VERSION_CONDICIONES };
 const ALQ = { precio: 150, fianza: 500, km: 200, minimo: 1, conductor: 'con', plazas: 4, ciudad: 'Madrid', entrega: 'Calle Secreta 1', matricula: '1234ABC', seguro_compania: 'Mutua', seguro_poliza: 'POL-999',
   seguro_tipo: 'todo-riesgo', seguro_cubre: true, itv_hasta: dia(300), edad_min: 25, carne_min: 3, declara: true };
 function preparar({ alq = {}, perfil = {} } = {}) {
@@ -60,6 +60,8 @@ test('alquiler con pago: DNI, documento y lo que falta para poder alquilar', () 
   // Sidonia solo intermedia: no pide póliza ni VTC, solo la declaración responsable del dueño, sus datos y su cuenta de cobros
   assert.deepEqual(faltaParaAlquilar({ alq: { ...ALQ, conductor: 'con', seguro_cubre: false } }, { alq_legal: LEGAL }, true), ['cobros']);
   assert.deepEqual(faltaParaAlquilar({ alq: { ...ALQ, declara: false } }, { alq_legal: LEGAL, stripe_cuenta: 'a', cobros_ok: true }, true), ['declara']);
+  // Si cambian las condiciones, el dueño tiene que volver a aceptarlas antes de recibir reservas
+  assert.deepEqual(faltaParaAlquilar({ alq: ALQ }, { alq_legal: { ...LEGAL, version: '2020-01-01' }, stripe_cuenta: 'a', cobros_ok: true }, true), ['datos', 'cobros']);
 });
 
 test('alquiler con pago: política de cancelación', () => {

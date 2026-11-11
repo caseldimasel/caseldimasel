@@ -38,7 +38,8 @@ export async function perfilCobros(cfg, deps, cliente) {
   const [p] = await tabla(cfg, deps, 'perfiles').leer(`cliente=eq.${encodeURIComponent(cliente)}&limit=1`).catch(() => []);
   return p || null;
 }
-export const datosListos = (p) => Boolean(p?.alq_legal?.nombre && p.alq_legal.dni && p.alq_legal.domicilio && p.alq_legal.acepto);
+/** Sus datos y la aceptación de la versión vigente de las condiciones (si cambian, tiene que volver a aceptarlas) */
+export const datosListos = (p) => Boolean(p?.alq_legal?.nombre && p.alq_legal.dni && p.alq_legal.domicilio && p.alq_legal.acepto && p.alq_legal.version === VERSION_CONDICIONES);
 export const cobrosListos = (p) => datosListos(p) && Boolean(p?.stripe_cuenta && p.cobros_ok);
 
 /** Pregunta a Stripe si la cuenta ya puede cobrar y recibir pagos, y lo apunta */

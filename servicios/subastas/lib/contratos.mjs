@@ -14,7 +14,7 @@
  */
 import { createHash } from 'node:crypto';
 
-export const VERSION_CONDICIONES = '2026-11-11c';
+export const VERSION_CONDICIONES = '2026-11-12';
 export const VERSION_CONTRATO = '2026-11-03';
 
 const esc = (t) => String(t ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -92,7 +92,10 @@ ${sec('5. Precio, pagos y tarifa de servicio',
   'Los pagos los procesa Stripe Payments Europe, Ltd., entidad autorizada, a través de su servicio Stripe Connect. El dueño debe darse de alta en Stripe (datos de identidad y cuenta bancaria) para poder recibir reservas. El precio del alquiler se cobra por cuenta del dueño, que figura como vendedor del cargo, y se le transfiere el día en que empieza el alquiler; desde ahí, Stripe lo abona en su cuenta bancaria según su calendario de pagos. Sidonia no tiene a su disposición fondos de los usuarios fuera de la cuenta de pagos gestionada por Stripe.',
   'El pago de la reserva por la plataforma libera al arrendatario de su obligación de pago frente al dueño por el importe pagado. Las partes no deben pagarse el alquiler fuera de Sidonia. Los importes adicionales que prevea el contrato (horas o kilómetros extra, combustible, daños, sanciones) los liquidan las partes directamente entre sí.',
   'El servicio es siempre <b>con conductor</b>: el dueño conduce y el arrendatario y sus acompañantes viajan como pasajeros, con el itinerario, las paradas y las horas que se acuerden. El precio es por horas según el plan (boda, rodaje, evento, ruta…), con un mínimo de horas por día.')}
-${sec('6. Cancelaciones y devoluciones', ul(POLITICA_CANCELACION), 'Las devoluciones se hacen a la misma tarjeta con la que se pagó, normalmente en un plazo de 5 a 10 días hábiles según el banco.')}
+${sec('6. Cancelaciones y devoluciones', ul(POLITICA_CANCELACION), 'Las devoluciones se hacen a la misma tarjeta con la que se pagó, normalmente en un plazo de 5 a 10 días hábiles según el banco.',
+  'Al tratarse de un servicio de alquiler de vehículos para una fecha o un periodo determinados, no se aplica el derecho de desistimiento de 14 días previsto para los contratos a distancia (artículo 103, letra l, del texto refundido de la Ley General para la Defensa de los Consumidores y Usuarios). La cancelación se rige por la política anterior.')}
+${sec('6 bis. Calendario y disponibilidad',
+  'El dueño es el único responsable de mantener al día el calendario de su vehículo: los días que no puede alquilarlo (viajes, taller, uso propio…) debe marcarlos como no disponibles. Si acepta una reserva y después no puede prestar el servicio, se considera cancelación del dueño: se devuelve a quien alquila todo lo pagado y Sidonia puede ocultar o retirar sus anuncios.')}
 ${sec('7. Fianza, daños, multas y combustible',
   'La fianza, si el dueño la pide, la entregan y devuelven las partes directamente entre ellas, en la forma que acuerden, según el contrato de alquiler. Sidonia no cobra, retiene ni devuelve fianzas, y no decide sobre daños, combustible, kilómetros, multas ni otras reclamaciones entre las partes, que se rigen por su contrato.',
   'Recomendamos hacer y enviar por la mensajería de Sidonia fotos fechadas del vehículo, del cuentakilómetros y del nivel de combustible en la entrega y en la devolución, y rellenar el acta del anexo del contrato.')}
@@ -108,7 +111,9 @@ ${sec('11. Responsabilidad',
   'Sidonia responde del correcto funcionamiento de su servicio de intermediación con la diligencia debida. Al no ser parte del contrato de alquiler, Sidonia no responde del cumplimiento de ese contrato por el dueño o por el arrendatario, ni de los daños personales o materiales, accidentes, robos, sanciones, averías, retrasos o pérdidas que se produzcan con ocasión del alquiler o del uso del vehículo, que corresponden a quien los cause según el contrato y la ley, ni de la falta de seguro o de autorizaciones del dueño.',
   'Conforme a la LSSI, Sidonia no responde de la información publicada por los usuarios salvo que, teniendo conocimiento efectivo de su ilicitud, no actúe con diligencia para retirarla.',
   'Nada de lo anterior excluye ni limita la responsabilidad que la ley no permita excluir o limitar, en particular la que corresponda por dolo o culpa grave, ni los derechos que la normativa de consumidores reconoce a los usuarios que tengan esa condición.',
-  'Cada usuario mantendrá indemne a Sidonia frente a reclamaciones de terceros derivadas de su propio incumplimiento de estas condiciones, del contrato de alquiler o de la ley.')}
+  'Cada usuario mantendrá indemne a Sidonia frente a reclamaciones de terceros derivadas de su propio incumplimiento de estas condiciones, del contrato de alquiler o de la ley.',
+  'En particular, el dueño responde en exclusiva de su vehículo, de su estado y documentación, del seguro (incluida la cobertura de ocupantes y de responsabilidad civil), de la conducción, de las licencias y autorizaciones que exija el servicio que ofrece y de sus obligaciones fiscales, y mantendrá indemne a Sidonia de cualquier reclamación, sanción o gasto que se derive de ello.',
+  'Sidonia puede retener temporalmente la transferencia al dueño si recibe una reclamación fundada o detecta indicios de fraude, hasta que se aclare, y avisará a las dos partes.')}
 ${sec('12. Si algo va mal',
   `Escríbenos a ${esc(s.email)} o por WhatsApp. Podemos ayudaros a entenderos y facilitar la información de la reserva, pero no actuamos como árbitro ni decidimos sobre las reclamaciones entre las partes. Los consumidores pueden acudir además a los servicios de consumo y a los sistemas de resolución alternativa de litigios de su comunidad autónoma.`)}
 ${sec('13. Datos personales',

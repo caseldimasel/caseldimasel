@@ -107,3 +107,10 @@ test('panel › Clientes › Garajes: los coches, quién los alquilaría y qué 
   assert.match(h, /Quieren eventos<\/span><b>1<\/b>/);
   assert.match(h, /view=garaje&u=lucia-/);
 });
+
+test('calendario: periodos bloqueados con su nota (solo para el dueño), días seguidos juntos y hasta 3 años', async () => {
+  const { leerBloqueos, bloqueosPublicos } = await import('../lib/garaje.mjs');
+  const l = leerBloqueos([['2027-06-03', '2027-06-03'], ['2027-06-01', '2027-06-02'], ['2027-07-10', '2027-07-01', 'Viaje'], ['2099-01-01', '2099-01-02'], ['malo']]);
+  assert.deepEqual(l, [['2027-06-01', '2027-06-03', ''], ['2027-07-01', '2027-07-10', 'Viaje']]);
+  assert.deepEqual(bloqueosPublicos(l), [['2027-06-01', '2027-06-03'], ['2027-07-01', '2027-07-10']], 'sin la nota');
+});

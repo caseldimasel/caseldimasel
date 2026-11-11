@@ -62,7 +62,23 @@ export function leerAlq(a = {}) {
     declara: Boolean(a.declara)
   };
 }
-export const leerBloqueos = (l) => (Array.isArray(l) ? l : []).filter((x) => Array.isArray(x) && DIA.test(x[0]) && DIA.test(x[1] || x[0])).map((x) => [x[0], x[1] || x[0]].sort()).slice(0, 200);
+/** Los días que no lo alquila: [[desde, hasta, nota], …] (la nota, «Viaje» o «Taller», solo la ve el dueño). Los
+ *  días sueltos seguidos se juntan en un periodo. Hasta 3 años vista. */
+export function leerBloqueos(l) {
+  const max = new Date(Date.now() + 3 * 366 * 864e5).toISOString().slice(0, 10);
+  const xs = (Array.isArray(l) ? l : []).filter((x) => Array.isArray(x) && DIA.test(x[0]) && DIA.test(x[1] || x[0]))
+    .map((x) => { const [a, b] = [x[0], x[1] || x[0]].sort(); return [a, b > max ? max : b, texto(x[2], 40)]; }).filter(([a]) => a <= max)
+    .sort((x, y) => x[0].localeCompare(y[0]));
+  const out = [];
+  const sig = (d) => { const t = new Date(`${d}T12:00:00Z`); t.setUTCDate(t.getUTCDate() + 1); return t.toISOString().slice(0, 10); };
+  for (const x of xs) {
+    const u = out[out.length - 1];
+    if (u && x[0] <= sig(u[1]) && u[2] === x[2]) { if (x[1] > u[1]) u[1] = x[1]; } else out.push([...x]);
+  }
+  return out.slice(0, 300);
+}
+/** Para quien alquila: solo las fechas, sin la nota del dueño */
+export const bloqueosPublicos = (l) => (l || []).map((x) => [x[0], x[1] || x[0]]);
 
 /** Limpia un coche: { ok, coche } o { ok: false, error, campo } */
 export function leerCoche(b = {}, cliente = '') {
@@ -90,7 +106,7 @@ export const cochePublico = (cfg, c, dueno = null, liked = false) => ({
   titulo: [c.marca, c.modelo, c.anio].filter(Boolean).join(' '),
   fotos: (c.fotos || []).map((f) => urlFoto(cfg, f)), alquiler: Boolean(c.alquiler), alquiler_como: c.alquiler_como || '',
   likes: Number(c.likes) || 0, liked, creado: c.creado,
-  alq: alqPublico(c.alq || {}), bloqueos: c.bloqueos || [],
+  alq: alqPublico(c.alq || {}), bloqueos: bloqueosPublicos(c.bloqueos),
   ...(dueno ? { dueno: { slug: dueno.slug, nombre: dueno.nombre, foto: dueno.foto ? urlFoto(cfg, dueno.foto) : '', ciudad: dueno.ciudad || '' } } : {})
 });
 
@@ -165,7 +181,7 @@ export async function rutasGaraje({ ruta, method, body }, cliente, cfg, deps) {
       // Alquiler con pago en la web: lo que le falta a cada coche para poder alquilarse (seguro, ITV, cobros…)
       const { faltaParaAlquilar } = await import('./cobros.mjs');
       return json(200, { ok: true, cobrar: Boolean(tarifa.cobrar), precio_siguiente: tarifa.cobrar ? precioMes(tarifa, cuotas.size + 1) : null, pago_web: Boolean(cfg.alquilerCobrar),
-        coches: coches.map((c) => ({ ...cochePublico(cfg, c), alq: c.alq || {}, visible: c.visible !== false, rutas: c.fotos || [], cuota: cuotas.get(Number(c.id)) || null,
+        coches: coches.map((c) => ({ ...cochePublico(cfg, c), alq: c.alq || {}, bloqueos: c.bloqueos || [], visible: c.visible !== false, rutas: c.fotos || [], cuota: cuotas.get(Number(c.id)) || null,
           falta: c.alquiler ? faltaParaAlquilar(c, p, cfg.alquilerCobrar) : [] })), perfil: perfilGaraje(cfg, p) || null });
     } catch (e) { return falta(e); }
   }

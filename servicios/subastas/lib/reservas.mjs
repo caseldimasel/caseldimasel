@@ -17,7 +17,7 @@
  */
 import { esc, perfilPublico, tablaAnuncios, urlFoto } from './circulo.mjs';
 import { datos, enviarCorreo, P, plantilla } from './correos.mjs';
-import { USOS, PLANES, alqPublico, SEGUROS } from './garaje.mjs';
+import { USOS, PLANES, alqPublico, bloqueosPublicos, SEGUROS } from './garaje.mjs';
 import { leerTarifa, precioMes } from './comunidad.mjs';
 import { alquilerPagado, conFirmas, condicionesAlquiler, contratoAlquiler, contratoParaFirmar, DIAS_RESTO, paginaDocumento, reembolso, SENAL_PCT, VERSION_CONDICIONES } from './contratos.mjs';
 import { conductorEfectivo, cobrosListos, datosListos, desdeHora, documentoValido, faltaParaAlquilar, minHoras, normDoc, perfilCobros, planesDe, porHoras, precioDe, precioHora, tienePrecio } from './cobros.mjs';
@@ -408,7 +408,7 @@ export async function rutasReservas({ ruta, method, body, ip = '', ua = '' }, cl
       return json(200, { ok: true, coche: { ...anuncio(cfg, c, ps[String(c.cliente)], res), suyo, ...(suyo ? { falta } : {}) }, cobrar: Boolean(cfg.alquilerCobrar),
         contrato_modelo: `${cfg.servidor}/tienda/alquiler/contrato-modelo?coche=${Number(c.id)}`, condiciones: `${cfg.servidor}/tienda/alquiler/condiciones`,
         dueno: { nota: st.nota, resenas: st.n, alquileres: st.alquileres, coches: otros },
-        ocupado: [...(c.bloqueos || []), ...ocupadas(rs)], ocupado_horas: horasOcupadas(rs), planes: PLANES, comision: cfg.alquilerCobrar ? comision(cfg) : 0, iva: ivaDe(cfg), tarifa_pct: cfg.alquilerCobrar ? tarifaPct(cfg) : 0, anfitrion_coches: otros,
+        ocupado: [...bloqueosPublicos(c.bloqueos), ...ocupadas(rs)], ocupado_horas: horasOcupadas(rs), planes: PLANES, comision: cfg.alquilerCobrar ? comision(cfg) : 0, iva: ivaDe(cfg), tarifa_pct: cfg.alquilerCobrar ? tarifaPct(cfg) : 0, anfitrion_coches: otros,
         resenas: res.filter((r) => r.rol === 'huesped').map((r) => ({ nombre: r.nombre || 'Miembro de Sidonia', nota: r.nota, texto: r.texto, creado: r.creado })) }, cliente ? 'no-store' : 'public, max-age=30');
     } catch (e) { return falta(e); }
   }
