@@ -110,7 +110,7 @@ export async function rutasCobros({ ruta, method, body, ip }, cliente, cfg, deps
     return json(400, { ok: false, error: 'accion' });
   } catch (e) {
     console.error(e);
-    return json(200, { ok: false, error: /alq_legal|stripe_cuenta|cobros_ok|column/.test(String(e.message)) ? 'sin-tabla' : 'motor' });
+    return json(200, { ok: false, error: /alq_legal|stripe_cuenta|cobros_ok|column|base de datos/.test(String(e.message)) ? 'sin-tabla' : 'motor' });
   }
 }
 

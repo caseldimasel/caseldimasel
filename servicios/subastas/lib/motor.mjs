@@ -30,7 +30,7 @@ import { revisarReservas, rutasPagoReserva, rutasReservas } from './reservas.mjs
 import { rutasCobros } from './cobros.mjs';
 import { rutasChat } from './chat.mjs';
 import { createHmac, timingSafeEqual } from 'node:crypto';
-import { rutasTienda } from './circulo.mjs';
+import { rutasTienda, tablaAnuncios } from './circulo.mjs';
 import { cuentaFirebase, registrarDispositivo } from './avisos.mjs';
 import { revisarAlertas, rutasAlertas } from './alertas.mjs';
 import { registrarEvento } from './estadisticas.mjs';
@@ -239,10 +239,26 @@ async function paginaConexion(query, cfg, { db, fetch: fetchImpl = fetch }) {
     try { anuncios = Array.isArray(await db('sidonia_anuncios_lista', { p_estado: 'ninguno' })); } catch (e) { console.error(e); }
     fotos = await cuboFotos(cfg, fetchImpl);
   }
+  // Las columnas que necesitan el alquiler y la RD10 (si falta alguna, ese SQL no se ha ejecutado)
+  const COLUMNAS = [
+    ['perfiles', 'cliente,alq_legal,stripe_cuenta,cobros_ok', 'Alquiler: datos y cobros del dueño', 'sql/reservas.sql'],
+    ['garaje', 'id,alq,bloqueos,alq_hasta', 'Alquiler: precio y calendario de cada coche', 'sql/reservas.sql'],
+    ['reservas', 'id,datos,contrato,firma_cliente,stripe_pi,tramos,horas,a_cuenta,resto,resto_pi,resto_pagado', 'Alquiler: reservas por horas y pago en dos partes', 'sql/reservas.sql'],
+    ['preventas', 'id,avisado,pago_id,cobrado,error', 'Reservas de la SIDONIA RD10', 'sql/preventa.sql'],
+    ['chats', 'id', 'Chat de Sidonia', 'sql/chat.sql']
+  ];
+  const columnas = [];
+  if (firma && cfg.supabaseUrl && cfg.supabaseKey) {
+    for (const [t, cols, que, sql] of COLUMNAS) {
+      let ok = false;
+      try { await tablaAnuncios(cfg, fetchImpl, t).leer(`select=${cols}&limit=1`); ok = true; } catch (e) { console.error(t, e.message); }
+      columnas.push({ ok, que, sql });
+    }
+  }
   const panel = Boolean(cfg.adminClave);
   const shopify = Boolean(cfg.shopifyTienda && cfg.shopifyClientId);
   const fila = (ok, si, no) => `<li style="margin:.5rem 0">${ok ? '✅' : '❌'} ${ok ? si : no}</li>`;
-  const todo = firma && base && anuncios && fotos;
+  const todo = firma && base && anuncios && fotos && columnas.every((c) => c.ok);
   return liquid(`<div class="page-width" style="max-width:600px;margin:3rem auto;padding:0 1.25rem">
   <p style="font-size:.75rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;opacity:.55;margin:0">Motor de Sidonia · ${VERSION}</p>
   <h1 style="margin:.3rem 0 1rem">${todo ? 'Todo conectado' : 'Al motor le falta algo'}</h1>
@@ -252,6 +268,7 @@ async function paginaConexion(query, cfg, { db, fetch: fetchImpl = fetch }) {
     ${firma ? fila(base, 'La base de datos responde (Supabase)', 'Supabase no responde: revisa SUPABASE_URL y SUPABASE_SERVICE_KEY') : ''}
     ${firma ? fila(anuncios, 'Anuncios gratis: la tabla está creada', 'Anuncios gratis: falta ejecutar sql/circulo.sql en Supabase › SQL Editor') : ''}
     ${firma ? fila(fotos, 'Anuncios gratis: el cubo de fotos está creado', 'Anuncios gratis: falta el cubo de fotos «anuncios» (se crea con sql/circulo.sql)') : ''}
+    ${columnas.map((c) => fila(c.ok, `${c.que}: la base de datos está al día`, `${c.que}: falta ejecutar ${c.sql} en Supabase › SQL Editor (entero; se puede repetir sin problema)`)).join('')}
     ${fila(panel, 'Panel para revisar anuncios: tiene contraseña (ADMIN_CLAVE)', 'Panel para revisar anuncios: falta ADMIN_CLAVE en Vercel')}
     ${fila(shopify, 'Publicar en Shopify desde el panel: configurado', 'Publicar en Shopify desde el panel: faltan SHOPIFY_TIENDA y SHOPIFY_CLIENT_ID en Vercel')}
     ${fila(Boolean(query.logged_in_customer_id), 'Has iniciado sesión', 'No has iniciado sesión (para anunciar o pujar hará falta)')}

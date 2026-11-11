@@ -889,6 +889,7 @@ export function tablaAnuncios(cfg, fetchImpl = fetch, nombreTabla = 'anuncios') 
   const fallo = async (r) => {
     const t = (await r.text().catch(() => '')).slice(0, 200);
     // Falta la columna «revision» o las tablas «perfiles» o «dispositivos»: hay que volver a ejecutar sql/circulo.sql
+    if (/alq_legal|stripe_cuenta|cobros_ok|alq_hasta|bloqueos|tramos|a_cuenta|resto|firma_|stripe_pi|reservas/.test(t)) throw new Error(`Falta actualizar la base de datos del alquiler: ejecuta sql/reservas.sql en Supabase › SQL Editor. (${t.slice(0, 120)})`);
     throw new Error(/revision|reservado|mejoras|perfiles|dispositivos|alertas/.test(t) ? 'Falta actualizar la base de datos: ejecuta otra vez sql/circulo.sql en Supabase › SQL Editor.' : `Supabase ${r.status}: ${t}`);
   };
   return {
