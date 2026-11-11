@@ -39,6 +39,7 @@ import { ofrecerGestion, rutasGestion } from './gestion.mjs';
 import { recibirOferta } from './ofertas.mjs';
 import { guardarInvitacion, invitarSiToca, leerInvitacion } from './invitaciones.mjs';
 import { rutasPreventa } from './preventa.mjs';
+import { condicionesSubasta, paginaDocumento } from './contratos.mjs';
 
 export const VERSION = 'icono-app-invertido-2026-10-28';
 
@@ -185,7 +186,7 @@ const liquid = (body) => ({ status: 200, headers: { 'Content-Type': 'application
 const redirect = (url) => ({ status: 302, headers: { Location: url, 'Cache-Control': 'no-store' }, body: '' });
 const local = (u, def = '/') => (typeof u === 'string' && u.startsWith('/') && !u.startsWith('//') ? u : def);
 
-function paginaRegistro({ error = '', alias = '', volver = '/', accion }) {
+function paginaRegistro({ error = '', alias = '', volver = '/', accion, condiciones = '' }) {
   const msg = { alias: 'El nombre de usuario debe tener al menos 3 letras o números.', alias_ocupado: 'Ese nombre ya lo usa otra persona. Prueba con otro.', condiciones: 'Acepta las condiciones para seguir.' }[error] || '';
   return `<div class="page-width" style="max-width:560px;margin:3rem auto;padding:0 1.25rem;font-family:inherit">
   <p style="font-size:.75rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;opacity:.55;margin:0">Subastas Sidonia</p>
@@ -199,7 +200,7 @@ function paginaRegistro({ error = '', alias = '', volver = '/', accion }) {
     </label>
     <label style="display:flex;gap:.6rem;align-items:flex-start;font-size:.875rem;line-height:1.45">
       <input type="checkbox" name="condiciones" value="1" required style="margin-top:.2rem">
-      <span>Acepto las condiciones de las subastas: cada puja es un compromiso de compra si gano, pago el coche al vendedor en 7 días hábiles y la comisión a Sidonia.</span>
+      <span>Acepto las ${condiciones ? `<a href="${esc(condiciones)}" target="_blank" rel="noopener" style="color:inherit">condiciones de las subastas</a>` : 'condiciones de las subastas'}: cada puja es un compromiso de compra si gano, pago el coche al vendedor en 7 días hábiles y la comisión indicada en la ficha a Sidonia.</span>
     </label>
     <button type="submit" style="min-height:3.3rem;border-radius:999px;background:#111;color:#fff;font-weight:700;font-size:1rem;border:0">Continuar y guardar mi tarjeta</button>
   </form>
@@ -273,6 +274,8 @@ export async function atender(req, cfg, deps) {
     // «¿Lo vendemos nosotros?» (enlace firmado del email, sin sesión): gestion.mjs
     // Pagar una reserva de alquiler (enlace firmado): a Stripe y la vuelta (reservas.mjs)
     if (/^alquiler\/(pagar|pagado|pagar-resto|resto-pagado|contrato|contrato-modelo|condiciones)$/.test(ruta)) return rutasPagoReserva({ ruta, query: req.query || {} }, cfg, deps);
+    // Las condiciones de las subastas (las que se aceptan al registrarse para pujar)
+    if (ruta === 'subastas/condiciones') return { status: 200, headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'public, max-age=600' }, body: paginaDocumento('Condiciones de las subastas', condicionesSubasta(cfg)) };
     if (ruta === 'gestion') return rutasGestion({ method: req.method, query: req.query || {}, body: req.body || {} }, cfg, deps);
     // Reservas sin cobro (la SIDONIA RD10): el formulario, la vuelta de Stripe, cancelar y el contador (preventa.mjs)
     if (/^(api\/)?preventa\//.test(ruta)) return (await rutasPreventa({ ruta, method: req.method, query: req.query || {}, body: req.body || {} }, cfg, deps)) || json(404, { ok: false, error: 'ruta' });
@@ -414,13 +417,13 @@ export async function atender(req, cfg, deps) {
     if (ruta === 'registro' && req.method === 'GET') {
       const yo = await db('sidonia_pujador', { p_cliente: cliente });
       if (yo && yo.registrado) return redirect(volver);
-      return liquid(paginaRegistro({ alias: yo?.alias || '', volver, accion }));
+      return liquid(paginaRegistro({ alias: yo?.alias || '', volver, accion, condiciones: cfg.servidor ? `${cfg.servidor}/tienda/subastas/condiciones` : "" }));
     }
 
     if (ruta === 'registro' && req.method === 'POST') {
-      if (!body.condiciones) return liquid(paginaRegistro({ error: 'condiciones', alias: body.alias, volver, accion }));
+      if (!body.condiciones) return liquid(paginaRegistro({ error: 'condiciones', alias: body.alias, volver, accion, condiciones: cfg.servidor ? `${cfg.servidor}/tienda/subastas/condiciones` : "" }));
       const r = await db('sidonia_registrar', { p_cliente: cliente, p_alias: String(body.alias || ''), p_email: body.email || null });
-      if (!r.ok) return liquid(paginaRegistro({ error: r.error, alias: body.alias, volver, accion }));
+      if (!r.ok) return liquid(paginaRegistro({ error: r.error, alias: body.alias, volver, accion, condiciones: cfg.servidor ? `${cfg.servidor}/tienda/subastas/condiciones` : "" }));
       // Tarjeta con Stripe Checkout en modo «setup»: se guarda la tarjeta sin cobrar nada
       let stripeCliente = r.pujador.stripe_cliente;
       if (!stripeCliente) {

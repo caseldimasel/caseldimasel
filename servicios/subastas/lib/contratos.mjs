@@ -303,3 +303,48 @@ table.acta td{height:26px}
 </style></head><body><div class="acc"><button onclick="print()">Imprimir o guardar en PDF</button></div>
 <main><div class="l">SIDONIA</div>${cuerpo}${pie ? `<p class="pie">${pie}</p>` : ''}</main></body></html>`;
 }
+
+/* ---------------------------------------------------------------------------- Condiciones de las subastas
+ * Las acepta quien se registra para pujar (motor.mjs › registro). Generales: la comisión, el precio de reserva y el
+ * calendario de cada subasta se publican en su ficha antes de pujar. Revisarlas con un abogado antes de la primera subasta.
+ */
+export const VERSION_SUBASTAS = '2026-11-12';
+export function condicionesSubasta(cfg = {}) {
+  const s = sidonia(cfg);
+  const sec = (t, ...ps) => `<h2>${t}</h2>${ps.map((p) => (p.startsWith('<') ? p : `<p>${p}</p>`)).join('')}`;
+  const ul = (l) => `<ul>${l.map((x) => `<li>${x}</li>`).join('')}</ul>`;
+  return `<h1>Condiciones de las subastas</h1>
+<p class="meta">Versión ${VERSION_SUBASTAS}. ${esc(s.razon)}${s.nif ? `, NIF ${esc(s.nif)}` : ''}${s.domicilio ? `, con domicilio en ${esc(s.domicilio)}` : ''} (en adelante, «Sidonia»). Contacto: ${esc(s.email)}.</p>
+${sec('1. Qué hace Sidonia',
+    'Sidonia organiza en su web y en su app subastas en línea de vehículos de sus propietarios (los «vendedores»). Sidonia no es la dueña de los vehículos ni la vendedora: el contrato de compraventa se celebra entre el vendedor y quien gana la subasta (el «comprador»). Sidonia presta un servicio de intermediación y cobra por él la comisión indicada en cada subasta.')}
+${sec('2. Quién puede pujar',
+    ul(['Personas mayores de 18 años con cuenta en Sidonia, nombre de usuario, móvil verificado y una tarjeta guardada con Stripe, que sirve para identificar a quien puja y cobrar la comisión si gana.',
+      'Cada persona puede tener una sola cuenta. Sidonia puede no admitir o dar de baja a quien incumpla estas condiciones o dé datos falsos.',
+      'Si pujas en nombre de una empresa, declaras que tienes poder para obligarla.']))}
+${sec('3. La ficha de cada subasta',
+    'Antes de pujar, en la ficha de cada vehículo se indica: la descripción, las fotos y los datos que da el vendedor, el lugar donde está, la fecha y hora de cierre, el incremento mínimo de puja, si tiene precio de reserva y <b>la comisión de Sidonia</b> que paga el comprador. Lee la ficha entera y, si puedes, ve el vehículo antes de pujar: las fichas las prepara Sidonia con la información del vendedor, que responde de su veracidad.')}
+${sec('4. Cómo funciona',
+    ul(['<b>Cada puja es una oferta firme e irrevocable de compra</b> por el importe pujado, más la comisión indicada. No se puede retirar.',
+      'Gana la puja más alta al cierre. Si alguien puja en los últimos minutos, el cierre puede alargarse unos minutos, como se indica en la ficha, para que todos puedan responder.',
+      '<b>Precio de reserva</b>: el vendedor puede fijar un mínimo secreto. Si al cierre no se alcanza, no hay venta, salvo que el vendedor acepte la puja más alta en las 48 horas siguientes.',
+      'Sidonia puede cancelar una subasta o anular pujas si hay un error en la ficha, indicios de fraude, pujas del propio vendedor o de personas relacionadas con él para subir el precio, o un fallo técnico grave. Si se anula, no se cobra nada.']))}
+${sec('5. Si ganas',
+    ul(['Te avisamos al cerrar con los datos del vendedor y del vehículo.',
+      '<b>Pagas el precio del vehículo directamente al vendedor</b> en un plazo máximo de 7 días hábiles, por transferencia bancaria o el medio que acordéis, y firmáis el contrato de compraventa y el cambio de titularidad en Tráfico. Los impuestos (Impuesto de Transmisiones Patrimoniales o IVA, según el vendedor) y la gestión del cambio de nombre corren a cargo del comprador, salvo que la ficha diga otra cosa.',
+      '<b>La comisión de Sidonia</b> se cobra en la tarjeta que guardaste al cerrar la subasta con venta. Se te envía su factura.',
+      'La recogida del vehículo, en el lugar indicado en la ficha, es por cuenta del comprador una vez pagado.']))}
+${sec('6. Si no pagas',
+    'Si el comprador no paga el vehículo en plazo, el vendedor puede dar la venta por resuelta y ofrecerlo al siguiente mejor postor. La comisión de Sidonia no se devuelve, como compensación por el servicio prestado y los perjuicios causados, sin perjuicio de que el vendedor pueda reclamar los daños que sufra. Sidonia podrá dar de baja la cuenta del comprador.')}
+${sec('7. Estado del vehículo y garantías',
+    ul(['Los vehículos se venden en el estado en que están, que el comprador ha podido conocer por la ficha y viéndolos antes de pujar.',
+      'Si el vendedor es un particular, la compraventa se rige por el Código Civil (incluido el saneamiento por vicios ocultos). Si el vendedor es un profesional y el comprador un consumidor, este tiene la garantía legal que corresponda (en vehículos de segunda mano, al menos 1 año desde la entrega).',
+      'Sidonia no inspecciona los vehículos salvo que la ficha diga lo contrario, ni responde de su estado, de su titularidad, de cargas o de la veracidad de los datos del vendedor, sin perjuicio de su responsabilidad por la diligencia en su propio servicio.']))}
+${sec('8. Derecho de desistimiento',
+    'Las compras en subasta pública no tienen derecho de desistimiento cuando así lo prevé la ley (artículo 103 k del texto refundido de la Ley General para la Defensa de los Consumidores y Usuarios). Si en algún caso fuera aplicable, se informará en la ficha.')}
+${sec('9. Para los vendedores',
+    'Quien pone un vehículo en subasta firma con Sidonia un acuerdo aparte: declara que es su dueño o que puede venderlo, que no tiene cargas no declaradas, que los datos de la ficha son ciertos y que venderá al ganador si se alcanza el precio de reserva. No puede pujar por su propio vehículo ni pedir a otros que lo hagan.')}
+${sec('10. Datos personales',
+    `Tratamos tus datos para gestionar tu registro, tus pujas, la comunicación del resultado al vendedor y el cobro de la comisión, como explica la política de privacidad de Sidonia. Al ganar, damos al vendedor tu nombre y tu contacto para cerrar la venta. Puedes ejercer tus derechos escribiendo a ${esc(s.email)}.`)}
+${sec('11. Ley y reclamaciones',
+    `Se aplica la ley española. Si eres consumidor, son competentes los juzgados de tu domicilio y puedes acudir a los servicios de consumo de tu comunidad autónoma. Antes, escríbenos a ${esc(s.email)} e intentaremos resolverlo.`)}`;
+}
