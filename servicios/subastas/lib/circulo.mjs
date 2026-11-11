@@ -720,7 +720,7 @@ function paginaPaginas(cfg, res) {
   const tienda = esc(cfg.tienda || '');
   const txt = { creada: 'Creada ahora', enlazada: 'Plantilla puesta ahora', ok: 'Bien', falta: 'No existe', 'sin-plantilla': 'Sin su plantilla', error: 'Error', politica: 'Texto nuevo puesto' };
   const filas = (res?.informe || []).map((r) => `<tr><td><a href="${tienda}${esc(r.url)}" target="_blank">${esc(r.titulo)}</a> <small>${esc(r.url)}</small></td>
-    <td>${esc(txt[r.estado] || r.estado)}${r.antes ? ` <small>(tenía «${esc(r.antes)}»)</small>` : ''}${r.oculta ? ' <small>· oculta en Shopify</small>' : ''}${r.error ? ` <small>${esc(r.error)}</small>` : ''}</td>
+    <td>${esc(txt[r.estado] || r.estado)}${r.antes ? ` <small>(tenía «${esc(r.antes)}»)</small>` : ''}${r.oculta ? ' <small>· oculta en Shopify</small>' : ''}${r.error ? ` <small>${esc(r.error)}</small>` : ''}${r.nota ? ` <br><small style="color:#b3261e">${esc(r.nota)}</small>` : ''}</td>
     <td>${r.plantillaEnTema === undefined ? '<span class="vacio">política</span>' : r.plantillaEnTema === null ? '<span class="vacio">—</span>' : r.plantillaEnTema ? 'Sí' : '<b style="color:#b3261e">No está en el tema</b>'}</td></tr>`).join('');
   const faltan = (res?.informe || []).filter((r) => r.plantillaEnTema === false);
   const tema = res?.tema || {};
@@ -1178,7 +1178,7 @@ export async function atenderPanel(req, cfg, deps) {
         // Y los textos legales de la web en las políticas de Shopify (las que salen al pagar)
         res.informe.push(...(await ponerPoliticas(gql, cfg, deps.fetch)));
         const n = (e) => res.informe.filter((r) => r.estado === e).length;
-        aviso = `Listo: ${n('creada')} páginas creadas, ${n('enlazada')} con su plantilla puesta, ${n('politica')} políticas de Shopify con los textos nuevos${n('error') ? `, ${n('error')} con error (míralo abajo)` : ''}.`;
+        aviso = `Listo: ${n('creada')} páginas creadas, ${n('enlazada')} con su plantilla puesta, ${n('politica')} políticas de Shopify con los textos nuevos${n('error') ? `, ${n('error')} con error (míralo abajo)` : ''}.${res.informe.some((r) => r.nota) ? ' Mira las notas en rojo de abajo.' : ''}`;
       }
     } catch (e) {
       console.error(e);

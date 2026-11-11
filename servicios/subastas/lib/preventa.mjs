@@ -267,7 +267,7 @@ export function condicionesPreventa(cfg = {}) {
   const sd = sidonia(cfg);
   const dato = (v) => (v ? esc(v) : '<span class="hueco">pendiente</span>');
   return `<h1>Condiciones de la reserva</h1>
-<p class="meta">SIDONIA RD10 · Versión 2026-11-10</p>
+<p class="meta">SIDONIA RD10 · Versión 2026-11-12</p>
 <h2>1. Quién vende</h2>
 <p>${dato(sd.razon)} · NIF ${dato(sd.nif)} · ${dato(sd.domicilio)} · <a href="mailto:${esc(sd.email)}">${esc(sd.email)}</a> · ${esc(sd.web)}</p>
 <h2>2. Qué es una reserva</h2>
@@ -275,21 +275,25 @@ export function condicionesPreventa(cfg = {}) {
 <h2>3. Fabricación por encargo</h2>
 <p>La SIDONIA RD10 se fabrica por encargo. Según las reservas, decidimos cuántas unidades pedimos a fábrica. Cuando hagamos el pedido te escribiremos con la fecha estimada de entrega. Si al final no se hace el pedido, te avisaremos, cancelaremos tu reserva y no se te cobrará nada.</p>
 <h2>4. Precio</h2>
-<p>Se te cobra el precio que aceptaste al reservar, por cada unidad reservada, con el IVA y el envío a la península incluidos. Si después sube el precio, a ti se te respeta el de tu reserva.</p>
+<p>Se te cobra el precio que aceptaste al reservar, por cada unidad reservada, con el IVA y el envío a la península incluidos. Si después sube el precio, a ti se te respeta el de tu reserva. Si baja antes de cobrarte, te cobramos el precio más bajo. Por ahora solo enviamos a la península; para Baleares, Canarias, Ceuta, Melilla o fuera de España, escríbenos antes de reservar.</p>
 <h2>5. Cuándo se cobra</h2>
 <p>Al reservar aceptas que, cuando tu radio esté lista para enviarse, se cobre el total en la tarjeta que guardaste, sin que tengas que hacer nada. Si el cobro no se puede hacer (por ejemplo, porque tu banco pide confirmarlo o la tarjeta ha caducado), te mandamos un enlace para pagar. Si no se paga en 7 días desde ese aviso, la reserva se cancela.</p>
-<h2>6. Cancelar la reserva</h2>
+<h2>6. Entrega</h2>
+<p>Cuando hagamos el pedido a fábrica te diremos por email la fecha estimada de entrega. Si cuando te cobramos no podemos entregártela en 30 días, o si se retrasa más de lo que te dijimos, puedes cancelar y te devolvemos todo lo pagado enseguida, sin coste. El riesgo de la radio es nuestro hasta que la recibes.</p>
+<h2>6 bis. Cancelar la reserva</h2>
 <p>Puedes cancelarla cuando quieras antes de que se cobre, sin ningún coste, con el botón del email de tu reserva o escribiéndonos.</p>
 <h2>7. Desistimiento y devolución</h2>
-<p>Una vez recibida, tienes 14 días naturales para devolverla sin dar explicaciones, como marca la ley. Escríbenos y te diremos cómo enviarla. Te devolveremos lo que pagaste en un máximo de 14 días desde que nos comuniques que la devuelves, una vez recibida la radio.</p>
+<p>Una vez recibida, tienes 14 días naturales para devolverla sin dar explicaciones, como marca la ley. Basta con decírnoslo por email a ${esc(sd.email)} (puedes usar, si quieres, este modelo: «Por la presente le comunico que desisto de mi contrato de venta de la SIDONIA RD10, pedida el …, recibida el …. Nombre, domicilio, firma y fecha»). Después envíala en los 14 días siguientes, con todos sus accesorios. El envío de la devolución lo pagas tú, salvo que la radio llegue con un defecto o no sea la que pediste. Te devolveremos todo lo que pagaste, incluido el envío, en un máximo de 14 días desde que nos comuniques que la devuelves, con el mismo medio de pago; podemos esperar a recibirla para hacerlo. Solo respondes de la pérdida de valor si la has usado más de lo necesario para probarla.</p>
 <h2>8. Garantía</h2>
-<p>La radio tiene la garantía legal de 3 años por falta de conformidad. Si falla, escríbenos y lo solucionamos: reparación, cambio o devolución del dinero, según el caso.</p>
+<p>La radio tiene la garantía legal de 3 años por falta de conformidad, de la que respondemos nosotros como vendedores. Si falla, escríbenos y lo solucionamos sin coste para ti: reparación o cambio y, si no es posible, rebaja del precio o devolución del dinero. La garantía no cubre los daños por una instalación mal hecha, golpes, agua o manipulaciones; te recomendamos que la instale un profesional.</p>
 <h2>9. Compatibilidad</h2>
 <p>La SIDONIA RD10 es una radio de tamaño 1 DIN. Comprueba que tu coche tiene hueco 1 DIN, o escríbenos antes de reservar. Algunos coches necesitan un marco o un cableado adaptador, que no se incluyen salvo que se indique.</p>
+<h2>9 bis. Seguridad y reciclaje</h2>
+<p>Responsable del producto en la Unión Europea: ${dato(sd.razon)}, ${dato(sd.domicilio)}, ${esc(sd.email)}. La radio lleva el marcado CE e instrucciones y advertencias en español. Es un aparato eléctrico: al final de su vida, llévala a un punto limpio o entrégala en la tienda al comprar otra parecida. Apple y CarPlay son marcas de Apple Inc.</p>
 <h2>10. Tus datos</h2>
 <p>Usamos tu nombre, tu email y, si nos lo das, tu teléfono solo para gestionar tu reserva, el cobro, el envío y la garantía. Stripe trata los datos de tu tarjeta según su propia política de privacidad. Puedes pedirnos ver, corregir o borrar tus datos escribiendo a ${esc(sd.email)}.</p>
 <h2>11. Ley y contacto</h2>
-<p>Se aplica la ley española de consumo. Para cualquier duda o reclamación, escríbenos a ${esc(sd.email)}.</p>`;
+<p>Se aplica la ley española de consumo. Para cualquier duda o reclamación, escríbenos a ${esc(sd.email)}. Si eres consumidor, son competentes los juzgados de tu domicilio y puedes acudir a los servicios de consumo de tu comunidad autónoma; tienes hojas de reclamaciones a tu disposición.</p>`;
 }
 
 /* ---------------------------------------------------------------------------- «Ya la hemos pedido» y cobrar */

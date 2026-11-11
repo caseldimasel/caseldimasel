@@ -23,6 +23,8 @@ export const PAGINAS = [
   { handle: 'politica-de-privacidad', titulo: 'Política de privacidad', plantilla: 'privacidad' },
   { handle: 'terminos-del-servicio', titulo: 'Términos del servicio', plantilla: 'terminos' },
   { handle: 'politica-de-cookies', titulo: 'Política de cookies', plantilla: 'cookies' },
+  { handle: 'politica-de-devoluciones', titulo: 'Devoluciones y reembolsos', plantilla: 'devoluciones' },
+  { handle: 'politica-de-envios', titulo: 'Envíos', plantilla: 'envios' },
   { handle: 'informacion-de-contacto', titulo: 'Información de contacto', plantilla: 'informacion-contacto' },
   // Interna: la propuesta para Arka (sin enlaces en la web y fuera de los buscadores)
   { handle: 'propuesta-arka', titulo: 'Propuesta para Arka', plantilla: 'propuesta-arka' }
@@ -95,8 +97,11 @@ export const POLITICAS = [
   { tipo: 'PRIVACY_POLICY', titulo: 'Política de privacidad', vista: 'privacidad' },
   { tipo: 'TERMS_OF_SERVICE', titulo: 'Términos del servicio', vista: 'terminos' },
   { tipo: 'CONTACT_INFORMATION', titulo: 'Información de contacto', vista: 'informacion-contacto' },
-  { tipo: 'LEGAL_NOTICE', titulo: 'Aviso legal', vista: 'aviso-legal' }
+  { tipo: 'LEGAL_NOTICE', titulo: 'Aviso legal', vista: 'aviso-legal' },
+  { tipo: 'REFUND_POLICY', titulo: 'Devoluciones y reembolsos', vista: 'devoluciones' },
+  { tipo: 'SHIPPING_POLICY', titulo: 'Envíos', vista: 'envios' }
 ];
+const plano = (h) => String(h || '').replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&#39;|&#x27;/g, "'").replace(/\s+/g, ' ').trim();
 const M_POLITICA = `mutation ($p: ShopPolicyInput!) { shopPolicyUpdate(shopPolicy: $p) { shopPolicy { id type } userErrors { field message } } }`;
 /** El texto de un documento legal tal y como se ve en la web (sin el título ni el menú de abajo) */
 export function textoLegal(html) {
@@ -117,6 +122,16 @@ export async function ponerPoliticas(gql, cfg, fetchImpl = fetch) {
       const err = d?.shopPolicyUpdate?.userErrors?.[0];
       if (err) throw new Error(err.message);
       fila.estado = 'politica';
+      // ¿Se ve ya en la tienda? La de privacidad no cambia si Shopify la tiene en «automática»
+      try {
+        const marca = plano(body).slice(40, 100);
+        const vista = plano(await (await fetchImpl(`${cfg.tienda || 'https://sidonia.es'}${fila.url}`, { headers: { 'User-Agent': 'Sidonia' } })).text());
+        if (marca && !vista.includes(marca)) {
+          fila.nota = p.tipo === 'PRIVACY_POLICY'
+            ? 'Shopify sigue enseñando su política de privacidad automática. En Shopify admin › Configuración › Políticas › Política de privacidad, desactiva la versión automática (o pulsa «Editar» y cambia a texto propio) y vuelve a pulsar el botón.'
+            : 'Guardada, pero la tienda todavía enseña el texto antiguo (puede tardar unos minutos). Si sigue igual, vuelve a pulsar el botón.';
+        }
+      } catch { /* si no se puede mirar, no pasa nada */ }
     } catch (e) {
       fila.estado = 'error';
       fila.error = sinPermiso(e) ? 'Falta el permiso write_legal_policies en la app de Shopify.' : e.message;

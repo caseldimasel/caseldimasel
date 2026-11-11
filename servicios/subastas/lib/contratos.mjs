@@ -14,7 +14,7 @@
  */
 import { createHash } from 'node:crypto';
 
-export const VERSION_CONDICIONES = '2026-11-12b';
+export const VERSION_CONDICIONES = '2026-11-12c';
 export const VERSION_CONTRATO = '2026-11-03';
 
 const esc = (t) => String(t ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -89,7 +89,7 @@ ${sec('4. Cómo funciona una reserva',
     'Cuando la reserva está confirmada, las partes ven el contacto del otro y el lugar de entrega, y acuerdan por la mensajería de Sidonia la hora de entrega y de devolución.']))}
 ${sec('5. Precio, pagos y tarifa de servicio',
   `El precio del alquiler lo fija libremente el dueño. Al precio se suma la tarifa de servicio de Sidonia${pct ? ` (${pct} % del precio del alquiler, más el ${iva} % de IVA)` : ''}, que se muestra antes de reservar, lleva el IVA incluido en el importe que se muestra y retribuye el servicio de intermediación.`,
-  'Los pagos los procesa Stripe Payments Europe, Ltd., entidad autorizada, a través de su servicio Stripe Connect. El dueño debe darse de alta en Stripe (datos de identidad y cuenta bancaria) para poder recibir reservas. El precio del alquiler se cobra por cuenta del dueño, que figura como vendedor del cargo, y se le transfiere el día en que empieza el alquiler; desde ahí, Stripe lo abona en su cuenta bancaria según su calendario de pagos. Sidonia no tiene a su disposición fondos de los usuarios fuera de la cuenta de pagos gestionada por Stripe.',
+  'Los pagos los procesa Stripe Payments Europe, Ltd., entidad autorizada, a través de su servicio Stripe Connect. El dueño debe darse de alta en Stripe (datos de identidad y cuenta bancaria) para poder recibir reservas. El precio del alquiler se cobra por cuenta del dueño, que figura como vendedor del cargo, y se le transfiere 24 horas después de terminar el servicio, si no hay una reclamación abierta (apartado 6 quáter); desde ahí, Stripe lo abona en su cuenta bancaria según su calendario de pagos. Sidonia no tiene a su disposición fondos de los usuarios fuera de la cuenta de pagos gestionada por Stripe.',
   'El pago de la reserva por la plataforma libera al arrendatario de su obligación de pago frente al dueño por el importe pagado. Las partes no deben pagarse el alquiler fuera de Sidonia. Los importes adicionales que prevea el contrato (horas o kilómetros extra, combustible, daños, sanciones) los liquidan las partes directamente entre sí.',
   'El servicio es siempre <b>con conductor</b>: el dueño conduce y el arrendatario y sus acompañantes viajan como pasajeros, con el itinerario, las paradas y las horas que se acuerden. El precio es por horas según el plan (boda, rodaje, evento, ruta…), con un mínimo de horas por día.')}
 ${sec('6. Cancelaciones y devoluciones', ul(POLITICA_CANCELACION), 'Las devoluciones se hacen a la misma tarjeta con la que se pagó, normalmente en un plazo de 5 a 10 días hábiles según el banco.',

@@ -62,10 +62,11 @@ test('panel › Páginas de la web: el botón las crea y avisa si el tema no tie
   const politicas = [];
   const gql2 = async (q, v) => { if (/shopPolicyUpdate/.test(q)) { politicas.push(v.p); return { shopPolicyUpdate: { shopPolicy: { id: 'x', type: v.p.type }, userErrors: [] } }; } return gql(q, v); };
   const r = await atenderPanel({ method: 'POST', query: { estado: 'paginas' }, body: { accion: 'paginas' }, headers: auth }, cfg, { db: async () => [], gql: gql2, fetch: fetchWeb });
-  assert.match(r.body, new RegExp(`Listo: ${PAGINAS.length - 2} páginas creadas, 1 con su plantilla puesta, 4 políticas de Shopify con los textos nuevos`));
-  assert.deepEqual(politicas.map((x) => x.type), ['PRIVACY_POLICY', 'TERMS_OF_SERVICE', 'CONTACT_INFORMATION', 'LEGAL_NOTICE']);
+  assert.match(r.body, new RegExp(`Listo: ${PAGINAS.length - 2} páginas creadas, 1 con su plantilla puesta, 6 políticas de Shopify con los textos nuevos`));
+  assert.deepEqual(politicas.map((x) => x.type), ['PRIVACY_POLICY', 'TERMS_OF_SERVICE', 'CONTACT_INFORMATION', 'LEGAL_NOTICE', 'REFUND_POLICY', 'SHIPPING_POLICY']);
   assert.match(leidas[0], /sidonia\.es\/pages\/vende-con-nosotros\?view=privacidad/);
   assert.doesNotMatch(politicas[0].body, /<h1>|data-lg-cookies|lg__otros/); assert.match(politicas[0].body, /Texto legal de Sidonia/);
+  assert.doesNotMatch(r.body, /política de privacidad automática/);
   assert.match(r.body, /no tiene la plantilla de Eventos/);
   assert.match(r.body, /https:\/\/sidonia\.es\/pages\/eventos/);
 });
@@ -73,4 +74,14 @@ test('panel › Páginas de la web: el botón las crea y avisa si el tema no tie
 test('páginas: sin permiso de páginas, explica qué permisos añadir', async () => {
   const gql = async () => { throw new Error('La app de Shopify no tiene permiso para crear productos.'); };
   await assert.rejects(ponerPaginas(gql), /write_online_store_pages/);
+});
+
+test('políticas: avisa si Shopify sigue enseñando su política de privacidad automática', async () => {
+  const { ponerPoliticas } = await import('../lib/paginas.mjs');
+  const legal = `<div class="lg__in"><h1>T</h1>${'<p>Texto legal de Sidonia con los datos del titular. </p>'.repeat(10)}<nav class="lg__otros"></nav></div>`;
+  const fetchWeb = async (u) => ({ text: async () => (/\/policies\/privacy-policy/.test(u) ? '<p>Sidonia opera esta tienda</p>' : /\/policies\//.test(u) ? legal : legal) });
+  const gql = async () => ({ shopPolicyUpdate: { shopPolicy: { id: 'x' }, userErrors: [] } });
+  const filas = await ponerPoliticas(gql, { tienda: 'https://sidonia.es' }, fetchWeb);
+  assert.match(filas.find((f) => f.tipo === 'PRIVACY_POLICY').nota, /automática/);
+  assert.equal(filas.find((f) => f.tipo === 'TERMS_OF_SERVICE').nota, undefined);
 });
