@@ -221,6 +221,15 @@ function analyze(file) {
   const src = readFileSync(file, 'utf8');
   const kind = file.includes('/snippets/') ? 'snippet' : file.includes('/sections/') ? 'section' : file.includes('/layout/') ? 'layout' : 'template';
   const name = basename(file, '.liquid');
+  // Shopify rechaza al sincronizar (sin avisar en la web) una sección con un ajuste de etiqueta de más de 70 caracteres
+  const sch = /\{%-?\s*schema\s*-?%\}([\s\S]*?)\{%-?\s*endschema/.exec(src);
+  if (sch) {
+    try {
+      const d = JSON.parse(sch[1]);
+      const ajustes = [...(d.settings || []), ...(d.blocks || []).flatMap((b) => b.settings || [])];
+      for (const x of ajustes) if (typeof x.label === 'string' && !x.label.startsWith('t:') && x.label.length > 70) err(file, src.slice(0, sch.index).split('\n').length, `ajuste «${x.id}»: la etiqueta tiene ${x.label.length} caracteres y Shopify solo admite 70 (rechaza el archivo entero)`);
+    } catch (e) { err(file, src.slice(0, sch.index).split('\n').length, `schema con JSON inválido: ${e.message}`); }
+  }
   const tokens = expand(tokenize(src));
   const stack = [];
   const defined = new Set();
