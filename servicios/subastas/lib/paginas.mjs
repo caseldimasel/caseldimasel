@@ -53,7 +53,7 @@ export async function ponerPaginas(gql, { hacer = true, paginas = PAGINAS } = {}
   try {
     lista = (await gql(Q_PAGINAS))?.pages?.nodes || [];
   } catch (e) {
-    if (sinPermiso(e)) throw new Error('La app de Shopify no tiene permiso para las páginas. En el Dev Dashboard, la versión activa de la app tiene que tener los permisos write_online_store_pages y read_themes (además de los que ya tiene); publícala y en Shopify admin › Apps › Sidonia Platform acepta los permisos nuevos. Luego vuelve a pulsar el botón.');
+    if (sinPermiso(e)) throw new Error('La app de Shopify no tiene permiso para las páginas. En dev.shopify.com › Apps › Sidonia Platform › Versiones › Crear versión, añade a los permisos (scopes) write_online_store_pages, read_themes y write_legal_policies (sin quitar los que ya tiene), pulsa Publicar y, en Shopify admin › Configuración › Apps › Sidonia Platform, acepta los permisos nuevos. Luego vuelve a pulsar el botón.');
     throw e;
   }
   const tema = await plantillasDelTema(gql, paginas);
