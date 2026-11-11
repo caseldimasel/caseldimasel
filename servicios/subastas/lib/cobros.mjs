@@ -10,7 +10,8 @@
  *          POST api/alquiler/cobros { accion: 'alta' }    → { url } (a Stripe para darse de alta)
  *          POST api/alquiler/cobros { accion: 'panel' }   → { url } (su panel de Stripe: pagos y banco)
  */
-import { tablaAnuncios } from './circulo.mjs';
+import { avisarEquipo, esc, tablaAnuncios } from './circulo.mjs';
+import { enviarCorreo, P, plantilla } from './correos.mjs';
 import { VERSION_CONDICIONES } from './contratos.mjs';
 
 const tabla = (cfg, deps, n) => deps[n] || tablaAnuncios(cfg, deps.fetch, n);
@@ -49,7 +50,10 @@ export async function refrescarCuenta(cfg, deps, p) {
     const st = await stripeDe(cfg, deps);
     const a = await st('GET', `accounts/${encodeURIComponent(p.stripe_cuenta)}`);
     const ok = Boolean(a.charges_enabled && a.payouts_enabled);
-    if (ok) await tabla(cfg, deps, 'perfiles').guardar({ cliente: String(p.cliente), cobros_ok: true }, 'cliente');
+    if (ok) {
+      await tabla(cfg, deps, 'perfiles').guardar({ cliente: String(p.cliente), cobros_ok: true }, 'cliente');
+      await avisarCochesListos(cfg, deps, p.cliente);
+    }
     return { ...p, cobros_ok: ok };
   } catch (e) { console.error(e); return p; }
 }
@@ -73,13 +77,20 @@ export async function rutasCobros({ ruta, method, body, ip }, cliente, cfg, deps
     }
     const accion = String(body.accion || '');
     if (accion === 'datos') {
-      const d = { nombre: clip(body.nombre, 120), dni: normDoc(body.dni), domicilio: clip(body.domicilio, 250), telefono: clip(body.telefono, 30) };
+      const d = { nombre: clip(body.nombre, 120), dni: normDoc(body.dni), domicilio: clip(body.domicilio, 250), telefono: clip(body.telefono, 30), email: clip(body.email, 160) };
       if (d.nombre.split(/\s+/).length < 2) return json(400, { ok: false, error: 'nombre' });
       if (!dniValido(d.dni)) return json(400, { ok: false, error: 'dni' });
       if (d.domicilio.length < 8) return json(400, { ok: false, error: 'domicilio' });
       if (!/^\+?[\d\s]{9,15}$/.test(d.telefono)) return json(400, { ok: false, error: 'telefono' });
       if (!body.acepto) return json(400, { ok: false, error: 'acepto' });
-      await tP.guardar({ cliente: String(cliente), alq_legal: { ...d, acepto: new Date().toISOString(), version: VERSION_CONDICIONES, ip: clip(ip, 60) } }, 'cliente');
+      try {
+        await tP.guardar({ cliente: String(cliente), alq_legal: { ...d, acepto: new Date().toISOString(), version: VERSION_CONDICIONES, ip: clip(ip, 60) } }, 'cliente');
+      } catch (e) {
+        // Que el equipo se entere en el momento (y el dueño vea un mensaje claro)
+        await avisarEquipo(cfg, 'Alquiler: un dueño no ha podido guardar sus datos', `<p>Error al guardar los datos de cobro del cliente ${esc(cliente)}: <b>${esc(String(e.message).slice(0, 300))}</b></p><p>Si dice «base de datos», ejecuta sql/reservas.sql en Supabase › SQL Editor. Comprueba todo en sidonia.es/apps/sidonia/conexion.</p>`, deps.fetch).catch(() => {});
+        throw e;
+      }
+      await avisarCochesListos(cfg, deps, cliente, { email: d.email });
       return json(200, { ok: true });
     }
     if (accion === 'alta' || accion === 'panel') {
@@ -150,3 +161,39 @@ export function precioDe(a = {}, modo = 'con') {
 export const tienePrecio = (a = {}) => porHoras(a) || precioDe(a, 'sin') > 0 || precioDe(a, 'con') > 0;
 /** En Sidonia el coche siempre lo conduce su dueño (o quien él ponga al volante bajo su responsabilidad): no hay alquiler sin conductor */
 export const conductorEfectivo = () => 'con';
+
+/* ---------------------------------------------------------------------------- «Tu coche ya se puede alquilar»
+ * Cuando un coche del dueño pasa a estar listo (precio, declaración, sus datos y su cuenta de cobros) y visible, se le
+ * manda un email y otro al equipo de Sidonia, una sola vez por coche (alq.aviso_listo). Se mira al guardar el coche, al
+ * guardar sus datos y al volver de Stripe con la cuenta lista. Nunca rompe lo que lo llama.
+ */
+export async function avisarCochesListos(cfg, deps, cliente, { email = '' } = {}) {
+  if (!cfg.alquilerCobrar || !cliente) return 0;
+  try {
+    const p = await perfilCobros(cfg, deps, cliente);
+    if (!cobrosListos(p)) return 0;
+    const tG = tabla(cfg, deps, 'garaje');
+    const coches = await tG.leer(`cliente=eq.${encodeURIComponent(cliente)}&alquiler=eq.true&order=id.asc`);
+    const para = String(p.alq_legal?.email || email || '').trim();
+    const nombre = String(p.alq_legal?.nombre || p.nombre || '').split(/\s+/)[0];
+    const tienda = cfg.tienda || 'https://sidonia.es';
+    let n = 0;
+    for (const c of coches) {
+      const a = c.alq || {};
+      if (c.visible === false || a.aviso_listo || faltaParaAlquilar(c, p, true).length) continue;
+      await tG.cambiar(c.id, { alq: { ...a, aviso_listo: new Date().toISOString() } });
+      const titulo = [c.marca, c.modelo, c.anio].filter(Boolean).join(' ') || 'tu coche';
+      const enlace = `${tienda}/pages/alquiler`;
+      if (para) {
+        const html = plantilla(cfg, null, { titulo: '¡Ya se puede alquilar!', previa: `Tu ${titulo} ya está en Alquiler.`,
+          cuerpo: P(`Hola${nombre ? ` ${esc(nombre)}` : ''}:`) + P(`Tu <b>${esc(titulo)}</b> ya está publicado en <b>Alquiler</b> de Sidonia y se puede reservar.`)
+            + P('Cuando alguien lo reserve te llegará un email. Recuerda: siempre lo conduces tú. Puedes cambiar el precio o bloquear días en tu garaje cuando quieras.'),
+          boton: 'Verlo en Alquiler', enlace });
+        await enviarCorreo(cfg, para, `Tu ${titulo} ya se puede alquilar`, html, deps.fetch).catch((e) => console.error(e));
+      }
+      await avisarEquipo(cfg, `Nuevo coche en alquiler: ${titulo}`, `<p><b>${esc(p.alq_legal?.nombre || p.nombre || 'Un dueño')}</b>${para ? ` (${esc(para)})` : ''} ha puesto su <b>${esc(titulo)}</b> en alquiler a ${Number(a.hora) || '?'} €/hora (mínimo ${Number(a.min_horas) || 1} h)${a.ciudad ? `, en ${esc(a.ciudad)}` : ''}. Ya está visible.</p><p><a href="${esc(enlace)}">Ver Alquiler</a></p>`, deps.fetch).catch((e) => console.error(e));
+      n += 1;
+    }
+    return n;
+  } catch (e) { console.error(e); return 0; }
+}

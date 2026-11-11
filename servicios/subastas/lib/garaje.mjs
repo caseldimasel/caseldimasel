@@ -14,7 +14,7 @@
  *   GET  api/garaje/recientes     → { ok, coches }               lo último de la comunidad (?alquiler=1: los que se alquilarán)
  * Las fotos se suben como las de los anuncios (POST api/anuncio/fotos) y se guardan sus rutas.
  */
-import { esc, perfilPublico, slugVendedor, tablaAnuncios, urlFoto } from './circulo.mjs';
+import { avisarEquipo, esc, perfilPublico, slugVendedor, tablaAnuncios, urlFoto } from './circulo.mjs';
 
 export const GARAJE_MAX = 20;          // coches por persona
 const FOTOS = 12;                      // fotos por coche
@@ -139,7 +139,13 @@ export async function rutasGaraje({ ruta, method, body }, cliente, cfg, deps) {
   const json = (status, b, cache = 'no-store') => ({ status, headers: { 'Content-Type': 'application/json', 'Cache-Control': cache }, body: JSON.stringify(b) });
   const tG = tabla(cfg, deps, 'garaje');
   const tP = tabla(cfg, deps, 'perfiles');
-  const falta = (e) => json(200, { ok: false, error: /garaje|relation|does not exist|42P01/.test(String(e.message)) ? 'sin-tabla' : 'motor' });
+  const falta = (e) => {
+    console.error(e);
+    const sinTabla = /garaje|relation|does not exist|42P01|base de datos|column/.test(String(e.message));
+    // Si falla al guardar un coche, que el equipo se entere en el momento
+    if (method === 'POST') avisarEquipo(cfg, 'Garaje: alguien no ha podido guardar su coche', `<p>Cliente ${esc(cliente)} · ${esc(ruta)}: <b>${esc(String(e.message).slice(0, 300))}</b></p><p>Comprueba sidonia.es/apps/sidonia/conexion.</p>`, deps.fetch).catch(() => {});
+    return json(200, { ok: false, error: sinTabla ? 'sin-tabla' : 'motor' });
+  };
 
   // Público: el garaje de alguien
   if (ruta === 'api/garaje/publico' && method === 'GET') {
@@ -201,6 +207,8 @@ export async function rutasGaraje({ ruta, method, body }, cliente, cfg, deps) {
       if (id) {
         [antes] = await tG.leer(`id=eq.${id}&cliente=eq.${encodeURIComponent(cliente)}&limit=1`);
         if (!antes) return json(404, { ok: false, error: 'no-existe' });
+        // El aviso de «ya se puede alquilar» se manda una vez: se conserva al editar
+        if (v.coche.alq && antes.alq?.aviso_listo) v.coche.alq.aviso_listo = antes.alq.aviso_listo;
         await tG.cambiar(id, { ...v.coche, actualizado: new Date().toISOString() });
       } else {
         if ((await tG.leer(`cliente=eq.${encodeURIComponent(cliente)}&select=id`)).length >= GARAJE_MAX) return json(200, { ok: false, error: 'maximo' });
@@ -208,6 +216,10 @@ export async function rutasGaraje({ ruta, method, body }, cliente, cfg, deps) {
       }
       // Lo alquilaría: a la lista de espera (solo la primera vez que lo marca)
       if (v.coche.alquiler && !(antes && antes.alquiler && id)) await aLaListaDeAlquiler(cfg, deps, cliente, p, v.coche, texto(body.email, 160));
+      if (v.coche.alquiler) {
+        const { avisarCochesListos } = await import('./cobros.mjs');
+        await avisarCochesListos(cfg, deps, cliente, { email: texto(body.email, 160) });
+      }
       const [c] = await tG.leer(`id=eq.${id || Number(antes?.id)}&limit=1`).catch(() => []);
       return json(200, { ok: true, coche: c ? cochePublico(cfg, c) : null, slug: p.slug });
     } catch (e) { return falta(e); }
