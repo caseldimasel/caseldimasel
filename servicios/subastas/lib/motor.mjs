@@ -38,11 +38,12 @@ import { revisarComunidad, rutasPago } from './comunidad.mjs';
 import { ofrecerGestion, rutasGestion } from './gestion.mjs';
 import { recibirOferta } from './ofertas.mjs';
 import { recibirVenta } from './venta.mjs';
+import { fotoLugar } from './lugares.mjs';
 import { guardarInvitacion, invitarSiToca, leerInvitacion } from './invitaciones.mjs';
 import { rutasPreventa } from './preventa.mjs';
 import { condicionesSubasta, paginaDocumento } from './contratos.mjs';
 
-export const VERSION = 'historia-y-ficha-2026-11-12';
+export const VERSION = 'fotos-google-maps-2026-11-12';
 
 export function config(env = process.env) {
   return {
@@ -74,7 +75,8 @@ export function config(env = process.env) {
     avisosRemitente: env.AVISOS_REMITENTE || env.OFERTAS_REMITENTE || 'Sidonia <avisos@sidonia.es>',
     avisosClientes: env.AVISOS_CLIENTES === '1',     // también un email cuando alguien entra por primera vez
     firebase: cuentaFirebase(env.FIREBASE_SERVICE_ACCOUNT),  // avisos al móvil de la app (lib/avisos.mjs)
-    cronSecreto: env.CRON_SECRET || ''                       // el repaso diario de las alertas (lo manda el cron de Vercel)
+    cronSecreto: env.CRON_SECRET || '',                      // el repaso diario de las alertas (lo manda el cron de Vercel)
+    googleMapsKey: env.GOOGLE_MAPS_KEY || ''                 // fotos de Google Maps de talleres y eventos (lib/lugares.mjs)
   };
 }
 
@@ -271,6 +273,7 @@ async function paginaConexion(query, cfg, { db, fetch: fetchImpl = fetch }) {
     ${firma ? fila(fotos, 'Anuncios gratis: el cubo de fotos está creado', 'Anuncios gratis: falta el cubo de fotos «anuncios» (se crea con sql/circulo.sql)') : ''}
     ${columnas.map((c) => fila(c.ok, `${c.que}: la base de datos está al día`, `${c.que}: falta ejecutar ${c.sql} en Supabase › SQL Editor (entero; se puede repetir sin problema)`)).join('')}
     ${fila(panel, 'Panel para revisar anuncios: tiene contraseña (ADMIN_CLAVE)', 'Panel para revisar anuncios: falta ADMIN_CLAVE en Vercel')}
+    ${fila(Boolean(cfg.googleMapsKey), 'Fotos de Google Maps de talleres y eventos: configurado', 'Fotos de Google Maps de talleres y eventos: falta GOOGLE_MAPS_KEY en Vercel (opcional)')}
     ${fila(shopify, 'Publicar en Shopify desde el panel: configurado', 'Publicar en Shopify desde el panel: faltan SHOPIFY_TIENDA y SHOPIFY_CLIENT_ID en Vercel')}
     ${fila(Boolean(query.logged_in_customer_id), 'Has iniciado sesión', 'No has iniciado sesión (para anunciar o pujar hará falta)')}
   </ul>
@@ -294,6 +297,8 @@ export async function atender(req, cfg, deps) {
     if (/^alquiler\/(pagar|pagado|pagar-resto|resto-pagado|contrato|contrato-modelo|condiciones)$/.test(ruta)) return rutasPagoReserva({ ruta, query: req.query || {} }, cfg, deps);
     // Las condiciones de las subastas (las que se aceptan al registrarse para pujar)
     if (ruta === 'subastas/condiciones') return { status: 200, headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'public, max-age=600' }, body: paginaDocumento('Condiciones de las subastas', condicionesSubasta(cfg)) };
+    // Fotos de Google Maps de los talleres y los eventos (lugares.mjs)
+    if (ruta === 'foto') return fotoLugar(req.query || {}, cfg, deps);
     if (ruta === 'gestion') return rutasGestion({ method: req.method, query: req.query || {}, body: req.body || {} }, cfg, deps);
     // Reservas sin cobro (la SIDONIA RD10): el formulario, la vuelta de Stripe, cancelar y el contador (preventa.mjs)
     if (/^(api\/)?preventa\//.test(ruta)) return (await rutasPreventa({ ruta, method: req.method, query: req.query || {}, body: req.body || {} }, cfg, deps)) || json(404, { ok: false, error: 'ruta' });
