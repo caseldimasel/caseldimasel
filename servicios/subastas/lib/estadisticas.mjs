@@ -50,7 +50,7 @@ export const SECCIONES = [
   ['alquileres', 'Alquileres', [], []],
   ['clientes', 'Clientes', [['clientes', 'Interesados'], ['anunciantes', 'Anunciantes · comunidad'], ['duenos', 'Propietarios · gestión'], ['garajes', 'Garajes'], ['opiniones', 'Opiniones de profesionales'], ['alquiler', 'Alquiler · lista de espera']], ['cliente', 'anunciante']],
   ['estadisticas', 'Estadísticas web', [['estadisticas', 'Web'], ['conversaciones', 'Conversaciones']], ['anuncio', 'chat']],
-  ['herramientas', 'Herramientas', [['preventas', 'Reservas RD10'], ['paginas', 'Páginas de la web'], ['ubicaciones', 'Ubicaciones'], ['propietarios', 'Propietario en las fichas'], ['avisos', 'Avisos al móvil'], ['correos', 'Emails']], []]
+  ['herramientas', 'Herramientas', [['paginas', 'Páginas de la web'], ['ubicaciones', 'Ubicaciones'], ['propietarios', 'Propietario en las fichas'], ['avisos', 'Avisos al móvil'], ['correos', 'Emails']], []]
 ];
 let contadores = {};
 /** Cuántos hay por revisar (para el número rojo de «Anuncios», «Por revisar» y «Cambios») */

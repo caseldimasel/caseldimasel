@@ -43,7 +43,7 @@ import { guardarInvitacion, invitarSiToca, leerInvitacion } from './invitaciones
 import { rutasPreventa } from './preventa.mjs';
 import { condicionesSubasta, paginaDocumento } from './contratos.mjs';
 
-export const VERSION = '2026-11-12-alquiler-revision';
+export const VERSION = '2026-11-12-sin-radio';
 
 export function config(env = process.env) {
   return {
@@ -248,7 +248,6 @@ async function paginaConexion(query, cfg, { db, fetch: fetchImpl = fetch }) {
     ['garaje', 'id,alq,bloqueos,alq_hasta', 'Alquiler: precio y calendario de cada coche', 'sql/reservas.sql'],
     ['gestiones', 'id,estado,datos,nota', 'Gestiones de venta en el panel', 'sql/gestiones.sql'],
     ['reservas', 'id,datos,contrato,firma_cliente,stripe_pi,tramos,horas,a_cuenta,resto,resto_pi,resto_pagado', 'Alquiler: reservas por horas y pago en dos partes', 'sql/reservas.sql'],
-    ['preventas', 'id,avisado,pago_id,cobrado,error', 'Reservas de la SIDONIA RD10', 'sql/preventa.sql'],
     ['chats', 'id', 'Chat de Sidonia', 'sql/chat.sql']
   ];
   const columnas = [];

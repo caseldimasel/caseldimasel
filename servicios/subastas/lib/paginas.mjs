@@ -16,8 +16,6 @@ export const PAGINAS = [
   { handle: 'publicar', titulo: 'Publicar', plantilla: 'publicar' },
   { handle: 'subastas', titulo: 'Subastas', plantilla: 'subastas' },
   { handle: 'perfil', titulo: 'Mi perfil', plantilla: 'perfil' },
-  { handle: 'tienda', titulo: 'Tienda', plantilla: 'tienda' },
-  { handle: 'sidonia-rd10', titulo: 'SIDONIA RD10', plantilla: 'rd10' },
   // Los textos legales (sections/sidonia-legal.liquid del tema)
   { handle: 'aviso-legal', titulo: 'Aviso legal', plantilla: 'aviso-legal' },
   { handle: 'politica-de-privacidad', titulo: 'Política de privacidad', plantilla: 'privacidad' },

@@ -181,8 +181,6 @@ const PAGES = [
   { handle: 'privacidad', title: 'Aviso de privacidad', template: 'legal', content: '<p>[PRUEBA] Texto legal pendiente de Sidonia.</p>' },
   { handle: 'publicar', title: 'Publica gratis', template: 'publicar' },
   { handle: 'alquiler', title: 'Alquiler', template: 'alquiler' },
-  { handle: 'sidonia-rd10', title: 'SIDONIA RD10', template: 'rd10' },
-  { handle: 'tienda', title: 'Tienda', template: 'tienda' },
   { handle: 'eventos', title: 'Eventos', template: 'eventos' }
 ];
 

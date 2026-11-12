@@ -837,8 +837,7 @@ ${pestañas}
 /** Panel › Herramientas: lo que se usa de vez en cuando */
 function paginaHerramientas() {
   const h = (href, titulo, texto) => `<article class="a"><div class="cuerpo"><h2><a href="${href}" style="color:inherit">${titulo} ›</a></h2><p class="meta">${texto}</p></div></article>`;
-  return h('?estado=preventas', 'Reservas de la SIDONIA RD10', 'Cuántas radios hay reservadas (sin cobrar), quién las ha reservado y cuánto supondría. Para decidir el pedido a fábrica.')
-    + h('?estado=paginas', 'Páginas de la web', 'Crea en Shopify las páginas de Sidonia que falten (Eventos, Profesionales, Alquiler…) con su plantilla, y mira si el tema las tiene.')
+  return h('?estado=paginas', 'Páginas de la web', 'Crea en Shopify las páginas de Sidonia que falten (Eventos, Profesionales, Alquiler…) con su plantilla, y mira si el tema las tiene.')
     + h('?estado=ubicaciones', 'Ubicaciones', 'Pone a cada producto de la tienda su provincia (para la tarjeta y el filtro «Localización»), sacada de la descripción.')
     + h('?estado=propietarios', 'Propietario en las fichas', 'Saca de la historia de cada coche de Sidonia el nombre de su dueño, para enseñarlo en la ficha («Propietario: Carlos»).')
     + h('?estado=correos', 'Emails', 'Cómo se ve cada email que mandamos a los dueños (recibido, mejoras, publicado, pagos…) y mandarte una prueba.')
