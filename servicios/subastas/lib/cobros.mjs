@@ -40,7 +40,10 @@ export async function perfilCobros(cfg, deps, cliente) {
   return p || null;
 }
 /** Sus datos y la aceptación de la versión vigente de las condiciones (si cambian, tiene que volver a aceptarlas) */
-export const datosListos = (p) => Boolean(p?.alq_legal?.nombre && p.alq_legal.dni && p.alq_legal.domicilio && p.alq_legal.acepto && p.alq_legal.version === VERSION_CONDICIONES);
+// Firmó alguna versión: vale para publicar. Si las condiciones cambian, se le pide que acepte las nuevas (aviso en su
+// garaje), pero su coche NO se oculta: antes, cada cambio escondía los coches de todos los dueños hasta que volvían a firmar.
+export const datosListos = (p) => Boolean(p?.alq_legal?.nombre && p.alq_legal.dni && p.alq_legal.domicilio && p.alq_legal.acepto && p.alq_legal.version);
+export const condicionesAlDia = (p) => datosListos(p) && p.alq_legal.version === VERSION_CONDICIONES;
 export const cobrosListos = (p) => datosListos(p) && Boolean(p?.stripe_cuenta && p.cobros_ok);
 
 /** Pregunta a Stripe si la cuenta ya puede cobrar y recibir pagos, y lo apunta */
@@ -73,7 +76,7 @@ export async function rutasCobros({ ruta, method, body, ip }, cliente, cfg, deps
       const d = p.alq_legal || {};
       return json(200, { ok: true, cobrar: Boolean(cfg.alquilerCobrar), version: VERSION_CONDICIONES,
         datos: { nombre: d.nombre || '', dni: d.dni || '', domicilio: d.domicilio || '', telefono: d.telefono || '', acepto: Boolean(d.acepto), version: d.version || '' },
-        datos_ok: datosListos(p), cuenta: Boolean(p.stripe_cuenta), listo: cobrosListos(p) });
+        datos_ok: datosListos(p), al_dia: condicionesAlDia(p), cuenta: Boolean(p.stripe_cuenta), listo: cobrosListos(p) });
     }
     const accion = String(body.accion || '');
     if (accion === 'datos') {

@@ -61,8 +61,9 @@ test('alquiler con pago: DNI, documento y lo que falta para poder alquilar', () 
   // cobros en Stripe no hace falta para publicar (se le guarda su parte hasta que la termine)
   assert.deepEqual(faltaParaAlquilar({ alq: { ...ALQ, conductor: 'con', seguro_cubre: false } }, { alq_legal: LEGAL }, true), []);
   assert.deepEqual(faltaParaAlquilar({ alq: { ...ALQ, declara: false } }, { alq_legal: LEGAL, stripe_cuenta: 'a', cobros_ok: true }, true), ['declara']);
-  // Si cambian las condiciones, el dueño tiene que volver a aceptarlas antes de recibir reservas
-  assert.deepEqual(faltaParaAlquilar({ alq: ALQ }, { alq_legal: { ...LEGAL, version: '2020-01-01' }, stripe_cuenta: 'a', cobros_ok: true }, true), ['datos']);
+  // Si cambian las condiciones, se le pide aceptar las nuevas, pero su coche sigue publicado
+  assert.deepEqual(faltaParaAlquilar({ alq: ALQ }, { alq_legal: { ...LEGAL, version: '2020-01-01' }, stripe_cuenta: 'a', cobros_ok: true }, true), []);
+  assert.deepEqual(faltaParaAlquilar({ alq: ALQ }, { alq_legal: { ...LEGAL, acepto: '' } }, true), ['datos']);
 });
 
 test('alquiler con pago: política de cancelación', () => {

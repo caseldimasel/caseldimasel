@@ -185,7 +185,9 @@ export async function rutasGaraje({ ruta, method, body }, cliente, cfg, deps) {
       const tarifa = await leerTarifa(deps.ajustes || tablaAnuncios(cfg, deps.fetch, 'ajustes'));
       const cuotas = cuotasAlquiler(coches.filter((c) => c.alquiler && c.visible !== false), tarifa);
       // Alquiler con pago en la web: lo que le falta a cada coche para poder alquilarse (seguro, ITV, cobros…)
-      const { faltaParaAlquilar } = await import('./cobros.mjs');
+      const { avisarCochesListos, faltaParaAlquilar } = await import('./cobros.mjs');
+      // Si alguno ya está listo y no se le avisó (p. ej., se quedó atascado), se le avisa ahora
+      if (coches.some((c) => c.alquiler && c.visible !== false && !c.alq?.aviso_listo)) await avisarCochesListos(cfg, deps, cliente, { email: texto(body.email, 160) });
       return json(200, { ok: true, cobrar: Boolean(tarifa.cobrar), precio_siguiente: tarifa.cobrar ? precioMes(tarifa, cuotas.size + 1) : null, pago_web: Boolean(cfg.alquilerCobrar),
         coches: coches.map((c) => ({ ...cochePublico(cfg, c), alq: c.alq || {}, bloqueos: c.bloqueos || [], visible: c.visible !== false, rutas: c.fotos || [], cuota: cuotas.get(Number(c.id)) || null,
           falta: c.alquiler ? faltaParaAlquilar(c, p, cfg.alquilerCobrar) : [] })), perfil: perfilGaraje(cfg, p) || null });

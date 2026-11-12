@@ -370,6 +370,12 @@ export async function revisarReservas(cfg, deps) {
   const l = await tabla(cfg, deps, 'reservas').leer('pago=in.(autorizado,pagado,devuelto-parcial)&stripe_transfer=eq.&order=desde.asc&limit=500');
   let hechas = 0;
   for (const r of l) { const x = await ponerAlDia(cfg, deps, r); if (x !== r) hechas++; }
+  // Coches que ya están listos y aún no recibieron el «ya se puede alquilar» (p. ej., los que se quedaron atascados)
+  try {
+    const { avisarCochesListos } = await import('./cobros.mjs');
+    const sin = (await tabla(cfg, deps, 'garaje').leer('alquiler=eq.true&visible=eq.true&select=cliente,alq&limit=500')).filter((c) => !c.alq?.aviso_listo);
+    for (const cl of [...new Set(sin.map((c) => String(c.cliente)))]) await avisarCochesListos(cfg, deps, cl, { email: (await emailDueno(cfg, deps, cl)).email });
+  } catch (e) { console.error(e); }
   return { revisadas: l.length, hechas };
 }
 
