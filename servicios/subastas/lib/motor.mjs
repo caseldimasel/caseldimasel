@@ -42,7 +42,7 @@ import { guardarInvitacion, invitarSiToca, leerInvitacion } from './invitaciones
 import { rutasPreventa } from './preventa.mjs';
 import { condicionesSubasta, paginaDocumento } from './contratos.mjs';
 
-export const VERSION = 'publicar-una-pantalla-2026-11-12';
+export const VERSION = 'historia-y-ficha-2026-11-12';
 
 export function config(env = process.env) {
   return {

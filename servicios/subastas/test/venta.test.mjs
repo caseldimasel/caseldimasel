@@ -6,7 +6,7 @@ import { atender, config } from '../lib/motor.mjs';
 
 const cfg = config({ SUBASTAS_CLAVE: 'k', RESEND_API_KEY: 're_x', AVISOS_EQUIPO: 'equipo@sidonia.es', TIENDA_URL: 'https://sidonia.es', SUPABASE_URL: 'https://x.supabase.co', SUPABASE_SERVICE_KEY: 's' });
 const quien = (c) => { const t = String(Math.floor(Date.now() / 1000)); return { c, ct: t, cf: createHmac('sha256', 'k').update(`${c}.${t}`).digest('hex') }; };
-const bien = { fotos: ['55/abcdefgh1.jpg', '55/abcdefgh2.jpg'], marca: 'Porsche', modelo: '911 SC', anio: '1982', km: '128.000', precio: '65.000', ubicacion: 'Madrid', historia: 'Lo compró mi padre en 1989.', nombre: 'Marta Ruiz', telefono: '600 11 22 33', email: 'marta@x.es' };
+const bien = { fotos: ['55/abcdefgh1.jpg', '55/abcdefgh2.jpg'], marca: 'Porsche', modelo: '911 SC', anio: '1982', km: '128.000', precio: '65.000', ubicacion: 'Madrid', historia: 'Lo compró mi padre en 1989.', mecanica: 'Embrague nuevo en 2023.', ficha: [['Potencia', '204 CV'], ['ITV', 'En vigor']], nombre: 'Marta Ruiz', telefono: '600 11 22 33', email: 'marta@x.es' };
 
 test('gestión de venta: llega al equipo con las fotos y al cliente su confirmación', async () => {
   const correos = [];
@@ -21,6 +21,7 @@ test('gestión de venta: llega al equipo con las fotos y al cliente su confirmac
   assert.match(eq.subject, /Gestión de venta: Porsche 911 SC 1982/);
   assert.match(eq.html, /x\.supabase\.co\/storage\/v1\/object\/public\/anuncios\/55\/abcdefgh1\.jpg/);
   assert.match(eq.html, /\+34600112233/);
+  assert.match(eq.html, /Potencia: <b>204 CV<\/b>/); assert.match(eq.html, /Embrague nuevo/);
   const cl = correos.find((c) => [].concat(c.to).includes('marta@x.es'));
   assert.match(cl.subject, /Hemos recibido tu Porsche/);
 });

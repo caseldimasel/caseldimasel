@@ -21,7 +21,8 @@ export function leerVenta(b = {}, cliente = '') {
     marca: texto(b.marca, 40), modelo: texto(b.modelo, 60),
     anio: /^\d{4}$/.test(String(b.anio || '').trim()) ? String(b.anio).trim() : '',
     km: texto(b.km, 20).replace(/[^\d.]/g, ''), precio: texto(b.precio, 20).replace(/[^\d.]/g, ''),
-    ubicacion: texto(b.ubicacion, 120), historia: texto(b.historia, 6000),
+    ubicacion: texto(b.ubicacion, 120), historia: texto(b.historia, 6000), mecanica: texto(b.mecanica, 6000),
+    ficha: (Array.isArray(b.ficha) ? b.ficha : []).map((x) => [texto(Array.isArray(x) ? x[0] : '', 40), texto(Array.isArray(x) ? x[1] : '', 300)]).filter(([k, v]) => k && v).slice(0, 40),
     nombre: texto(b.nombre, 80), telefono: normTel(b.telefono), email: texto(b.email, 160), fotos
   };
   if (!fotos.length) return fallo('fotos');
@@ -42,7 +43,9 @@ export async function recibirVenta(body, cliente, cfg, deps = {}) {
     ['Nombre', d.nombre], ['Teléfono', d.telefono], ['Email', d.email], ['Cliente', String(cliente)]].filter(([, x]) => x);
   const html = `<p><b>Nueva solicitud de gestión de venta</b> desde la web.</p>
 <table>${filas.map(([k, x]) => `<tr><td style="padding:2px 12px 2px 0;color:#666">${esc(k)}</td><td><b>${esc(x)}</b></td></tr>`).join('')}</table>
-${d.historia ? `<p style="white-space:pre-line">${esc(d.historia)}</p>` : ''}
+${d.historia ? `<h3>Su historia</h3><p style="white-space:pre-line">${esc(d.historia)}</p>` : ''}
+${d.ficha.length ? `<h3>Ficha técnica</h3><ul>${d.ficha.map(([k, x]) => `<li>${esc(k)}: <b>${esc(x)}</b></li>`).join('')}</ul>` : ''}
+${d.mecanica ? `<h3>Mecánica y estado</h3><p style="white-space:pre-line">${esc(d.mecanica)}</p>` : ''}
 <p>${d.fotos.map((f, i) => `<a href="${esc(urlFoto(cfg, f))}"><img src="${esc(urlFoto(cfg, f))}" alt="Foto ${i + 1}" width="180" style="margin:0 6px 6px 0;border-radius:8px"></a>`).join('')}</p>
 <p><a href="https://wa.me/${esc(d.telefono.replace('+', ''))}">Escribirle por WhatsApp</a></p>`;
   await avisarEquipo(cfg, `Gestión de venta: ${titulo}`, html, deps.fetch).catch((e) => console.error(e));
