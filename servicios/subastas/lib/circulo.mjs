@@ -48,7 +48,8 @@ import { correoBienvenida, correoCambiosAprobados, correoCambiosRechazados, corr
 
 export const TIPOS = ['coche', 'moto', 'barco', 'casa'];
 export const VENDEDOR_TIPOS = ['particular', 'profesional'];
-export const FOTOS_MIN = Number(process.env.CIRCULO_FOTOS_MIN || 8);
+// Como en Wallapop: pocas exigencias para no echar a nadie para atrás (si hacen falta más fotos, se le piden al revisarlo)
+export const FOTOS_MIN = Number(process.env.CIRCULO_FOTOS_MIN || 3);
 export const FOTOS_MAX = 30;
 const ACTIVOS = ['pendiente', 'aprobado', 'publicado'];
 export const MAX_ACTIVOS = 25;   // anuncios activos a la vez por persona (el primero gratis; los demás de pago)
@@ -88,12 +89,13 @@ export function validar(b, cliente) {
   }
   const ubicacion = texto(b.ubicacion, 120);
   if (ubicacion.length < 2) return fallo('ubicacion');
-  const resumen = texto(b.resumen, 600);
-  if (resumen.length < 20) return fallo('resumen');
   const historia = texto(b.historia, 8000);
-  if (historia.length < 150) return fallo('historia');
+  if (historia.length < 60) return fallo('historia');
+  // La descripción breve, si no la escribe, sale del principio de su historia
+  let resumen = texto(b.resumen, 600);
+  if (resumen.length < 20) resumen = historia.length > 220 ? `${historia.slice(0, 220).replace(/\s+\S*$/, '')}…` : historia;
+  // Lo que se le ha hecho (mecánica): opcional
   const mecanica = texto(b.mecanica, 6000);
-  if (mecanica.length < 40) return fallo('mecanica');
   const ficha = (Array.isArray(b.ficha) ? b.ficha : [])
     .map((f) => [texto(Array.isArray(f) ? f[0] : '', 40), texto(Array.isArray(f) ? f[1] : '', 160)])
     .filter(([k, v]) => k && v).slice(0, 40);
@@ -382,7 +384,7 @@ export function descripcionHtml(a) {
   return [
     parrafos(a.resumen),
     '<h3>Historia</h3>', parrafos(a.historia),
-    `<h3>${mec}</h3>`, parrafos(a.mecanica),
+    ...(String(a.mecanica || '').trim() ? [`<h3>${mec}</h3>`, parrafos(a.mecanica)] : []),
     '<h3>Ficha técnica</h3>', `<ul>${(a.ficha || []).map(([k, v]) => `<li>${esc(k)}: ${esc(v)}</li>`).join('')}</ul>`,
     '<h3>Ubicación</h3>', `<p>${esc(a.ubicacion)}</p>`
   ].join('\n');

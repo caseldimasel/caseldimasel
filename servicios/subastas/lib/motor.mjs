@@ -37,11 +37,12 @@ import { registrarEvento } from './estadisticas.mjs';
 import { revisarComunidad, rutasPago } from './comunidad.mjs';
 import { ofrecerGestion, rutasGestion } from './gestion.mjs';
 import { recibirOferta } from './ofertas.mjs';
+import { recibirVenta } from './venta.mjs';
 import { guardarInvitacion, invitarSiToca, leerInvitacion } from './invitaciones.mjs';
 import { rutasPreventa } from './preventa.mjs';
 import { condicionesSubasta, paginaDocumento } from './contratos.mjs';
 
-export const VERSION = 'anuncio-sin-repetir-datos-2026-11-12';
+export const VERSION = 'publicar-una-pantalla-2026-11-12';
 
 export function config(env = process.env) {
   return {
@@ -296,7 +297,7 @@ export async function atender(req, cfg, deps) {
     if (ruta === 'gestion') return rutasGestion({ method: req.method, query: req.query || {}, body: req.body || {} }, cfg, deps);
     // Reservas sin cobro (la SIDONIA RD10): el formulario, la vuelta de Stripe, cancelar y el contador (preventa.mjs)
     if (/^(api\/)?preventa\//.test(ruta)) return (await rutasPreventa({ ruta, method: req.method, query: req.query || {}, body: req.body || {} }, cfg, deps)) || json(404, { ok: false, error: 'ruta' });
-    if (!/^api\/(anuncio|anuncios|visita|perfil|push|alertas|evento|comunidad|oferta|alquiler|garaje|opiniones|likes|chat)(\/|$)/.test(ruta)) return json(404, { ok: false, error: 'ruta' });
+    if (!/^api\/(anuncio|anuncios|visita|perfil|push|alertas|evento|comunidad|oferta|alquiler|garaje|opiniones|likes|chat|venta)(\/|$)/.test(ruta)) return json(404, { ok: false, error: 'ruta' });
   } else if (!comprobarProxy(req.query, cfg.secreto)) return json(401, { ok: false, error: 'firma' });
   const cliente = !req.directo && req.query.logged_in_customer_id ? String(req.query.logged_in_customer_id) : clienteFirmado(req.query, cfg.clave);
   // El tema mandó quién es, pero la firma no cuadra: la «Clave del motor» del tema no es la SUBASTAS_CLAVE de Vercel
@@ -343,6 +344,8 @@ export async function atender(req, cfg, deps) {
     return json(200, { ok: true, ...(await revisarAlertas(cfg, { fetch: deps.fetch || fetch, gql: deps.gql, alertas: deps.alertas, dispositivos: deps.dispositivos })) });
   }
   // «Hacer una oferta»: al dueño (comunidad) o al equipo (Sidonia), y el resumen al comprador (ofertas.mjs)
+  // «Te ayudamos a venderlo»: la solicitud de gestión de venta con fotos (venta.mjs)
+  if (ruta === 'api/venta' && req.method === 'POST') return json(200, await recibirVenta(body, cliente, cfg, deps));
   if (ruta === 'api/oferta' && req.method === 'POST') return json(200, await recibirOferta(body, cliente, cfg, deps));
   // Alquiler (próximamente): la lista de espera de «Alquila un coche con alma» (alquiler.mjs)
   if (ruta === 'api/alquiler' && req.method === 'POST') return json(200, await recibirAlquiler(body, cliente, cfg, deps));

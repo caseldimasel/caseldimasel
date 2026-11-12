@@ -32,7 +32,11 @@ test('validar: lo bueno pasa y se limpia; lo malo dice qué campo', () => {
   assert.equal(validar(bueno({ vendedor_tipo: '' }), '7001').campo, 'vendedor_tipo');
   assert.equal(validar(bueno({ vendedor_tipo: 'profesional' }), '7001').datos.vendedor_tipo, 'profesional');
   assert.equal(validar(bueno({ historia: 'corta' }), '7001').campo, 'historia');
-  assert.equal(validar(bueno({ fotos: fotos(3) }), '7001').campo, 'fotos');
+  assert.equal(validar(bueno({ fotos: fotos(2) }), '7001').campo, 'fotos', 'mínimo 3 fotos');
+  assert.equal(validar(bueno({ fotos: fotos(3) }), '7001').ok, true);
+  // Como en Wallapop: sin descripción breve (sale de la historia) ni mecánica, vale
+  const facil = validar(bueno({ resumen: '', mecanica: '' }), '7001');
+  assert.equal(facil.ok, true); assert.match(facil.datos.resumen, /^Lo compró mi padre/);
   assert.equal(validar(bueno({ fotos: fotos(10, '9999') }), '7001').campo, 'fotos', 'solo fotos de su carpeta');
   assert.equal(validar(bueno({ telefono: '123' }), '7001').campo, 'telefono');
   assert.equal(validar(bueno({ acepta_telefono: false }), '7001').campo, 'acepta_telefono');
