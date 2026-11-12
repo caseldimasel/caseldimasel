@@ -1,0 +1,154 @@
+{%- comment -%}
+  Atributos data-* para reproducir el vídeo de una pieza BAJO DEMANDA (al pulsar).
+  No crea ningún <video>: los listados solo cargan la portada. No emite nada si no hay vídeo.
+
+  Fuente canónica del vídeo, en este orden (ver docs/08-video.md):
+    1. Metacampo sidonia.video          → referencia a archivo (objeto video de Contenido > Archivos)
+    2. Medios del producto, tipo video  → objeto media (media_type == 'video')
+    3. Medios del producto, tipo external_video (YouTube / Vimeo)
+    4. Metacampo sidonia.video_url      → URL de YouTube o Vimeo
+  Una URL de Instagram o TikTok NO es un vídeo reproducible: va en sidonia.social_url como enlace.
+
+  Parámetros: product, out = attrs (por defecto) | kind | ratio | lang | subs | duration
+{%- endcomment -%}
+{%- liquid
+  assign kind = ''
+  assign v = nil
+  assign best = nil
+  assign best_sd = nil
+  assign smallest = nil
+  assign ext_id = ''
+  assign vfile = product.metafields.sidonia.video.value
+
+  if vfile != blank and vfile.sources != blank
+    assign v = vfile
+  else
+    for m in product.media
+      if m.media_type == 'video'
+        assign v = m
+        break
+      endif
+    endfor
+  endif
+
+  if v != blank
+    for s in v.sources
+      if s.format == 'mp4'
+        if smallest == blank or s.height < smallest.height
+          assign smallest = s
+        endif
+        if s.height <= 1080
+          if best == blank or s.height > best.height
+            assign best = s
+          endif
+        endif
+        if s.height <= 540
+          if best_sd == blank or s.height > best_sd.height
+            assign best_sd = s
+          endif
+        endif
+      endif
+    endfor
+    if best == blank
+      assign best = smallest
+    endif
+    if best_sd == blank
+      assign best_sd = smallest
+    endif
+    if best != blank
+      assign kind = 'file'
+    endif
+  endif
+
+  if kind == ''
+    for m in product.media
+      if m.media_type == 'external_video'
+        assign kind = m.host
+        assign ext_id = m.external_id
+        break
+      endif
+    endfor
+  endif
+
+  if kind == ''
+    assign vurl = product.metafields.sidonia.video_url.value | strip
+    if vurl contains 'youtu.be/'
+      assign kind = 'youtube'
+      assign ext_id = vurl | split: 'youtu.be/' | last | split: '?' | first | split: '&' | first
+    elsif vurl contains 'youtube.com/shorts/'
+      assign kind = 'youtube'
+      assign ext_id = vurl | split: 'youtube.com/shorts/' | last | split: '?' | first | split: '&' | first
+    elsif vurl contains 'youtube.com/embed/'
+      assign kind = 'youtube'
+      assign ext_id = vurl | split: 'youtube.com/embed/' | last | split: '?' | first | split: '&' | first
+    elsif vurl contains 'youtube.com/watch'
+      assign kind = 'youtube'
+      assign ext_id = vurl | split: 'v=' | last | split: '&' | first | split: '#' | first
+    elsif vurl contains 'vimeo.com/'
+      assign kind = 'vimeo'
+      assign ext_id = vurl | split: 'vimeo.com/' | last | split: '?' | first | split: '/' | first
+    endif
+  endif
+
+  assign cover = product.featured_image
+  if cover == blank and v != blank
+    assign cover = v.preview_image
+  endif
+
+  assign ratio = 0.5625
+  if v != blank and v.aspect_ratio != blank
+    assign ratio = v.aspect_ratio
+  else
+    assign asp = product.metafields.sidonia.video_aspect.value | strip
+    case asp
+      when '16:9'
+        assign ratio = 1.7778
+      when '4:5'
+        assign ratio = 0.8
+      when '1:1'
+        assign ratio = 1
+      when '4:3'
+        assign ratio = 1.3333
+    endcase
+  endif
+
+  assign preview = product.metafields.sidonia.preview_clip.value
+  assign preview_src = ''
+  if preview != blank and preview.sources != blank
+    assign pbest = nil
+    for s in preview.sources
+      if s.format == 'mp4'
+        if pbest == blank or s.height < pbest.height
+          assign pbest = s
+        endif
+      endif
+    endfor
+    if pbest != blank
+      assign preview_src = pbest.url
+    endif
+  endif
+
+  assign subs = product.metafields.sidonia.subtitles_file.value
+  assign subs_lang = product.metafields.sidonia.subtitles_lang.value | default: request.locale.iso_code
+  assign vlang = product.metafields.sidonia.video_language.value | default: settings.sidonia_video_language
+  assign dur = product.metafields.sidonia.video_duration.value
+-%}
+{%- if out == 'kind' -%}{{ kind }}
+{%- elsif out == 'ratio' -%}{{ ratio }}
+{%- elsif out == 'lang' -%}{{ vlang | escape }}
+{%- elsif out == 'subs' -%}{% if subs != blank and subs.url != blank %}{{ subs_lang | escape }}{% endif %}
+{%- elsif out == 'duration' -%}{{ dur }}
+{%- elsif kind != '' -%}
+  data-video-kind="{{ kind }}"
+  {%- if kind == 'file' %} data-video-src="{{ best.url }}" data-video-src-sd="{{ best_sd.url }}" data-video-mime="{{ best.mime_type | default: 'video/mp4' }}"{% else %} data-video-id="{{ ext_id | escape }}"{% endif %}
+  {%- if cover != blank %} data-video-poster="{{ cover | image_url: width: 1080 }}"{% endif %}
+  {%- if preview_src != '' %} data-video-preview="{{ preview_src }}"{% endif %}
+  {%- if subs != blank and subs.url != blank %} data-video-subs="{{ subs.url }}" data-video-subs-lang="{{ subs_lang | escape }}"{% endif %}
+  {%- if dur != blank %} data-video-duration="{{ dur }}"{% endif %}
+  {%- if vlang != blank %} data-video-lang="{{ vlang | escape }}"{% endif %}
+  {%- assign social = product.metafields.sidonia.social_url.value | strip -%}
+  {%- if social != blank %} data-video-social="{{ social | escape }}"{% endif %}
+  data-video-ratio="{{ ratio }}"
+  data-video-title="{{ product.title | escape }}"
+  data-video-href="{{ product.url | split: '?' | first }}"
+{%- endif -%}

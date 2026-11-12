@@ -1,0 +1,47 @@
+{%- comment -%}
+  Imagen adaptable (srcset con image_url) con dimensiones reservadas y punto focal nativo de Shopify
+  (image.presentation.focal_point, editable en el administrador al recortar la imagen).
+
+  Parámetros:
+    image       objeto imagen de Shopify
+    widths      lista CSV de anchos (por defecto 360…2000)
+    sizes       atributo sizes
+    priority    true solo para el recurso principal de la página (carga inmediata y fetchpriority)
+    class       clases adicionales
+    alt         texto alternativo (por defecto el de la imagen)
+    decorative  true si la imagen repite información ya presente (alt vacío)
+{%- endcomment -%}
+{%- if image != blank -%}
+  {%- liquid
+    assign ws = widths | default: '360,540,720,900,1080,1296,1512,1728,2000'
+    assign wlist = ws | split: ','
+    assign focal = image.presentation.focal_point
+    assign alt_text = alt | default: image.alt
+    if decorative
+      assign alt_text = ''
+    endif
+    assign base_w = 900
+    if image.width < base_w
+      assign base_w = image.width
+    endif
+  -%}
+  <img
+    class="sidonia-img{% if class != blank %} {{ class }}{% endif %}"
+    src="{{ image | image_url: width: base_w }}"
+    srcset="
+      {%- for w in wlist -%}
+        {%- assign wn = w | plus: 0 -%}
+        {%- if wn <= image.width -%}
+          {{ image | image_url: width: wn }} {{ wn }}w,
+        {%- endif -%}
+      {%- endfor -%}
+      {{ image | image_url: width: image.width }} {{ image.width }}w"
+    {% if sizes != blank %}sizes="{{ sizes }}"{% endif %}
+    width="{{ image.width }}"
+    height="{{ image.height }}"
+    alt="{{ alt_text | escape }}"
+    {% if priority %}loading="eager" fetchpriority="high"{% else %}loading="lazy"{% endif %}
+    decoding="async"
+    {% if focal != blank %}style="--sidonia-focal: {{ focal }}"{% endif %}
+  >
+{%- endif -%}

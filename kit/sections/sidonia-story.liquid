@@ -1,0 +1,92 @@
+{%- comment -%}
+  SIDONIA · Una historia concreta: una pieza real con su vídeo y un extracto de su historia,
+  para que se entienda qué hacemos al verla y escucharla.
+  Sin pieza elegida, la sección no se muestra fuera del editor.
+{%- endcomment -%}
+{%- liquid
+  assign s = section.settings
+  assign p = s.product
+-%}
+{%- if p != blank -%}
+  {%- liquid
+    capture cat
+      render 'sidonia-category', product: p
+    endcapture
+    assign cat = cat | strip
+    capture place
+      render 'sidonia-location', product: p
+    endcapture
+    assign place = place | strip
+    capture owner
+      render 'sidonia-owner', product: p
+    endcapture
+    assign owner = owner | strip
+    capture st
+      render 'sidonia-status', product: p
+    endcapture
+    assign st = st | strip
+    assign excerpt = ''
+    if p.metafields.sidonia.story != blank
+      assign excerpt = p.metafields.sidonia.story | metafield_text
+    endif
+    if excerpt == blank
+      assign excerpt = p.metafields.sidonia.why_special.value
+    endif
+    if excerpt == blank
+      assign excerpt = p.description | strip_html
+    endif
+    assign excerpt = excerpt | strip | truncatewords: s.words
+    assign quote = s.quote | strip
+  -%}
+  <section class="sidonia-scope sidonia-section sidonia-story{% if s.background == 'surface' %} sidonia-section--surface{% endif %}" data-section-id="{{ section.id }}">
+    <div class="sidonia-container sidonia-story__grid">
+      <div class="sidonia-story__media">
+        {%- render 'sidonia-player', product: p, sizes: '(min-width: 1024px) 34vw, 92vw', max_h: '80vh' -%}
+      </div>
+      <div class="sidonia-story__body">
+        {%- if s.eyebrow != blank -%}<p class="sidonia-eyebrow">{{ s.eyebrow | escape }}</p>{%- endif -%}
+        <h2 class="sidonia-h2 sidonia-story__title"><a href="{{ p.url }}">{{ p.title | escape }}</a></h2>
+        <p class="sidonia-story__meta">
+          {%- if cat != blank -%}{%- render 'sidonia-cat-label', key: cat -%}{%- endif -%}
+          {%- if place != blank -%}<span>{{ place | escape }}</span>{%- endif -%}
+          {%- if st != blank -%}{%- render 'sidonia-status', product: p, out: 'chip' -%}{%- endif -%}
+        </p>
+        {%- if quote != blank -%}
+          <blockquote class="sidonia-story__quote"><p>{{ quote | escape }}</p></blockquote>
+        {%- endif -%}
+        {%- if excerpt != blank -%}<p class="sidonia-story__excerpt">{{ excerpt | escape }}</p>{%- endif -%}
+        {%- if owner != blank -%}
+          <p class="sidonia-story__owner"><span class="sidonia-note">{{ 'sidonia.listing.owner' | t }}</span> {{ owner }}</p>
+        {%- endif -%}
+        {%- if s.text != blank -%}<p class="sidonia-note sidonia-story__how">{{ s.text | escape }}</p>{%- endif -%}
+        <div class="sidonia-story__ctas">
+          <a class="sidonia-btn" href="{{ p.url }}">{{ s.cta_label | escape }}</a>
+        </div>
+      </div>
+    </div>
+  </section>
+{%- elsif request.design_mode -%}
+  <section class="sidonia-scope sidonia-section">
+    <div class="sidonia-container"><p class="sidonia-editor-hint">{{ 'sidonia.editor.story_product' | t }}</p></div>
+  </section>
+{%- endif -%}
+
+{% schema %}
+{
+  "name": "Sidonia · Una historia",
+  "tag": "div",
+  "settings": [
+    { "type": "product", "id": "product", "label": "Pieza", "info": "Una pieza real con vídeo. Sin pieza, la sección no se muestra." },
+    { "type": "text", "id": "eyebrow", "label": "Antetítulo", "default": "Una historia concreta" },
+    { "type": "text", "id": "quote", "label": "Cita breve (opcional)", "info": "Solo palabras reales del propietario o del equipo, con autorización." },
+    { "type": "range", "id": "words", "label": "Palabras del extracto", "min": 20, "max": 90, "step": 5, "default": 55 },
+    { "type": "textarea", "id": "text", "label": "Nota sobre cómo trabajamos", "default": "Así contamos cada pieza: la grabamos donde vive y escuchamos a quien la ha cuidado." },
+    { "type": "text", "id": "cta_label", "label": "Botón", "default": "Ver la ficha completa" },
+    { "type": "select", "id": "background", "label": "Fondo", "options": [
+      { "value": "bg", "label": "Piedra" },
+      { "value": "surface", "label": "Piedra clara" }
+    ], "default": "surface" }
+  ],
+  "presets": [{ "name": "Sidonia · Una historia" }]
+}
+{% endschema %}

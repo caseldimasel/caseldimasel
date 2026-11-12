@@ -1,0 +1,336 @@
+{
+  "at": "2026-10-04T22:32:36.118Z",
+  "total": 47,
+  "failed": 0,
+  "results": [
+    {
+      "group": "1. Responsive, desbordes, errores y estructura",
+      "name": "Sin desbordes, sin errores y un solo h1 a 360px (23 páginas)",
+      "ok": true,
+      "ms": 14945,
+      "info": ""
+    },
+    {
+      "group": "1. Responsive, desbordes, errores y estructura",
+      "name": "Sin desbordes, sin errores y un solo h1 a 390px (23 páginas)",
+      "ok": true,
+      "ms": 14525,
+      "info": ""
+    },
+    {
+      "group": "1. Responsive, desbordes, errores y estructura",
+      "name": "Sin desbordes, sin errores y un solo h1 a 768px (23 páginas)",
+      "ok": true,
+      "ms": 14515,
+      "info": ""
+    },
+    {
+      "group": "1. Responsive, desbordes, errores y estructura",
+      "name": "Sin desbordes, sin errores y un solo h1 a 1024px (23 páginas)",
+      "ok": true,
+      "ms": 14732,
+      "info": ""
+    },
+    {
+      "group": "1. Responsive, desbordes, errores y estructura",
+      "name": "Sin desbordes, sin errores y un solo h1 a 1440px (23 páginas)",
+      "ok": true,
+      "ms": 14955,
+      "info": ""
+    },
+    {
+      "group": "1. Responsive, desbordes, errores y estructura",
+      "name": "Instalación vacía (sin piezas, sin redes, sin imágenes): sin errores ni desbordes a 360 y 1440 px",
+      "ok": true,
+      "ms": 5903,
+      "info": ""
+    },
+    {
+      "group": "1. Responsive, desbordes, errores y estructura",
+      "name": "Ninguna tarjeta anida elementos interactivos (botón dentro de enlace o enlace dentro de botón)",
+      "ok": true,
+      "ms": 2853,
+      "info": ""
+    },
+    {
+      "group": "2. Home, primer bloque y categorías",
+      "name": "El primer bloque comunica Coches, Barcos y Casas con alma y deja explorar y vender",
+      "ok": true,
+      "ms": 837,
+      "info": "titular, categorías, Explorar y buscador visibles a 390 px"
+    },
+    {
+      "group": "2. Home, primer bloque y categorías",
+      "name": "Nombres públicos exactos y puntos de color (rojo Coches, azul Barcos, verde Casas)",
+      "ok": true,
+      "ms": 788,
+      "info": "rgb(182, 63, 56) · rgb(40, 99, 142) · rgb(52, 116, 85)"
+    },
+    {
+      "group": "2. Home, primer bloque y categorías",
+      "name": "Buscador del hero: la pestaña de categoría sin texto lleva a su colección; con texto, a la búsqueda",
+      "ok": true,
+      "ms": 1962,
+      "info": ""
+    },
+    {
+      "group": "3. Cabecera transparente y sólida",
+      "name": "Transparente sobre el hero, sólida al bajar, sin cambiar de altura; los paneles abren sobre superficie piedra opaca",
+      "ok": true,
+      "ms": 2904,
+      "info": "altura constante 73px"
+    },
+    {
+      "group": "3. Cabecera transparente y sólida",
+      "name": "Páginas sin imagen inicial: cabecera sólida desde el principio (colección, ficha, vender, favoritos)",
+      "ok": true,
+      "ms": 2774,
+      "info": ""
+    },
+    {
+      "group": "3. Cabecera transparente y sólida",
+      "name": "Primer render correcto sin JavaScript (cabecera transparente por CSS y legible)",
+      "ok": true,
+      "ms": 310,
+      "info": ""
+    },
+    {
+      "group": "3. Cabecera transparente y sólida",
+      "name": "Cabecera: «Vender» visible en móvil sin salirse ni montarse sobre el logo (360 px)",
+      "ok": true,
+      "ms": 846,
+      "info": ""
+    },
+    {
+      "group": "4. Catálogo, precios y tarjetas",
+      "name": "Precios: publicado con formato español; «Precio a consultar»; «Precio no publicado»; vendida sin precio; nunca 0 €",
+      "ok": true,
+      "ms": 1542,
+      "info": "24 tarjetas revisadas"
+    },
+    {
+      "group": "4. Catálogo, precios y tarjetas",
+      "name": "Cada tarjeta muestra categoría con punto, ubicación pública y estado reservado/vendido",
+      "ok": true,
+      "ms": 965,
+      "info": ""
+    },
+    {
+      "group": "4. Catálogo, precios y tarjetas",
+      "name": "Filtros: el estado vive en la URL, se aplica sin recargar y funciona con atrás/adelante",
+      "ok": true,
+      "ms": 1938,
+      "info": "32 piezas → 14 piezas (14 tarjetas)"
+    },
+    {
+      "group": "4. Catálogo, precios y tarjetas",
+      "name": "Filtros en móvil: diálogo modal accesible que se cierra con Escape y devuelve el foco",
+      "ok": true,
+      "ms": 907,
+      "info": ""
+    },
+    {
+      "group": "4. Catálogo, precios y tarjetas",
+      "name": "Cargar más añade piezas sin perder las anteriores y mantiene la URL compartible",
+      "ok": true,
+      "ms": 1065,
+      "info": "24 → 32"
+    },
+    {
+      "group": "4. Catálogo, precios y tarjetas",
+      "name": "Sin JavaScript: filtros como formulario normal y paginación con enlaces",
+      "ok": true,
+      "ms": 383,
+      "info": ""
+    },
+    {
+      "group": "4. Catálogo, precios y tarjetas",
+      "name": "El archivo de vendidas solo muestra piezas vendidas",
+      "ok": true,
+      "ms": 718,
+      "info": "2 vendidas"
+    },
+    {
+      "group": "5. Ficha de pieza",
+      "name": "La ficha muestra precio, descripción, datos de la categoría, propietario autorizado, ubicación pública y referencia",
+      "ok": true,
+      "ms": 2049,
+      "info": ""
+    },
+    {
+      "group": "5. Ficha de pieza",
+      "name": "Al abrir la ficha no se descarga ni se crea ningún vídeo (portada primero)",
+      "ok": true,
+      "ms": 707,
+      "info": ""
+    },
+    {
+      "group": "5. Ficha de pieza",
+      "name": "Reproducir abre con sonido, vertical sin recortar, Escape cierra y el foco vuelve",
+      "ok": true,
+      "ms": 1215,
+      "info": "proporción 0.562, con sonido"
+    },
+    {
+      "group": "5. Ficha de pieza",
+      "name": "Solo suena un vídeo a la vez (reproductor de la ficha y modal)",
+      "ok": true,
+      "ms": 1129,
+      "info": ""
+    },
+    {
+      "group": "5. Ficha de pieza",
+      "name": "YouTube: no se carga nada externo sin permiso explícito",
+      "ok": true,
+      "ms": 1228,
+      "info": ""
+    },
+    {
+      "group": "5. Ficha de pieza",
+      "name": "WhatsApp y correo: mensaje con nombre, referencia y URL de la pieza, bien codificado",
+      "ok": true,
+      "ms": 731,
+      "info": ""
+    },
+    {
+      "group": "5. Ficha de pieza",
+      "name": "Barra de contacto móvil: aparece al pasar el resumen y se oculta sobre el formulario de consulta",
+      "ok": true,
+      "ms": 876,
+      "info": ""
+    },
+    {
+      "group": "6. Favoritos",
+      "name": "Guardar desde una tarjeta, contador en la cabecera y página de favoritos con la pieza",
+      "ok": true,
+      "ms": 1714,
+      "info": ""
+    },
+    {
+      "group": "6. Favoritos",
+      "name": "Una pieza retirada se muestra como «ya no disponible» y se puede quitar",
+      "ok": true,
+      "ms": 1057,
+      "info": ""
+    },
+    {
+      "group": "7. Formularios (venta y consulta)",
+      "name": "Vender: un solo formulario en 3 pasos; ?categoria=barcos preselecciona Barcos y solo envía sus campos",
+      "ok": true,
+      "ms": 2080,
+      "info": "20 campos enviados"
+    },
+    {
+      "group": "7. Formularios (venta y consulta)",
+      "name": "Vender: un ?categoria= no válido no preselecciona nada y no rompe el formulario",
+      "ok": true,
+      "ms": 727,
+      "info": ""
+    },
+    {
+      "group": "7. Formularios (venta y consulta)",
+      "name": "Vender: los errores se anuncian junto al campo y el foco va al primero",
+      "ok": true,
+      "ms": 819,
+      "info": "Elige si es un coche, un barco o una casa."
+    },
+    {
+      "group": "7. Formularios (venta y consulta)",
+      "name": "Vender: fallo de red → aviso claro y los datos se conservan",
+      "ok": true,
+      "ms": 1958,
+      "info": ""
+    },
+    {
+      "group": "7. Formularios (venta y consulta)",
+      "name": "Vender: si Shopify pide verificación (anti-spam), se pasa al envío nativo",
+      "ok": true,
+      "ms": 2007,
+      "info": ""
+    },
+    {
+      "group": "7. Formularios (venta y consulta)",
+      "name": "Vender sin JavaScript: errores del servidor junto a los campos y valores conservados",
+      "ok": true,
+      "ms": 666,
+      "info": ""
+    },
+    {
+      "group": "7. Formularios (venta y consulta)",
+      "name": "Consulta de una pieza: el envío identifica la pieza (referencia, nombre, categoría y URL)",
+      "ok": true,
+      "ms": 1054,
+      "info": ""
+    },
+    {
+      "group": "8. Comunidad, redes y testimonios",
+      "name": "Total de seguidores calculado de las cuentas: suma solo las incluidas, sin duplicados, vacío ≠ 0",
+      "ok": true,
+      "ms": 821,
+      "info": ""
+    },
+    {
+      "group": "8. Comunidad, redes y testimonios",
+      "name": "Sin cuentas con cifra: no hay total inventado, solo «Sigue las historias de Sidonia»",
+      "ok": true,
+      "ms": 745,
+      "info": ""
+    },
+    {
+      "group": "8. Comunidad, redes y testimonios",
+      "name": "Solo se publican testimonios marcados como autorizados",
+      "ok": true,
+      "ms": 822,
+      "info": ""
+    },
+    {
+      "group": "9. Analítica, accesibilidad y SEO",
+      "name": "Analítica: eventos con parámetros permitidos y sin datos personales",
+      "ok": true,
+      "ms": 871,
+      "info": "sidonia_view_listing, sidonia_contact_whatsapp"
+    },
+    {
+      "group": "9. Analítica, accesibilidad y SEO",
+      "name": "Sin consentimiento de analítica no se publica ningún evento",
+      "ok": true,
+      "ms": 708,
+      "info": ""
+    },
+    {
+      "group": "9. Analítica, accesibilidad y SEO",
+      "name": "Movimiento reducido: el hero no reproduce vídeo de fondo",
+      "ok": true,
+      "ms": 812,
+      "info": ""
+    },
+    {
+      "group": "9. Analítica, accesibilidad y SEO",
+      "name": "Foco visible y orden de tabulación: el primer Tab llega a la cabecera, nunca a una portada",
+      "ok": true,
+      "ms": 1238,
+      "info": ""
+    },
+    {
+      "group": "9. Analítica, accesibilidad y SEO",
+      "name": "Datos estructurados: oferta solo con precio publicado y pieza disponible; nunca precio 0; sin el JSON-LD comprable de Impact",
+      "ok": true,
+      "ms": 53,
+      "info": ""
+    },
+    {
+      "group": "9. Analítica, accesibilidad y SEO",
+      "name": "Teléfono y correo privados del propietario nunca aparecen en la web",
+      "ok": true,
+      "ms": 43,
+      "info": ""
+    },
+    {
+      "group": "10. Comercio normal de la tienda y editor de temas",
+      "name": "Editor de temas: descargar y volver a cargar secciones no da errores ni duplica comportamientos",
+      "ok": true,
+      "ms": 1549,
+      "info": "10 secciones descargadas y recargadas"
+    }
+  ]
+}

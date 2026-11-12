@@ -1,0 +1,30 @@
+{%- comment -%}
+  Campos del paso 2 del formulario de venta según la categoría. Los nombres de campo son
+  etiquetas legibles en el correo que recibe Sidonia y distintos por categoría, para que el
+  correo diga con claridad a qué se refiere cada dato.
+  «cat_required» = obligatorio solo si esa categoría está elegida (lo aplica sidonia-forms.js).
+  Para una categoría nueva, añade aquí su grupo de campos.
+  Parámetros: key, uid
+{%- endcomment -%}
+{%- case key -%}
+  {%- when 'garage' -%}
+    {%- render 'sidonia-field', uid: uid, field: 'g-make', name: 'contact[Marca]', label_key: 'sidonia.sell.f.g_make', cat_required: true, autocomplete: 'off' -%}
+    {%- render 'sidonia-field', uid: uid, field: 'g-model', name: 'contact[Modelo]', label_key: 'sidonia.sell.f.g_model', cat_required: true, autocomplete: 'off' -%}
+    {%- render 'sidonia-field', uid: uid, field: 'g-year', name: 'contact[Año del coche]', type: 'number', label_key: 'sidonia.sell.f.year', inputmode: 'numeric', min: 1885, max: 2100, optional_label: true -%}
+    {%- render 'sidonia-field', uid: uid, field: 'g-km', name: 'contact[Kilometraje conocido]', type: 'number', label_key: 'sidonia.sell.f.g_km', help_key: 'sidonia.sell.f.g_km_help', inputmode: 'numeric', min: 0, optional_label: true -%}
+    {%- render 'sidonia-field', uid: uid, field: 'g-loc', name: 'contact[Dónde está el coche]', label_key: 'sidonia.sell.f.location', help_key: 'sidonia.sell.f.location_help', cat_required: true -%}
+    {%- render 'sidonia-field', uid: uid, field: 'g-price', name: 'contact[Precio orientativo]', label_key: 'sidonia.sell.f.price', help_key: 'sidonia.sell.f.price_help', optional_label: true -%}
+  {%- when 'harbor' -%}
+    {%- render 'sidonia-field', uid: uid, field: 'h-make', name: 'contact[Constructor y modelo]', label_key: 'sidonia.sell.f.h_make', cat_required: true, autocomplete: 'off' -%}
+    {%- render 'sidonia-field', uid: uid, field: 'h-type', name: 'contact[Tipo de embarcación]', label_key: 'sidonia.sell.f.h_type', help_key: 'sidonia.sell.f.h_type_help', optional_label: true -%}
+    {%- render 'sidonia-field', uid: uid, field: 'h-year', name: 'contact[Año del barco]', type: 'number', label_key: 'sidonia.sell.f.year', inputmode: 'numeric', min: 1800, max: 2100, optional_label: true -%}
+    {%- render 'sidonia-field', uid: uid, field: 'h-loa', name: 'contact[Eslora conocida (m)]', label_key: 'sidonia.sell.f.h_loa', help_key: 'sidonia.sell.f.h_loa_help', inputmode: 'decimal', optional_label: true -%}
+    {%- render 'sidonia-field', uid: uid, field: 'h-loc', name: 'contact[Dónde está el barco]', label_key: 'sidonia.sell.f.location_boat', help_key: 'sidonia.sell.f.location_help', cat_required: true -%}
+    {%- render 'sidonia-field', uid: uid, field: 'h-price', name: 'contact[Precio orientativo]', label_key: 'sidonia.sell.f.price', help_key: 'sidonia.sell.f.price_help', optional_label: true -%}
+  {%- when 'estate' -%}
+    {%- render 'sidonia-field', uid: uid, field: 'e-type', name: 'contact[Tipo de inmueble]', label_key: 'sidonia.sell.f.e_type', help_key: 'sidonia.sell.f.e_type_help', cat_required: true -%}
+    {%- render 'sidonia-field', uid: uid, field: 'e-loc', name: 'contact[Ciudad o región]', label_key: 'sidonia.sell.f.e_loc', help_key: 'sidonia.sell.f.e_loc_help', cat_required: true -%}
+    {%- render 'sidonia-field', uid: uid, field: 'e-area', name: 'contact[Superficie conocida (m²)]', type: 'number', label_key: 'sidonia.sell.f.e_area', inputmode: 'numeric', min: 0, optional_label: true -%}
+    {%- render 'sidonia-field', uid: uid, field: 'e-beds', name: 'contact[Habitaciones]', type: 'number', label_key: 'sidonia.sell.f.e_beds', inputmode: 'numeric', min: 0, optional_label: true -%}
+    {%- render 'sidonia-field', uid: uid, field: 'e-price', name: 'contact[Precio orientativo]', label_key: 'sidonia.sell.f.price', help_key: 'sidonia.sell.f.price_help', optional_label: true -%}
+{%- endcase -%}

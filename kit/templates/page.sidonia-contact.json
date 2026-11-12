@@ -1,0 +1,26 @@
+/*
+ * ------------------------------------------------------------
+ * Plantilla del kit Sidonia para Impact. Generada por tools/build-templates.mjs.
+ * Edítala desde el editor de temas; si regeneras, se pierden los cambios hechos aquí a mano.
+ * ------------------------------------------------------------
+ */
+{
+  "sections": {
+    "header": {
+      "type": "sidonia-page-header",
+      "settings": {
+        "eyebrow": "Contacto"
+      }
+    },
+    "form": {
+      "type": "sidonia-contact-form",
+      "settings": {
+        "mode": "general"
+      }
+    }
+  },
+  "order": [
+    "header",
+    "form"
+  ]
+}

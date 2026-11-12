@@ -1,0 +1,273 @@
+{%- comment -%}
+  SIDONIA · Hero con promesa, vídeo bajo demanda y búsqueda real.
+
+  - Primer bloque de la home: comunica coches, barcos, casas y el vídeo narrativo.
+  - Búsqueda: selector de categoría + texto + «Explorar». Sin texto, abre la colección de la categoría;
+    con texto, abre /search con la consulta y el filtro real de categoría (filter.p.m.sidonia.category).
+  - «Ver cómo lo contamos» abre el vídeo con sonido SOLO tras pulsar.
+  - Fondo opcional: clip silencioso breve, solo si el navegador lo permite, sin reducir movimiento ni
+    ahorro de datos, y con botón de pausa. Sin vídeo ni imagen: composición piedra cuidada.
+  - Cabecera transparente: este bloque se declara compatible (data-sidonia-header-overlay) solo si es la
+    primera sección y tiene imagen o vídeo. Ver docs/09-guia-cabecera-y-datos-publicos.md.
+{%- endcomment -%}
+{%- liquid
+  assign s = section.settings
+  capture keys_csv
+    render 'sidonia-division-keys'
+  endcapture
+  assign div_keys = keys_csv | strip | split: ','
+
+  assign img = s.image
+  assign img_mobile = s.image_mobile | default: s.image
+  assign bg_video = s.background_video
+  assign has_media = false
+  if img != blank or bg_video != blank
+    assign has_media = true
+  endif
+  if bg_video != blank and img == blank
+    assign img = bg_video.preview_image
+    assign img_mobile = bg_video.preview_image
+  endif
+
+  assign overlay_on = false
+  if has_media and s.transparent_header and section.index == 1
+    assign overlay_on = true
+  endif
+
+  assign story_attrs = ''
+  assign vkind = ''
+  if s.story_video != blank and s.story_video.sources != blank
+    assign best = nil
+    assign best_sd = nil
+    for src in s.story_video.sources
+      if src.format == 'mp4'
+        if src.height <= 1080
+          if best == blank or src.height > best.height
+            assign best = src
+          endif
+        endif
+        if src.height <= 540
+          if best_sd == blank or src.height > best_sd.height
+            assign best_sd = src
+          endif
+        endif
+      endif
+    endfor
+    if best == blank
+      assign best = s.story_video.sources | where: 'format', 'mp4' | first
+    endif
+    if best_sd == blank
+      assign best_sd = best
+    endif
+    if best != blank
+      assign vkind = 'file'
+      assign v_poster = s.story_video.preview_image | default: img
+      assign v_poster_url = ''
+      if v_poster != blank
+        assign v_poster_url = v_poster | image_url: width: 1080
+      endif
+      capture story_attrs
+        echo 'data-video-kind="file" data-video-src="' | append: best.url | append: '" data-video-src-sd="' | append: best_sd.url | append: '" data-video-mime="' | append: best.mime_type | append: '"'
+        if v_poster_url != ''
+          echo ' data-video-poster="' | append: v_poster_url | append: '"'
+        endif
+        echo ' data-video-ratio="' | append: s.story_video.aspect_ratio | append: '"'
+      endcapture
+    endif
+  endif
+  if vkind == '' and s.story_video_url != blank
+    assign vkind = s.story_video_url.type
+    assign ext_poster_url = ''
+    if img != blank
+      assign ext_poster_url = img | image_url: width: 1080
+    endif
+    capture story_attrs
+      echo 'data-video-kind="' | append: s.story_video_url.type | append: '" data-video-id="' | append: s.story_video_url.id | append: '" data-video-ratio="' | append: s.story_ratio | append: '"'
+      if ext_poster_url != ''
+        echo ' data-video-poster="' | append: ext_poster_url | append: '"'
+      endif
+    endcapture
+  endif
+  if vkind == '' and s.story_product != blank
+    capture story_attrs
+      render 'sidonia-video-attrs', product: s.story_product
+    endcapture
+    assign story_attrs = story_attrs | strip
+  endif
+  assign story_title = s.video_label | default: s.heading | escape
+
+  capture explore_url
+    render 'sidonia-url', key: 'explore'
+  endcapture
+  capture sell_url
+    render 'sidonia-url', key: 'sell'
+  endcapture
+  assign explore_url = explore_url | strip
+  assign sell_url = sell_url | strip
+  assign overlay = s.overlay | default: 45 | divided_by: 100.0
+-%}
+{%- if overlay_on -%}
+  {%- comment -%}
+    Contrato de cabecera transparente del tema anfitrión. En Impact (verificado en 7.2.0): la sección
+    declara «allow-transparent-header» y sube bajo la cabecera con este margen; el JavaScript de Impact
+    pone la cabecera sólida al bajar o al abrir un panel. Sin esas variables, el margen es 0.
+  {%- endcomment -%}
+  <style>
+    #shopify-section-{{ section.id }} {
+      margin-block-start: calc(-1 * var(--header-height, 0px) * var(--section-is-first, 0));
+    }
+  </style>
+{%- endif -%}
+<section
+  class="sidonia-scope sidonia-hero{% if has_media %} sidonia-hero--media{% else %} sidonia-hero--plain{% endif %} sidonia-hero--{{ s.height }}"
+  {% if overlay_on %}data-sidonia-header-overlay="true" allow-transparent-header{% endif %}
+  data-section-id="{{ section.id }}"
+  style="--sidonia-hero-shade: {{ overlay }};"
+>
+  {%- if has_media -%}
+    <div class="sidonia-hero__media">
+      {%- if img != blank -%}
+        <picture>
+          {%- if s.image_mobile != blank -%}
+            <source media="(max-width: 749px)" srcset="{{ img_mobile | image_url: width: 750 }} 750w, {{ img_mobile | image_url: width: 1100 }} 1100w" sizes="100vw" width="{{ img_mobile.width }}" height="{{ img_mobile.height }}">
+          {%- endif -%}
+          {%- render 'sidonia-image', image: img, widths: '750,1100,1500,1920,2400,2880', sizes: '100vw', priority: true, class: 'sidonia-hero__img', alt: s.image_alt -%}
+        </picture>
+      {%- endif -%}
+      {%- if bg_video != blank -%}
+        {%- assign bg_src = bg_video.sources | where: 'format', 'mp4' | sort: 'height' | first -%}
+        {%- for src in bg_video.sources -%}
+          {%- if src.format == 'mp4' and src.height <= 1080 -%}{%- assign bg_src = src -%}{%- endif -%}
+        {%- endfor -%}
+        <sidonia-autopreview class="sidonia-hero__preview" data-src="{{ bg_src.url }}" data-mime="{{ bg_src.mime_type | default: 'video/mp4' }}" data-mobile="{{ s.preview_on_mobile }}"></sidonia-autopreview>
+      {%- endif -%}
+      <span class="sidonia-hero__shade" aria-hidden="true"></span>
+    </div>
+  {%- endif -%}
+
+  <div class="sidonia-container sidonia-hero__inner">
+    <div class="sidonia-hero__copy">
+      {%- if s.show_categories -%}
+        <p class="sidonia-hero__cats">
+          {%- for k in div_keys -%}
+            {%- assign key_i = k | strip -%}
+            {%- render 'sidonia-cat-label', key: key_i -%}
+          {%- endfor -%}
+        </p>
+      {%- endif -%}
+      {%- if s.heading != blank -%}
+        <h1 class="sidonia-hero__title">{{ s.heading | escape }}</h1>
+      {%- endif -%}
+      {%- if s.text != blank -%}
+        <p class="sidonia-hero__text">{{ s.text | escape }}</p>
+      {%- endif -%}
+      <div class="sidonia-hero__ctas">
+        <a class="sidonia-btn {% if has_media %}sidonia-btn--light{% endif %}" href="{{ s.cta1_url | default: explore_url }}" data-sidonia-track="hero_explore">
+          <span>{{ s.cta1_label | escape }}</span>{%- render 'sidonia-icon', name: 'arrow-right', size: 18 -%}
+        </a>
+        <a class="sidonia-btn {% if has_media %}sidonia-btn--ghost-light{% else %}sidonia-btn--secondary{% endif %}" href="{{ s.cta2_url | default: sell_url }}" data-sidonia-track="hero_sell">{{ s.cta2_label | escape }}</a>
+        {%- if story_attrs != blank -%}
+          <button type="button" class="sidonia-play sidonia-hero__play" data-sidonia-play {{ story_attrs }} data-video-title="{{ story_title }}">
+            <span class="sidonia-play__icon">{%- render 'sidonia-icon', name: 'play', size: 14 -%}</span>
+            <span>{{ s.video_label | escape }}</span>
+          </button>
+        {%- endif -%}
+      </div>
+    </div>
+
+    {%- if s.show_search -%}
+      <div class="sidonia-hero__search">
+        <form class="sidonia-search" action="{{ routes.search_url }}" method="get" role="search" data-sidonia-search data-explore-url="{{ explore_url }}">
+          <fieldset class="sidonia-search__cats">
+            <legend class="sidonia-sr">{{ 'sidonia.search.category_legend' | t }}</legend>
+            <label class="sidonia-seg">
+              <input type="radio" name="filter.p.m.sidonia.category" value="" checked data-url="{{ explore_url }}">
+              <span class="sidonia-seg__label">{{ 'sidonia.search.all' | t }}</span>
+            </label>
+            {%- for k in div_keys -%}
+              {%- assign key_i = k | strip -%}
+              {%- capture d_name -%}{%- render 'sidonia-division', key: key_i, out: 'name' -%}{%- endcapture -%}
+              {%- capture d_url -%}{%- render 'sidonia-division', key: key_i, out: 'url' -%}{%- endcapture -%}
+              <label class="sidonia-seg">
+                <input type="radio" name="filter.p.m.sidonia.category" value="{{ d_name | strip | escape }}" data-url="{{ d_url | strip }}">
+                <span class="sidonia-seg__label">{%- render 'sidonia-cat-label', key: key_i, name: d_name -%}</span>
+              </label>
+            {%- endfor -%}
+          </fieldset>
+          <div class="sidonia-search__row">
+            <label class="sidonia-sr" for="sidonia-q-{{ section.id }}">{{ s.search_placeholder | escape }}</label>
+            <span class="sidonia-search__icon" aria-hidden="true">{%- render 'sidonia-icon', name: 'search', size: 20 -%}</span>
+            <input id="sidonia-q-{{ section.id }}" class="sidonia-search__input" type="search" name="q" placeholder="{{ s.search_placeholder | escape }}" autocomplete="off" enterkeyhint="search">
+            <input type="hidden" name="type" value="product">
+            <input type="hidden" name="options[prefix]" value="last">
+            <button type="submit" class="sidonia-btn sidonia-search__submit">{{ s.search_button | escape }}</button>
+          </div>
+        </form>
+        {%- if s.search_note != blank -%}
+          <p class="sidonia-hero__note">{{ s.search_note | escape }}</p>
+        {%- endif -%}
+      </div>
+    {%- endif -%}
+
+    {%- if bg_video != blank -%}
+      <button type="button" class="sidonia-hero__pause" data-sidonia-preview-toggle hidden aria-pressed="false">
+        <span class="sidonia-sr" data-label-pause>{{ 'sidonia.video.pause_background' | t }}</span>
+        {%- render 'sidonia-icon', name: 'pause', size: 16 -%}
+      </button>
+    {%- endif -%}
+  </div>
+
+  {%- if request.design_mode and has_media == false -%}
+    <div class="sidonia-container"><p class="sidonia-editor-hint">{{ 'sidonia.editor.hero_media' | t }}</p></div>
+  {%- endif -%}
+</section>
+
+{% schema %}
+{
+  "name": "Sidonia · Hero y búsqueda",
+  "tag": "div",
+  "class": "sidonia-section-hero",
+  "settings": [
+    { "type": "paragraph", "content": "Primer bloque de la portada. Si es la primera sección y tiene imagen o vídeo, la cabecera puede ir transparente encima." },
+    { "type": "checkbox", "id": "transparent_header", "label": "Cabecera transparente sobre este bloque", "info": "Solo funciona si es la primera sección y hay imagen o vídeo. Sin imagen, la cabecera es piedra sólida.", "default": true },
+    { "type": "header", "content": "Imagen y vídeo de fondo" },
+    { "type": "image_picker", "id": "image", "label": "Imagen de portada", "info": "Horizontal, mínimo 2400 px de ancho. Ajusta el punto focal al editar la imagen en Shopify." },
+    { "type": "image_picker", "id": "image_mobile", "label": "Imagen para móvil (opcional)", "info": "Vertical u horizontal. Si falta, se usa la de portada." },
+    { "type": "text", "id": "image_alt", "label": "Texto alternativo de la imagen" },
+    { "type": "video", "id": "background_video", "label": "Clip silencioso de fondo (opcional)", "info": "Breve (6-12 s), sin texto esencial, sin sonido. Se reproduce solo si el navegador lo permite y nunca con «reducir movimiento» o ahorro de datos." },
+    { "type": "checkbox", "id": "preview_on_mobile", "label": "Permitir el clip de fondo en móvil", "default": false },
+    { "type": "range", "id": "overlay", "label": "Oscurecido para contraste", "min": 20, "max": 80, "step": 5, "unit": "%", "default": 45 },
+    { "type": "select", "id": "height", "label": "Altura", "options": [
+      { "value": "compact", "label": "Compacta" },
+      { "value": "tall", "label": "Amplia" }
+    ], "default": "tall" },
+    { "type": "header", "content": "Mensaje" },
+    { "type": "checkbox", "id": "show_categories", "label": "Mostrar Coches, Barcos y Casas con sus puntos", "default": true },
+    { "type": "text", "id": "heading", "label": "Titular", "default": "Coches, barcos y casas con alma" },
+    { "type": "textarea", "id": "text", "label": "Subtítulo", "default": "Seleccionamos piezas con carácter y contamos su historia para encontrar a quien sepa apreciarlas." },
+    { "type": "text", "id": "cta1_label", "label": "Botón principal", "default": "Explorar la selección" },
+    { "type": "url", "id": "cta1_url", "label": "Enlace del botón principal", "info": "Vacío: la colección «Explorar» de Ajustes del tema." },
+    { "type": "text", "id": "cta2_label", "label": "Botón secundario", "default": "Quiero vender con Sidonia" },
+    { "type": "url", "id": "cta2_url", "label": "Enlace del botón secundario", "info": "Vacío: la página «Vender con Sidonia»." },
+    { "type": "header", "content": "Vídeo «Ver cómo lo contamos»" },
+    { "type": "paragraph", "content": "Se abre con sonido solo cuando el visitante pulsa. Elige una opción: archivo de Shopify, enlace de YouTube/Vimeo o el vídeo de una pieza." },
+    { "type": "text", "id": "video_label", "label": "Texto del botón", "default": "Ver cómo lo contamos" },
+    { "type": "video", "id": "story_video", "label": "Vídeo alojado en Shopify" },
+    { "type": "video_url", "id": "story_video_url", "label": "Enlace de YouTube o Vimeo", "accept": ["youtube", "vimeo"] },
+    { "type": "select", "id": "story_ratio", "label": "Formato del vídeo externo", "options": [
+      { "value": "0.5625", "label": "Vertical 9:16" },
+      { "value": "1.7778", "label": "Horizontal 16:9" },
+      { "value": "1", "label": "Cuadrado 1:1" }
+    ], "default": "0.5625" },
+    { "type": "product", "id": "story_product", "label": "…o el vídeo de esta pieza" },
+    { "type": "header", "content": "Búsqueda" },
+    { "type": "checkbox", "id": "show_search", "label": "Mostrar búsqueda", "default": true },
+    { "type": "text", "id": "search_placeholder", "label": "Texto del campo", "default": "¿Qué estás buscando?" },
+    { "type": "text", "id": "search_button", "label": "Botón", "default": "Explorar" },
+    { "type": "text", "id": "search_note", "label": "Nota bajo la búsqueda (opcional)" }
+  ],
+  "presets": [
+    { "name": "Sidonia · Hero y búsqueda" }
+  ]
+}
+{% endschema %}

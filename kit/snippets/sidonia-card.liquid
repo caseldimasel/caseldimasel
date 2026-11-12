@@ -1,0 +1,129 @@
+{%- comment -%}
+  Tarjeta de pieza (catálogo, búsqueda, selección, relacionadas y favoritos).
+  Orden de lectura inspirado en los listados de JamesEdition: portada grande → precio → nombre →
+  datos esenciales → categoría y ubicación.
+
+  Accesibilidad: el único enlace navegable es el título; la portada repite el enlace fuera del orden
+  de tabulación (aria-hidden). Reproducir y Guardar son botones hermanos, nunca dentro de un enlace.
+  Sin vídeo no hay botón de reproducir. Sin portada se muestra una composición neutra con la marca.
+
+  Parámetros:
+    product
+    priority    true solo para las primeras tarjetas visibles (LCP)
+    sizes       atributo sizes de la portada
+    show_hook   false para ocultar la línea de historia (por defecto: ajuste del tema)
+    heading     nivel del título: h2 | h3 (por defecto h3)
+    class       clases adicionales
+{%- endcomment -%}
+{%- liquid
+  capture cat
+    render 'sidonia-category', product: product
+  endcapture
+  assign cat = cat | strip
+  capture st
+    render 'sidonia-status', product: product
+  endcapture
+  assign st = st | strip
+  capture price_kind
+    render 'sidonia-price', product: product, out: 'kind'
+  endcapture
+  assign price_kind = price_kind | strip
+  capture price_text
+    render 'sidonia-price', product: product
+  endcapture
+  assign price_text = price_text | strip
+  capture place
+    render 'sidonia-location', product: product
+  endcapture
+  assign place = place | strip
+  capture vattrs
+    render 'sidonia-video-attrs', product: product
+  endcapture
+  assign vattrs = vattrs | strip
+  capture dur_text
+    render 'sidonia-duration', seconds: product.metafields.sidonia.video_duration.value
+  endcapture
+  assign dur_text = dur_text | strip
+  capture specs
+    render 'sidonia-specs', product: product, key: cat, mode: 'card', limit: settings.sidonia_card_specs
+  endcapture
+  assign specs = specs | strip
+
+  assign hook = product.metafields.sidonia.hook.value | strip
+  assign hook_on = settings.sidonia_card_hook
+  if show_hook == false
+    assign hook_on = false
+  endif
+  assign img = product.featured_image
+  assign card_sizes = sizes | default: '(min-width: 1280px) 22vw, (min-width: 1024px) 30vw, (min-width: 560px) 46vw, 92vw'
+  assign htag = heading | default: 'h3'
+  if cat != blank
+    capture cat_name
+      render 'sidonia-division', key: cat, out: 'name'
+    endcapture
+    assign cat_name = cat_name | strip
+  endif
+-%}
+<article
+  class="sidonia-card{% if st != blank %} sidonia-card--{{ st }}{% endif %}{% if class != blank %} {{ class }}{% endif %}"
+  data-sidonia-card
+  data-product-id="{{ product.id }}"
+  data-product-handle="{{ product.handle }}"
+  {% if cat != blank %}data-category="{{ cat }}"{% endif %}
+  {% if st != blank %}data-status="{{ st }}"{% endif %}
+>
+  <div class="sidonia-card__media">
+    <a class="sidonia-card__cover" href="{{ product.url }}" tabindex="-1" aria-hidden="true">
+      {%- if img != blank -%}
+        {%- render 'sidonia-image', image: img, widths: '360,540,720,900,1080,1296', sizes: card_sizes, priority: priority, class: 'sidonia-card__img', decorative: true -%}
+      {%- else -%}
+        <span class="sidonia-card__placeholder">
+          {%- if settings.sidonia_isotype != blank -%}
+            {{ settings.sidonia_isotype | image_url: width: 120 | image_tag: alt: '', loading: 'lazy' }}
+          {%- endif -%}
+          <span>{{ settings.sidonia_brand_name | default: shop.name | escape }}</span>
+        </span>
+      {%- endif -%}
+    </a>
+
+    {%- if st == 'reserved' or st == 'sold' -%}
+      <span class="sidonia-card__badge">{%- render 'sidonia-status', product: product, out: 'chip' -%}</span>
+    {%- endif -%}
+
+    {%- if vattrs != blank -%}
+      <button type="button" class="sidonia-play sidonia-card__play" data-sidonia-play {{ vattrs }} aria-label="{{ 'sidonia.video.play_aria' | t: title: product.title | escape }}">
+        <span class="sidonia-play__icon">{%- render 'sidonia-icon', name: 'play', size: 14 -%}</span>
+        <span>{{ 'sidonia.video.watch' | t }}</span>
+        {%- if dur_text != blank -%}<span class="sidonia-play__time">{{ dur_text }}</span>{%- endif -%}
+      </button>
+    {%- endif -%}
+
+    {%- render 'sidonia-save', product: product, variant: 'card', class: 'sidonia-card__save' -%}
+  </div>
+
+  <div class="sidonia-card__body">
+    <div class="sidonia-card__top">
+      {%- if price_kind != 'sold' -%}
+        <p class="sidonia-card__price"><span class="sidonia-price sidonia-price--{{ price_kind }}">{{ price_text }}</span></p>
+      {%- else -%}
+        <p class="sidonia-card__price"><span class="sidonia-price sidonia-price--sold">{{ 'sidonia.status.sold_long' | t }}</span></p>
+      {%- endif -%}
+      {%- if st == 'available' -%}
+        {%- render 'sidonia-status', product: product, out: 'chip' -%}
+      {%- endif -%}
+    </div>
+    <{{ htag }} class="sidonia-card__title"><a class="sidonia-card__link" href="{{ product.url }}">{{ product.title | escape }}</a></{{ htag }}>
+    {%- if hook_on and hook != blank -%}
+      <p class="sidonia-card__hook">{{ hook | escape }}</p>
+    {%- endif -%}
+    {%- if specs != blank -%}
+      <ul class="sidonia-card__specs" role="list">{{ specs }}</ul>
+    {%- endif -%}
+    {%- if cat != blank or place != blank -%}
+      <p class="sidonia-card__meta">
+        {%- if cat != blank -%}{%- render 'sidonia-cat-label', key: cat, name: cat_name -%}{%- endif -%}
+        {%- if place != blank -%}<span class="sidonia-card__place"><span class="sidonia-sr">{{ 'sidonia.listing.location' | t }}: </span>{{ place | escape }}</span>{%- endif -%}
+      </p>
+    {%- endif -%}
+  </div>
+</article>

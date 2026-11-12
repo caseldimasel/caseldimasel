@@ -1,0 +1,36 @@
+{%- comment -%}
+  Estado real de un formulario nativo de Shopify: éxito confirmado o errores devueltos.
+  Nunca se muestra éxito por un temporizador ni por pulsar el botón.
+  Con JavaScript, sidonia-forms.js envía con fetch y lee este mismo marcado en la respuesta.
+
+  Parámetros: form (objeto form), success_title, success_text, uid
+{%- endcomment -%}
+<div class="sidonia-form-status" data-sidonia-form-status tabindex="-1" id="{{ uid }}-status">
+  {%- if form.posted_successfully? -%}
+    <div class="sidonia-alert sidonia-alert--success" role="status" data-sidonia-form-success>
+      {%- render 'sidonia-icon', name: 'check', size: 20 -%}
+      <div class="sidonia-alert__body">
+        <strong>{{ success_title }}</strong>
+        {%- if success_text != blank -%}<span>{{ success_text }}</span>{%- endif -%}
+      </div>
+    </div>
+  {%- elsif form.errors -%}
+    <div class="sidonia-alert sidonia-alert--error" role="alert" data-sidonia-form-errors>
+      {%- render 'sidonia-icon', name: 'alert', size: 20 -%}
+      <div class="sidonia-alert__body">
+        <strong>{{ 'sidonia.forms.error_title' | t }}</strong>
+        <ul>
+          {%- for field in form.errors -%}
+            <li data-field="{{ field }}">
+              {%- if field == 'form' -%}
+                {{ form.errors.messages[field] }}
+              {%- else -%}
+                {{ form.errors.translated_fields[field] | capitalize }} {{ form.errors.messages[field] }}
+              {%- endif -%}
+            </li>
+          {%- endfor -%}
+        </ul>
+      </div>
+    </div>
+  {%- endif -%}
+</div>
