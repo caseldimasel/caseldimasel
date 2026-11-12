@@ -189,7 +189,16 @@ export async function rutasTienda({ ruta, method, body }, cliente, cfg, deps) {
     if (mio && ['pendiente', 'aprobado'].includes(mio.estado)) {
       try { const [x] = await tablaA().leer(`id=eq.${Number(mio.id)}&select=mejoras`); if (pendientes(x?.mejoras)) mio.mejoras = listaMejoras(x.mejoras); } catch (e) { /* sin la columna aún */ }
     }
-    return json(200, { ok: true, anuncio: mio, ...c });
+    // Lo que ya sabemos de quien anuncia (su último anuncio, su perfil o sus datos del alquiler): así no se le vuelve a pedir
+    let yo = null;
+    try {
+      const [u] = await tablaA().leer(`cliente=eq.${encodeURIComponent(cliente)}&select=vendedor_nombre,vendedor_tipo,telefono&order=creado.desc&limit=1`).catch(() => []);
+      const [p] = await (deps.perfiles || tablaAnuncios(cfg, deps.fetch, 'perfiles')).leer(`cliente=eq.${encodeURIComponent(cliente)}&limit=1`).catch(() => []);
+      const nombre = u?.vendedor_nombre || p?.nombre || String(p?.alq_legal?.nombre || '').split(/\s+/)[0] || '';
+      const tel = u?.telefono || p?.alq_legal?.telefono || '';
+      if (nombre || tel) yo = { nombre, tipo: u?.vendedor_tipo || p?.tipo || 'particular', telefono: tel, acepto: Boolean(u?.telefono), descripcion: p?.descripcion || '' };
+    } catch (e) { /* sin datos: se le piden */ }
+    return json(200, { ok: true, anuncio: mio, ...c, yo });
   }
   if (ruta === 'api/anuncios' && method === 'GET') {
     const lista = await db('sidonia_anuncios_mios', { p_cliente: cliente });

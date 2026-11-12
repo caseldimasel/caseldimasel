@@ -41,7 +41,7 @@ import { guardarInvitacion, invitarSiToca, leerInvitacion } from './invitaciones
 import { rutasPreventa } from './preventa.mjs';
 import { condicionesSubasta, paginaDocumento } from './contratos.mjs';
 
-export const VERSION = 'tres-anuncios-gratis-2026-11-12';
+export const VERSION = 'anuncio-sin-repetir-datos-2026-11-12';
 
 export function config(env = process.env) {
   return {
