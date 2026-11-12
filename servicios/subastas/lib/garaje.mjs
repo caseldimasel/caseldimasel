@@ -15,6 +15,8 @@
  * Las fotos se suben como las de los anuncios (POST api/anuncio/fotos) y se guardan sus rutas.
  */
 import { avisarEquipo, esc, perfilPublico, slugVendedor, tablaAnuncios, urlFoto } from './circulo.mjs';
+import { enRevision } from './cobros.mjs';
+import { enviarCorreo, P, plantilla } from './correos.mjs';
 
 export const GARAJE_MAX = 20;          // coches por persona
 const FOTOS = 12;                      // fotos por coche
@@ -37,7 +39,7 @@ export function leerPlanes(p = {}) {
 }
 export const SEGUROS = { terceros: 'a terceros', ampliado: 'a terceros ampliado', 'todo-riesgo-franquicia': 'a todo riesgo con franquicia', 'todo-riesgo': 'a todo riesgo' };
 /** Lo del anuncio de alquiler que no se enseña en público (va solo en el contrato) */
-export const alqPublico = (alq = {}) => { const { entrega, matricula, seguro_poliza, vtc, ...pub } = alq; return { ...pub, con_licencia: Boolean(vtc) }; };
+export const alqPublico = (alq = {}) => { const { entrega, matricula, seguro_poliza, vtc, contacto, rechazado, rechazado_antes, ...pub } = alq; return { ...pub, con_licencia: Boolean(vtc) }; };
 /** El anuncio de alquiler (como en Airbnb): precio por día, fianza, km, quién conduce, dónde, normas, reserva inmediata… */
 export function leerAlq(a = {}) {
   return {
@@ -104,7 +106,7 @@ export function leerCoche(b = {}, cliente = '') {
 export const cochePublico = (cfg, c, dueno = null, liked = false) => ({
   id: c.id, tipo: c.tipo, marca: c.marca, modelo: c.modelo, anio: c.anio, apodo: c.apodo || '', historia: c.historia || '', mods: c.mods || '',
   titulo: [c.marca, c.modelo, c.anio].filter(Boolean).join(' '),
-  fotos: (c.fotos || []).map((f) => urlFoto(cfg, f)), alquiler: Boolean(c.alquiler), alquiler_como: c.alquiler_como || '',
+  fotos: (c.fotos || []).map((f) => urlFoto(cfg, f)), alquiler: Boolean(c.alquiler) && !enRevision(c), alquiler_como: c.alquiler_como || '',
   likes: Number(c.likes) || 0, liked, creado: c.creado,
   alq: alqPublico(c.alq || {}), bloqueos: bloqueosPublicos(c.bloqueos),
   ...(dueno ? { dueno: { slug: dueno.slug, nombre: dueno.nombre, foto: dueno.foto ? urlFoto(cfg, dueno.foto) : '', ciudad: dueno.ciudad || '' } } : {})
@@ -131,6 +133,22 @@ async function aLaListaDeAlquiler(cfg, deps, cliente, perfil, c, email) {
     if (ya.length) return;
     await t.guardar({ rol: 'poner', cliente, nombre: perfil?.nombre || '', email: email || '', ciudad: perfil?.ciudad || '', conductor: c.alquiler_como || '', coche, mensaje: 'Desde Mi garaje' }, 'id');
   } catch (e) { console.error(e); }
+}
+
+/** Recibido para alquilar: el email al dueño («lo revisamos y te avisamos») y al equipo (con el enlace al panel) */
+async function alquilerRecibido(cfg, deps, cliente, perfil, c, email) {
+  const t = [c.marca, c.modelo, c.anio].filter(Boolean).join(' ') || 'tu vehículo';
+  const para = String(email || perfil?.alq_legal?.email || '').trim();
+  const nombre = String(perfil?.alq_legal?.nombre || perfil?.nombre || '').split(/\s+/)[0];
+  if (para) {
+    const html = plantilla(cfg, null, { titulo: '¡Lo hemos recibido!', previa: `Revisamos tu ${t} y te avisamos.`,
+      cuerpo: P(`Hola${nombre ? ` ${esc(nombre)}` : ''}:`) + P(`Hemos recibido tu <b>${esc(t)}</b> para alquilar. Lo revisamos (las fotos, los datos y el precio) y en menos de 48 horas lo publicamos en Alquiler de Sidonia.`)
+        + P('Te mandamos otro email en cuanto esté publicado. Si vemos algo que mejorar, te escribimos antes.'),
+      boton: 'Ver mi garaje', enlace: `${cfg.tienda || 'https://sidonia.es'}/pages/vende-con-nosotros?view=perfil#mi-garaje` });
+    await enviarCorreo(cfg, para, `Hemos recibido tu ${t}`, html, deps.fetch).catch((e) => console.error(e));
+  }
+  const panel = cfg.servidor ? `<p><a href="${esc(cfg.servidor)}/admin?estado=alquileres#a${Number(c.id) || ''}">Revisarlo y publicarlo en el panel</a></p>` : '';
+  await avisarEquipo(cfg, `Alquiler por revisar: ${t}`, `<p><b>${esc(perfil?.alq_legal?.nombre || perfil?.nombre || 'Alguien')}</b>${para ? ` (${esc(para)})` : ''} quiere alquilar su <b>${esc(t)}</b>${c.alq?.hora ? ` a ${Number(c.alq.hora)} €/hora` : ''}${c.alq?.ciudad ? `, en ${esc(c.alq.ciudad)}` : ''}. No se ve en la web hasta que lo publiquéis.</p>${panel}`, deps.fetch).catch((e) => console.error(e));
 }
 
 /** Las rutas del garaje: null si no es suya */
@@ -163,7 +181,7 @@ export async function rutasGaraje({ ruta, method, body }, cliente, cfg, deps) {
   if (ruta === 'api/garaje/recientes' && method === 'GET') {
     try {
       // ?alquiler=1: solo los que se podrán alquilar (la página «Alquiler»)
-      const coches = await tG.leer(`visible=eq.true${String(body.alquiler) === '1' ? '&alquiler=eq.true' : ''}&order=creado.desc&limit=48`);
+      const coches = (await tG.leer(`visible=eq.true${String(body.alquiler) === '1' ? '&alquiler=eq.true' : ''}&order=creado.desc&limit=48`)).filter((c) => String(body.alquiler) !== '1' || !enRevision(c));
       const ids = [...new Set(coches.map((c) => c.cliente))];
       const perfiles = ids.length ? await tP.leer(`cliente=in.(${ids.map((x) => `"${String(x).replace(/"/g, '')}"`).join(',')})&select=cliente,slug,nombre,foto,ciudad`).catch(() => []) : [];
       const de = Object.fromEntries(perfiles.map((p) => [p.cliente, p]));
@@ -189,7 +207,7 @@ export async function rutasGaraje({ ruta, method, body }, cliente, cfg, deps) {
       // Si alguno ya está listo y no se le avisó (p. ej., se quedó atascado), se le avisa ahora
       if (coches.some((c) => c.alquiler && c.visible !== false && !c.alq?.aviso_listo)) await avisarCochesListos(cfg, deps, cliente, { email: texto(body.email, 160) });
       return json(200, { ok: true, cobrar: Boolean(tarifa.cobrar), precio_siguiente: tarifa.cobrar ? precioMes(tarifa, cuotas.size + 1) : null, pago_web: Boolean(cfg.alquilerCobrar),
-        coches: coches.map((c) => ({ ...cochePublico(cfg, c), alq: c.alq || {}, bloqueos: c.bloqueos || [], visible: c.visible !== false, rutas: c.fotos || [], cuota: cuotas.get(Number(c.id)) || null,
+        coches: coches.map((c) => ({ ...cochePublico(cfg, c), alquiler: Boolean(c.alquiler), revision: c.alquiler ? (c.alq?.estado || '') : '', alq: c.alq || {}, bloqueos: c.bloqueos || [], visible: c.visible !== false, rutas: c.fotos || [], cuota: cuotas.get(Number(c.id)) || null,
           falta: c.alquiler ? faltaParaAlquilar(c, p, cfg.alquilerCobrar) : [] })), perfil: perfilGaraje(cfg, p) || null });
     } catch (e) { return falta(e); }
   }
@@ -217,11 +235,21 @@ export async function rutasGaraje({ ruta, method, body }, cliente, cfg, deps) {
         // El aviso de «ya se puede alquilar» se manda una vez: se conserva al editar
         if (v.coche.alq && antes.alq?.aviso_listo) v.coche.alq.aviso_listo = antes.alq.aviso_listo;
         if (v.coche.alq && antes.alq?.aviso_falta) v.coche.alq.aviso_falta = antes.alq.aviso_falta;
-        await tG.cambiar(id, { ...v.coche, actualizado: new Date().toISOString() });
-      } else {
+        // La revisión de Sidonia: lo ya aprobado sigue publicado al editarlo; lo rechazado vuelve a revisión
+        if (v.coche.alq) for (const k of ['estado', 'recibido', 'revisado', 'publicado']) if (antes.alq?.[k]) v.coche.alq[k] = antes.alq[k];
+        if (v.coche.alq && antes.alquiler && antes.alq?.estado === 'rechazado') { v.coche.alq.estado = 'pendiente'; v.coche.alq.recibido = new Date().toISOString(); v.coche.alq.rechazado_antes = antes.alq.rechazado || ''; }
+      }
+      // Su email, para que el equipo pueda escribirle desde el panel (no se enseña: alqPublico lo quita)
+      if (v.coche.alq) v.coche.alq.contacto = texto(body.email, 160) || antes?.alq?.contacto || '';
+      // Nuevo en alquiler (o vuelve tras un rechazo): como los anuncios, lo revisa Sidonia antes de publicarlo
+      const nuevoAlq = Boolean(v.coche.alquiler && v.coche.alq && (!id || !antes?.alquiler || antes.alq?.estado === 'rechazado'));
+      if (nuevoAlq) { v.coche.alq.estado = 'pendiente'; v.coche.alq.recibido = v.coche.alq.recibido || new Date().toISOString(); }
+      if (id) await tG.cambiar(id, { ...v.coche, actualizado: new Date().toISOString() });
+      else {
         if ((await tG.leer(`cliente=eq.${encodeURIComponent(cliente)}&select=id`)).length >= GARAJE_MAX) return json(200, { ok: false, error: 'maximo' });
         antes = await tG.guardar({ ...v.coche, cliente }, 'id');
       }
+      if (nuevoAlq) await alquilerRecibido(cfg, deps, cliente, p, { ...v.coche, id: id || Number(antes?.id) }, texto(body.email, 160));
       // Lo alquilaría: a la lista de espera (solo la primera vez que lo marca)
       if (v.coche.alquiler && !(antes && antes.alquiler && id)) await aLaListaDeAlquiler(cfg, deps, cliente, p, v.coche, texto(body.email, 160));
       if (v.coche.alquiler) {

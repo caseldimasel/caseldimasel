@@ -20,7 +20,7 @@ import { datos, enviarCorreo, P, plantilla } from './correos.mjs';
 import { USOS, PLANES, alqPublico, bloqueosPublicos, SEGUROS } from './garaje.mjs';
 import { leerTarifa, precioMes } from './comunidad.mjs';
 import { alquilerPagado, conFirmas, condicionesAlquiler, contratoAlquiler, contratoParaFirmar, DIAS_RESTO, paginaDocumento, reembolso, SENAL_PCT, VERSION_CONDICIONES } from './contratos.mjs';
-import { conductorEfectivo, cobrosListos, datosListos, desdeHora, documentoValido, faltaParaAlquilar, minHoras, normDoc, perfilCobros, planesDe, porHoras, precioDe, precioHora, refrescarCuenta, tienePrecio } from './cobros.mjs';
+import { conductorEfectivo, cobrosListos, datosListos, desdeHora, documentoValido, enRevision, faltaParaAlquilar, minHoras, normDoc, perfilCobros, planesDe, porHoras, precioDe, precioHora, refrescarCuenta, tienePrecio } from './cobros.mjs';
 
 export const PLAZO_H = 24;           // horas que tiene el dueño para responder
 import { createHmac } from 'node:crypto';
@@ -133,7 +133,7 @@ export function libre(coche, reservas, desde, hasta) {
   return ![...(coche.bloqueos || []), ...ocupadas(reservas)].some(([a, b]) => solapa(desde, hasta, a, b));
 }
 
-async function emailDueno(cfg, deps, dueno) {
+export async function emailDueno(cfg, deps, dueno) {
   const [d] = await tabla(cfg, deps, 'alquiler').leer(`cliente=eq.${encodeURIComponent(dueno)}&rol=eq.poner&email=neq.&order=creado.desc&limit=1`).catch(() => []);
   return { email: d?.email || '', telefono: d?.telefono || '', nombre: d?.nombre || '' };
 }
@@ -383,7 +383,8 @@ export async function revisarReservas(cfg, deps) {
     for (const c of pend) {
       const p = ps[String(c.cliente)];
       const f = faltaParaAlquilar(c, p, true);
-      if (!f.length) continue;
+      // En revisión: eso es cosa de Sidonia (lo ve en el panel), no se le pide nada al dueño
+      if (!f.length || enRevision(c)) continue;
       const para = String(p?.alq_legal?.email || (await emailDueno(cfg, deps, c.cliente)).email || '').trim();
       const t = titulo(c);
       if (para) {
@@ -411,7 +412,7 @@ export async function rutasReservas({ ruta, method, body, ip = '', ua = '' }, cl
     try {
       const desde = DIA.test(body.desde) ? body.desde : '', hasta = DIA.test(body.hasta) ? body.hasta : desde;
       const ciudad = clip(body.ciudad, 60).toLowerCase(), conductor = ['con', 'sin'].includes(body.conductor) ? body.conductor : '';
-      let coches = (await tG.leer('alquiler=eq.true&visible=eq.true&order=creado.desc&limit=500')).filter((c) => tienePrecio(c.alq || {}));
+      let coches = (await tG.leer('alquiler=eq.true&visible=eq.true&order=creado.desc&limit=500')).filter((c) => tienePrecio(c.alq || {}) && !enRevision(c));
       const cuotas = cuotasAlquiler(coches, await tarifaDe(cfg, deps));
       coches = coches.filter((c) => cuotas.get(Number(c.id))?.activo !== false);
       if (cfg.alquilerCobrar) { const pp = await perfiles(cfg, deps, coches.map((c) => c.cliente)); coches = coches.filter((c) => !faltaParaAlquilar(c, pp[String(c.cliente)], true).length); }
@@ -431,6 +432,7 @@ export async function rutasReservas({ ruta, method, body, ip = '', ua = '' }, cl
       const [c] = await tG.leer(`id=eq.${Number(body.id)}&alquiler=eq.true&limit=1`);
       if (!c || c.visible === false) return json(404, { ok: false, error: 'no-existe' });
       const suyo = String(c.cliente) === String(cliente);
+      if (!suyo && enRevision(c)) return json(404, { ok: false, error: 'no-existe' });
       const suyos = await tG.leer(`cliente=eq.${encodeURIComponent(c.cliente)}&alquiler=eq.true&visible=eq.true&select=id,cliente,creado,alq_hasta`).catch(() => [c]);
       if (!suyo && cuotasAlquiler(suyos, await tarifaDe(cfg, deps)).get(Number(c.id))?.activo === false) return json(404, { ok: false, error: 'no-existe' });
       const pD = cfg.alquilerCobrar ? await perfilCobros(cfg, deps, c.cliente) : null;
@@ -456,7 +458,7 @@ export async function rutasReservas({ ruta, method, body, ip = '', ua = '' }, cl
       if (!slug) return json(400, { ok: false, error: 'datos' });
       const [p] = await tabla(cfg, deps, 'perfiles').leer(`slug=eq.${slug}&limit=1`);
       if (!p) return json(200, { ok: true, coches: [], resenas: [], nota: 0, n: 0, alquileres: 0 });
-      let coches = (await tG.leer(`cliente=eq.${encodeURIComponent(p.cliente)}&alquiler=eq.true&visible=eq.true&order=creado.desc&limit=50`)).filter((c) => tienePrecio(c.alq || {}));
+      let coches = (await tG.leer(`cliente=eq.${encodeURIComponent(p.cliente)}&alquiler=eq.true&visible=eq.true&order=creado.desc&limit=50`)).filter((c) => tienePrecio(c.alq || {}) && !enRevision(c));
       const cuotas = cuotasAlquiler(coches, await tarifaDe(cfg, deps));
       coches = coches.filter((c) => cuotas.get(Number(c.id))?.activo !== false);
       const st = await statsDueno(cfg, deps, p.cliente, coches.map((c) => Number(c.id)));
@@ -483,7 +485,7 @@ export async function rutasReservas({ ruta, method, body, ip = '', ua = '' }, cl
     if (q.mensaje.length < 10) return json(400, { ok: false, error: 'mensaje' });
     try {
       const [c] = await tG.leer(`id=eq.${Number(body.coche_id)}&alquiler=eq.true&limit=1`);
-      if (!c || c.visible === false || !tienePrecio(c.alq || {})) return json(404, { ok: false, error: 'no-existe' });
+      if (!c || c.visible === false || !tienePrecio(c.alq || {}) || enRevision(c)) return json(404, { ok: false, error: 'no-existe' });
       if (String(c.cliente) === String(cliente)) return json(400, { ok: false, error: 'suyo' });
       const modo = modoDe(c.alq, cfg.alquilerCobrar, q.conductor);
       q.conductor = modo;

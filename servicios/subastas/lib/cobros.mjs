@@ -137,9 +137,13 @@ export async function rutasCobros({ ruta, method, body, ip }, cliente, cfg, deps
 
 /** Qué le falta a un coche para poder alquilarse con pago en la web (vacío: listo).
  *  precio · matricula · seguro (compañía, póliza, tipo y que cubra a quien alquila) · itv · vtc (con conductor) · datos · cobros */
+/** Como los anuncios: lo que se sube para alquilar lo revisa Sidonia antes de publicarlo (alq.estado: pendiente →
+ *  publicado, o rechazado). Los de antes de la revisión (sin estado) siguen publicados. */
+export const enRevision = (c) => ['pendiente', 'rechazado'].includes(c?.alq?.estado);
 export function faltaParaAlquilar(c, p, cobrar) {
   const a = (c && c.alq) || {};
   const f = [];
+  if (enRevision(c)) f.push('revision');
   if (!tienePrecio(a)) f.push('precio');
   if (!cobrar) return f;
   // Sidonia solo intermedia (como Airbnb): el dueño declara que el seguro, el conductor, las licencias y la ITV son cosa suya

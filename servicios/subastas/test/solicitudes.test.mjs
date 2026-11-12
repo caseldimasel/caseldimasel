@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { atenderPanel } from '../lib/circulo.mjs';
 import { config } from '../lib/motor.mjs';
 
-const cfg = config({ ADMIN_CLAVE: 'p', TIENDA_URL: 'https://sidonia.es', SUPABASE_URL: 'https://x.supabase.co', SUPABASE_SERVICE_KEY: 's', RESEND_API_KEY: 're_x' });
+const cfg = config({ ADMIN_CLAVE: 'p', TIENDA_URL: 'https://sidonia.es', SUPABASE_URL: 'https://x.supabase.co', SUPABASE_SERVICE_KEY: 's', RESEND_API_KEY: 're_x', AVISOS_EQUIPO: 'equipo@x.es' });
 const auth = { authorization: 'Basic ' + Buffer.from('a:p').toString('base64') };
 function memo(filas = []) {
   let sig = 50;
@@ -35,21 +35,76 @@ test('panel › Gestiones de venta: se ven con su WhatsApp, se cambia el estado 
   assert.equal(gestiones.filas.at(-1).datos.telefono, '+34611222333'); assert.equal(gestiones.filas.at(-1).estado, 'nueva');
 });
 
-test('panel › Alquileres: revisar, ocultar, rechazar con email, editar, fotos y borrar', async () => {
-  const garaje = memo([{ id: 7, cliente: '55', marca: 'Mercedes', modelo: '280 SL', anio: 1970, alquiler: true, visible: true, fotos: ['55/aaaaaaaa1.jpg', '55/aaaaaaaa2.jpg', '55/aaaaaaaa3.jpg'], historia: 'De mi abuelo.', alq: { hora: 60, min_horas: 3, ciudad: 'Madrid', declara: true }, creado: '2026-11-12T10:00:00Z' }]);
+test('panel › Alquileres: llega por revisar, se edita (fotos incluidas), se aprueba y publica, o se rechaza con email', async () => {
+  const garaje = memo([{ id: 7, cliente: '55', marca: 'Mercedes', modelo: '280 SL', anio: 1970, alquiler: true, visible: true, fotos: ['55/aaaaaaaa1.jpg', '55/aaaaaaaa2.jpg', '55/aaaaaaaa3.jpg'], historia: 'De mi abuelo.', alq: { hora: 60, min_horas: 3, ciudad: 'Madrid', declara: true, estado: 'pendiente', recibido: '2026-11-12T10:00:00Z' }, creado: '2026-11-12T10:00:00Z' }]);
   const perfiles = memo([{ cliente: '55', nombre: 'Marta', alq_legal: { nombre: 'Marta Ruiz', dni: '12345678Z', domicilio: 'Calle 1', telefono: '600000000', email: 'marta@x.es', acepto: 'x', version: 'v' } }]);
   const correos = [];
-  const deps = { db: async () => [], tabla: memo([]), gestiones: memo([]), garaje, perfiles, fetch: async (u, o) => { correos.push(JSON.parse(o.body)); return { ok: true, json: async () => ({}) }; } };
-  const ir = (body) => atenderPanel({ method: body ? 'POST' : 'GET', query: { estado: 'alquileres' }, body, headers: auth }, cfg, deps);
+  const deps = { db: async () => [], tabla: memo([]), gestiones: memo([]), garaje, perfiles, alquiler: memo([]),
+    subidas: async (c, cliente, tipos) => ({ ok: true, subidas: tipos.map((_, i) => ({ ruta: `${cliente}/nuevafoto${i}.jpg`, url: `https://x/subir/${i}` })) }),
+    fetch: async (u, o) => { correos.push(JSON.parse(o.body)); return { ok: true, json: async () => ({}) }; } };
+  const ir = (body, ver) => atenderPanel({ method: body ? 'POST' : 'GET', query: { estado: 'alquileres', ...(ver ? { ver } : {}) }, body, headers: auth }, cfg, deps);
   const r = await ir();
-  assert.match(r.body, /Mercedes 280 SL 1970/); assert.match(r.body, /Publicado · sin revisar/); assert.match(r.body, /Alquileres <b class="num">1<\/b>/);
-  await ir({ accion: 'alq-revisado', id: '7' }); assert.ok(garaje.filas[0].alq.revisado);
+  assert.match(r.body, /Mercedes 280 SL 1970/); assert.match(r.body, /Por revisar · no se ve/); assert.match(r.body, /Aprobar y publicar/); assert.match(r.body, /Alquileres <b class="num">1<\/b>/);
+  assert.match(r.body, /wa\.me\/34600000000\?text=/);
+  // Fotos: quitar, añadir (permiso + rutas de su carpeta) y portada
   await ir({ accion: 'alq-fotos', id: '7', quitar: ['0', '2'] }); assert.deepEqual(garaje.filas[0].fotos, ['55/aaaaaaaa2.jpg']);
+  const s = JSON.parse((await ir({ accion: 'alq-subir', id: '7', n: '2' })).body);
+  assert.equal(s.ok, true); assert.equal(s.subidas.length, 2);
+  await ir({ accion: 'alq-fotos-nuevas', id: '7', ruta: ['55/nuevafoto0.jpg', '99/ajena123.jpg'] });
+  assert.deepEqual(garaje.filas[0].fotos, ['55/aaaaaaaa2.jpg', '55/nuevafoto0.jpg'], 'solo las de su carpeta');
   await ir({ accion: 'alq-editar', id: '7', marca: 'Mercedes-Benz', modelo: '280 SL', anio: '1970', hora: '75', min_horas: '2', ciudad: 'Toledo', plazas: '2', historia: 'Nueva', normas: 'Sin fumar' });
-  assert.equal(garaje.filas[0].marca, 'Mercedes-Benz'); assert.equal(garaje.filas[0].alq.hora, 75); assert.equal(garaje.filas[0].alq.ciudad, 'Toledo');
+  assert.equal(garaje.filas[0].marca, 'Mercedes-Benz'); assert.equal(garaje.filas[0].alq.hora, 75); assert.equal(garaje.filas[0].alq.estado, 'pendiente', 'editar no lo publica');
+  // Rechazar: con el motivo por email, sigue sin verse
   await ir({ accion: 'alq-rechazar', id: '7', motivo: 'Las fotos están borrosas' });
-  assert.equal(garaje.filas[0].visible, false);
+  assert.equal(garaje.filas[0].alq.estado, 'rechazado');
   assert.ok(correos.some((c) => [].concat(c.to).includes('marta@x.es') && /borrosas/.test(c.html)));
+  assert.match((await ir(null, 'rechazados')).body, /Motivo del rechazo: Las fotos están borrosas/);
+  // Aprobar y publicar: se ve y le llega «ya está publicado» (una vez)
+  correos.length = 0;
+  const pub = await ir({ accion: 'alq-publicar', id: '7' });
+  assert.equal(garaje.filas[0].alq.estado, 'publicado'); assert.equal(garaje.filas[0].visible, true); assert.equal(garaje.filas[0].alq.rechazado, undefined);
+  assert.match(pub.body, /Publicado en Alquiler y avisado por email/);
+  assert.ok(correos.some((c) => [].concat(c.to).includes('marta@x.es') && /ya está publicado/i.test(c.html)));
+  assert.ok(garaje.filas[0].alq.aviso_listo);
+  await ir({ accion: 'alq-ocultar', id: '7' }); assert.equal(garaje.filas[0].visible, false);
   await ir({ accion: 'alq-mostrar', id: '7' }); assert.equal(garaje.filas[0].visible, true);
   await ir({ accion: 'alq-borrar', id: '7' }); assert.equal(garaje.filas.length, 0);
+});
+
+test('alquiler › lo nuevo no se publica solo: queda por revisar, no sale en la web y llega «recibido»', async () => {
+  const { rutasGaraje } = await import('../lib/garaje.mjs');
+  const { rutasReservas } = await import('../lib/reservas.mjs');
+  const garaje = memo([]), perfiles = memo([{ cliente: '55', slug: 'marta-55', nombre: 'Marta' }]);
+  const correos = [];
+  const deps = { garaje, perfiles, alquiler: memo([]), reservas: memo([]), reservas_resenas: memo([]), reservas_mensajes: memo([]), ajustes: memo([]),
+    fetch: async (u, o) => { correos.push(JSON.parse(o.body)); return { ok: true, json: async () => ({}) }; } };
+  const coche = { tipo: 'coche', marca: 'Seat', modelo: '600', anio: '1968', historia: 'El coche de mi abuela, siempre en garaje y con sus papeles.', fotos: ['55/abcdefgh1.jpg'], alquiler: true, alquiler_como: 'con', visible: true, email: 'marta@x.es',
+    alq: { hora: 50, min_horas: 2, ciudad: 'Madrid', declara: true } };
+  const r = await rutasGaraje({ ruta: 'api/garaje', method: 'POST', body: coche }, '55', cfg, deps);
+  assert.equal(JSON.parse(r.body).ok, true);
+  const c = garaje.filas[0];
+  assert.equal(c.alq.estado, 'pendiente'); assert.equal(c.alq.contacto, 'marta@x.es');
+  assert.ok(correos.some((m) => [].concat(m.to).includes('marta@x.es') && /hemos recibido/i.test(m.html)), 'al dueño: recibido');
+  assert.ok(correos.some((m) => /Alquiler por revisar/.test(m.subject)), 'al equipo: por revisar');
+  const lista = JSON.parse((await rutasReservas({ ruta: 'api/alquiler/coches', method: 'GET', body: {} }, '', cfg, deps)).body);
+  assert.equal(lista.coches.length, 0, 'no sale en Alquiler');
+  const una = await rutasReservas({ ruta: 'api/alquiler/coche', method: 'GET', body: { id: c.id } }, '77', cfg, deps);
+  assert.equal(una.status, 404);
+  const pub = JSON.parse((await rutasGaraje({ ruta: 'api/garaje/recientes', method: 'GET', body: { alquiler: '1' } }, '', cfg, deps)).body);
+  assert.equal(pub.coches.length, 0);
+  const mio = JSON.parse((await rutasGaraje({ ruta: 'api/garaje', method: 'GET', body: {} }, '55', cfg, deps)).body);
+  assert.equal(mio.coches[0].revision, 'pendiente'); assert.equal(mio.coches[0].alquiler, true); assert.ok(mio.coches[0].falta.includes('revision'));
+  // Editarlo mientras espera: no manda otro «recibido»
+  const n = correos.length;
+  await rutasGaraje({ ruta: 'api/garaje', method: 'POST', body: { ...coche, id: c.id, historia: coche.historia + ' Más.' } }, '55', cfg, deps);
+  assert.equal(correos.length, n); assert.equal(garaje.filas[0].alq.estado, 'pendiente');
+  // Publicado: ahora sí sale; y al editarlo sigue publicado
+  garaje.filas[0].alq.estado = 'publicado';
+  assert.equal(JSON.parse((await rutasReservas({ ruta: 'api/alquiler/coches', method: 'GET', body: {} }, '', cfg, deps)).body).coches.length, 1);
+  await rutasGaraje({ ruta: 'api/garaje', method: 'POST', body: { ...coche, id: c.id, alq: { ...coche.alq, hora: 55 } } }, '55', cfg, deps);
+  assert.equal(garaje.filas[0].alq.estado, 'publicado'); assert.equal(garaje.filas[0].alq.hora, 55);
+  // Rechazado y lo cambia: vuelve a revisión
+  garaje.filas[0].alq.estado = 'rechazado'; garaje.filas[0].alq.rechazado = 'Faltan fotos';
+  await rutasGaraje({ ruta: 'api/garaje', method: 'POST', body: { ...coche, id: c.id } }, '55', cfg, deps);
+  assert.equal(garaje.filas[0].alq.estado, 'pendiente'); assert.equal(garaje.filas[0].alq.rechazado_antes, 'Faltan fotos');
 });
