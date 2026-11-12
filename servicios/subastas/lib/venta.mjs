@@ -7,6 +7,7 @@
  */
 import { avisarEquipo, esc, telefono as normTel, urlFoto } from './circulo.mjs';
 import { enviarCorreo, P, plantilla } from './correos.mjs';
+import { guardarGestion } from './solicitudes.mjs';
 
 const texto = (v, n) => String(v ?? '').replace(/\r\n?/g, '\n').replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g, '').trim().slice(0, n);
 
@@ -48,7 +49,10 @@ ${d.ficha.length ? `<h3>Ficha técnica</h3><ul>${d.ficha.map(([k, x]) => `<li>${
 ${d.mecanica ? `<h3>Mecánica y estado</h3><p style="white-space:pre-line">${esc(d.mecanica)}</p>` : ''}
 <p>${d.fotos.map((f, i) => `<a href="${esc(urlFoto(cfg, f))}"><img src="${esc(urlFoto(cfg, f))}" alt="Foto ${i + 1}" width="180" style="margin:0 6px 6px 0;border-radius:8px"></a>`).join('')}</p>
 <p><a href="https://wa.me/${esc(d.telefono.replace('+', ''))}">Escribirle por WhatsApp</a></p>`;
-  await avisarEquipo(cfg, `Gestión de venta: ${titulo}`, html, deps.fetch).catch((e) => console.error(e));
+  // Al panel (Gestiones de venta) y al equipo por email
+  const g = await guardarGestion(cfg, deps, cliente, d);
+  const panel = cfg.servidor ? `<p><a href="${esc(cfg.servidor)}/admin?estado=gestiones${g?.id ? `#g${Number(g.id)}` : ''}">Verla en el panel</a></p>` : '';
+  await avisarEquipo(cfg, `Gestión de venta: ${titulo}`, html + panel, deps.fetch).catch((e) => console.error(e));
   if (d.email) {
     const c = plantilla(cfg, null, { titulo: '¡Lo tenemos!', previa: `Hemos recibido tu ${titulo}.`,
       cuerpo: P(`Hola ${esc(d.nombre.split(/\s+/)[0])}:`) + P(`Hemos recibido tu <b>${esc(titulo)}</b> para que te ayudemos a venderlo. Te escribimos por WhatsApp en menos de 48 horas para contarte cómo lo haríamos: el vídeo contando su historia, nuestras redes y las visitas.`) + P('Solo cobramos si se vende.'),

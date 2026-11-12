@@ -182,7 +182,8 @@ const PAGES = [
   { handle: 'publicar', title: 'Publica gratis', template: 'publicar' },
   { handle: 'alquiler', title: 'Alquiler', template: 'alquiler' },
   { handle: 'sidonia-rd10', title: 'SIDONIA RD10', template: 'rd10' },
-  { handle: 'tienda', title: 'Tienda', template: 'tienda' }
+  { handle: 'tienda', title: 'Tienda', template: 'tienda' },
+  { handle: 'eventos', title: 'Eventos', template: 'eventos' }
 ];
 
 export function createStore(profile = 'full', port = 4173) {

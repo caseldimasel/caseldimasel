@@ -46,6 +46,8 @@ export async function registrarEvento(db, body, cliente, headers = {}) {
 export const SECCIONES = [
   ['ventas', 'Ventas', [['ventas', 'Ventas'], ['meses', 'Por meses'], ['ofertas', 'Ofertas'], ['enlazar', 'Enlazar a mano'], ['importar', 'Importar Excel']], ['operacion']],
   ['fichas', 'Anuncios', [['fichas', 'En la web'], ['cobros', 'Cobros comunidad'], ['pendiente', 'Por revisar'], ['cambios', 'Cambios'], ['aprobado', 'Aprobados'], ['publicado', 'Publicados'], ['vendido', 'Vendidos'], ['cancelados', 'Cancelados']], ['ficha', 'rechazado', 'retirado', 'cobrar', 'tarifa']],
+  ['gestiones', 'Gestiones de venta', [], []],
+  ['alquileres', 'Alquileres', [], []],
   ['clientes', 'Clientes', [['clientes', 'Interesados'], ['anunciantes', 'Anunciantes · comunidad'], ['duenos', 'Propietarios · gestión'], ['garajes', 'Garajes'], ['opiniones', 'Opiniones de profesionales'], ['alquiler', 'Alquiler · lista de espera']], ['cliente', 'anunciante']],
   ['estadisticas', 'Estadísticas web', [['estadisticas', 'Web'], ['conversaciones', 'Conversaciones']], ['anuncio', 'chat']],
   ['herramientas', 'Herramientas', [['preventas', 'Reservas RD10'], ['paginas', 'Páginas de la web'], ['ubicaciones', 'Ubicaciones'], ['propietarios', 'Propietario en las fichas'], ['avisos', 'Avisos al móvil'], ['correos', 'Emails']], []]
@@ -57,7 +59,7 @@ export function ponerContadores(c) { contadores = c || {}; }
 export function navPanel(on) {
   const seccion = SECCIONES.find(([k, , subs, otros]) => k === on || subs.some(([s]) => s === on) || otros.includes(on)) || SECCIONES[0];
   const num = (x) => (x ? ` <b class="num">${x}</b>` : '');
-  const arriba = SECCIONES.map(([k, t]) => `<a href="?estado=${k}"${k === seccion[0] ? ' class="on"' : ''}>${t}${k === 'fichas' ? num((contadores.pendiente || 0) + (contadores.cambios || 0)) : ''}</a>`).join('');
+  const arriba = SECCIONES.map(([k, t]) => `<a href="?estado=${k}"${k === seccion[0] ? ' class="on"' : ''}>${t}${k === 'fichas' ? num((contadores.pendiente || 0) + (contadores.cambios || 0)) : k === 'gestiones' ? num(contadores.gestiones) : k === 'alquileres' ? num(contadores.alquileres) : ''}</a>`).join('');
   const subOn = { rechazado: 'cancelados', retirado: 'cancelados', operacion: 'ventas', ficha: 'fichas', cobrar: 'cobros', tarifa: 'cobros', cliente: 'clientes', anunciante: 'anunciantes' }[on] || on;
   const abajo = seccion[2].length ? `<nav class="sub">${seccion[2].map(([k, t]) => `<a href="?estado=${k}"${k === subOn ? ' class="on"' : ''}>${t}${k === 'pendiente' || k === 'cambios' ? num(contadores[k]) : ''}</a>`).join('')}</nav>` : '';
   return `<nav class="main">${arriba}</nav>${abajo}`;

@@ -31,6 +31,7 @@ import { avisarCliente, avisarTodos, avisoCambios, avisoPublicado, avisoRechazad
 import { navPanel, paginaEstadisticas, ponerContadores } from './estadisticas.mjs';
 import { CSS_CONTACTOS, leerConversacion, listaConversaciones, paginaConversacionesHtml, paginaConversacionHtml, resumenContactos } from './conversaciones.mjs';
 import { marco, rutasOperaciones } from './operaciones.mjs';
+import { contarSolicitudes, rutasSolicitudes } from './solicitudes.mjs';
 import { accionPanelAlquiler, paginaAlquiler } from './alquiler.mjs';
 import { accionPanelGarajes, accionPanelReservas, cuotasAlquiler, tablaReservasPanel } from './reservas.mjs';
 import { leerTarifa as leerTarifaAlq } from './comunidad.mjs';
@@ -979,7 +980,12 @@ export async function atenderPanel(req, cfg, deps) {
     try {
       const filas = await (deps.tabla || tablaAnuncios(cfg, deps.fetch)).leer('select=estado,revision&limit=5000');
       const c = { pendiente: filas.filter((a) => a.estado === 'pendiente').length, cambios: filas.filter((a) => a.revision).length };
+      // Gestiones de venta nuevas y alquileres sin revisar (solicitudes.mjs)
+      const sol = await contarSolicitudes(cfg, deps);
+      Object.assign(c, sol);
       ponerContadores(c);
+      if (sol.gestiones) tareas.push([`${sol.gestiones} ${sol.gestiones === 1 ? 'gestión de venta nueva' : 'gestiones de venta nuevas'} ›`, '?estado=gestiones']);
+      if (sol.alquileres) tareas.push([`${sol.alquileres} ${sol.alquileres === 1 ? 'vehículo de alquiler' : 'vehículos de alquiler'} por revisar ›`, '?estado=alquileres']);
       if (c.pendiente) tareas.push([`${c.pendiente} ${c.pendiente === 1 ? 'anuncio' : 'anuncios'} por revisar ›`, '?estado=pendiente']);
       if (c.cambios) tareas.push([`${c.cambios} ${c.cambios === 1 ? 'cambio' : 'cambios'} por revisar ›`, '?estado=cambios']);
     } catch (e) { console.error(e); }
@@ -993,6 +999,8 @@ export async function atenderPanel(req, cfg, deps) {
   const seccion = req.query.estado || (req.method === 'GET' ? 'ventas' : '');
   // Anuncios › En la web: todos los anuncios de la tienda y su editor (fichas.mjs)
   if (seccion === 'fichas' || seccion === 'ficha') return rutasFichas({ ...req, query: { ...req.query, estado: seccion } }, cfg, deps, html);
+  // Gestiones de venta y Alquileres (solicitudes.mjs)
+  if (seccion === 'gestiones' || seccion === 'alquileres') return rutasSolicitudes({ ...req, query: { ...req.query, estado: seccion } }, cfg, deps, html, marco);
   // Clientes › Garajes: los coches de «Mi garaje» y lo que quiere recibir cada uno (garaje.mjs)
   if (seccion === 'garajes') {
     let coches = [], perfiles = [], error = '';
