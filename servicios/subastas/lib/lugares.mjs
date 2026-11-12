@@ -9,7 +9,7 @@
  * horas en la caché de Vercel para no pedirla en cada visita (y gastar lo mínimo de la cuota de Google).
  */
 const BASE = 'https://places.googleapis.com/v1';
-const CACHE_OK = 'public, max-age=3600, s-maxage=21600, stale-while-revalidate=86400';
+const CACHE_OK = 'public, max-age=3600, s-maxage=86400, stale-while-revalidate=86400';
 
 const json = (status, b, cache = 'no-store') => ({ status, headers: { 'Content-Type': 'application/json', 'Cache-Control': cache }, body: JSON.stringify(b) });
 

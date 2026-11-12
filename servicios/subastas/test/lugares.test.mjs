@@ -18,7 +18,7 @@ test('foto de Google Maps: busca el sitio, pide la foto y devuelve su autor; se 
   const r = await ir(cfg, { q: 'Cochera Clásicos Cercedilla', w: '600' });
   const d = JSON.parse(r.body);
   assert.equal(d.ok, true); assert.equal(d.url, 'https://lh3.googleusercontent.com/foto1'); assert.equal(d.autor, 'Ana');
-  assert.match(r.headers['Cache-Control'], /s-maxage=21600/);
+  assert.match(r.headers['Cache-Control'], /s-maxage=86400/);
   assert.match(llamadas[0][1], /places\.photos/);
   assert.match(llamadas[1][0], /maxWidthPx=600&skipHttpRedirect=true/);
   assert.equal(JSON.parse((await ir(cfg, { q: 'x' })).body).error, 'datos');
