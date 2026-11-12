@@ -31,6 +31,8 @@ import { marco, normal } from './operaciones.mjs';
 
 // 12,90 € al mes por anuncio (el primero, un mes gratis). Se puede cambiar en el panel (Cobros › Tarifa).
 // cobrar: si se cobra a la comunidad. Apagado (de serie): todos los anuncios son gratis, sin avisos de pago ni precios.
+// Anuncios gratis por persona (cada uno con su mes gratis); a partir del siguiente, de pago
+export const ANUNCIOS_GRATIS = 3;
 export const TARIFA_BASE = { tramos: [{ desde: 1, precio: 12.9 }], meses_gratis: 1, aviso: 7, retirar: 0, cobrar: false };
 export const METODOS = { bizum: 'Bizum', transferencia: 'Transferencia', tarjeta: 'Tarjeta', efectivo: 'Efectivo', otro: 'Otro', stripe: 'Tarjeta (Stripe)' };
 export const AUTO = { activa: ['Renovación automática activa', 'vendido'], cancela: ['Dado de baja: no se renueva', 'reservado'], impago: ['El último cobro ha fallado', 'retirado'], cancelada: ['Suscripción terminada', ''] };
@@ -178,12 +180,12 @@ export async function altaComunidad(cfg, deps, a, ahora = Date.now()) {
     const tarifa = await leerTarifa(deps.ajustes || tablaAnuncios(cfg, deps.fetch, 'ajustes'));
     // Sin cobrar a la comunidad: gratis, sin mes gratis que contar ni enlace de pago
     if (!tarifa.cobrar) return '';
-    const previos = await tP.leer(`cliente=eq.${encodeURIComponent(a.cliente)}&select=id&limit=1`);
-    if (!previos.length && tarifa.meses_gratis > 0) {
+    const previos = await tP.leer(`cliente=eq.${encodeURIComponent(a.cliente)}&concepto=eq.gratis&select=id&limit=${ANUNCIOS_GRATIS}`);
+    if (previos.length < ANUNCIOS_GRATIS && tarifa.meses_gratis > 0) {
       const hasta = sumarMeses(ahora, tarifa.meses_gratis);
-      await tP.guardar({ cliente: a.cliente, anuncio: a.id, titulo: a.titulo || '', nombre: a.vendedor_nombre || '', email: a.email || '', concepto: 'gratis', meses: tarifa.meses_gratis, importe: 0, fecha: new Date(ahora).toISOString().slice(0, 10), desde: new Date(ahora).toISOString(), hasta: hasta.toISOString(), nota: 'Su primer anuncio' }, 'id');
+      await tP.guardar({ cliente: a.cliente, anuncio: a.id, titulo: a.titulo || '', nombre: a.vendedor_nombre || '', email: a.email || '', concepto: 'gratis', meses: tarifa.meses_gratis, importe: 0, fecha: new Date(ahora).toISOString().slice(0, 10), desde: new Date(ahora).toISOString(), hasta: hasta.toISOString(), nota: `Anuncio gratis ${previos.length + 1} de ${ANUNCIOS_GRATIS}` }, 'id');
       await tA.cambiar(a.id, { caduca: hasta.toISOString(), gratis: true });
-      return ` Es su primer anuncio: gratis hasta el ${dia(hasta)}.`;
+      return ` Es su anuncio gratis ${previos.length + 1} de ${ANUNCIOS_GRATIS}: gratis hasta el ${dia(hasta)}.`;
     }
     const activos = await tA.leer(`cliente=eq.${encodeURIComponent(a.cliente)}&estado=in.(${ACTIVOS.join(',')})&select=id`);
     const precio = precioMes(tarifa, activos.length);

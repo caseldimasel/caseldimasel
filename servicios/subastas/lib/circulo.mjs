@@ -167,7 +167,9 @@ export async function rutasTienda({ ruta, method, body }, cliente, cfg, deps) {
       const activos = (await tablaA().leer(`cliente=eq.${encodeURIComponent(cliente)}&estado=in.(${ACTIVOS.join(',')})&select=id`)).length;
       const tarifa = await leerTarifa(deps.ajustes || tablaAnuncios(cfg, deps.fetch, 'ajustes'));
       // Sin cobrar a la comunidad: sin precio (la web no enseña nada de pago)
-      return { activos, precio_siguiente: tarifa.cobrar ? precioMes(tarifa, activos + 1) : null, cobrar: tarifa.cobrar };
+      // Los primeros (ANUNCIOS_GRATIS) son gratis: hasta entonces, el siguiente no cuesta nada
+      const { ANUNCIOS_GRATIS } = await import('./comunidad.mjs');
+      return { activos, precio_siguiente: tarifa.cobrar ? (activos + 1 <= ANUNCIOS_GRATIS ? 0 : precioMes(tarifa, activos + 1)) : null, cobrar: tarifa.cobrar };
     } catch (e) { return { activos: null, precio_siguiente: null, cobrar: false }; }
   };
   if (ruta === 'api/anuncio' && method === 'GET') {
@@ -217,8 +219,9 @@ export async function rutasTienda({ ruta, method, body }, cliente, cfg, deps) {
       try {
         const { activos, cobrar } = await cuenta();
         if (!cobrar) throw new Error('gratis');
-        const previos = await (deps.pagos || tablaAnuncios(cfg, deps.fetch, 'pagos')).leer(`cliente=eq.${encodeURIComponent(cliente)}&select=id&limit=1`);
-        r.de_pago = previos.length > 0 || activos > 1;
+        const { ANUNCIOS_GRATIS } = await import('./comunidad.mjs');
+        const previos = await (deps.pagos || tablaAnuncios(cfg, deps.fetch, 'pagos')).leer(`cliente=eq.${encodeURIComponent(cliente)}&concepto=eq.gratis&select=id&limit=${ANUNCIOS_GRATIS}`);
+        r.de_pago = previos.length >= ANUNCIOS_GRATIS || activos > ANUNCIOS_GRATIS;
         if (r.de_pago) r.precio = precioMes(await leerTarifa(deps.ajustes || tablaAnuncios(cfg, deps.fetch, 'ajustes')), activos);
       } catch (e) { /* sin sql/comunidad.sql: como antes */ }
       await avisarEquipo(cfg, `Nuevo anuncio gratis: ${v.datos.titulo}`, emailAnuncio(cfg, v.datos), deps.fetch).catch((e) => console.error(e));

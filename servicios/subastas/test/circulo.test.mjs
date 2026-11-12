@@ -409,8 +409,8 @@ test('propietarios: se sacan de la historia y se ponen a los que no lo tienen', 
   assert.match(r.body, /Listo: 1 propietarios puestos/);
 });
 
-test('varios anuncios: el segundo es de pago; editar, vender y eliminar cada uno por su id (y nunca el de otro)', async () => {
-  const filas = [{ id: 1, cliente: '7001', estado: 'publicado', titulo: 'Porsche', producto: 'porsche', vendedor_nombre: 'Ana' }, { id: 2, cliente: '7001', estado: 'pendiente', titulo: 'Vespa', vendedor_nombre: 'Ana' }, { id: 3, cliente: '9999', estado: 'publicado', titulo: 'De otro', producto: 'otro' }];
+test('varios anuncios: hasta 3 gratis, el cuarto es de pago; editar, vender y eliminar cada uno por su id (y nunca el de otro)', async () => {
+  const filas = [{ id: 1, cliente: '7001', estado: 'publicado', titulo: 'Porsche', producto: 'porsche', vendedor_nombre: 'Ana' }, { id: 2, cliente: '7001', estado: 'pendiente', titulo: 'Vespa', vendedor_nombre: 'Ana' }, { id: 5, cliente: '7001', estado: 'publicado', titulo: 'Mini', producto: 'mini', vendedor_nombre: 'Ana' }, { id: 3, cliente: '9999', estado: 'publicado', titulo: 'De otro', producto: 'otro' }];
   const tabla = {
     async leer(f) {
       let l = [...filas];
@@ -425,12 +425,12 @@ test('varios anuncios: el segundo es de pago; editar, vender y eliminar cada uno
   const cobrando = { leer: async () => [{ valor: { cobrar: true } }] };
   const llamadas = [];
   const db = async (fn, a) => { llamadas.push([fn, a]); return fn === 'sidonia_anuncio_nuevo' ? { ok: true, anuncio: { id: 4 } } : fn === 'sidonia_anuncio_mio' ? filas[1] : { ok: true }; };
-  const deps = { db, tabla, pagos: { leer: async () => [{ id: 1 }] }, ajustes: cobrando, gql: async () => ({ products: { nodes: [] } }) };
+  const deps = { db, tabla, pagos: { leer: async () => [{ id: 1 }, { id: 2 }, { id: 3 }] }, ajustes: cobrando, gql: async () => ({ products: { nodes: [] } }) };
   // En las GET, el id va en la dirección (?id=), firmada por Shopify con lo demás
   const firmada = (extra) => { const x = { ...q(), ...extra }; delete x.signature; return { ...x, signature: firmaProxy(x, SECRETO) }; };
   const ir = async (method, ruta, body = {}) => JSON.parse((await atender({ method, ruta, query: method === 'GET' ? firmada(body) : q(), body }, cfg, deps)).body);
   const g = await ir('GET', 'api/anuncio');
-  assert.deepEqual([g.activos, g.precio_siguiente], [2, 12.9], 'ya tiene 2: el tercero, 12,90 € al mes');
+  assert.deepEqual([g.activos, g.precio_siguiente], [3, 12.9], 'ya tiene 3 (los gratis): el cuarto, 12,90 € al mes');
   assert.equal((await ir('GET', 'api/anuncio', { id: '1' })).anuncio.titulo, 'Porsche');
   assert.equal((await ir('GET', 'api/anuncio', { id: '3' })).anuncio, null, 'el de otro, no');
   const n = await ir('POST', 'api/anuncio', bueno());

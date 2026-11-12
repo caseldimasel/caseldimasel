@@ -62,16 +62,18 @@ test('cómo va cada anuncio y cada anunciante, y lo que entra', () => {
   assert.deepEqual([m.anunciantes, m.pagadores, m.gratis], [3, 2, 1]);
 });
 
-test('al publicar: el primero gratis un mes, el segundo por cobrar', async () => {
+test('al publicar: los 3 primeros gratis un mes, el cuarto por cobrar', async () => {
   const cfg = config({ ADMIN_CLAVE: 'p' });
-  const tabla = tablaFalsa([{ id: 1, cliente: 'ana', estado: 'publicado', titulo: 'Porsche', vendedor_nombre: 'Ana' }, { id: 2, cliente: 'ana', estado: 'publicado', titulo: 'Vespa', vendedor_nombre: 'Ana' }]);
+  const tabla = tablaFalsa([1, 2, 3, 4].map((id) => ({ id, cliente: 'ana', estado: 'publicado', titulo: `Coche ${id}`, vendedor_nombre: 'Ana' })));
   const pagos = tablaFalsa([]);
   const deps = { tabla, pagos, ajustes: COBRANDO() };
-  assert.match(await altaComunidad(cfg, deps, tabla.filas[0], AHORA), /primer anuncio: gratis hasta el 26\/11\/26/);
-  assert.equal(tabla.filas[0].gratis, true);
+  assert.match(await altaComunidad(cfg, deps, tabla.filas[0], AHORA), /gratis 1 de 3: gratis hasta el 26\/11\/26/);
+  assert.match(await altaComunidad(cfg, deps, tabla.filas[1], AHORA), /gratis 2 de 3/);
+  assert.match(await altaComunidad(cfg, deps, tabla.filas[2], AHORA), /gratis 3 de 3/);
+  assert.equal(tabla.filas[2].gratis, true);
   assert.equal(pagos.filas[0].concepto, 'gratis');
-  assert.match(await altaComunidad(cfg, deps, tabla.filas[1], AHORA), /por cobrar \(12,90 € al mes\)/);
-  assert.equal(tabla.filas[1].caduca, undefined);
+  assert.match(await altaComunidad(cfg, deps, tabla.filas[3], AHORA), /por cobrar \(12,90 € al mes\)/);
+  assert.equal(tabla.filas[3].caduca, undefined);
 });
 
 test('panel › Cobros, cobrar, tarifa y Clientes › Anunciantes', async () => {
