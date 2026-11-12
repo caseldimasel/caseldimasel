@@ -51,3 +51,17 @@ test('alquiler: si la base de datos falla al guardar los datos, avisa al equipo 
   assert.equal(JSON.parse(r.body).error, 'sin-tabla');
   assert.match(emails[0].subject, /no ha podido guardar/);
 });
+
+test('alquiler: dueño nuevo SIN alta de cobros: al firmar sus datos su coche queda publicado, con perfil público y email', async () => {
+  const { cfg, emails, deps, garaje, perfiles } = montar();
+  perfiles.filas.length = 0; // aún no tiene perfil
+  const body = { accion: 'datos', nombre: 'Álvaro Pérez', dni: 'pab123456', domicilio: 'Calle Mayor 1, 28001 Madrid', telefono: '+34 600 00 00 00', email: 'alvaro@example.com', acepto: '1' };
+  const r = JSON.parse((await rutasCobros({ ruta: 'api/alquiler/cobros', method: 'POST', body }, '7', cfg, deps)).body);
+  assert.equal(r.ok, true, 'pasaporte y teléfono con espacios valen');
+  assert.ok(perfiles.filas[0].slug, 'tiene dirección pública'); assert.equal(perfiles.filas[0].nombre, 'Álvaro');
+  assert.ok(garaje.filas[0].alq.aviso_listo, 'publicado sin esperar a Stripe');
+  const al = emails.find((e) => [].concat(e.to).includes('alvaro@example.com'));
+  assert.match(al.subject, /ya se puede alquilar/); assert.match(al.html, /date de alta para cobrar/i);
+  for (const t of ['600-000-000', '(+34) 600 000 000', '600000000']) assert.equal(JSON.parse((await rutasCobros({ ruta: 'api/alquiler/cobros', method: 'POST', body: { ...body, telefono: t } }, '7', cfg, deps)).body).ok, true, t);
+  assert.equal(JSON.parse((await rutasCobros({ ruta: 'api/alquiler/cobros', method: 'POST', body: { ...body, telefono: '123' } }, '7', cfg, deps)).body).error, 'telefono');
+});

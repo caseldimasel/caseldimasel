@@ -41,7 +41,7 @@ import { guardarInvitacion, invitarSiToca, leerInvitacion } from './invitaciones
 import { rutasPreventa } from './preventa.mjs';
 import { condicionesSubasta, paginaDocumento } from './contratos.mjs';
 
-export const VERSION = 'icono-app-invertido-2026-10-28';
+export const VERSION = 'alquiler-publica-sin-stripe-2026-11-12';
 
 export function config(env = process.env) {
   return {

@@ -57,11 +57,12 @@ test('alquiler con pago: DNI, documento y lo que falta para poder alquilar', () 
   assert.equal(dniValido('12345678Z'), true); assert.equal(dniValido('12345678A'), false); assert.equal(dniValido('X1234567L'), true);
   assert.equal(documentoValido('PAB123456'), true); assert.equal(documentoValido('87654321Y'), false);
   assert.deepEqual(faltaParaAlquilar({ alq: ALQ }, { alq_legal: LEGAL, stripe_cuenta: 'a', cobros_ok: true }, true), []);
-  // Sidonia solo intermedia: no pide póliza ni VTC, solo la declaración responsable del dueño, sus datos y su cuenta de cobros
-  assert.deepEqual(faltaParaAlquilar({ alq: { ...ALQ, conductor: 'con', seguro_cubre: false } }, { alq_legal: LEGAL }, true), ['cobros']);
+  // Sidonia solo intermedia: no pide póliza ni VTC, solo la declaración responsable del dueño y sus datos. El alta de
+  // cobros en Stripe no hace falta para publicar (se le guarda su parte hasta que la termine)
+  assert.deepEqual(faltaParaAlquilar({ alq: { ...ALQ, conductor: 'con', seguro_cubre: false } }, { alq_legal: LEGAL }, true), []);
   assert.deepEqual(faltaParaAlquilar({ alq: { ...ALQ, declara: false } }, { alq_legal: LEGAL, stripe_cuenta: 'a', cobros_ok: true }, true), ['declara']);
   // Si cambian las condiciones, el dueño tiene que volver a aceptarlas antes de recibir reservas
-  assert.deepEqual(faltaParaAlquilar({ alq: ALQ }, { alq_legal: { ...LEGAL, version: '2020-01-01' }, stripe_cuenta: 'a', cobros_ok: true }, true), ['datos', 'cobros']);
+  assert.deepEqual(faltaParaAlquilar({ alq: ALQ }, { alq_legal: { ...LEGAL, version: '2020-01-01' }, stripe_cuenta: 'a', cobros_ok: true }, true), ['datos']);
 });
 
 test('alquiler con pago: política de cancelación', () => {
@@ -80,10 +81,10 @@ test('alquiler con pago: política de cancelación', () => {
   assert.match(condicionesAlquiler(cfg), /no es parte/); assert.match(condicionesAlquiler(cfg), /Sidonia Garage S\.L\./);
 });
 
-test('alquiler con pago: sin cuenta de cobros o sin la declaración del dueño, el coche no se ve', async () => {
+test('alquiler con pago: sin el alta de cobros el coche SÍ se ve; sin la declaración del dueño, no', async () => {
   let { api } = preparar({ perfil: { cobros_ok: false } });
-  assert.equal((await api('api/alquiler/coches', {}, {}, 'GET')).coches.length, 0);
-  assert.equal((await api('api/alquiler/coche', { id: 7 }, {}, 'GET')).ok, false);
+  assert.equal((await api('api/alquiler/coches', {}, {}, 'GET')).coches.length, 1);
+  assert.equal((await api('api/alquiler/coche', { id: 7 }, {}, 'GET')).ok, true);
   ({ api } = preparar({ alq: { declara: false } }));
   assert.equal((await api('api/alquiler/coches', {}, {}, 'GET')).coches.length, 0);
   ({ api } = preparar());
@@ -321,4 +322,27 @@ test('pago en dos veces: señal al reservar, el resto 14 días antes, impago y a
   await ponerAlDia(cfg, deps, otra, Date.now() + 49 * 3600e3);
   assert.equal(otra.estado, 'cancelada'); assert.equal(otra.cancelada_por, 'impago');
   assert.equal(paraDueno(otra), 45, 'el dueño se queda la señal');
+});
+
+test('alquiler con pago: dueño SIN alta de cobros: su coche se reserva, Sidonia cobra y le guarda su parte hasta que se da de alta', async () => {
+  const { api, deps, stripe, correos } = preparar({ perfil: { stripe_cuenta: '', cobros_ok: false } });
+  const r = await api('api/alquiler/reservar', pedir, quien('77'));
+  assert.equal(r.ok, true); assert.equal(r.pagar, 'https://checkout.stripe.test/x');
+  const ses = stripe.find((x) => x[1] === 'checkout/sessions')[2];
+  assert.equal(ses.payment_intent_data.on_behalf_of, undefined, 'sin cuenta, el cargo lo hace Sidonia');
+  const fila = deps.reservas.filas.at(-1);
+  const f = new URL((await api('api/alquiler/reservas', {}, quien('77'), 'GET')).viajes[0].pagar).searchParams.get('f');
+  await api('alquiler/pagado', {}, { r: String(fila.id), f, session_id: 'cs_test_1' }, 'GET');
+  assert.ok(correos.some((c) => /Te han pedido tu coche/.test(c.html || '') && /date de alta para cobrar/i.test(c.html || '')), 'al dueño se le recuerda darse de alta');
+  // Termina el servicio: no hay a quién transferir, se le guarda y se le avisa
+  Object.assign(fila, { estado: 'aceptada', pago: 'pagado', stripe_pi: 'pi_1', stripe_transfer: '', desde: dia(-3), hasta: dia(-2) });
+  const antes = correos.length;
+  await ponerAlDia(cfg, deps, fila, Date.parse(`${dia(-2)}T23:59:00+01:00`) + 24 * 3600e3 + 3600e3);
+  assert.equal(stripe.filter((x) => x[1] === 'transfers').length, 0);
+  assert.ok(correos.slice(antes).some((c) => /Tienes dinero esperándote/.test(c.subject || '')));
+  // Se da de alta: se le transfiere
+  Object.assign(deps.perfiles.filas[0], { stripe_cuenta: 'acct_2', cobros_ok: true });
+  await ponerAlDia(cfg, deps, fila);
+  const tr = stripe.find((x) => x[1] === 'transfers')[2];
+  assert.equal(tr.destination, 'acct_2'); assert.equal(fila.stripe_transfer, 'tr_1');
 });

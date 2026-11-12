@@ -10,7 +10,7 @@
  *          POST api/alquiler/cobros { accion: 'alta' }    → { url } (a Stripe para darse de alta)
  *          POST api/alquiler/cobros { accion: 'panel' }   → { url } (su panel de Stripe: pagos y banco)
  */
-import { avisarEquipo, esc, tablaAnuncios } from './circulo.mjs';
+import { avisarEquipo, esc, slugVendedor, tablaAnuncios } from './circulo.mjs';
 import { enviarCorreo, P, plantilla } from './correos.mjs';
 import { VERSION_CONDICIONES } from './contratos.mjs';
 
@@ -79,12 +79,19 @@ export async function rutasCobros({ ruta, method, body, ip }, cliente, cfg, deps
     if (accion === 'datos') {
       const d = { nombre: clip(body.nombre, 120), dni: normDoc(body.dni), domicilio: clip(body.domicilio, 250), telefono: clip(body.telefono, 30), email: clip(body.email, 160) };
       if (d.nombre.split(/\s+/).length < 2) return json(400, { ok: false, error: 'nombre' });
-      if (!dniValido(d.dni)) return json(400, { ok: false, error: 'dni' });
+      // DNI o NIE con su letra; quien no los tiene, su pasaporte
+      if (!documentoValido(d.dni)) return json(400, { ok: false, error: 'dni' });
       if (d.domicilio.length < 8) return json(400, { ok: false, error: 'domicilio' });
-      if (!/^\+?[\d\s]{9,15}$/.test(d.telefono)) return json(400, { ok: false, error: 'telefono' });
+      // El teléfono como lo escriba (+34 600 00 00 00, 600-000-000, (+34) 600…): cuentan las cifras
+      const cifras = d.telefono.replace(/\D/g, '');
+      if (!/^[\d\s()+.-]+$/.test(d.telefono) || cifras.length < 9 || cifras.length > 15) return json(400, { ok: false, error: 'telefono' });
       if (!body.acepto) return json(400, { ok: false, error: 'acepto' });
       try {
-        await tP.guardar({ cliente: String(cliente), alq_legal: { ...d, acepto: new Date().toISOString(), version: VERSION_CONDICIONES, ip: clip(ip, 60) } }, 'cliente');
+        // Sin perfil todavía (o sin nombre ni dirección pública): se le pone, para que su coche se vea con su nombre
+        const extra = {};
+        if (!p.slug) extra.slug = slugVendedor(d.nombre, cliente);
+        if (!p.nombre) extra.nombre = d.nombre.split(/\s+/)[0];
+        await tP.guardar({ cliente: String(cliente), ...extra, alq_legal: { ...d, acepto: new Date().toISOString(), version: VERSION_CONDICIONES, ip: clip(ip, 60) } }, 'cliente');
       } catch (e) {
         // Que el equipo se entere en el momento (y el dueño vea un mensaje claro)
         await avisarEquipo(cfg, 'Alquiler: un dueño no ha podido guardar sus datos', `<p>Error al guardar los datos de cobro del cliente ${esc(cliente)}: <b>${esc(String(e.message).slice(0, 300))}</b></p><p>Si dice «base de datos», ejecuta sql/reservas.sql en Supabase › SQL Editor. Comprueba todo en sidonia.es/apps/sidonia/conexion.</p>`, deps.fetch).catch(() => {});
@@ -135,7 +142,8 @@ export function faltaParaAlquilar(c, p, cobrar) {
   // Sidonia solo intermedia (como Airbnb): el dueño declara que el seguro, el conductor, las licencias y la ITV son cosa suya
   if (!a.declara) f.push('declara');
   if (!datosListos(p)) f.push('datos');
-  if (!cobrosListos(p)) f.push('cobros');
+  // El alta de cobros en Stripe NO hace falta para publicar: el coche sale en cuanto tiene precio, la declaración y sus
+  // datos firmados. Sidonia cobra la reserva y le transfiere su parte cuando termine el alta (te avisamos por email).
   return f;
 }
 /** Los planes por horas que ofrece: [[clave, { hora, min }], …] */
@@ -171,7 +179,8 @@ export async function avisarCochesListos(cfg, deps, cliente, { email = '' } = {}
   if (!cfg.alquilerCobrar || !cliente) return 0;
   try {
     const p = await perfilCobros(cfg, deps, cliente);
-    if (!cobrosListos(p)) return 0;
+    if (!datosListos(p)) return 0;
+    const sinCobros = !cobrosListos(p);
     const tG = tabla(cfg, deps, 'garaje');
     const coches = await tG.leer(`cliente=eq.${encodeURIComponent(cliente)}&alquiler=eq.true&order=id.asc`);
     const para = String(p.alq_legal?.email || email || '').trim();
@@ -187,7 +196,8 @@ export async function avisarCochesListos(cfg, deps, cliente, { email = '' } = {}
       if (para) {
         const html = plantilla(cfg, null, { titulo: '¡Ya se puede alquilar!', previa: `Tu ${titulo} ya está en Alquiler.`,
           cuerpo: P(`Hola${nombre ? ` ${esc(nombre)}` : ''}:`) + P(`Tu <b>${esc(titulo)}</b> ya está publicado en <b>Alquiler</b> de Sidonia y se puede reservar.`)
-            + P('Cuando alguien lo reserve te llegará un email. Recuerda: siempre lo conduces tú. Puedes cambiar el precio o bloquear días en tu garaje cuando quieras.'),
+            + P('Cuando alguien lo reserve te llegará un email. Recuerda: siempre lo conduces tú. Puedes cambiar el precio o bloquear días en tu garaje cuando quieras.')
+            + (sinCobros ? P('<b>Para recibir tu dinero</b>, date de alta para cobrar en tu garaje (con Stripe, 5 minutos: tu identidad y tu cuenta bancaria). Puedes hacerlo ahora o cuando tengas tu primera reserva: te guardamos tu parte hasta entonces.') : ''),
           boton: 'Verlo en Alquiler', enlace });
         await enviarCorreo(cfg, para, `Tu ${titulo} ya se puede alquilar`, html, deps.fetch).catch((e) => console.error(e));
       }

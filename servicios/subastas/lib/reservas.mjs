@@ -20,7 +20,7 @@ import { datos, enviarCorreo, P, plantilla } from './correos.mjs';
 import { USOS, PLANES, alqPublico, bloqueosPublicos, SEGUROS } from './garaje.mjs';
 import { leerTarifa, precioMes } from './comunidad.mjs';
 import { alquilerPagado, conFirmas, condicionesAlquiler, contratoAlquiler, contratoParaFirmar, DIAS_RESTO, paginaDocumento, reembolso, SENAL_PCT, VERSION_CONDICIONES } from './contratos.mjs';
-import { conductorEfectivo, cobrosListos, datosListos, desdeHora, documentoValido, faltaParaAlquilar, minHoras, normDoc, perfilCobros, planesDe, porHoras, precioDe, precioHora, tienePrecio } from './cobros.mjs';
+import { conductorEfectivo, cobrosListos, datosListos, desdeHora, documentoValido, faltaParaAlquilar, minHoras, normDoc, perfilCobros, planesDe, porHoras, precioDe, precioHora, refrescarCuenta, tienePrecio } from './cobros.mjs';
 
 export const PLAZO_H = 24;           // horas que tiene el dueño para responder
 import { createHmac } from 'node:crypto';
@@ -223,7 +223,7 @@ async function sesionPago(cfg, deps, r, c, pD) {
     ],
     metadata: { reserva: String(r.id) },
     ...(resto ? { customer_creation: 'always' } : {}),
-    payment_intent_data: { capture_method: inmediata ? 'automatic' : 'manual', on_behalf_of: pD.stripe_cuenta, ...(resto ? { setup_future_usage: 'off_session' } : {}), transfer_group: `reserva-${Number(r.id)}`,
+    payment_intent_data: { capture_method: inmediata ? 'automatic' : 'manual', ...(cobrosListos(pD) ? { on_behalf_of: pD.stripe_cuenta } : {}), ...(resto ? { setup_future_usage: 'off_session' } : {}), transfer_group: `reserva-${Number(r.id)}`,
       metadata: { reserva: String(r.id) }, description: `Reserva #${Number(r.id)} · ${t}` },
     custom_text: { submit: { message: inmediata ? 'Reserva inmediata: se cobra ahora y queda confirmada.' : `Solo se retiene el importe: no se cobra hasta que el dueño acepte (tiene ${PLAZO_H} h). Si no acepta, se libera.` } },
     expires_at: Math.floor(Date.now() / 1000) + 1800,
@@ -251,10 +251,11 @@ export async function confirmarPago(cfg, deps, id, sid) {
   await tR.cambiar(r.id, cambios);
   const rr = { ...r, ...cambios };
   const t = titulo(c || {}), d = await emailDueno(cfg, deps, r.dueno);
+  const recordar = cobrosListos(pD) ? '' : P('<b>Para recibir tu dinero</b>, date de alta para cobrar en tu garaje (con Stripe, 5 minutos). Te guardamos tu parte hasta que esté.');
   const filas = [['Coche', t], ['Cuándo', cuandoTxt(r)], ['Total', `${Number(r.total)} €`], ...(r.para ? [['Para', r.para]] : []), ['Conductor', r.conductor === 'con' ? 'Con conductor' : 'Sin conductor']];
   const aDueno = pagado
-    ? { titulo: '¡Tienes una reserva!', previa: `${r.nombre} ha reservado tu ${t}.`, cuerpo: P(`<b>${esc(r.nombre.split(' ')[0])}</b> ha reservado y pagado tu <b>${esc(t)}</b>. Tienes la reserva inmediata activada, así que está confirmada y el contrato firmado por los dos.`) + datos([...filas, ['Para ti', `${paraDueno(rr)} €`]]) + P('Escríbele desde Sidonia para quedar la hora de entrega. Te transferimos tu parte 24 horas después del servicio.'), boton: 'Ver la reserva y el contrato', enlace: urlReservas(cfg) }
-    : { titulo: 'Te han pedido tu coche', previa: `${r.nombre} quiere tu ${t}.`, cuerpo: P(`<b>${esc(r.nombre.split(' ')[0])}</b> quiere alquilar tu <b>${esc(t)}</b>. El pago ya está retenido en su tarjeta.`) + datos([...filas, ['Para ti', `${paraDueno(rr)} €`]]) + (r.mensaje ? P(esc(r.mensaje)) : '') + P(`Tienes <b>${PLAZO_H} horas</b> para aceptarla (firmas el contrato y se cobra) o rechazarla. Si no respondes, caduca y se libera el pago.`), boton: 'Responder a la solicitud', enlace: urlReservas(cfg) };
+    ? { titulo: '¡Tienes una reserva!', previa: `${r.nombre} ha reservado tu ${t}.`, cuerpo: P(`<b>${esc(r.nombre.split(' ')[0])}</b> ha reservado y pagado tu <b>${esc(t)}</b>. Tienes la reserva inmediata activada, así que está confirmada y el contrato firmado por los dos.`) + datos([...filas, ['Para ti', `${paraDueno(rr)} €`]]) + P('Escríbele desde Sidonia para quedar la hora de entrega. Te transferimos tu parte 24 horas después del servicio.') + recordar, boton: 'Ver la reserva y el contrato', enlace: urlReservas(cfg) }
+    : { titulo: 'Te han pedido tu coche', previa: `${r.nombre} quiere tu ${t}.`, cuerpo: P(`<b>${esc(r.nombre.split(' ')[0])}</b> quiere alquilar tu <b>${esc(t)}</b>. El pago ya está retenido en su tarjeta.`) + datos([...filas, ['Para ti', `${paraDueno(rr)} €`]]) + (r.mensaje ? P(esc(r.mensaje)) : '') + P(`Tienes <b>${PLAZO_H} horas</b> para aceptarla (firmas el contrato y se cobra) o rechazarla. Si no respondes, caduca y se libera el pago.`) + recordar, boton: 'Responder a la solicitud', enlace: urlReservas(cfg) };
   await correo(cfg, d.email, pagado ? `Reserva confirmada: tu ${t}` : `Solicitud de reserva: tu ${t}`, aDueno, deps);
   await correo(cfg, r.email, pagado ? `Reserva confirmada: ${t}` : `Solicitud enviada: ${t}`, pagado
     ? { titulo: '¡Reserva confirmada!', previa: `${t}, del ${fechaTxt(r.desde)} al ${fechaTxt(r.hasta)}.`, cuerpo: P('Pago hecho: tu reserva está confirmada y el contrato firmado por los dos. En Sidonia tienes ya el contacto del dueño y dónde se recoge el coche.') + datos(filas), boton: 'Ver mi reserva y el contrato', enlace: urlReservas(cfg) }
@@ -308,7 +309,7 @@ export async function ponerAlDia(cfg, deps, r, ahora = Date.now()) {
           const cus = typeof pi.customer === 'string' ? pi.customer : pi.customer?.id;
           if (!pm || !cus) throw new Error('sin tarjeta guardada');
           const p2 = await st('POST', 'payment_intents', { amount: cent(r.resto), currency: 'eur', customer: cus, payment_method: pm, off_session: 'true', confirm: 'true',
-            ...(pD?.stripe_cuenta ? { on_behalf_of: pD.stripe_cuenta } : {}), transfer_group: `reserva-${Number(r.id)}`, description: `Reserva #${Number(r.id)} · resto`, metadata: { reserva: String(r.id), parte: 'resto' } });
+            ...(cobrosListos(pD) ? { on_behalf_of: pD.stripe_cuenta } : {}), transfer_group: `reserva-${Number(r.id)}`, description: `Reserva #${Number(r.id)} · resto`, metadata: { reserva: String(r.id), parte: 'resto' } });
           if (p2.status !== 'succeeded') throw new Error(`estado ${p2.status}`);
           const cambios = { resto_pi: p2.id, resto_pagado: new Date(ahora).toISOString(), resto_error: '' };
           await tR.cambiar(r.id, cambios);
@@ -326,8 +327,18 @@ export async function ponerAlDia(cfg, deps, r, ahora = Date.now()) {
     const fin = Date.parse(`${String(r.hasta).slice(0, 10)}T23:59:00+01:00`);
     const toca = r.estado === 'cancelada' ? String(r.desde) <= hoy : ahora >= fin + 24 * 3600e3;
     if (['pagado', 'devuelto-parcial'].includes(r.pago) && !r.stripe_transfer && toca && paraDueno(r) > 0 && ['aceptada', 'cancelada'].includes(r.estado)) {
-      const pD = await perfilCobros(cfg, deps, r.dueno);
-      if (!pD?.stripe_cuenta) return r;
+      const pD = await refrescarCuenta(cfg, deps, await perfilCobros(cfg, deps, r.dueno));
+      // Sin el alta de cobros terminada: se le guarda su parte y se le recuerda (el primer día que toca y luego cada semana)
+      if (!cobrosListos(pD)) {
+        const dias = Math.floor((ahora - (r.estado === 'cancelada' ? Date.parse(`${String(r.desde).slice(0, 10)}T00:00:00+01:00`) : fin + 24 * 3600e3)) / 864e5);
+        if (dias % 7 === 0) {
+          const d = await emailDueno(cfg, deps, r.dueno);
+          await correo(cfg, d.email, 'Tienes dinero esperándote en Sidonia', { titulo: 'Date de alta para cobrar', previa: `Te guardamos ${paraDueno(r)} € de tu alquiler.`,
+            cuerpo: P(`Tu parte de la reserva #${Number(r.id)} (<b>${paraDueno(r)} €</b>) ya está lista, pero aún no has terminado el alta para cobrar.`) + P('Entra en tu garaje y pulsa «Darme de alta para cobrar» (con Stripe, 5 minutos: tu identidad y tu cuenta bancaria). En cuanto esté, te la transferimos.'),
+            boton: 'Darme de alta para cobrar', enlace: `${cfg.tienda}/pages/vende-con-nosotros?view=perfil#mi-garaje` }, deps).catch((e) => console.error(e));
+        }
+        return r;
+      }
       let falta = cent(paraDueno(r));
       const cargos = [];
       // De la señal (o del pago entero), todo menos la tarifa de Sidonia; del resto, lo que falte
@@ -707,7 +718,7 @@ export async function rutasPagoReserva({ ruta, query }, cfg, deps) {
       const ses = await st('POST', 'checkout/sessions', { mode: 'payment', locale: 'es', ...(r.email ? { customer_email: r.email } : {}),
         line_items: [{ quantity: 1, price_data: { currency: 'eur', unit_amount: cent(r.resto), product_data: { name: `Resto del alquiler: ${t}`.slice(0, 250) } } }],
         metadata: { reserva: String(r.id), parte: 'resto' },
-        payment_intent_data: { ...(pD?.stripe_cuenta ? { on_behalf_of: pD.stripe_cuenta } : {}), transfer_group: `reserva-${Number(r.id)}`, metadata: { reserva: String(r.id), parte: 'resto' } },
+        payment_intent_data: { ...(cobrosListos(pD) ? { on_behalf_of: pD.stripe_cuenta } : {}), transfer_group: `reserva-${Number(r.id)}`, metadata: { reserva: String(r.id), parte: 'resto' } },
         success_url: `${cfg.servidor}/tienda/alquiler/resto-pagado?r=${Number(r.id)}&f=${firmaR(cfg, r.id)}&session_id={CHECKOUT_SESSION_ID}`, cancel_url: urlReservas(cfg) });
       return { status: 303, headers: { Location: ses.url, 'Cache-Control': 'no-store' }, body: '' };
     }
@@ -735,7 +746,7 @@ export async function rutasPagoReserva({ ruta, query }, cfg, deps) {
   if (r.pago !== 'sin-pagar' || estadoActual(r) !== 'pendiente') return pagina(cfg, 'No se puede pagar', 'Esta solicitud ya no está pendiente de pago (ha caducado o se ha cancelado). Vuelve a pedir el coche.', urlReservas(cfg), 'Ver mis reservas');
   if (!cfg.stripeKey) return pagina(cfg, 'Aún no se puede pagar aquí', 'Escríbenos y te ayudamos.', urlReservas(cfg));
   const pD = await perfilCobros(cfg, deps, r.dueno);
-  if (!c || !cobrosListos(pD)) return pagina(cfg, 'No disponible', 'Este coche ya no se puede reservar.', urlReservas(cfg));
+  if (!c || !datosListos(pD)) return pagina(cfg, 'No disponible', 'Este coche ya no se puede reservar.', urlReservas(cfg));
   const ses = await sesionPago(cfg, deps, r, c, pD);
   return { status: 303, headers: { Location: ses.url, 'Cache-Control': 'no-store' }, body: '' };
 }

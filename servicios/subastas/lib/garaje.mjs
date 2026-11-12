@@ -202,6 +202,11 @@ export async function rutasGaraje({ ruta, method, body }, cliente, cfg, deps) {
         const nombre = texto(body.nombre, 60) || 'Amante del motor';
         p = await tP.guardar({ cliente, slug: slugVendedor(nombre, cliente), nombre, tipo: 'particular', descripcion: '', foto: '', actualizado: new Date().toISOString() }, 'cliente');
       }
+      // Perfil creado al firmar el alquiler (sin dirección pública): se le pone, o su coche no saldría en la comunidad
+      if (!p.slug) {
+        const nombre = texto(p.nombre, 60) || texto(p.alq_legal?.nombre, 60).split(/\s+/)[0] || texto(body.nombre, 60) || 'Amante del motor';
+        p = await tP.guardar({ cliente, slug: slugVendedor(nombre, cliente), nombre, actualizado: new Date().toISOString() }, 'cliente');
+      }
       const id = Number(body.id) || 0;
       let antes = null;
       if (id) {
