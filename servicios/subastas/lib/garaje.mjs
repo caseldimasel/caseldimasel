@@ -216,6 +216,7 @@ export async function rutasGaraje({ ruta, method, body }, cliente, cfg, deps) {
         if (!antes) return json(404, { ok: false, error: 'no-existe' });
         // El aviso de «ya se puede alquilar» se manda una vez: se conserva al editar
         if (v.coche.alq && antes.alq?.aviso_listo) v.coche.alq.aviso_listo = antes.alq.aviso_listo;
+        if (v.coche.alq && antes.alq?.aviso_falta) v.coche.alq.aviso_falta = antes.alq.aviso_falta;
         await tG.cambiar(id, { ...v.coche, actualizado: new Date().toISOString() });
       } else {
         if ((await tG.leer(`cliente=eq.${encodeURIComponent(cliente)}&select=id`)).length >= GARAJE_MAX) return json(200, { ok: false, error: 'maximo' });

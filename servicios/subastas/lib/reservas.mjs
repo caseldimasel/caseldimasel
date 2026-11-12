@@ -375,6 +375,25 @@ export async function revisarReservas(cfg, deps) {
     const { avisarCochesListos } = await import('./cobros.mjs');
     const sin = (await tabla(cfg, deps, 'garaje').leer('alquiler=eq.true&visible=eq.true&select=cliente,alq&limit=500')).filter((c) => !c.alq?.aviso_listo);
     for (const cl of [...new Set(sin.map((c) => String(c.cliente)))]) await avisarCochesListos(cfg, deps, cl, { email: (await emailDueno(cfg, deps, cl)).email });
+    // Y a quien le falta algo para publicarlo: un email (una vez por coche) con lo que le falta y el enlace a su garaje
+    const tG = tabla(cfg, deps, 'garaje');
+    const pend = (await tG.leer('alquiler=eq.true&visible=eq.true&limit=500')).filter((c) => !c.alq?.aviso_listo && !c.alq?.aviso_falta);
+    const ps = await perfiles(cfg, deps, pend.map((c) => c.cliente));
+    const QUE = { precio: 'el precio por hora', declara: 'marcar la declaración de responsabilidad (en «Editar»)', datos: 'tus datos para el contrato y aceptar las condiciones' };
+    for (const c of pend) {
+      const p = ps[String(c.cliente)];
+      const f = faltaParaAlquilar(c, p, true);
+      if (!f.length) continue;
+      const para = String(p?.alq_legal?.email || (await emailDueno(cfg, deps, c.cliente)).email || '').trim();
+      const t = titulo(c);
+      if (para) {
+        await correo(cfg, para, `Te falta muy poco para publicar tu ${t}`, { titulo: 'Casi listo', previa: `A tu ${t} solo le falta un paso.`,
+          cuerpo: P(`Tu <b>${esc(t)}</b> está guardado, pero aún no sale en Alquiler porque falta:`) + `<ul>${f.map((x) => `<li>${esc(QUE[x] || x)}</li>`).join('')}</ul>` + P('Entra en tu garaje, complétalo y se publica al momento. Si algo no te deja, responde a este email y te ayudamos.'),
+          boton: 'Ir a mi garaje', enlace: `${cfg.tienda}/pages/vende-con-nosotros?view=perfil#mi-garaje` }, deps).catch((e) => console.error(e));
+      }
+      for (const e of cfg.avisosEquipo || []) await correo(cfg, e, `[Alquiler] ${t}: atascado, falta ${f.join(', ')}`, { titulo: 'Coche de alquiler sin publicar', previa: t, cuerpo: P(`Cliente ${esc(String(c.cliente))}${para ? ` (${esc(para)})` : ' (sin email conocido)'}: su <b>${esc(t)}</b> no se publica porque falta: ${esc(f.join(', '))}.`), boton: 'Ver Alquiler', enlace: `${cfg.tienda}/pages/alquiler` }, deps).catch(() => {});
+      await tG.cambiar(c.id, { alq: { ...(c.alq || {}), aviso_falta: new Date().toISOString() } });
+    }
   } catch (e) { console.error(e); }
   return { revisadas: l.length, hechas };
 }

@@ -347,3 +347,16 @@ test('alquiler con pago: dueño SIN alta de cobros: su coche se reserva, Sidonia
   const tr = stripe.find((x) => x[1] === 'transfers')[2];
   assert.equal(tr.destination, 'acct_2'); assert.equal(fila.stripe_transfer, 'tr_1');
 });
+
+test('alquiler: el repaso diario avisa (una vez) al dueño cuyo coche no se publica, con lo que le falta', async () => {
+  const { deps, correos } = preparar({ perfil: { alq_legal: {} } });
+  await revisarReservas(cfg, deps);
+  const m = correos.filter((c) => /Te falta muy poco/.test(c.subject || ''));
+  assert.equal(m.length, 1); assert.match(m[0].html, /tus datos para el contrato/);
+  assert.ok(correos.some((c) => /atascado/.test(c.subject || '')), 'y al equipo');
+  assert.ok(deps.garaje.filas[0].alq.aviso_falta);
+  const n = correos.length;
+  await revisarReservas(cfg, deps);
+  assert.equal(correos.filter((c) => /Te falta muy poco/.test(c.subject || '')).length, 1, 'no se repite');
+  assert.ok(correos.length >= n);
+});
