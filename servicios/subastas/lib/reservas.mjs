@@ -210,6 +210,17 @@ export function datosContrato(r, c, pD, emailD = '', tapado = false) {
 }
 const firmaInmediata = (pD, hash) => ({ nombre: pD.alq_legal.nombre, documento: pD.alq_legal.dni, fecha: new Date().toISOString(), ip: '', inmediata: true, autorizacion: pD.alq_legal.acepto, hash });
 
+/** Se puede avisar de un problema desde que la reserva está confirmada hasta 24 h después del final del servicio,
+ *  mientras no se haya transferido al dueño y no haya ya un aviso abierto */
+export function puedeAvisar(r, ahora = Date.now()) {
+  if (!['pagado', 'devuelto-parcial'].includes(r.pago) || r.stripe_transfer) return false;
+  if (r.datos?.incidencia && !r.datos.incidencia.resuelta) return false;
+  if (!['aceptada', 'completada'].includes(estadoActual(r, ahora)) && r.estado !== 'aceptada') return false;
+  const fin = Date.parse(`${String(r.hasta).slice(0, 10)}T23:59:00+01:00`);
+  return ahora <= fin + 24 * 3600e3;
+}
+export const incidenciaAbierta = (r) => Boolean(r.datos?.incidencia && !r.datos.incidencia.resuelta);
+
 /** La sesión de pago de Stripe de una reserva (retiene, o cobra si es reserva inmediata) */
 async function sesionPago(cfg, deps, r, c, pD) {
   const st = await stripeDe(cfg, deps);
@@ -326,7 +337,7 @@ export async function ponerAlDia(cfg, deps, r, ahora = Date.now()) {
     // ---- Al dueño, su parte: 24 h después del servicio (desde cada cobro, la señal y el resto)
     const fin = Date.parse(`${String(r.hasta).slice(0, 10)}T23:59:00+01:00`);
     const toca = r.estado === 'cancelada' ? String(r.desde) <= hoy : ahora >= fin + 24 * 3600e3;
-    if (['pagado', 'devuelto-parcial'].includes(r.pago) && !r.stripe_transfer && toca && paraDueno(r) > 0 && ['aceptada', 'cancelada'].includes(r.estado)) {
+    if (['pagado', 'devuelto-parcial'].includes(r.pago) && !r.stripe_transfer && toca && paraDueno(r) > 0 && ['aceptada', 'cancelada'].includes(r.estado) && !incidenciaAbierta(r)) {
       const pD = await refrescarCuenta(cfg, deps, await perfilCobros(cfg, deps, r.dueno));
       // Sin el alta de cobros terminada: se le guarda su parte y se le recuerda (el primer día que toca y luego cada semana)
       if (!cobrosListos(pD)) {
@@ -579,6 +590,7 @@ export async function rutasReservas({ ruta, method, body, ip = '', ua = '' }, cl
           ...(rol === 'cliente' && estado === 'aceptada' && r.pago === 'pagado' && String(r.desde) > hoyISO() ? { si_cancelo: reembolso(r, 'cliente') } : {}),
           caduca: estado === 'pendiente' ? new Date(Date.parse(r.creado) + PLAZO_H * 3600e3).toISOString() : null,
           coche: { id: c.id, titulo: titulo(c), foto: (c.fotos || [])[0] ? urlFoto(cfg, c.fotos[0]) : '', ciudad: c.alq?.ciudad || '', ...(conf ? { entrega: c.alq?.entrega || '' } : {}) },
+          puede_avisar: puedeAvisar(r), incidencia: r.datos?.incidencia ? { de: r.datos.incidencia.de, fecha: r.datos.incidencia.fecha, resuelta: r.datos.incidencia.resuelta || '', mia: r.datos.incidencia.de === rol } : null,
           otro, resena_hecha: res.some((x) => Number(x.reserva_id) === Number(r.id) && x.rol === (rol === 'cliente' ? 'huesped' : 'anfitrion')) };
       };
       return json(200, { ok: true, viajes: await Promise.all(comoCliente.map((r) => ver(r, 'cliente'))), solicitudes: await Promise.all(comoDueno.map((r) => ver(r, 'dueno'))) });
@@ -601,6 +613,24 @@ export async function rutasReservas({ ruta, method, body, ip = '', ua = '' }, cl
       const { r, rol } = s;
       const estado = estadoActual(r), accion = String(body.accion || '');
       const [c] = await tG.leer(`id=eq.${Number(r.coche_id)}&limit=1`);
+      if (accion === 'incidencia') {
+        const texto = clip(body.texto, 2000);
+        if (texto.length < 10) return json(400, { ok: false, error: 'texto' });
+        if (!puedeAvisar(r)) return json(400, { ok: false, error: 'estado' });
+        const incidencia = { de: rol, texto, fecha: new Date().toISOString(), resuelta: '' };
+        await tR.cambiar(r.id, { datos: { ...(r.datos || {}), incidencia } });
+        const t = titulo(c || {});
+        const quien = rol === 'cliente' ? `${r.nombre || 'Quien alquila'} (quien alquila)` : 'El dueño';
+        for (const e of cfg.avisosEquipo || []) await correo(cfg, e, `[Alquiler] RECLAMACIÓN · reserva #${Number(r.id)} · ${t}`, { titulo: 'Reclamación en una reserva', previa: texto.slice(0, 90),
+          cuerpo: P(`<b>${esc(quien)}</b> avisa de un problema con la reserva #${Number(r.id)} del <b>${esc(t)}</b> (${esc(cuandoTxt(r))}):`) + P(esc(texto)) + P('La transferencia al dueño queda en espera hasta que decidáis en el panel: pagarle o devolver el dinero a quien alquila.'),
+          boton: 'Decidir en el panel', enlace: `${cfg.servidor}/admin?estado=alquiler#reservas` }, deps);
+        const d = await emailDueno(cfg, deps, r.dueno);
+        const otro = rol === 'cliente' ? d.email : r.email;
+        await correo(cfg, otro, `Aviso sobre la reserva del ${t}`, { titulo: 'Hay un aviso sobre la reserva', previa: 'Sidonia lo está revisando.',
+          cuerpo: P(`${rol === 'cliente' ? 'Quien alquila' : 'El dueño'} nos ha avisado de un problema con la reserva del <b>${esc(t)}</b>. Lo estamos revisando y os escribiremos a los dos.`) + P('Si quieres contarnos tu versión, responde a este email o escríbenos por el chat de la reserva.'),
+          boton: 'Ver la reserva', enlace: urlReservas(cfg) }, deps);
+        return json(200, { ok: true });
+      }
       let nuevo = '';
       if (rol === 'dueno' && estado === 'pendiente' && accion === 'aceptar') {
         const rs = (await tR.leer(`coche_id=eq.${Number(r.coche_id)}&select=id,desde,hasta,estado,creado`)).filter((x) => Number(x.id) !== Number(r.id));
@@ -763,6 +793,32 @@ export async function accionPanelGarajes(b, cfg, deps) {
 
 /** Panel: marcar que ya se le ha pagado al dueño */
 export async function accionPanelReservas(b, cfg, deps) {
+  if (b.accion === 'reserva-incidencia' && Number(b.id)) {
+    const tR = tabla(cfg, deps, 'reservas');
+    const [r] = await tR.leer(`id=eq.${Number(b.id)}&limit=1`);
+    if (!r || !incidenciaAbierta(r)) return 'Esta reclamación ya está resuelta.';
+    const ahora = new Date().toISOString();
+    const t = titulo((await tabla(cfg, deps, 'garaje').leer(`id=eq.${Number(r.coche_id)}&limit=1`).catch(() => []))[0] || {});
+    const d = await emailDueno(cfg, deps, r.dueno);
+    if (b.decision === 'pagar') {
+      await tR.cambiar(r.id, { datos: { ...r.datos, incidencia: { ...r.datos.incidencia, resuelta: ahora, decision: 'pagar al dueño', nota: clip(b.nota, 500) } } });
+      for (const [para, txt] of [[d.email, 'Hemos revisado el aviso: se te transfiere tu parte en las próximas horas.'], [r.email, 'Hemos revisado el aviso sobre tu reserva y, con lo que nos habéis contado, el pago va al dueño.']]) await correo(cfg, para, `Reserva del ${t}: aviso revisado`, { titulo: 'Aviso revisado', previa: txt, cuerpo: P(txt) + (b.nota ? P(esc(clip(b.nota, 500))) : ''), boton: 'Ver la reserva', enlace: urlReservas(cfg) }, deps);
+      return '';
+    }
+    if (b.decision === 'devolver') {
+      const max = alquilerPagado(r) + (Number(r.tarifa) || 0) - (Number(r.reembolso) || 0);
+      const importe = Math.max(0, Math.min(max, Math.round(Number(String(b.importe || max).replace(',', '.')) || 0)));
+      if (!importe) return 'Indica cuánto se devuelve.';
+      const st = await stripeDe(cfg, deps);
+      try { await devolver(st, r, importe, 'sidonia'); } catch (e) { console.error(e); return `Stripe no ha podido hacer la devolución: ${e.message}`; }
+      const total = (Number(r.reembolso) || 0) + importe, todo = importe >= max;
+      await tR.cambiar(r.id, { reembolso: total, pago: todo ? 'devuelto' : 'devuelto-parcial', ...(todo ? { estado: 'cancelada', cancelada_por: 'sidonia', respondida: ahora } : {}),
+        datos: { ...r.datos, incidencia: { ...r.datos.incidencia, resuelta: ahora, decision: `devolver ${importe} €`, nota: clip(b.nota, 500) } } });
+      for (const [para, txt] of [[r.email, `Hemos revisado el aviso y te devolvemos ${importe} € a la tarjeta con la que pagaste (5 a 10 días hábiles).`], [d.email, `Hemos revisado el aviso sobre la reserva del ${t} y se devuelven ${importe} € a quien alquila.${todo ? ' No recibirás pago por esta reserva.' : ' Recibirás el resto de tu parte en los próximos días.'}`]]) await correo(cfg, para, `Reserva del ${t}: aviso revisado`, { titulo: 'Aviso revisado', previa: txt, cuerpo: P(txt) + (b.nota ? P(esc(clip(b.nota, 500))) : ''), boton: 'Ver la reserva', enlace: urlReservas(cfg) }, deps);
+      return '';
+    }
+    return '';
+  }
   if (b.accion !== 'reserva-pagada-dueno' || !Number(b.id)) return '';
   await tabla(cfg, deps, 'reservas').cambiar(Number(b.id), { pagado_dueno: new Date().toISOString() });
   return '';
@@ -776,7 +832,19 @@ export function tablaReservasPanel(reservas, coches = [], cfg = {}) {
   const EST = { pendiente: 'Pendiente', aceptada: 'Confirmada', rechazada: 'Rechazada', cancelada: 'Cancelada', caducada: 'Caducada', completada: 'Completada' };
   const pagadas = reservas.filter((r) => ['pagado', 'devuelto-parcial'].includes(r.pago));
   const ganado = pagadas.reduce((s, r) => s + (r.reembolso_tarifa ? 0 : Number(r.tarifa) || 0), 0), debe = pagadas.filter((r) => !r.pagado_dueno).reduce((s, r) => s + paraDueno(r), 0);
-  return `<h2 style="margin:22px 0 8px">Reservas</h2><div class="kpis"><div class="kpi"><span>Reservas pagadas</span><b>${pagadas.length}</b><small>${reservas.length} en total</small></div><div class="kpi"><span>Comisión de Sidonia</span><b>${ganado} €</b><small>de las pagadas</small></div><div class="kpi"><span>Por pagar a dueños</span><b>${debe} €</b><small>se transfiere 24 h después del servicio</small></div></div><div class="card"><div class="tabla"><table>
+  const abiertas = reservas.filter(incidenciaAbierta);
+  const reclamaciones = abiertas.length ? `<h2 id="reservas" style="margin:22px 0 8px">Reclamaciones abiertas <b class="num">${abiertas.length}</b></h2>${abiertas.map((r) => {
+    const max = alquilerPagado(r) + (Number(r.tarifa) || 0) - (Number(r.reembolso) || 0), i = r.datos.incidencia;
+    return `<article class="card" style="border:2px solid var(--rojo,#ff5f5f);margin-bottom:12px"><h3 style="margin:0 0 4px">Reserva #${Number(r.id)} · ${esc(titulo(deC[Number(r.coche_id)] || {}))} · ${esc(String(r.desde))}</h3>
+      <p class="sub">Avisa ${i.de === 'cliente' ? `quien alquila (${esc(r.nombre)})` : 'el dueño'} el ${esc(String(i.fecha).slice(0, 16).replace('T', ' '))}. Pagado: ${Number(r.total)} € · para el dueño: ${paraDueno(r)} € · la transferencia está en espera.</p>
+      <p style="white-space:pre-line">${esc(i.texto)}</p>
+      <form method="post" action="?estado=alquiler#reservas" style="display:flex;flex-wrap:wrap;gap:8px;align-items:center"><input type="hidden" name="accion" value="reserva-incidencia"><input type="hidden" name="id" value="${Number(r.id)}">
+        <input name="nota" placeholder="Nota para los dos (opcional)" style="flex:1;min-width:200px">
+        <button name="decision" value="pagar" class="si" onclick="return confirm('¿Pagar al dueño su parte?')">Pagar al dueño</button>
+        <label style="font-size:13px">Devolver <input name="importe" value="${max}" inputmode="numeric" style="width:80px"> €</label>
+        <button name="decision" value="devolver" class="no" onclick="return confirm('¿Devolver ese importe a quien alquila? Se hace en Stripe al momento.')">Devolver a quien alquila</button></form></article>`;
+  }).join('')}` : '';
+  return `${reclamaciones}<h2 style="margin:22px 0 8px">Reservas</h2><div class="kpis"><div class="kpi"><span>Reservas pagadas</span><b>${pagadas.length}</b><small>${reservas.length} en total</small></div><div class="kpi"><span>Comisión de Sidonia</span><b>${ganado} €</b><small>de las pagadas</small></div><div class="kpi"><span>Por pagar a dueños</span><b>${debe} €</b><small>se transfiere 24 h después del servicio</small></div></div><div class="card"><div class="tabla"><table>
   <thead><tr><th class="izq">Coche</th><th class="izq">Fechas</th><th>Total</th><th>Sidonia</th><th>Para el dueño</th><th class="izq">Quien alquila</th><th class="izq">Estado</th><th class="izq">Pago</th></tr></thead>
   <tbody>${reservas.map((r) => `<tr><td class="izq"><b>${esc(titulo(deC[Number(r.coche_id)] || {}) || `#${Number(r.coche_id)}`)}</b></td>
     <td class="izq">${esc(String(r.desde))} → ${esc(String(r.hasta))}<span class="sub">${Number(r.dias)} días</span></td><td>${Number(r.total)} €</td><td>${Number(r.tarifa || 0)} €</td><td>${Number(r.total) - Number(r.tarifa || 0)} €</td>

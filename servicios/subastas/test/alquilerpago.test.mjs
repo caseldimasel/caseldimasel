@@ -358,3 +358,32 @@ test('alquiler: el repaso diario avisa (una vez) al dueño cuyo coche no se publ
   assert.equal(correos.filter((c) => /Te falta muy poco/.test(c.subject || '')).length, 1, 'no se repite');
   assert.ok(correos.length >= n);
 });
+
+test('reclamación: el dueño no se presenta, quien alquila avisa, la transferencia se congela y Sidonia devuelve el dinero', async () => {
+  const { api, deps, stripe, correos } = preparar();
+  const { accionPanelReservas, puedeAvisar } = await import('../lib/reservas.mjs');
+  // Una reserva pagada que terminó ayer (todavía no transferida al dueño)
+  const r = { id: 950, coche_id: 7, dueno: '55', cliente: '77', nombre: 'Lucía Gómez', email: 'lucia@x.es', desde: dia(-1), hasta: dia(-1), dias: 1, total: 220, tarifa: 20, resto: 0,
+    estado: 'aceptada', pago: 'pagado', stripe_pi: 'pi_1', stripe_transfer: '', datos: { pasajeros: 2 }, creado: new Date(Date.now() - 5 * 864e5).toISOString() };
+  deps.reservas.filas.push(r);
+  assert.equal(puedeAvisar(r), true);
+  const v = await api('api/alquiler/reservas', {}, quien('77'), 'GET');
+  assert.equal(v.viajes.find((x) => x.id === 950).puede_avisar, true);
+  assert.equal((await api('api/alquiler/reserva', { id: 950, accion: 'incidencia', texto: 'corto' }, quien('77'))).error, 'texto');
+  assert.equal((await api('api/alquiler/reserva', { id: 950, accion: 'incidencia', texto: 'El dueño no se presentó y no contesta al teléfono.' }, quien('77'))).ok, true);
+  assert.equal(r.datos.incidencia.de, 'cliente'); assert.equal(r.datos.pasajeros, 2, 'no se pierde lo que había');
+  assert.ok(correos.some((c) => /RECLAMACIÓN/.test(c.subject || '')), 'al equipo le llega al momento');
+  assert.equal((await api('api/alquiler/reserva', { id: 950, accion: 'incidencia', texto: 'Otra vez lo mismo, por favor.' }, quien('77'))).error, 'estado', 'una a la vez');
+  // Pasan las 24 h: el repaso NO le transfiere al dueño mientras haya una reclamación abierta
+  r.hasta = dia(-3); r.desde = dia(-3);
+  await revisarReservas(cfg, deps);
+  assert.equal(r.stripe_transfer, ''); assert.ok(!stripe.some((x) => x[1] === 'transfers'));
+  // Sidonia decide: devolver todo a quien alquila
+  assert.equal(await accionPanelReservas({ accion: 'reserva-incidencia', id: '950', decision: 'devolver', importe: '220', nota: 'El dueño no se presentó.' }, cfg, deps), '');
+  const ref = stripe.filter((x) => x[1] === 'refunds').at(-1)[2];
+  assert.equal(ref.amount, 22000); assert.equal(ref.payment_intent, 'pi_1');
+  assert.equal(r.pago, 'devuelto'); assert.equal(r.estado, 'cancelada'); assert.ok(r.datos.incidencia.resuelta);
+  assert.ok(correos.some((c) => /te devolvemos 220 €/.test(c.html || '')));
+  await revisarReservas(cfg, deps);
+  assert.ok(!stripe.some((x) => x[1] === 'transfers'), 'y el dueño no cobra nada');
+});
