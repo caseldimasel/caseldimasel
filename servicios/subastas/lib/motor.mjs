@@ -43,7 +43,7 @@ import { guardarInvitacion, invitarSiToca, leerInvitacion } from './invitaciones
 import { rutasPreventa } from './preventa.mjs';
 import { condicionesSubasta, paginaDocumento } from './contratos.mjs';
 
-export const VERSION = '2026-11-13-como-airbnb';
+export const VERSION = '2026-11-13-revision-cobros';
 
 export function config(env = process.env) {
   return {
@@ -273,6 +273,11 @@ async function paginaConexion(query, cfg, { db, fetch: fetchImpl = fetch }) {
     ${firma ? fila(fotos, 'Anuncios gratis: el cubo de fotos está creado', 'Anuncios gratis: falta el cubo de fotos «anuncios» (se crea con sql/circulo.sql)') : ''}
     ${columnas.map((c) => fila(c.ok, `${c.que}: la base de datos está al día`, `${c.que}: falta ejecutar ${c.sql} en Supabase › SQL Editor (entero; se puede repetir sin problema)`)).join('')}
     ${fila(panel, 'Panel para revisar anuncios: tiene contraseña (ADMIN_CLAVE)', 'Panel para revisar anuncios: falta ADMIN_CLAVE en Vercel')}
+    ${fila(Boolean(cfg.resendKey && (cfg.avisosEquipo || []).length), 'Emails (avisos al equipo y a los clientes): configurados', 'Emails: faltan RESEND_API_KEY o AVISOS_EQUIPO en Vercel (sin ellos no llega ningún aviso)')}
+    ${fila(Boolean(cfg.stripeKey), `Pagos con Stripe: configurados (${String(cfg.stripeKey).startsWith('sk_live') || String(cfg.stripeKey).startsWith('rk_live') ? 'modo real' : 'modo de prueba'})`, 'Pagos con Stripe: falta STRIPE_SECRET_KEY en Vercel')}
+    ${fila(Boolean(cfg.alquilerCobrar), 'Alquiler: se cobra en la web (señal, resto y pago al dueño)', 'Alquiler: el cobro en la web está apagado (ALQUILER_COBRAR=1 en Vercel para encenderlo)')}
+    ${fila(Boolean(cfg.cronSecreto), 'Repaso diario automático (cobra el resto 14 días antes, paga a los dueños, caduca solicitudes): configurado (CRON_SECRET)', 'Repaso diario automático: falta CRON_SECRET en Vercel. Sin él NO se cobra el resto de las reservas ni se paga a los dueños')}
+    ${fila(Boolean(cfg.stripeWebhook), 'Avisos de Stripe (por si alguien cierra la página al pagar): configurados', 'Avisos de Stripe: falta STRIPE_WEBHOOK_SECRET en Vercel (recomendado)')}
     ${fila(Boolean(cfg.googleMapsKey), 'Fotos de Google Maps de talleres y eventos: configurado', 'Fotos de Google Maps de talleres y eventos: falta GOOGLE_MAPS_KEY en Vercel (opcional)')}
     ${fila(shopify, 'Publicar en Shopify desde el panel: configurado', 'Publicar en Shopify desde el panel: faltan SHOPIFY_TIENDA y SHOPIFY_CLIENT_ID en Vercel')}
     ${fila(Boolean(query.logged_in_customer_id), 'Has iniciado sesión', 'No has iniciado sesión (para anunciar o pujar hará falta)')}

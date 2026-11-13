@@ -392,3 +392,19 @@ test('reclamación: el dueño no se presenta, quien alquila avisa, la transferen
   await revisarReservas(cfg, deps);
   assert.ok(!stripe.some((x) => x[1] === 'transfers'), 'y el dueño no cobra nada');
 });
+
+test('pago en dos veces: 3 días antes de cobrar el resto se le avisa (una vez)', async () => {
+  const { deps, correos } = preparar();
+  const r = { id: 960, coche_id: 7, dueno: '55', cliente: '77', nombre: 'Lucía', email: 'lucia@x.es', desde: dia(16), hasta: dia(16), dias: 1, total: 495, tarifa: 45, resto: 315, a_cuenta: 180,
+    estado: 'aceptada', pago: 'pagado', stripe_pi: 'pi_1', datos: { pasajeros: 2 }, creado: new Date().toISOString() };
+  deps.reservas.filas.push(r);
+  // A 4 días de cobrar el resto: todavía nada
+  await ponerAlDia(cfg, deps, { ...r, desde: dia(18), hasta: dia(18) });
+  assert.ok(!correos.some((c) => /cobramos el resto/.test(c.subject || '')));
+  // A 2 días: se avisa, y solo una vez
+  await ponerAlDia(cfg, deps, r);
+  assert.equal(correos.filter((c) => /cobramos el resto/.test(c.subject || '')).length, 1);
+  assert.ok(deps.reservas.filas.at(-1).datos.resto_recordado); assert.equal(deps.reservas.filas.at(-1).datos.pasajeros, 2);
+  await ponerAlDia(cfg, deps, deps.reservas.filas.at(-1));
+  assert.equal(correos.filter((c) => /cobramos el resto/.test(c.subject || '')).length, 1, 'no se repite');
+});

@@ -302,6 +302,18 @@ export async function ponerAlDia(cfg, deps, r, ahora = Date.now()) {
     }
     const hoy = new Date(ahora + 3600e3).toISOString().slice(0, 10);
     const st = await stripeDe(cfg, deps);
+    // ---- 3 días antes de cobrar el resto, como Airbnb: «el X te cobraremos Y €» (una vez)
+    if (r.estado === 'aceptada' && r.pago === 'pagado' && Number(r.resto) > 0 && !r.resto_pagado && !(r.datos && r.datos.resto_recordado)) {
+      const aviso = new Date(`${fechaResto(r)}T12:00:00Z`); aviso.setUTCDate(aviso.getUTCDate() - 3);
+      if (hoy >= aviso.toISOString().slice(0, 10) && hoy < fechaResto(r)) {
+        await correo(cfg, r.email, `El ${fechaTxt(fechaResto(r))} cobramos el resto de tu reserva`, { titulo: 'Pronto cobramos el resto', previa: `${Number(r.resto)} € el ${fechaTxt(fechaResto(r))}.`,
+          cuerpo: P(`Te recordamos que el <b>${fechaTxt(fechaResto(r))}</b> cobraremos el resto de tu reserva, <b>${Number(r.resto)} €</b>, con la misma tarjeta con la que pagaste la señal. No tienes que hacer nada.`) + P('Si tu tarjeta ha cambiado, escríbenos y te mandamos un enlace para pagar con otra.'),
+          boton: 'Ver mi reserva', enlace: urlReservas(cfg) }, deps);
+        const datos2 = { ...(r.datos || {}), resto_recordado: new Date(ahora).toISOString() };
+        await tR.cambiar(r.id, { datos: datos2 });
+        r = { ...r, datos: datos2 };
+      }
+    }
     // ---- El resto (pago en dos veces): se cobra solo 14 días antes; si falla, enlace para pagar y 48 h; si no, se cancela
     if (r.estado === 'aceptada' && r.pago === 'pagado' && Number(r.resto) > 0 && !r.resto_pagado && hoy >= fechaResto(r)) {
       if (r.resto_aviso && ahora - Date.parse(r.resto_aviso) > 48 * 3600e3) {
