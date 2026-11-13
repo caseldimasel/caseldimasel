@@ -124,9 +124,19 @@ test('alquiler con pago: solicitud con contrato firmado, retención, el dueño f
   assert.ok(correos.some((c) => /Te han pedido tu coche/.test(c.html || '') && c.to?.includes?.('marta@x.es') || (c.to === 'marta@x.es')));
   let v = await api('api/alquiler/reservas', {}, quien('55'), 'GET');
   assert.equal(v.solicitudes.length, 1); assert.equal(v.solicitudes[0].gana, 450); assert.equal(v.solicitudes[0].otro.telefono, undefined);
+  // Los datos del coche para el contrato se piden al aceptar: sin ellos no se puede firmar; con ellos se guardan
+  assert.equal(v.solicitudes[0].vehiculo.matricula, '1234ABC', 'al dueño le llegan los que tiene guardados');
+  const cAlq = deps.garaje.filas[0].alq, guardados = { ...cAlq };
+  Object.assign(cAlq, { matricula: '', seguro_poliza: '', itv_hasta: '' });
+  const sinDatos = await api('api/alquiler/reserva', { id: fila.id, accion: 'aceptar', acepto: '1', firma: 'Marta Ruiz Pérez' }, quien('55'));
+  assert.equal(sinDatos.error, 'vehiculo'); assert.deepEqual(sinDatos.campos, ['matricula', 'seguro_poliza', 'itv_hasta']);
+  assert.equal((await api('api/alquiler/reserva', { id: fila.id, accion: 'aceptar', acepto: '1', firma: 'Marta Ruiz Pérez', matricula: '1234 ABC', seguro_poliza: 'POL-999', itv_hasta: dia(-1) }, quien('55'))).error, 'itv', 'la ITV tiene que estar en vigor el día del alquiler');
+  assert.equal(fila.pago, 'autorizado', 'todavía no se ha cobrado');
+  Object.assign(cAlq, guardados, { matricula: '' });
   // El dueño acepta: tiene que firmar con su nombre
-  assert.equal((await api('api/alquiler/reserva', { id: fila.id, accion: 'aceptar', acepto: '1', firma: 'Marta' }, quien('55'))).error, 'firma');
-  const ac = await api('api/alquiler/reserva', { id: fila.id, accion: 'aceptar', acepto: '1', firma: 'Marta Ruiz Pérez' }, quien('55'));
+  assert.equal((await api('api/alquiler/reserva', { id: fila.id, accion: 'aceptar', acepto: '1', firma: 'Marta', matricula: '1234ABC' }, quien('55'))).error, 'firma');
+  const ac = await api('api/alquiler/reserva', { id: fila.id, accion: 'aceptar', acepto: '1', firma: 'Marta Ruiz Pérez', matricula: '1234 abc' }, quien('55'));
+  assert.equal(deps.garaje.filas[0].alq.matricula, '1234ABC', 'la matrícula se guarda para la próxima vez');
   assert.equal(ac.ok, true);
   assert.ok(stripe.some((x) => x[1] === 'payment_intents/pi_1/capture'));
   assert.equal(fila.pago, 'pagado'); assert.equal(fila.estado, 'aceptada'); assert.equal(fila.firma_dueno.nombre, 'Marta Ruiz Pérez');

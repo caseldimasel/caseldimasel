@@ -200,7 +200,7 @@ export function contratoAlquiler(cfg, d) {
   const condiciones = conConductor ? [
     cl('Conductor y servicio',
       'El vehículo será conducido exclusivamente por el Arrendador o por el conductor que este designe, que deberá tener permiso de conducción en vigor y adecuado al vehículo. El Arrendatario y sus acompañantes no conducirán el vehículo en ningún caso.',
-      `El Arrendador declara que dispone de la autorización administrativa necesaria para el arrendamiento de vehículos con conductor (autorización n.º ${hueco(c.vtc)}), del seguro obligatorio de viajeros y de un seguro de responsabilidad civil que cubre este servicio, y responde frente al Arrendatario y frente a terceros de su falta.`,
+      'El Arrendador declara que el vehículo cuenta con un seguro de responsabilidad civil en vigor que cubre a los ocupantes y a terceros durante el servicio, que cumple la normativa que le resulte aplicable a este servicio ocasional y que responde frente al Arrendatario y frente a terceros de su falta.',
       'El conductor podrá negarse a realizar trayectos o maniobras que considere peligrosos o contrarios a las normas de tráfico, y no está obligado a superar el horario pactado ni las plazas homologadas del vehículo.',
       `${Number(c.km) > 0 ? `El precio incluye hasta ${Number(c.km)} km por día de servicio; cada kilómetro adicional se abonará a ${eur(Number(c.km_extra) || 0.5)}.` : 'El precio incluye los kilómetros del itinerario pactado.'} El combustible, los peajes y los aparcamientos del itinerario pactado son por cuenta del Arrendador, salvo que las partes acuerden otra cosa por escrito.`),
     cl('Obligaciones del Arrendatario y de sus acompañantes',
@@ -251,7 +251,7 @@ export function contratoAlquiler(cfg, d) {
   const anexos = `<h2>Anexo I · Vehículo y documentación</h2>
 <table class="t"><tr><th>Vehículo</th><td>${hueco(veh)}</td></tr><tr><th>Matrícula</th><td>${hueco(c.matricula)}</td></tr>
 <tr><th>Seguro</th><td>${hueco(c.seguro_compania)} · póliza ${hueco(c.seguro_poliza)} · ${hueco(c.seguro_tipo)}</td></tr><tr><th>ITV en vigor hasta</th><td>${hueco(fecha(c.itv_hasta))}</td></tr>
-${conConductor ? `<tr><th>Autorización con conductor</th><td>${hueco(c.vtc)}</td></tr><tr><th>Horas incluidas por día</th><td>${esc(c.horas || 8)} h${Number(c.hora_extra) > 0 ? `; hora extra ${eur(c.hora_extra)}` : ''}</td></tr><tr><th>Kilometraje</th><td>${Number(c.km) > 0 ? `${Number(c.km)} km/día; extra ${eur(Number(c.km_extra) || 0.5)}/km` : 'El del itinerario pactado'}</td></tr>` : `<tr><th>Kilometraje</th><td>${Number(c.km) > 0 ? `${Number(c.km)} km/día; extra ${eur(Number(c.km_extra) || 0.5)}/km` : 'Ilimitado'}</td></tr>`}
+${conConductor ? `<tr><th>Horas incluidas por día</th><td>${esc(c.horas || 8)} h${Number(c.hora_extra) > 0 ? `; hora extra ${eur(c.hora_extra)}` : ''}</td></tr><tr><th>Kilometraje</th><td>${Number(c.km) > 0 ? `${Number(c.km)} km/día; extra ${eur(Number(c.km_extra) || 0.5)}/km` : 'El del itinerario pactado'}</td></tr>` : `<tr><th>Kilometraje</th><td>${Number(c.km) > 0 ? `${Number(c.km)} km/día; extra ${eur(Number(c.km_extra) || 0.5)}/km` : 'Ilimitado'}</td></tr>`}
 <tr><th>Documentación a bordo</th><td>Permiso de circulación, ficha técnica o tarjeta ITV y justificante del seguro</td></tr></table>
 <h2>Anexo II · Normas particulares del Arrendador</h2>
 <p>${c.normas ? esc(c.normas).replace(/\n/g, '<br>') : 'Ninguna además de las de este contrato.'}</p>

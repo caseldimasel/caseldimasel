@@ -199,7 +199,7 @@ const urlReservas = (cfg) => `${cfg.tienda}/pages/vende-con-nosotros?view=perfil
 export function datosContrato(r, c, pD, emailD = '', tapado = false) {
   const a = c.alq || {}, l = (pD && pD.alq_legal) || {};
   const coche = { marca: c.marca, modelo: c.modelo, anio: c.anio, ...a };
-  if (tapado) { coche.matricula = ''; coche.seguro_poliza = ''; coche.vtc = a.vtc ? 'la indicada al confirmar' : ''; }
+  if (tapado) { coche.matricula = ''; coche.seguro_poliza = ''; }
   return {
     reserva: { id: r.id, desde: r.desde, hasta: r.hasta, dias: r.dias, tramos: r.tramos || null, horas: r.horas || null, precio_dia: r.precio_dia, total: r.total, tarifa: r.tarifa, para: r.para, conductor: r.conductor === 'con' ? 'con' : 'sin',
       lugar: r.conductor === 'con' ? (r.datos && r.datos.recogida) || '' : tapado ? a.ciudad : a.entrega || a.ciudad, pasajeros: (r.datos && r.datos.pasajeros) || '' },
@@ -594,6 +594,7 @@ export async function rutasReservas({ ruta, method, body, ip = '', ua = '' }, cl
           ...(rol === 'cliente' && estado === 'aceptada' && r.pago === 'pagado' && String(r.desde) > hoyISO() ? { si_cancelo: reembolso(r, 'cliente') } : {}),
           caduca: estado === 'pendiente' ? new Date(Date.parse(r.creado) + PLAZO_H * 3600e3).toISOString() : null,
           coche: { id: c.id, titulo: titulo(c), foto: (c.fotos || [])[0] ? urlFoto(cfg, c.fotos[0]) : '', ciudad: c.alq?.ciudad || '', ...(conf ? { entrega: c.alq?.entrega || '' } : {}) },
+          ...(rol === 'dueno' ? { vehiculo: { matricula: c.alq?.matricula || '', seguro_compania: c.alq?.seguro_compania || '', seguro_poliza: c.alq?.seguro_poliza || '', itv_hasta: c.alq?.itv_hasta || '' } } : {}),
           otro, resena_hecha: res.some((x) => Number(x.reserva_id) === Number(r.id) && x.rol === (rol === 'cliente' ? 'huesped' : 'anfitrion')) };
       };
       return json(200, { ok: true, viajes: await Promise.all(comoCliente.map((r) => ver(r, 'cliente'))), solicitudes: await Promise.all(comoDueno.map((r) => ver(r, 'dueno'))) });
@@ -635,6 +636,19 @@ export async function rutasReservas({ ruta, method, body, ip = '', ua = '' }, cl
           if (!datosListos(pD)) return json(400, { ok: false, error: 'datos' });
           const igual = (a, b) => String(a).trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ') === String(b).trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ');
           if (!body.acepto) return json(400, { ok: false, error: 'acepto' });
+          // Los datos del coche para el contrato: se piden al aceptar (no al publicarlo) y se guardan para la próxima vez
+          const a0 = (c && c.alq) || {};
+          const veh = {
+            matricula: clip(body.matricula, 12).toUpperCase().replace(/[\s-]/g, '') || a0.matricula || '',
+            seguro_compania: clip(body.seguro_compania, 60) || a0.seguro_compania || '',
+            seguro_poliza: clip(body.seguro_poliza, 40) || a0.seguro_poliza || '',
+            itv_hasta: DIA.test(body.itv_hasta) ? body.itv_hasta : a0.itv_hasta || ''
+          };
+          const faltan = ['matricula', 'seguro_compania', 'seguro_poliza', 'itv_hasta'].filter((k) => !veh[k]);
+          if (faltan.length) return json(400, { ok: false, error: 'vehiculo', campos: faltan });
+          if (!/^[A-Z0-9]{4,10}$/.test(veh.matricula)) return json(400, { ok: false, error: 'vehiculo', campos: ['matricula'] });
+          if (veh.itv_hasta < String(r.hasta || r.desde)) return json(400, { ok: false, error: 'itv' });
+          if (c && ['matricula', 'seguro_compania', 'seguro_poliza', 'itv_hasta'].some((k) => veh[k] !== (a0[k] || ''))) { await tG.cambiar(c.id, { alq: { ...a0, ...veh } }); Object.assign(c, { alq: { ...a0, ...veh } }); }
           if (!igual(body.firma, pD.alq_legal.nombre)) return json(400, { ok: false, error: 'firma', nombre: pD.alq_legal.nombre });
           try { await st('POST', `payment_intents/${r.stripe_pi}/capture`); } catch (e) { console.error(e); return json(200, { ok: false, error: 'cobro' }); }
           pagoNuevo = { pago: 'pagado', pagado: ahora, firma_dueno: { nombre: pD.alq_legal.nombre, documento: pD.alq_legal.dni, fecha: ahora, ip: clip(ip, 60), ua: clip(ua, 200), hash: r.contrato?.hash || '' } };
