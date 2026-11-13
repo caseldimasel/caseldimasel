@@ -195,6 +195,28 @@ const urlReservas = (cfg) => `${cfg.tienda}/pages/vende-con-nosotros?view=perfil
  * 24 h, se cobra; si no, se libera. Se cobra «por cuenta» del dueño (on_behalf_of: él es el vendedor del cargo) y su
  * parte se le transfiere 24 h después del servicio. Sidonia se queda la tarifa de servicio.
  */
+/** Lo que pone quien alquila al reservar: dónde quiere el coche (el dueño lo lleva allí, o allí os recoge con
+ *  conductor), cuántos van y sus datos para el contrato (documento, nacimiento, domicilio y, si conduce, el carné). */
+export function leerArrendatario(body, a = {}, conductor = 'sin') {
+  const lugar = clip(body.recogida || body.lugar, 300);
+  const datos = { recogida: lugar, dni: normDoc(body.dni), nacimiento: String(body.nacimiento || ''), domicilio: clip(body.domicilio, 250) };
+  if (conductor === 'con') datos.pasajeros = Math.max(1, Math.min(Number(a.plazas) ? Number(a.plazas) - 1 : 8, Math.round(Number(body.pasajeros)) || 1));
+  if (conductor === 'con' && lugar.length < 5) return { error: 'recogida' };
+  if (!documentoValido(datos.dni)) return { error: 'dni' };
+  const edad = (d) => { const n = new Date(`${d}T12:00:00Z`), h = new Date(); let e = h.getUTCFullYear() - n.getUTCFullYear(); if (h.getUTCMonth() < n.getUTCMonth() || (h.getUTCMonth() === n.getUTCMonth() && h.getUTCDate() < n.getUTCDate())) e--; return e; };
+  if (!DIA.test(datos.nacimiento) || edad(datos.nacimiento) < 18 || edad(datos.nacimiento) > 110) return { error: 'nacimiento' };
+  if (datos.domicilio.length < 8) return { error: 'domicilio' };
+  if (conductor !== 'con') {
+    datos.carne_num = clip(normDoc(body.carne_num), 30); datos.carne_fecha = String(body.carne_fecha || '');
+    if (edad(datos.nacimiento) < (Number(a.edad_min) || 25)) return { error: 'edad' };
+    if (datos.carne_num.length < 5 || !DIA.test(datos.carne_fecha) || datos.carne_fecha > hoyISO()) return { error: 'carne' };
+    if (edad(datos.carne_fecha) < (Number(a.carne_min ?? 3) || 0)) return { error: 'carne-antiguedad' };
+  }
+  return { datos };
+}
+/** El documento, tapado salvo los 4 últimos (para enseñarlo antes de confirmar) */
+export const docTapado = (v) => (v ? `${'•'.repeat(Math.max(0, String(v).length - 4))}${String(v).slice(-4)}` : '');
+
 /** Los datos con los que se rellena el contrato. tapado: sin los datos privados del dueño ni del coche (vista previa) */
 export function datosContrato(r, c, pD, emailD = '', tapado = false) {
   const a = c.alq || {}, l = (pD && pD.alq_legal) || {};
@@ -204,7 +226,7 @@ export function datosContrato(r, c, pD, emailD = '', tapado = false) {
     reserva: { id: r.id, desde: r.desde, hasta: r.hasta, dias: r.dias, tramos: r.tramos || null, horas: r.horas || null, precio_dia: r.precio_dia, total: r.total, tarifa: r.tarifa, para: r.para, conductor: r.conductor === 'con' ? 'con' : 'sin',
       lugar: r.conductor === 'con' ? (r.datos && r.datos.recogida) || '' : tapado ? a.ciudad : a.entrega || a.ciudad, pasajeros: (r.datos && r.datos.pasajeros) || '' },
     coche: { ...coche, seguro_tipo: SEGUROS[a.seguro_tipo] || a.seguro_tipo || '' },
-    dueno: tapado ? { nombre: l.nombre } : { nombre: l.nombre, dni: l.dni, domicilio: l.domicilio, telefono: l.telefono, email: emailD },
+    dueno: tapado ? { nombre: l.nombre, dni: docTapado(l.dni), domicilio: l.nombre ? 'el que figura en Sidonia (se muestra al confirmarse la reserva)' : '', telefono: l.nombre ? 'visible al confirmarse' : '', email: l.nombre ? 'visible al confirmarse' : '' } : { nombre: l.nombre, dni: l.dni, domicilio: l.domicilio, telefono: l.telefono, email: emailD },
     cliente: { nombre: r.nombre, email: r.email, telefono: r.telefono, ...(r.datos || {}) }
   };
 }
@@ -263,10 +285,11 @@ export async function confirmarPago(cfg, deps, id, sid) {
   const rr = { ...r, ...cambios };
   const t = titulo(c || {}), d = await emailDueno(cfg, deps, r.dueno);
   const recordar = cobrosListos(pD) ? '' : P('<b>Para recibir tu dinero</b>, date de alta para cobrar en tu garaje (con Stripe, 5 minutos). Te guardamos tu parte hasta que esté.');
-  const filas = [['Coche', t], ['Cuándo', cuandoTxt(r)], ['Total', `${Number(r.total)} €`], ...(r.para ? [['Para', r.para]] : []), ['Conductor', r.conductor === 'con' ? 'Con conductor' : 'Sin conductor']];
+  const filas = [['Coche', t], ['Cuándo', cuandoTxt(r)], ['Total', `${Number(r.total)} €`], ...(r.para ? [['Para', r.para]] : []), ['Conductor', r.conductor === 'con' ? 'Con conductor' : 'Sin conductor'],
+    ...(r.datos?.recogida ? [['Dónde lo quiere', r.datos.recogida]] : []), ...(r.datos?.pasajeros ? [['Pasajeros', r.datos.pasajeros]] : [])];
   const aDueno = pagado
     ? { titulo: '¡Tienes una reserva!', previa: `${r.nombre} ha reservado tu ${t}.`, cuerpo: P(`<b>${esc(r.nombre.split(' ')[0])}</b> ha reservado y pagado tu <b>${esc(t)}</b>. Tienes la reserva inmediata activada, así que está confirmada y el contrato aceptado por los dos.`) + datos([...filas, ['Para ti', `${paraDueno(rr)} €`]]) + P('Escríbele desde Sidonia para quedar la hora de entrega. Te transferimos tu parte 24 horas después del servicio.') + recordar, boton: 'Ver la reserva y el contrato', enlace: urlReservas(cfg) }
-    : { titulo: 'Te han pedido tu coche', previa: `${r.nombre} quiere tu ${t}.`, cuerpo: P(`<b>${esc(r.nombre.split(' ')[0])}</b> quiere alquilar tu <b>${esc(t)}</b>. El pago ya está retenido en su tarjeta.`) + datos([...filas, ['Para ti', `${paraDueno(rr)} €`]]) + (r.mensaje ? P(esc(r.mensaje)) : '') + P(`Tienes <b>${PLAZO_H} horas</b> para aceptarla (firmas el contrato y se cobra) o rechazarla. Si no respondes, caduca y se libera el pago.`) + recordar, boton: 'Responder a la solicitud', enlace: urlReservas(cfg) };
+    : { titulo: 'Te han pedido tu coche', previa: `${r.nombre} quiere tu ${t}.`, cuerpo: P(`<b>${esc(r.nombre.split(' ')[0])}</b> quiere alquilar tu <b>${esc(t)}</b>. El pago ya está retenido en su tarjeta.`) + datos([...filas, ['Para ti', `${paraDueno(rr)} €`]]) + (r.mensaje ? P(`<b>Lo que te cuenta:</b> «${esc(r.mensaje)}»`) : '') + P('Mira bien dónde y cuándo lo quiere: si te viene lejos o no te encaja, recházala sin problema. En «Mis reservas» tienes el contrato con sus datos.') + P(`Tienes <b>${PLAZO_H} horas</b> para aceptarla (firmas el contrato y se cobra) o rechazarla. Si no respondes, caduca y se libera el pago.`) + recordar, boton: 'Responder a la solicitud', enlace: urlReservas(cfg) };
   await correo(cfg, d.email, pagado ? `Reserva confirmada: tu ${t}` : `Solicitud de reserva: tu ${t}`, aDueno, deps);
   await correo(cfg, r.email, pagado ? `Reserva confirmada: ${t}` : `Solicitud enviada: ${t}`, pagado
     ? { titulo: '¡Reserva confirmada!', previa: `${t}, del ${fechaTxt(r.desde)} al ${fechaTxt(r.hasta)}.`, cuerpo: P('Pago hecho: tu reserva está confirmada. En Sidonia tienes ya el contacto del dueño, dónde se recoge el coche y el contrato.') + datos(filas), boton: 'Ver mi reserva y el contrato', enlace: urlReservas(cfg) }
@@ -430,7 +453,7 @@ export async function revisarReservas(cfg, deps) {
 
 /** Todas las rutas del alquiler tipo Airbnb (null si no es suya) */
 export async function rutasReservas({ ruta, method, body, ip = '', ua = '' }, cliente, cfg, deps) {
-  const R = ['api/alquiler/coches', 'api/alquiler/coche', 'api/alquiler/dueno', 'api/alquiler/reservar', 'api/alquiler/reservas', 'api/alquiler/reserva', 'api/alquiler/mensajes', 'api/alquiler/resena'];
+  const R = ['api/alquiler/coches', 'api/alquiler/coche', 'api/alquiler/dueno', 'api/alquiler/reservar', 'api/alquiler/contrato-previo', 'api/alquiler/reservas', 'api/alquiler/reserva', 'api/alquiler/mensajes', 'api/alquiler/resena'];
   if (!R.includes(ruta)) return null;
   const json = (status, b, cache = 'no-store') => ({ status, headers: { 'Content-Type': 'application/json', 'Cache-Control': cache }, body: JSON.stringify(b) });
   const tG = tabla(cfg, deps, 'garaje'), tR = tabla(cfg, deps, 'reservas'), tM = tabla(cfg, deps, 'reservas_mensajes'), tS = tabla(cfg, deps, 'reservas_resenas');
@@ -499,6 +522,26 @@ export async function rutasReservas({ ruta, method, body, ip = '', ua = '' }, cl
 
   if (!cliente) return json(200, { ok: false, error: 'login' });
 
+  // ------------------------------------------------------------------ El contrato, ya rellenado con los datos de quien alquila, para leerlo antes de reservar
+  if (ruta === 'api/alquiler/contrato-previo' && method === 'POST') {
+    try {
+      const [c] = await tG.leer(`id=eq.${Number(body.coche_id)}&alquiler=eq.true&limit=1`);
+      if (!c || c.visible === false || enRevision(c)) return json(404, { ok: false, error: 'no-existe' });
+      const tramos = body.tramos === undefined ? null : leerTramos(body.tramos);
+      const desde = tramos ? tramos[0].dia : DIA.test(body.desde) ? String(body.desde) : '', hasta = tramos ? tramos[tramos.length - 1].dia : DIA.test(body.hasta) ? String(body.hasta) : desde;
+      const modo = modoDe(c.alq || {}, true, body.conductor);
+      const plan = tramos && !(Number(c.alq.hora) > 0) ? String(body.plan || '') : '';
+      const pr = !desde ? {} : tramos ? precioHoras(c.alq, tramos, plan, tarifaPct(cfg)) : precio(c.alq || {}, desde, hasta, tarifaPct(cfg), modo);
+      const pD = await perfilCobros(cfg, deps, c.cliente);
+      const lg = leerArrendatario(body, c.alq, modo);
+      const x = lg.datos || { recogida: clip(body.recogida, 300), dni: normDoc(body.dni), nacimiento: DIA.test(body.nacimiento) ? body.nacimiento : '', domicilio: clip(body.domicilio, 250), carne_num: clip(body.carne_num, 30), carne_fecha: DIA.test(body.carne_fecha) ? body.carne_fecha : '', pasajeros: Number(body.pasajeros) || '' };
+      const r = { id: '', desde, hasta, dias: pr.dias, tramos: tramos || null, horas: pr.horas || null, precio_dia: pr.precio_dia, total: pr.total, tarifa: pr.tarifa, para: USOS.includes(body.para) ? body.para : '', conductor: modo,
+        nombre: nombreBonito(clip(body.nombre, 120)), email: clip(body.email, 200), telefono: clip(body.telefono, 40), datos: x };
+      const d = datosContrato(r, c, pD, '', true);
+      return json(200, { ok: true, completo: !lg.error, falta: lg.error || '', html: contratoAlquiler(cfg, d) });
+    } catch (e) { return falta(e); }
+  }
+
   // ------------------------------------------------------------------ Reservar (solicitud o reserva inmediata)
   if (ruta === 'api/alquiler/reservar' && method === 'POST') {
     // Por horas: los tramos (uno por día); si no, por días (desde–hasta)
@@ -534,10 +577,13 @@ export async function rutasReservas({ ruta, method, body, ip = '', ua = '' }, cl
         const pD = await perfilCobros(cfg, deps, c.cliente);
         if (faltaParaAlquilar(c, pD, true).length) return json(200, { ok: false, error: 'no-disponible' });
         const conductor = modo;
-        const x = conductor === 'con' ? { pasajeros: Math.max(1, Math.min(Number(c.alq.plazas) ? Number(c.alq.plazas) - 1 : 8, Math.round(Number(body.pasajeros)) || 1)), recogida: clip(body.recogida, 300) } : {};
-        if (conductor === 'con' && x.recogida.length < 5) return json(400, { ok: false, error: 'recogida' });
+        // Dónde quiere el coche (el dueño lo lleva allí) y los datos de quien alquila para el contrato
+        const lg = leerArrendatario(body, c.alq, conductor);
+        if (lg.error) return json(400, { ok: false, error: lg.error });
+        const x = lg.datos;
         if (!/^\+?[\d\s]{9,15}$/.test(q.telefono)) return json(400, { ok: false, error: 'telefono' });
         if (!body.acepto) return json(400, { ok: false, error: 'acepto' });
+        q.nombre = nombreBonito(q.nombre);
         const r = await tR.guardar({ coche_id: Number(c.id), dueno: String(c.cliente), cliente: String(cliente), desde, hasta, dias: pr.dias, precio_dia: pr.precio_dia, total: pr.total, tarifa: pr.tarifa, ...partes(pr.total, pr.tarifa, desde),
           pago: 'sin-pagar', estado: 'pendiente', ...q, ...conHoras, conductor, datos: x }, 'id');
         // Como en Airbnb: el contrato se genera con los datos del anuncio (los declara el dueño) y los de la reserva, y quien
@@ -613,6 +659,7 @@ export async function rutasReservas({ ruta, method, body, ip = '', ua = '' }, cl
           ...(rol === 'cliente' && estado === 'aceptada' && r.pago === 'pagado' && String(r.desde) > hoyISO() ? { si_cancelo: reembolso(r, 'cliente') } : {}),
           caduca: estado === 'pendiente' ? new Date(Date.parse(r.creado) + PLAZO_H * 3600e3).toISOString() : null,
           coche: { id: c.id, titulo: titulo(c), foto: (c.fotos || [])[0] ? urlFoto(cfg, c.fotos[0]) : '', ciudad: c.alq?.ciudad || '', ...(conf ? { entrega: c.alq?.entrega || '' } : {}) },
+          lugar: r.datos?.recogida || '', pasajeros: r.datos?.pasajeros || '', ...(rol === 'dueno' ? { mensaje: r.mensaje || '' } : {}),
           puede_avisar: puedeAvisar(r), ...(rol === 'dueno' ? { vehiculo: { matricula: c.alq?.matricula || '', seguro_compania: c.alq?.seguro_compania || '', seguro_poliza: c.alq?.seguro_poliza || '', itv_hasta: c.alq?.itv_hasta || '' } } : {}), incidencia: r.datos?.incidencia ? { de: r.datos.incidencia.de, fecha: r.datos.incidencia.fecha, resuelta: r.datos.incidencia.resuelta || '', mia: r.datos.incidencia.de === rol } : null,
           otro, resena_hecha: res.some((x) => Number(x.reserva_id) === Number(r.id) && x.rol === (rol === 'cliente' ? 'huesped' : 'anfitrion')) };
       };

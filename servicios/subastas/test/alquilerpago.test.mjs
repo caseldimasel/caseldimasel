@@ -102,16 +102,25 @@ test('alquiler con pago: solicitud con contrato aceptado, retención, el dueño 
   const { api, deps, stripe, correos } = preparar();
   // Datos que faltan o no cuadran
   assert.equal((await api('api/alquiler/reservar', { ...pedir, acepto: '' }, quien('77'))).error, 'acepto', 'acepta el contrato y las condiciones');
-  // Como en Airbnb: sin DNI, nacimiento, domicilio ni firma escrita (acepta con la casilla)
-  const { dni, nacimiento, domicilio, firma, ...sinDatos } = pedir;
-  assert.equal((await api('api/alquiler/reservar', sinDatos, quien('77'))).ok, true);
+  // Sus datos para el contrato: documento, nacimiento (mayor de edad) y domicilio
+  assert.equal((await api('api/alquiler/reservar', { ...pedir, dni: '' }, quien('77'))).error, 'dni');
+  assert.equal((await api('api/alquiler/reservar', { ...pedir, dni: '87654321A' }, quien('77'))).error, 'dni', 'la letra del DNI');
+  assert.equal((await api('api/alquiler/reservar', { ...pedir, nacimiento: '2015-01-01' }, quien('77'))).error, 'nacimiento');
+  assert.equal((await api('api/alquiler/reservar', { ...pedir, domicilio: 'Sevilla' }, quien('77'))).error, 'domicilio');
+  assert.equal((await api('api/alquiler/reservar', { ...pedir, recogida: '' }, quien('77'))).error, 'recogida', 'dónde lo quiere');
+  // Antes de reservar lee el contrato ya rellenado con sus datos (y el nombre del dueño, con el DNI tapado)
+  const pv = await api('api/alquiler/contrato-previo', pedir, quien('77'));
+  assert.equal(pv.ok, true); assert.equal(pv.completo, true);
+  assert.match(pv.html, /Lucía Gómez Sanz/); assert.match(pv.html, /87654321X/); assert.match(pv.html, /Calle Luna 3, Sevilla/); assert.match(pv.html, /Iglesia de San Jerónimo/);
+  assert.match(pv.html, /Marta Ruiz Pérez/); assert.match(pv.html, /•+678Z/); assert.doesNotMatch(pv.html, /12345678Z/); assert.doesNotMatch(pv.html, /1234ABC/);
+  assert.equal((await api('api/alquiler/contrato-previo', { ...pedir, dni: '' }, quien('77'))).falta, 'dni');
   // Bien: se guarda el contrato firmado por quien alquila y se va a Stripe a retener
   const r = await api('api/alquiler/reservar', pedir, quien('77'), 'POST', { 'x-forwarded-for': '81.2.3.4, 10.0.0.1', 'user-agent': 'Prueba' });
   assert.equal(r.ok, true); assert.equal(r.pagar, 'https://checkout.stripe.test/x');
   assert.equal(r.reserva.total, 495); assert.equal(r.reserva.tarifa, 45);
   const fila = deps.reservas.filas.at(-1);
   assert.equal(fila.pago, 'sin-pagar'); assert.equal(fila.firma_cliente.ip, '81.2.3.4'); assert.equal(fila.firma_cliente.hash, fila.contrato.hash);
-  assert.match(fila.contrato.html, /1234ABC/, 'con los datos del coche que declaró el dueño'); assert.match(fila.contrato.html, /12345678Z/); assert.match(fila.contrato.html, /Lucía Gómez Sanz/);
+  assert.match(fila.contrato.html, /1234ABC/, 'con los datos del coche que declaró el dueño'); assert.match(fila.contrato.html, /12345678Z/); assert.match(fila.contrato.html, /Lucía Gómez Sanz/); assert.match(fila.contrato.html, /87654321X/); assert.match(fila.contrato.html, /Iglesia de San Jerónimo/);
   const ses = stripe.find((x) => x[1] === 'checkout/sessions')[2];
   assert.equal(ses.payment_intent_data.capture_method, 'manual'); assert.equal(ses.payment_intent_data.on_behalf_of, 'acct_1');
   assert.equal(ses.line_items[0].price_data.unit_amount, 45000); assert.equal(ses.line_items[1].price_data.unit_amount, 4500);
