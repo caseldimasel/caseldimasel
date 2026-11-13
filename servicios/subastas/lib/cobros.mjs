@@ -10,7 +10,7 @@
  *          POST api/alquiler/cobros { accion: 'alta' }    → { url } (a Stripe para darse de alta)
  *          POST api/alquiler/cobros { accion: 'panel' }   → { url } (su panel de Stripe: pagos y banco)
  */
-import { avisarEquipo, esc, slugVendedor, tablaAnuncios } from './circulo.mjs';
+import { avisarEquipo, esc, nombreBonito, slugVendedor, tablaAnuncios } from './circulo.mjs';
 import { enviarCorreo, P, plantilla } from './correos.mjs';
 import { VERSION_CONDICIONES } from './contratos.mjs';
 
@@ -80,7 +80,7 @@ export async function rutasCobros({ ruta, method, body, ip }, cliente, cfg, deps
     }
     const accion = String(body.accion || '');
     if (accion === 'datos') {
-      const d = { nombre: clip(body.nombre, 120), dni: normDoc(body.dni), domicilio: clip(body.domicilio, 250), telefono: clip(body.telefono, 30), email: clip(body.email, 160) };
+      const d = { nombre: nombreBonito(clip(body.nombre, 120)), dni: normDoc(body.dni), domicilio: clip(body.domicilio, 250), telefono: clip(body.telefono, 30), email: clip(body.email, 160) };
       if (d.nombre.split(/\s+/).length < 2) return json(400, { ok: false, error: 'nombre' });
       // DNI o NIE con su letra; quien no los tiene, su pasaporte
       if (!documentoValido(d.dni)) return json(400, { ok: false, error: 'dni' });

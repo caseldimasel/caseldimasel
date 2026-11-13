@@ -14,7 +14,7 @@
  *   GET  api/garaje/recientes     → { ok, coches }               lo último de la comunidad (?alquiler=1: los que se alquilarán)
  * Las fotos se suben como las de los anuncios (POST api/anuncio/fotos) y se guardan sus rutas.
  */
-import { avisarEquipo, esc, perfilPublico, slugVendedor, tablaAnuncios, urlFoto } from './circulo.mjs';
+import { avisarEquipo, esc, mayus, nombreBonito, perfilPublico, slugVendedor, tablaAnuncios, urlFoto } from './circulo.mjs';
 import { enRevision } from './cobros.mjs';
 import { enviarCorreo, P, plantilla } from './correos.mjs';
 
@@ -89,7 +89,7 @@ export function leerCoche(b = {}, cliente = '') {
   const anio = Number(b.anio) || null;
   const c = {
     tipo: b.tipo === 'moto' ? 'moto' : 'coche',
-    marca: texto(b.marca, 40), modelo: texto(b.modelo, 60), anio: anio && anio >= 1885 && anio <= new Date().getFullYear() + 1 ? anio : null,
+    marca: mayus(texto(b.marca, 40)), modelo: mayus(texto(b.modelo, 60)), anio: anio && anio >= 1885 && anio <= new Date().getFullYear() + 1 ? anio : null,
     apodo: texto(b.apodo, 40), historia: texto(b.historia, 4000), mods: texto(b.mods, 2000),
     fotos: (Array.isArray(b.fotos) ? b.fotos : []).map(String).filter((f) => propia.test(f)).slice(0, FOTOS),
     alquiler: Boolean(b.alquiler), alquiler_como: b.alquiler ? 'con' : '',
@@ -105,11 +105,11 @@ export function leerCoche(b = {}, cliente = '') {
 /** Lo que se enseña de un coche */
 export const cochePublico = (cfg, c, dueno = null, liked = false) => ({
   id: c.id, tipo: c.tipo, marca: c.marca, modelo: c.modelo, anio: c.anio, apodo: c.apodo || '', historia: c.historia || '', mods: c.mods || '',
-  titulo: [c.marca, c.modelo, c.anio].filter(Boolean).join(' '),
+  titulo: mayus([c.marca, c.modelo, c.anio].filter(Boolean).join(' ')),
   fotos: (c.fotos || []).map((f) => urlFoto(cfg, f)), alquiler: Boolean(c.alquiler) && !enRevision(c), alquiler_como: c.alquiler_como || '',
   likes: Number(c.likes) || 0, liked, creado: c.creado,
   alq: alqPublico(c.alq || {}), bloqueos: bloqueosPublicos(c.bloqueos),
-  ...(dueno ? { dueno: { slug: dueno.slug, nombre: dueno.nombre, foto: dueno.foto ? urlFoto(cfg, dueno.foto) : '', ciudad: dueno.ciudad || '' } } : {})
+  ...(dueno ? { dueno: { slug: dueno.slug, nombre: nombreBonito(dueno.nombre), foto: dueno.foto ? urlFoto(cfg, dueno.foto) : '', ciudad: dueno.ciudad || '' } } : {})
 });
 
 /** El perfil con lo del garaje (ciudad, Instagram y portada ya van en perfilPublico) */
@@ -219,12 +219,12 @@ export async function rutasGaraje({ ruta, method, body }, cliente, cfg, deps) {
       let [p] = await tP.leer(`cliente=eq.${encodeURIComponent(cliente)}&limit=1`).catch(() => []);
       // Sin perfil todavía: uno con su nombre, para que su garaje tenga dirección pública
       if (!p) {
-        const nombre = texto(body.nombre, 60) || 'Amante del motor';
+        const nombre = nombreBonito(texto(body.nombre, 60)) || 'Amante del motor';
         p = await tP.guardar({ cliente, slug: slugVendedor(nombre, cliente), nombre, tipo: 'particular', descripcion: '', foto: '', actualizado: new Date().toISOString() }, 'cliente');
       }
       // Perfil creado al firmar el alquiler (sin dirección pública): se le pone, o su coche no saldría en la comunidad
       if (!p.slug) {
-        const nombre = texto(p.nombre, 60) || texto(p.alq_legal?.nombre, 60).split(/\s+/)[0] || texto(body.nombre, 60) || 'Amante del motor';
+        const nombre = nombreBonito(texto(p.nombre, 60) || texto(p.alq_legal?.nombre, 60).split(/\s+/)[0] || texto(body.nombre, 60)) || 'Amante del motor';
         p = await tP.guardar({ cliente, slug: slugVendedor(nombre, cliente), nombre, actualizado: new Date().toISOString() }, 'cliente');
       }
       const id = Number(body.id) || 0;

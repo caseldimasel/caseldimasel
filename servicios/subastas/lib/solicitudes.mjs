@@ -10,14 +10,14 @@
  *   historia, fotos: quitar, añadir o elegir portada) y se aprueban (sale en Alquiler y le llega «ya está publicado») o
  *   se rechazan con el motivo (le llega por email; si lo cambia, vuelve aquí). Luego se pueden ocultar o borrar.
  */
-import { avisarEquipo, esc, permisosSubida, tablaAnuncios, telefono as normTel, urlFoto } from './circulo.mjs';
+import { avisarEquipo, esc, mayus, permisosSubida, tablaAnuncios, telefono as normTel, urlFoto } from './circulo.mjs';
 import { enviarCorreo, P, plantilla } from './correos.mjs';
 import { faltaParaAlquilar } from './cobros.mjs';
 
 const tabla = (cfg, deps, n) => deps[n] || tablaAnuncios(cfg, deps.fetch, n);
 const texto = (v, n) => String(v ?? '').replace(/\r\n?/g, '\n').replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g, '').trim().slice(0, n);
 const fecha = (x) => (x ? new Date(x).toLocaleString('es-ES', { timeZone: 'Europe/Madrid', day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' }) : '');
-const titulo = (c) => [c.marca, c.modelo, c.anio].filter(Boolean).join(' ') || 'Vehículo';
+const titulo = (c) => mayus([c.marca, c.modelo, c.anio].filter(Boolean).join(' ')) || 'Vehículo';
 
 export const ESTADOS_GESTION = { nueva: 'Nueva', contactado: 'Contactado', en_gestion: 'En gestión', vendido: 'Vendido', descartada: 'Descartada' };
 
@@ -485,7 +485,7 @@ export async function rutasSolicitudes(req, cfg, deps, html, marco) {
           }
           if (b.accion === 'alq-editar') {
             const n = (v, lo, hi) => Math.max(lo, Math.min(hi, Math.round(Number(v) || 0)));
-            await tG.cambiar(c.id, { marca: texto(b.marca, 40) || c.marca, modelo: texto(b.modelo, 60) || c.modelo, anio: Number(b.anio) || c.anio, historia: texto(b.historia, 6000),
+            await tG.cambiar(c.id, { marca: mayus(texto(b.marca, 40) || c.marca), modelo: mayus(texto(b.modelo, 60) || c.modelo), anio: Number(b.anio) || c.anio, historia: texto(b.historia, 6000),
               alq: { ...alq, hora: n(b.hora, 0, 5000) || alq.hora, min_horas: n(b.min_horas, 1, 24) || alq.min_horas, ciudad: texto(b.ciudad, 80), plazas: n(b.plazas, 0, 9) || alq.plazas, normas: texto(b.normas, 2000) } });
             aviso = 'Cambios guardados.';
           }

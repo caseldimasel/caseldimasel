@@ -44,7 +44,7 @@ test('panel › Alquileres: llega por revisar, se edita (fotos incluidas), se ap
     fetch: async (u, o) => { correos.push(JSON.parse(o.body)); return { ok: true, json: async () => ({}) }; } };
   const ir = (body, ver) => atenderPanel({ method: body ? 'POST' : 'GET', query: { estado: 'alquileres', ...(ver ? { ver } : {}) }, body, headers: auth }, cfg, deps);
   const r = await ir();
-  assert.match(r.body, /Mercedes 280 SL 1970/); assert.match(r.body, /Por revisar · no se ve/); assert.match(r.body, /Aprobar y publicar/); assert.match(r.body, /Alquileres <b class="num">1<\/b>/);
+  assert.match(r.body, /MERCEDES 280 SL 1970/); assert.match(r.body, /Por revisar · no se ve/); assert.match(r.body, /Aprobar y publicar/); assert.match(r.body, /Alquileres <b class="num">1<\/b>/);
   assert.match(r.body, /wa\.me\/34600000000\?text=/);
   // Fotos: quitar, añadir (permiso + rutas de su carpeta) y portada
   await ir({ accion: 'alq-fotos', id: '7', quitar: ['0', '2'] }); assert.deepEqual(garaje.filas[0].fotos, ['55/aaaaaaaa2.jpg']);
@@ -57,8 +57,8 @@ test('panel › Alquileres: llega por revisar, se edita (fotos incluidas), se ap
   assert.deepEqual(o.fotos, ['55/nuevafoto0.jpg', '55/editada12.jpg', '55/aaaaaaaa2.jpg']); assert.deepEqual(garaje.filas[0].fotos, o.fotos);
   assert.equal(JSON.parse((await ir({ accion: 'alq-fotos-orden', id: '7', ruta: ['99/ajena123.jpg'] })).body).ok, false, 'al menos una foto');
   assert.match((await ir()).body, /data-fotos="7"/);
-  await ir({ accion: 'alq-editar', id: '7', marca: 'Mercedes-Benz', modelo: '280 SL', anio: '1970', hora: '75', min_horas: '2', ciudad: 'Toledo', plazas: '2', historia: 'Nueva', normas: 'Sin fumar' });
-  assert.equal(garaje.filas[0].marca, 'Mercedes-Benz'); assert.equal(garaje.filas[0].alq.hora, 75); assert.equal(garaje.filas[0].alq.estado, 'pendiente', 'editar no lo publica');
+  await ir({ accion: 'alq-editar', id: '7', marca: 'MERCEDES-BENZ', modelo: '280 SL', anio: '1970', hora: '75', min_horas: '2', ciudad: 'Toledo', plazas: '2', historia: 'Nueva', normas: 'Sin fumar' });
+  assert.equal(garaje.filas[0].marca, 'MERCEDES-BENZ'); assert.equal(garaje.filas[0].alq.hora, 75); assert.equal(garaje.filas[0].alq.estado, 'pendiente', 'editar no lo publica');
   // Rechazar: con el motivo por email, sigue sin verse
   await ir({ accion: 'alq-rechazar', id: '7', motivo: 'Las fotos están borrosas' });
   assert.equal(garaje.filas[0].alq.estado, 'rechazado');

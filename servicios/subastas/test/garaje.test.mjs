@@ -39,7 +39,7 @@ function preparar() {
   const api = (ruta, body, q = quien(), method = body ? 'POST' : 'GET') => atender({ method, ruta, query: { ...q, ...(method === 'GET' ? body || {} : {}) }, body: body || {}, directo: true, headers: {} }, cfg, deps).then((r) => JSON.parse(r.body));
   return { deps, api };
 }
-const coche = { tipo: 'coche', marca: 'Mercedes-Benz', modelo: '280 SL Pagoda', anio: 1970, apodo: 'La Pagoda', historia: 'Era de mi abuelo.', mods: 'Llantas originales restauradas', fotos: ['55/abcd1234.jpg', '99/ajenaaaa.jpg'] };
+const coche = { tipo: 'coche', marca: 'MERCEDES-BENZ', modelo: '280 SL PAGODA', anio: 1970, apodo: 'La PAGODA', historia: 'Era de mi abuelo.', mods: 'Llantas originales restauradas', fotos: ['55/abcd1234.jpg', '99/ajenaaaa.jpg'] };
 
 test('garaje: comprueba el coche (marca, modelo y al menos una foto suya)', () => {
   assert.equal(leerCoche({ ...coche, marca: '' }, '55').campo, 'marca');
@@ -54,13 +54,13 @@ test('garaje: añade su coche (con su perfil y dirección pública), lo ve en p�
   const r = await api('api/garaje', { ...coche, nombre: 'Lucía' });
   assert.equal(r.ok, true);
   assert.match(r.slug, /^lucia-[0-9a-f]{4}$/);
-  assert.equal(r.coche.titulo, 'Mercedes-Benz 280 SL Pagoda 1970');
+  assert.equal(r.coche.titulo, 'MERCEDES-BENZ 280 SL PAGODA 1970');
   assert.match(r.coche.fotos[0], /\/storage\/v1\/object\/public\/anuncios\/55\/abcd1234\.jpg$/);
   // Su garaje público (sin sesión)
   const pub = await api('api/garaje/publico', { slug: r.slug }, {}, 'GET');
   assert.equal(pub.perfil.nombre, 'Lucía');
   assert.equal(pub.coches.length, 1);
-  assert.equal(pub.coches[0].apodo, 'La Pagoda');
+  assert.equal(pub.coches[0].apodo, 'La PAGODA');
   // Otra persona le da «me gusta»; el dueño no se lo puede dar a sí mismo
   const id = pub.coches[0].id;
   assert.deepEqual(await api('api/garaje/like', { id, on: true }, quien('77')), { ok: true, likes: 1, liked: true });
@@ -85,7 +85,7 @@ test('garaje: «Lo alquilaría» lo apunta en la lista de espera del alquiler (u
   const r = await api('api/garaje', { ...coche, alquiler: true, alquiler_como: 'con', nombre: 'Lucía', email: 'lucia@x.es' });
   assert.equal(deps.alquiler.filas.length, 1);
   assert.equal(deps.alquiler.filas[0].rol, 'poner');
-  assert.equal(deps.alquiler.filas[0].coche, 'Mercedes-Benz 280 SL Pagoda 1970');
+  assert.equal(deps.alquiler.filas[0].coche, 'MERCEDES-BENZ 280 SL PAGODA 1970');
   assert.equal(deps.alquiler.filas[0].conductor, 'con');
   await api('api/garaje', { ...coche, id: r.coche.id, alquiler: true, historia: 'Otra' });
   assert.equal(deps.alquiler.filas.length, 1, 'no se repite');
@@ -101,8 +101,8 @@ test('panel › Clientes › Garajes: los coches, quién los alquilaría y qué 
   await api('api/garaje', { ...coche, alquiler: true, nombre: 'Lucía' });
   deps.perfiles.filas[0].avisos = { eventos: true, tienda: true, coches: false };
   const h = (await atenderPanel({ method: 'GET', query: { estado: 'garajes' }, body: {}, headers: auth }, cfg, deps)).body;
-  assert.match(h, /Mercedes-Benz 280 SL Pagoda 1970/);
-  assert.match(h, /«La Pagoda»/);
+  assert.match(h, /MERCEDES-BENZ 280 SL PAGODA 1970/);
+  assert.match(h, /«La PAGODA»/);
   assert.match(h, /Los alquilarían<\/span><b>1<\/b>/);
   assert.match(h, /Quieren eventos<\/span><b>1<\/b>/);
   assert.match(h, /view=garaje&u=lucia-/);

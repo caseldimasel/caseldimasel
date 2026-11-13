@@ -51,7 +51,7 @@ test('reservas: buscar y ver la ficha sin la dirección de entrega; solicitud, e
   assert.equal(b.coches[0].anfitrion.nombre, 'Marta Ruiz');
   assert.equal((await api('api/alquiler/coches', { desde: dia(41), hasta: dia(41) }, {}, 'GET')).coches.length, 0, 'bloqueado por el dueño');
   const f = await api('api/alquiler/coche', { id: 7 }, {}, 'GET');
-  assert.equal(f.coche.titulo, 'Alfa Romeo Spider 1975');
+  assert.equal(f.coche.titulo, 'ALFA ROMEO SPIDER 1975');
   assert.equal(JSON.stringify(f).includes('Calle Secreta'), false);
   // Sin sesión no se reserva; el dueño no se reserva a sí mismo
   assert.equal((await api('api/alquiler/reservar', pedir)).error, 'login');
@@ -111,7 +111,7 @@ test('reservas: el perfil del dueño enseña sus coches en alquiler, sus reseña
   deps.reservas_resenas.filas.push({ id: 1, reserva_id: 9, coche_id: 7, rol: 'huesped', nombre: 'Lucía G.', nota: 5, texto: 'Todo perfecto', creado: new Date().toISOString() });
   const d = await api('api/alquiler/dueno', { slug: 'marta-1a2b' }, {}, 'GET');
   assert.equal(d.coches.length, 1); assert.equal(d.alquileres, 1); assert.equal(d.n, 1); assert.equal(d.perfil.tipo, 'profesional');
-  assert.equal(d.resenas[0].coche, 'Alfa Romeo Spider 1975');
+  assert.equal(d.resenas[0].coche, 'ALFA ROMEO SPIDER 1975');
   const f = await api('api/alquiler/coche', { id: 7 }, {}, 'GET');
   assert.deepEqual(f.dueno, { nota: 5, resenas: 1, alquileres: 1, coches: 1 });
 });

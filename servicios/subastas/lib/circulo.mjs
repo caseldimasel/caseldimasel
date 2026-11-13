@@ -77,11 +77,23 @@ export function telefono(v) {
 }
 
 /** Revisa la solicitud. Devuelve { ok: true, datos } o { ok: false, error, campo } */
+/** Los títulos de los anuncios, siempre en mayúsculas (como todos los de Sidonia) */
+export const mayus = (t) => String(t ?? '').toLocaleUpperCase('es-ES');
+const PARTICULAS = new Set(['de', 'del', 'la', 'las', 'los', 'y', 'e', 'da', 'do', 'van', 'von', 'di']);
+/** Los nombres de las personas: «JORGE GARCÍA» o «jorge garcía» → «Jorge García». Si ya vienen con mayúsculas y
+ *  minúsculas (una marca como «CR Motors», un «McLaren»), se respetan. */
+export function nombreBonito(t) {
+  const s = String(t ?? '').trim().replace(/\s+/g, ' ');
+  if (!/\p{L}/u.test(s)) return s;
+  if (s !== s.toLocaleUpperCase('es-ES') && s !== s.toLocaleLowerCase('es-ES')) return s;
+  return s.toLocaleLowerCase('es-ES').split(' ').map((w, i) => (i && PARTICULAS.has(w) ? w : w.replace(/(^|[-'’.])(\p{L})/gu, (m, a, l) => a + l.toLocaleUpperCase('es-ES')))).join(' ');
+}
+
 export function validar(b, cliente) {
   const fallo = (campo, error = 'datos') => ({ ok: false, error, campo });
   const tipo = String(b.tipo || '');
   if (!TIPOS.includes(tipo)) return fallo('tipo');
-  const titulo = texto(b.titulo, 120);
+  const titulo = mayus(texto(b.titulo, 120));
   if (titulo.length < 4) return fallo('titulo');
   let precio = null;
   if (b.precio !== '' && b.precio != null && !b.precio_consultar) {
@@ -106,7 +118,7 @@ export function validar(b, cliente) {
   if (fotos.length < FOTOS_MIN || fotos.length > FOTOS_MAX || !fotos.every((f) => propia.test(f)) || new Set(fotos).size !== fotos.length) return fallo('fotos');
   const vendedor_tipo = String(b.vendedor_tipo || '');
   if (!VENDEDOR_TIPOS.includes(vendedor_tipo)) return fallo('vendedor_tipo');
-  const vendedor_nombre = texto(b.vendedor_nombre, 40).replace(/[<>]/g, '');
+  const vendedor_nombre = nombreBonito(texto(b.vendedor_nombre, 40).replace(/[<>]/g, ''));
   if (vendedor_nombre.length < 2) return fallo('vendedor_nombre');
   const tel = telefono(b.telefono);
   if (!tel) return fallo('telefono');
@@ -283,7 +295,7 @@ export async function rutasTienda({ ruta, method, body }, cliente, cfg, deps) {
     const perfiles = deps.perfiles || tablaAnuncios(cfg, deps.fetch, 'perfiles');
     const [actual] = await perfiles.leer(`cliente=eq.${encodeURIComponent(cliente)}&limit=1`);
     if (method === 'GET') return json(200, { ok: true, perfil: actual ? { ...perfilPublico(cfg, actual), ruta_foto: actual.foto, ruta_portada: actual.portada || '', avisos: actual.avisos || {} } : null });
-    const nombre = texto(body.nombre, 60).replace(/[<>]/g, '');
+    const nombre = nombreBonito(texto(body.nombre, 60).replace(/[<>]/g, ''));
     if (nombre.length < 2) return json(400, { ok: false, error: 'datos', campo: 'nombre' });
     const foto = String(body.foto || '');
     const propia = new RegExp(`^${String(cliente).replace(/\W/g, '')}/[a-z0-9-]{8,64}\\.(jpg|png|webp)$`);
@@ -876,7 +888,7 @@ export function panelAutorizado(headers, clave) {
 /** Lo que el equipo cambia en «Editar» (solo anuncios por revisar o aprobados). Devuelve los campos o { error }. */
 export function leerEdicion(b, a) {
   const tipo = TIPOS.includes(b.tipo) ? b.tipo : a.tipo;
-  const titulo = texto(b.titulo, 120);
+  const titulo = mayus(texto(b.titulo, 120));
   if (titulo.length < 4) return { error: 'El título es demasiado corto.' };
   const precio = String(b.precio || '').replace(/\D/g, '');
   const ficha = texto(b.ficha, 3000).split('\n').map((l) => l.split(/:(.*)/s).map((x) => x.trim())).filter(([k, v]) => k && v).slice(0, 40).map(([k, v]) => [k.slice(0, 40), v.slice(0, 120)]);
@@ -943,7 +955,7 @@ export function tablaAnuncios(cfg, fetchImpl = fetch, nombreTabla = 'anuncios') 
 
 /** Lo público de un perfil: lo que se enseña en su página y en sus anuncios (sin el id del cliente) */
 export const perfilPublico = (cfg, p) => p && ({
-  slug: p.slug, nombre: p.nombre, tipo: p.tipo === 'profesional' ? 'profesional' : 'particular', descripcion: p.descripcion || '',
+  slug: p.slug, nombre: nombreBonito(p.nombre), tipo: p.tipo === 'profesional' ? 'profesional' : 'particular', descripcion: p.descripcion || '',
   foto: p.foto ? urlFoto(cfg, p.foto) : '',
   // Mi garaje (sql/garaje.sql): ciudad, Instagram y foto de portada
   ciudad: p.ciudad || '', instagram: p.instagram || '', portada: p.portada ? urlFoto(cfg, p.portada) : ''

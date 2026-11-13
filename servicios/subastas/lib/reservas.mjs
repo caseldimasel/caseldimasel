@@ -15,7 +15,7 @@
  * Sesión:   POST api/alquiler/reservar   GET api/alquiler/reservas   POST api/alquiler/reserva { id, accion }
  *           GET/POST api/alquiler/mensajes   POST api/alquiler/resena { id, nota, texto }
  */
-import { esc, perfilPublico, tablaAnuncios, urlFoto } from './circulo.mjs';
+import { esc, mayus, nombreBonito, perfilPublico, tablaAnuncios, urlFoto } from './circulo.mjs';
 import { datos, enviarCorreo, P, plantilla } from './correos.mjs';
 import { USOS, PLANES, alqPublico, bloqueosPublicos, SEGUROS } from './garaje.mjs';
 import { leerTarifa, precioMes } from './comunidad.mjs';
@@ -49,7 +49,7 @@ const tabla = (cfg, deps, n) => deps[n] || tablaAnuncios(cfg, deps.fetch, n);
 const hoyISO = () => new Date(Date.now() + 3600e3).toISOString().slice(0, 10); // España, más o menos
 export const diasEntre = (a, b) => Math.round((Date.parse(b) - Date.parse(a)) / 864e5) + 1;
 const solapa = (a1, a2, b1, b2) => a1 <= b2 && b1 <= a2;
-const titulo = (c) => [c.marca, c.modelo, c.anio].filter(Boolean).join(' ');
+const titulo = (c) => mayus([c.marca, c.modelo, c.anio].filter(Boolean).join(' '));
 const fechaTxt = (d) => new Date(`${d}T12:00:00Z`).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Europe/Madrid' });
 const CONDUCE = { con: 'Con su dueño al volante', sin: 'Con su dueño al volante', ambos: 'Con su dueño al volante' };
 
@@ -143,7 +143,7 @@ async function perfiles(cfg, deps, ids) {
   const ps = await tabla(cfg, deps, 'perfiles').leer(`cliente=in.(${l.map((x) => `"${x.replace(/"/g, '')}"`).join(',')})&select=*`).catch(() => []);
   return Object.fromEntries(ps.map((p) => [String(p.cliente), p]));
 }
-const anfitrion = (cfg, p) => (p ? { nombre: p.nombre || 'Dueño', foto: p.foto ? urlFoto(cfg, p.foto) : '', ciudad: p.ciudad || '', slug: p.slug || '', tipo: p.tipo === 'profesional' ? 'profesional' : 'particular', desde: p.creado || p.actualizado || '' } : { nombre: 'Dueño', foto: '', ciudad: '', slug: '', tipo: 'particular' });
+const anfitrion = (cfg, p) => (p ? { nombre: nombreBonito(p.nombre) || 'Dueño', foto: p.foto ? urlFoto(cfg, p.foto) : '', ciudad: p.ciudad || '', slug: p.slug || '', tipo: p.tipo === 'profesional' ? 'profesional' : 'particular', desde: p.creado || p.actualizado || '' } : { nombre: 'Dueño', foto: '', ciudad: '', slug: '', tipo: 'particular' });
 
 /** Anuncios de alquiler, como los de venta: el primero de cada persona gratis; los siguientes, de pago (la tarifa de
  *  Ajustes: tarifa.cobrar y sus tramos). Mientras no se cobre (tarifa.cobrar = false), todos se ven. Map id → info */
