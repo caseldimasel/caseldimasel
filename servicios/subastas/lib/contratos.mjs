@@ -69,7 +69,7 @@ export function condicionesAlquiler(cfg = {}) {
 <p class="meta">Versión ${VERSION_CONDICIONES}. ${esc(s.razon)}${s.nif ? `, NIF ${esc(s.nif)}` : ''}${s.domicilio ? `, con domicilio en ${esc(s.domicilio)}` : ''} (en adelante, «Sidonia»). Contacto: ${esc(s.email)}.</p>
 ${sec('1. Qué hace Sidonia',
   'Sidonia es una plataforma en línea que pone en contacto a personas que tienen un vehículo y quieren alquilarlo (los «dueños») con personas que quieren alquilarlo (los «arrendatarios»). Sidonia actúa exclusivamente como prestador de un servicio de intermediación de la sociedad de la información, en los términos de la Ley 34/2002, de servicios de la sociedad de la información y de comercio electrónico (LSSI).',
-  'El servicio de Sidonia consiste en: publicar los anuncios; gestionar las solicitudes y reservas; facilitar la mensajería entre las partes; poner a su disposición un contrato tipo que las partes rellenan y firman entre ellas antes del servicio; y gestionar, a través del proveedor de pagos Stripe, el cobro del precio por cuenta del dueño y su abono al dueño, descontando la tarifa de servicio de Sidonia.')}
+  'El servicio de Sidonia consiste en: publicar los anuncios; gestionar las solicitudes y reservas; facilitar la mensajería entre las partes; generar el contrato de alquiler con los datos que el dueño declara en su anuncio y los de la reserva, que las partes aceptan electrónicamente; y gestionar, a través del proveedor de pagos Stripe, el cobro del precio por cuenta del dueño y su abono al dueño, descontando la tarifa de servicio de Sidonia.')}
 ${sec('2. Qué no es Sidonia',
   ul(['Sidonia <b>no es parte</b> del contrato de alquiler. El contrato se celebra única y directamente entre el dueño y el arrendatario.',
     'Sidonia <b>no es propietaria</b> de los vehículos, no los alquila, no los entrega ni los recoge, y no presta servicios de transporte.',
@@ -82,11 +82,11 @@ ${sec('3. Requisitos para usar el servicio',
     '<b>Declaración responsable del dueño:</b> al publicar su anuncio, el dueño declara que es titular del vehículo o está autorizado para alquilarlo; que tiene en vigor el seguro, la ITV, las licencias y las autorizaciones que exija el uso que ofrece; que el conductor que, en su caso, designe tiene el permiso y la habilitación necesarios; y que responde frente al arrendatario y frente a terceros de todo ello. Sidonia no comprueba estos extremos ni responde de ellos.',
     '<b>Siempre con su dueño al volante:</b> en Sidonia no hay alquiler sin conductor. El vehículo lo conduce siempre su dueño (o el conductor que él ponga, bajo su exclusiva responsabilidad); el arrendatario y sus acompañantes viajan como pasajeros y nunca lo conducen.']))}
 ${sec('4. Cómo funciona una reserva',
-  ul(['El arrendatario elige fechas, acepta estas condiciones y se compromete a firmar con el dueño el contrato de alquiler antes del servicio.',
+  ul(['El arrendatario elige fechas, acepta estas condiciones y acepta el contrato de alquiler, generado con los datos del anuncio y de la reserva.',
     'Al enviar la solicitud, se <b>retiene</b> el importe en su tarjeta, pero no se cobra. El dueño tiene 24 horas para aceptarla.',
-    'Si el dueño la acepta (y se compromete a firmar el contrato de alquiler antes del servicio), se cobra el importe. Si la rechaza o no responde en 24 horas, la retención se anula y no se cobra nada.',
-    'Si el dueño tiene la «reserva inmediata», la reserva queda aceptada al hacerla y el importe se cobra al reservar.',
-    'Con la reserva confirmada, los dos reciben el contrato tipo de Sidonia. Antes del servicio, el dueño y el arrendatario lo rellenan con sus datos, los del vehículo (matrícula, seguro e ITV), las fechas y el precio, y lo firman los dos. Sidonia no lo rellena ni comprueba sus datos.',
+    'Si el dueño la acepta, acepta también el contrato y se cobra el importe; Sidonia lo guarda y se lo transfiere al dueño 24 horas después del servicio. Si la rechaza o no responde en 24 horas, la retención se anula y no se cobra nada.',
+    'Si el dueño tiene la «reserva inmediata», el contrato queda aceptado por él de antemano y el importe se cobra al reservar.',
+    'Los datos del vehículo (matrícula, seguro e ITV) y los del dueño son los que este declara al publicar su anuncio y de los que responde. Sidonia no los comprueba.',
     'Cuando la reserva está confirmada, las partes ven el contacto del otro y acuerdan por la mensajería de Sidonia dónde y a qué hora el dueño recoge a los pasajeros, y dónde los deja. Quien alquila nunca recoge ni conduce el vehículo.']))}
 ${sec('5. Precio, pagos y tarifa de servicio',
   `El precio del alquiler lo fija libremente el dueño. Al precio se suma la tarifa de servicio de Sidonia${pct ? ` (${pct} % del precio del alquiler, más el ${iva} % de IVA)` : ''}, que se muestra antes de reservar, lleva el IVA incluido en el importe que se muestra y retribuye el servicio de intermediación.`,
@@ -173,7 +173,7 @@ export function contratoAlquiler(cfg, d) {
 <p class="meta">Reserva n.º ${esc(r.id || '—')} · Modelo ${VERSION_CONTRATO} · Celebrado a través de la plataforma Sidonia (${esc(s.web)})</p>
 <h2>Reunidos</h2>
 <p><b>De una parte, como ARRENDADOR</b> (el «Arrendador» o «dueño»): D./D.ª ${hueco(a.nombre)}, con DNI/NIE/NIF ${hueco(a.dni)}, con domicilio en ${hueco(a.domicilio, '______________________________')}, teléfono ${hueco(a.telefono)} y email ${hueco(a.email)}.</p>
-<p><b>De otra parte, como ARRENDATARIO</b> (el «Arrendatario»): D./D.ª ${hueco(b.nombre)}, con DNI/NIE/pasaporte ${hueco(b.dni)}, nacido/a el ${hueco(fecha(b.nacimiento))}, con domicilio en ${hueco(b.domicilio, '______________________________')}, teléfono ${hueco(b.telefono)} y email ${hueco(b.email)}${conConductor ? '' : `, titular del permiso de conducción n.º ${hueco(b.carne_num)}, expedido el ${hueco(fecha(b.carne_fecha))}`}.</p>
+<p><b>De otra parte, como ARRENDATARIO</b> (el «Arrendatario»): D./D.ª ${hueco(b.nombre)}${b.nombre && !b.dni ? '' : `, con DNI/NIE/pasaporte ${hueco(b.dni)}, nacido/a el ${hueco(fecha(b.nacimiento))}, con domicilio en ${hueco(b.domicilio, '______________________________')}`}, teléfono ${hueco(b.telefono)} y email ${hueco(b.email)}${conConductor ? '' : `, titular del permiso de conducción n.º ${hueco(b.carne_num)}, expedido el ${hueco(fecha(b.carne_fecha))}`}.</p>
 <p>Ambas partes intervienen en su propio nombre, se reconocen capacidad legal suficiente para contratar y</p>
 <h2>Exponen</h2>
 <p>I. Que el Arrendador es titular del vehículo que se describe en este contrato, o está autorizado por su titular para arrendarlo, y que el vehículo cumple todos los requisitos legales para circular.</p>
@@ -247,7 +247,7 @@ export function contratoAlquiler(cfg, d) {
   const firma = d.papel ? cl('Firma',
     'Las partes firman este contrato en papel, por duplicado y a un solo efecto, antes del inicio del servicio, y cada una conserva un ejemplar. Las partes son las únicas responsables de que los datos que figuran en él sean completos y correctos.')
     : cl('Firma electrónica',
-    'Las partes firman este contrato electrónicamente a través de Sidonia, mediante firma electrónica simple conforme al Reglamento (UE) n.º 910/2014 y a la Ley 6/2020, y reconocen su plena validez y eficacia. Sidonia conserva el texto firmado, su huella digital (SHA-256) y el registro de fecha, hora, dirección IP y dispositivo de cada firma, y lo pone a disposición de ambas partes.');
+    'Las partes aceptan este contrato electrónicamente a través de Sidonia (quien alquila, al reservar; el dueño, al aceptar la reserva), mediante firma electrónica simple conforme al Reglamento (UE) n.º 910/2014 y a la Ley 6/2020, y reconocen su plena validez y eficacia. Sidonia conserva el texto firmado, su huella digital (SHA-256) y el registro de fecha, hora, dirección IP y dispositivo de cada firma, y lo pone a disposición de ambas partes.');
   const ley = cl('Ley aplicable y jurisdicción',
     'Este contrato se rige por la ley española, en particular por los artículos 1542 y siguientes del Código Civil. Para cualquier controversia, las partes se someten a los juzgados y tribunales que correspondan conforme a la ley; si el Arrendatario actúa como consumidor frente a un Arrendador profesional, serán competentes los de su domicilio.');
 
@@ -272,7 +272,7 @@ ${conConductor ? `<tr><th>Horas incluidas por día</th><td>${esc(c.horas || 8)} 
 
 /** El bloque de firmas (se cambia al mostrar el contrato firmado; lo firmado es el resto del texto) */
 export function bloqueFirmas(f = {}) {
-  const linea = (rol, x) => `<div class="firma"><b>${rol}</b>${x ? `<span>${esc(x.nombre)}${x.documento ? ` · ${esc(x.documento)}` : ''}</span><small>Firmado electrónicamente el ${esc(new Date(x.fecha).toLocaleString('es-ES', { timeZone: 'Europe/Madrid' }))}${x.ip ? ` · IP ${esc(x.ip)}` : ''}${x.inmediata ? ' · reserva inmediata, con su autorización previa' : ''}</small>` : '<span class="hueco">Pendiente de firma</span>'}</div>`;
+  const linea = (rol, x) => `<div class="firma"><b>${rol}</b>${x ? `<span>${esc(x.nombre)}${x.documento ? ` · ${esc(x.documento)}` : ''}</span><small>Aceptado electrónicamente el ${esc(new Date(x.fecha).toLocaleString('es-ES', { timeZone: 'Europe/Madrid' }))}${x.ip ? ` · IP ${esc(x.ip)}` : ''}${x.inmediata ? ' · reserva inmediata, con su autorización previa' : ''}</small>` : '<span class="hueco">Pendiente de firma</span>'}</div>`;
   return `<section id="firmas"><h2>Firmas</h2><div class="firmas">${linea('El Arrendador', f && f.dueno)}${linea('El Arrendatario', f && f.cliente)}</div></section>`;
 }
 export const conFirmas = (html, f) => String(html || '').replace(/<section id="firmas">[\s\S]*?<\/section>/, bloqueFirmas(f));

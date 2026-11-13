@@ -313,7 +313,8 @@ function tarjetaAlquiler(cfg, c, p) {
   const tel = legal.telefono || '';
   const email = legal.email || a.contacto || '';
   const nombre = legal.nombre || p?.nombre || '';
-  const datos = [['Precio', a.hora ? `${a.hora} €/hora · mínimo ${a.min_horas || 1} h` : ''], ['Ciudad', a.ciudad], ['Plazas', a.plazas],
+  const sinVeh = ['matricula', 'itv_hasta', 'seguro_compania', 'seguro_poliza'].filter((k) => !a[k]);
+  const datos = [['Precio', a.hora ? `${a.hora} €/hora · mínimo ${a.min_horas || 1} h` : ''], ['Matrícula', a.matricula], ['ITV hasta', a.itv_hasta], ['Seguro', [a.seguro_compania, a.seguro_poliza].filter(Boolean).join(' · ')], ['Ciudad', a.ciudad], ['Plazas', a.plazas],
     ['Para', (a.usos || []).map((u) => ({ boda: 'Bodas', rodaje: 'Rodajes y fotos', evento: 'Eventos', ruta: 'Rutas', finde: 'Escapadas' })[u] || u).join(', ')],
     ['Dueño', nombre], ['Teléfono', tel], ['Email', email], ['DNI', legal.dni || ''], ['Recibido', fecha(a.recibido || c.creado)], ['Publicado', fecha(a.publicado)]].filter(([, x]) => x);
   const f = (n, v, nom, extra = '') => `<label>${n}<input name="${nom}" value="${esc(v ?? '')}"${extra}></label>`;
@@ -322,6 +323,7 @@ function tarjetaAlquiler(cfg, c, p) {
   const waNum = String(tel).replace(/[^\d]/g, '').replace(/^(\d{9})$/, '34$1');
   return `<article class="card${porRevisar(c) ? ' pendiente-s' : ''}" id="a${id}">
   <div class="sol-cab"><h3>${esc(titulo(c))}</h3><span class="estado-s ${estado[0]}">${esc(estado[1])}</span></div>
+  ${sinVeh.length ? `<p class="aviso">Le faltan datos del coche para el contrato (${sinVeh.join(', ')}). Se le piden al aceptar su primera reserva, o rellénalos en «Editar».</p>` : ''}
   ${a.rechazado && e === 'rechazado' ? `<p class="aviso mal">Motivo del rechazo: ${esc(a.rechazado)}</p>` : ''}
   ${a.rechazado_antes && e === 'pendiente' ? `<p class="aviso">Lo rechazasteis antes («${esc(a.rechazado_antes)}») y lo ha vuelto a mandar cambiado.</p>` : ''}
   <div class="fotos-ed-caja" data-fotos="${id}" data-rutas="${esc(JSON.stringify(rutas))}">
@@ -343,6 +345,7 @@ function tarjetaAlquiler(cfg, c, p) {
     <input type="hidden" name="accion" value="alq-editar"><input type="hidden" name="id" value="${id}">
     <div class="fila">${f('Marca', c.marca, 'marca')}${f('Modelo', c.modelo, 'modelo')}${f('Año', c.anio, 'anio', ' inputmode="numeric"')}${f('Plazas', a.plazas, 'plazas', ' inputmode="numeric"')}</div>
     <div class="fila">${f('€/hora', a.hora, 'hora', ' inputmode="numeric"')}${f('Mínimo de horas', a.min_horas, 'min_horas', ' inputmode="numeric"')}${f('Ciudad', a.ciudad, 'ciudad')}</div>
+    <div class="fila">${f('Matrícula', a.matricula, 'matricula')}${f('ITV hasta', a.itv_hasta, 'itv_hasta', ' type="date"')}${f('Compañía del seguro', a.seguro_compania, 'seguro_compania')}${f('N.º de póliza', a.seguro_poliza, 'seguro_poliza')}</div>
     <label>Su historia<textarea name="historia" rows="5">${esc(c.historia || '')}</textarea></label>
     <label>Normas<textarea name="normas" rows="2">${esc(a.normas || '')}</textarea></label>
     <button>Guardar cambios</button>
@@ -486,7 +489,9 @@ export async function rutasSolicitudes(req, cfg, deps, html, marco) {
           if (b.accion === 'alq-editar') {
             const n = (v, lo, hi) => Math.max(lo, Math.min(hi, Math.round(Number(v) || 0)));
             await tG.cambiar(c.id, { marca: mayus(texto(b.marca, 40) || c.marca), modelo: mayus(texto(b.modelo, 60) || c.modelo), anio: Number(b.anio) || c.anio, historia: texto(b.historia, 6000),
-              alq: { ...alq, hora: n(b.hora, 0, 5000) || alq.hora, min_horas: n(b.min_horas, 1, 24) || alq.min_horas, ciudad: texto(b.ciudad, 80), plazas: n(b.plazas, 0, 9) || alq.plazas, normas: texto(b.normas, 2000) } });
+              alq: { ...alq, hora: n(b.hora, 0, 5000) || alq.hora, min_horas: n(b.min_horas, 1, 24) || alq.min_horas, ciudad: texto(b.ciudad, 80), plazas: n(b.plazas, 0, 9) || alq.plazas, normas: texto(b.normas, 2000),
+                matricula: texto(b.matricula, 12).toUpperCase().replace(/[\s-]/g, '') || alq.matricula || '', itv_hasta: /^\d{4}-\d{2}-\d{2}$/.test(b.itv_hasta) ? b.itv_hasta : alq.itv_hasta || '',
+                seguro_compania: texto(b.seguro_compania, 60) || alq.seguro_compania || '', seguro_poliza: texto(b.seguro_poliza, 40) || alq.seguro_poliza || '' } });
             aviso = 'Cambios guardados.';
           }
           if (b.accion === 'alq-fotos') {

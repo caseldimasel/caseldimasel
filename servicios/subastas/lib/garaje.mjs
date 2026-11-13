@@ -237,10 +237,22 @@ export async function rutasGaraje({ ruta, method, body }, cliente, cfg, deps) {
         if (v.coche.alq && antes.alq?.aviso_falta) v.coche.alq.aviso_falta = antes.alq.aviso_falta;
         // La revisión de Sidonia: lo ya aprobado sigue publicado al editarlo; lo rechazado vuelve a revisión
         if (v.coche.alq) for (const k of ['estado', 'recibido', 'revisado', 'publicado']) if (antes.alq?.[k]) v.coche.alq[k] = antes.alq[k];
+        // Los datos del coche para el contrato: si el formulario no los trae, se quedan los que había
+        if (v.coche.alq) for (const k of ['matricula', 'seguro_compania', 'seguro_poliza', 'seguro_tipo', 'itv_hasta']) if (!(body.alq && k in body.alq) && antes.alq?.[k]) v.coche.alq[k] = antes.alq[k];
         if (v.coche.alq && antes.alquiler && antes.alq?.estado === 'rechazado') { v.coche.alq.estado = 'pendiente'; v.coche.alq.recibido = new Date().toISOString(); v.coche.alq.rechazado_antes = antes.alq.rechazado || ''; }
       }
       // Su email, para que el equipo pueda escribirle desde el panel (no se enseña: alqPublico lo quita)
       if (v.coche.alq) v.coche.alq.contacto = texto(body.email, 160) || antes?.alq?.contacto || '';
+      // Como en Airbnb, el anuncio lleva todo lo del coche: para alquilar hacen falta la matrícula, el seguro (compañía y
+      // póliza) y la ITV en vigor. No se publican: van en el contrato. Los anuncios de antes sin estos datos los completan al
+      // editar o al aceptar su primera reserva.
+      if (v.coche.alquiler && v.coche.alq && (!id || !antes?.alquiler || ['matricula', 'seguro_compania', 'seguro_poliza', 'itv_hasta'].some((k) => body.alq && k in body.alq))) {
+        const A = v.coche.alq;
+        const faltan = ['matricula', 'seguro_compania', 'seguro_poliza', 'itv_hasta'].filter((k) => !A[k]);
+        if (faltan.length) return json(400, { ok: false, error: 'vehiculo', campos: faltan });
+        if (!/^[A-Z0-9]{4,10}$/.test(A.matricula)) return json(400, { ok: false, error: 'vehiculo', campos: ['matricula'] });
+        if (A.itv_hasta < new Date().toISOString().slice(0, 10)) return json(400, { ok: false, error: 'itv' });
+      }
       // Nuevo en alquiler (o vuelve tras un rechazo): como los anuncios, lo revisa Sidonia antes de publicarlo
       const nuevoAlq = Boolean(v.coche.alquiler && v.coche.alq && (!id || !antes?.alquiler || antes.alq?.estado === 'rechazado'));
       if (nuevoAlq) { v.coche.alq.estado = 'pendiente'; v.coche.alq.recibido = v.coche.alq.recibido || new Date().toISOString(); }

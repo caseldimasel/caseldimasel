@@ -84,7 +84,9 @@ test('alquiler › lo nuevo no se publica solo: queda por revisar, no sale en la
   const deps = { garaje, perfiles, alquiler: memo([]), reservas: memo([]), reservas_resenas: memo([]), reservas_mensajes: memo([]), ajustes: memo([]),
     fetch: async (u, o) => { correos.push(JSON.parse(o.body)); return { ok: true, json: async () => ({}) }; } };
   const coche = { tipo: 'coche', marca: 'Seat', modelo: '600', anio: '1968', historia: 'El coche de mi abuela, siempre en garaje y con sus papeles.', fotos: ['55/abcdefgh1.jpg'], alquiler: true, alquiler_como: 'con', visible: true, email: 'marta@x.es',
-    alq: { hora: 50, min_horas: 2, ciudad: 'Madrid', declara: true } };
+    alq: { hora: 50, min_horas: 2, ciudad: 'Madrid', declara: true, matricula: '1234ABC', seguro_compania: 'Mutua', seguro_poliza: 'P-1', itv_hasta: '2030-01-01' } };
+  const sinDatos = JSON.parse((await rutasGaraje({ ruta: 'api/garaje', method: 'POST', body: { ...coche, alq: { hora: 50, ciudad: 'Madrid', declara: true } } }, '55', cfg, deps)).body);
+  assert.equal(sinDatos.error, 'vehiculo', 'como Airbnb: sin matrícula, seguro e ITV no se publica'); assert.equal(garaje.filas.length, 0);
   const r = await rutasGaraje({ ruta: 'api/garaje', method: 'POST', body: coche }, '55', cfg, deps);
   assert.equal(JSON.parse(r.body).ok, true);
   const c = garaje.filas[0];
