@@ -52,6 +52,11 @@ test('panel › Alquileres: llega por revisar, se edita (fotos incluidas), se ap
   assert.equal(s.ok, true); assert.equal(s.subidas.length, 2);
   await ir({ accion: 'alq-fotos-nuevas', id: '7', ruta: ['55/nuevafoto0.jpg', '99/ajena123.jpg'] });
   assert.deepEqual(garaje.filas[0].fotos, ['55/aaaaaaaa2.jpg', '55/nuevafoto0.jpg'], 'solo las de su carpeta');
+  // Ordenar (la primera es la portada), con una editada nueva y sin las de otra carpeta
+  const o = JSON.parse((await atenderPanel({ method: 'POST', query: { estado: 'alquileres' }, body: { accion: 'alq-fotos-orden', id: '7', ruta: ['55/nuevafoto0.jpg', '99/ajena123.jpg', '55/editada12.jpg', '55/aaaaaaaa2.jpg'] }, headers: { ...auth, accept: 'application/json' } }, cfg, deps)).body);
+  assert.deepEqual(o.fotos, ['55/nuevafoto0.jpg', '55/editada12.jpg', '55/aaaaaaaa2.jpg']); assert.deepEqual(garaje.filas[0].fotos, o.fotos);
+  assert.equal(JSON.parse((await ir({ accion: 'alq-fotos-orden', id: '7', ruta: ['99/ajena123.jpg'] })).body).ok, false, 'al menos una foto');
+  assert.match((await ir()).body, /data-fotos="7"/);
   await ir({ accion: 'alq-editar', id: '7', marca: 'Mercedes-Benz', modelo: '280 SL', anio: '1970', hora: '75', min_horas: '2', ciudad: 'Toledo', plazas: '2', historia: 'Nueva', normas: 'Sin fumar' });
   assert.equal(garaje.filas[0].marca, 'Mercedes-Benz'); assert.equal(garaje.filas[0].alq.hora, 75); assert.equal(garaje.filas[0].alq.estado, 'pendiente', 'editar no lo publica');
   // Rechazar: con el motivo por email, sigue sin verse

@@ -71,6 +71,34 @@ const CSS = `
 .filtros-s a { padding: 6px 12px; border-radius: 99px; border: 1px solid var(--linea, #ddd); font-size: 13px; text-decoration: none; color: inherit; }
 .filtros-s a.on { background: #111; color: #fff; border-color: #111; }
 .estado-s.si { background: #e7f5ec; color: #1f7a4d; }
+.fotos-ed-caja { margin: 10px 0 4px; padding: 12px; border: 1px solid var(--linea, rgba(255,255,255,.12)); border-radius: 14px; }
+.fotos-ed-cab { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: baseline; margin-bottom: 8px; }
+.fotos-ed-lista { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 10px; }
+.foto-ed { position: relative; border-radius: 12px; overflow: hidden; background: #000; cursor: grab; }
+.foto-ed.arrastrando { opacity: .4; }
+.foto-ed img { display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: cover; }
+.foto-ed .portada, .foto-ed .num { position: absolute; left: 6px; top: 6px; padding: 1px 8px; border-radius: 99px; background: #111; color: #fff; font-size: 11px; font-weight: 700; }
+.foto-ed .portada { background: var(--amarillo, #ffd23f); color: #111; }
+.foto-bt { position: absolute; inset: auto 0 0; display: flex; justify-content: center; gap: 4px; padding: 6px; background: linear-gradient(transparent, rgba(0,0,0,.75)); }
+.foto-bt button { width: 28px; height: 28px; padding: 0; border: 0; border-radius: 50%; background: rgba(255,255,255,.92); color: #111; font-size: 13px; line-height: 28px; cursor: pointer; }
+.foto-bt button:disabled { opacity: .35; cursor: default; }
+.foto-bt button[data-h="quitar"] { color: #b3261e; }
+.ed-foto { width: min(1000px, 96vw); max-height: 94vh; padding: 16px; border: 0; border-radius: 18px; background: var(--caja, #141f1a); color: var(--texto, #eef4f0); }
+.ed-foto::backdrop { background: rgba(0,0,0,.7); }
+.ed-cab { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+.ed-lienzo { position: relative; display: grid; place-items: center; background: #000; border-radius: 12px; overflow: hidden; }
+.ed-lienzo canvas { display: block; max-width: 100%; max-height: 56vh; cursor: move; touch-action: none; }
+.ed-lienzo [data-carga] { position: absolute; }
+.ed-pista { margin: 6px 0 10px; }
+.ed-ctl { display: grid; gap: 8px; }
+.ed-fila { display: grid; grid-template-columns: 90px 1fr; gap: 10px; align-items: center; font-size: 13px; }
+.ed-fila input[type=range] { width: 100%; }
+.ed-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.ed-chips button { padding: 5px 12px; border: 1px solid rgba(127,127,127,.45) !important; border-radius: 99px; background: transparent !important; color: var(--texto, #eef4f0) !important; font: inherit; font-size: 13px; cursor: pointer; }
+.fotos-ed-caja [hidden] { display: none !important; }
+.ed-chips button.on { background: var(--verde, #2bd47d) !important; border-color: var(--verde, #2bd47d) !important; color: #111 !important; font-weight: 700; }
+.ed-bts { display: flex; flex-wrap: wrap; gap: 8px; }
+.ed-hueco { flex: 1; }
 .pendiente-s { border: 2px solid var(--amarillo, #ffd23f) !important; }
 .subir-s { cursor: pointer; }
 .decidir-s { padding-top: 12px; border-top: 1px solid var(--linea, #eee); }
@@ -127,6 +155,144 @@ function paginaGestiones(cfg, lista, { ver, error, aviso }) {
 }
 
 /* ------------------------------------------------------------------ Alquileres */
+/** El editor de fotos del panel (en el navegador): ordenar, portada, quitar, añadir y editar (recortar, girar, luz) */
+const FOTOS_JS = String.raw`(() => {
+  const base = (document.querySelector('[data-foto-base]') || {}).dataset?.fotoBase || '';
+  const url = (r) => (r.indexOf('blob:') === 0 ? r : base + r);
+  const post = async (pares) => { const p = new URLSearchParams(); pares.forEach(([k, v]) => p.append(k, v)); const r = await fetch('?estado=alquileres', { method: 'POST', body: p, headers: { Accept: 'application/json' } }); return r.json(); };
+  const reducir = (file) => new Promise((ok) => { const img = new Image(); img.onload = () => { const k = Math.min(1, 1600 / Math.max(img.width, img.height)); const cv = document.createElement('canvas'); cv.width = Math.round(img.width * k); cv.height = Math.round(img.height * k); cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height); cv.toBlob((b) => ok(b || file), 'image/jpeg', 0.86); URL.revokeObjectURL(img.src); }; img.onerror = () => ok(file); img.src = URL.createObjectURL(file); });
+  const subir = async (id, blobs, msg) => {
+    const r = await post([['accion', 'alq-subir'], ['id', id], ['n', String(blobs.length)]]);
+    if (!r.ok) throw new Error(r.error || 'permiso');
+    for (let i = 0; i < blobs.length; i++) {
+      msg('Subiendo ' + (i + 1) + ' de ' + blobs.length + '…');
+      const s = await fetch(r.subidas[i].url, { method: 'PUT', body: blobs[i], headers: { 'Content-Type': 'image/jpeg', 'x-upsert': 'false' } });
+      if (!s.ok) throw new Error('subida ' + s.status);
+    }
+    return r.subidas.map((x) => x.ruta);
+  };
+
+  /* El editor: formato (4:3 como la portada, 16:9, cuadrada u original), encuadre arrastrando, zoom, girar, luz, contraste y color */
+  const editor = (src, alGuardar) => {
+    let dlg = document.getElementById('ed-foto');
+    if (!dlg) { dlg = document.createElement('dialog'); dlg.id = 'ed-foto'; dlg.className = 'ed-foto'; document.body.appendChild(dlg); }
+    const FORMATOS = [['4:3', '4:3 · portada'], ['16:9', '16:9'], ['1:1', 'Cuadrada'], ['orig', 'Original']];
+    dlg.innerHTML = '<div class="ed-cab"><b>Editar foto</b><button type="button" class="claro" data-x>Cerrar</button></div>'
+      + '<div class="ed-lienzo"><canvas width="960" height="720"></canvas><p class="sub" data-carga>Cargando la foto…</p></div>'
+      + '<p class="sub ed-pista">Arrastra la foto para encuadrarla. Lo que ves es exactamente lo que se guarda.</p>'
+      + '<div class="ed-ctl"><div class="ed-fila"><span>Formato</span><div class="ed-chips">' + FORMATOS.map(([k, t]) => '<button type="button" data-f="' + k + '"' + (k === '4:3' ? ' class="on"' : '') + '>' + t + '</button>').join('') + '</div></div>'
+      + '<label class="ed-fila"><span>Zoom</span><input type="range" min="1" max="3" step="0.01" value="1" data-v="z"></label>'
+      + '<label class="ed-fila"><span>Luz</span><input type="range" min="50" max="170" value="100" data-v="b"></label>'
+      + '<label class="ed-fila"><span>Contraste</span><input type="range" min="50" max="170" value="100" data-v="c"></label>'
+      + '<label class="ed-fila"><span>Color</span><input type="range" min="0" max="200" value="100" data-v="s"></label>'
+      + '<div class="ed-fila ed-bts"><button type="button" class="claro" data-g>↻ Girar</button><button type="button" class="claro" data-r>Deshacer cambios</button><span class="ed-hueco"></span><button type="button" class="si" data-ok>Guardar foto</button></div>'
+      + '<p class="sub" data-m></p></div>';
+    dlg.showModal();
+    const cv = dlg.querySelector('canvas'), m = dlg.querySelector('[data-m]');
+    const inicial = { f: '4:3', z: 1, b: 100, c: 100, s: 100, rot: 0, x: 0, y: 0 };
+    let st = Object.assign({}, inicial);
+    const img = new Image(); img.crossOrigin = 'anonymous';
+    const dims = () => { const r = st.rot % 180 !== 0; const iw = r ? img.height : img.width, ih = r ? img.width : img.height; const asp = st.f === '4:3' ? 4 / 3 : st.f === '16:9' ? 16 / 9 : st.f === '1:1' ? 1 : iw / ih; return { iw, ih, asp }; };
+    const rango = (W, H) => { const { iw, ih } = dims(); const k = Math.max(W / iw, H / ih) * st.z; return { k, mx: Math.max(0, (iw * k - W) / 2), my: Math.max(0, (ih * k - H) / 2) }; };
+    const dibuja = (c) => {
+      const W = c.width, H = c.height, g = c.getContext('2d'), { k, mx, my } = rango(W, H);
+      g.save(); g.fillStyle = '#000'; g.fillRect(0, 0, W, H);
+      g.filter = 'brightness(' + st.b + '%) contrast(' + st.c + '%) saturate(' + st.s + '%)';
+      g.translate(W / 2 + st.x * mx, H / 2 + st.y * my); g.rotate(st.rot * Math.PI / 180);
+      g.drawImage(img, -img.width * k / 2, -img.height * k / 2, img.width * k, img.height * k); g.restore();
+    };
+    const lienzo = () => { const { asp } = dims(); cv.width = 960; cv.height = Math.round(960 / asp); dibuja(cv); };
+    const ctl = () => { dlg.querySelectorAll('[data-f]').forEach((b) => b.classList.toggle('on', b.dataset.f === st.f)); dlg.querySelectorAll('[data-v]').forEach((i) => { i.value = st[i.dataset.v]; }); };
+    dlg.querySelector('[data-x]').onclick = () => dlg.close();
+    dlg.querySelectorAll('[data-f]').forEach((b) => { b.onclick = () => { st.f = b.dataset.f; st.x = 0; st.y = 0; ctl(); lienzo(); }; });
+    dlg.querySelectorAll('[data-v]').forEach((i) => { i.oninput = () => { st[i.dataset.v] = Number(i.value); lienzo(); }; });
+    dlg.querySelector('[data-g]').onclick = () => { st.rot = (st.rot + 90) % 360; st.x = 0; st.y = 0; lienzo(); };
+    dlg.querySelector('[data-r]').onclick = () => { st = Object.assign({}, inicial); ctl(); lienzo(); };
+    let arrastre = null;
+    cv.addEventListener('pointerdown', (e) => { arrastre = { x: e.clientX, y: e.clientY }; cv.setPointerCapture(e.pointerId); });
+    cv.addEventListener('pointerup', () => { arrastre = null; });
+    cv.addEventListener('pointermove', (e) => {
+      if (!arrastre) return;
+      const esc = cv.width / cv.getBoundingClientRect().width, { mx, my } = rango(cv.width, cv.height);
+      if (mx) st.x = Math.max(-1, Math.min(1, st.x + (e.clientX - arrastre.x) * esc / mx));
+      if (my) st.y = Math.max(-1, Math.min(1, st.y + (e.clientY - arrastre.y) * esc / my));
+      arrastre = { x: e.clientX, y: e.clientY }; lienzo();
+    });
+    dlg.querySelector('[data-ok]').onclick = () => {
+      const { iw, asp } = dims(); const out = document.createElement('canvas');
+      out.width = Math.min(1600, st.f === 'orig' ? iw : 1600); out.height = Math.round(out.width / asp); dibuja(out);
+      try {
+        out.toBlob(async (blob) => {
+          if (!blob) { m.textContent = 'No se ha podido preparar la foto.'; return; }
+          m.textContent = 'Guardando…';
+          try { await alGuardar(blob); dlg.close(); } catch (e) { m.textContent = 'No se ha podido guardar (' + e.message + ').'; }
+        }, 'image/jpeg', 0.88);
+      } catch (e) { m.textContent = 'Esta foto no se puede editar desde aquí (el almacén no deja leerla). Descárgala, edítala y súbela con «Añadir fotos».'; }
+    };
+    img.onload = () => { const p = dlg.querySelector('[data-carga]'); if (p) p.remove(); lienzo(); };
+    img.onerror = () => { const p = dlg.querySelector('[data-carga]'); if (p) p.textContent = 'No se ha podido cargar la foto.'; };
+    img.src = src + (src.indexOf('?') > -1 ? '&' : '?') + 'ed=' + Date.now();
+  };
+
+  document.querySelectorAll('[data-fotos]').forEach((caja) => {
+    const id = caja.dataset.fotos;
+    let rutas = JSON.parse(caja.dataset.rutas || '[]'), guardadas = rutas.slice();
+    const lista = caja.querySelector('[data-lista]'), bG = caja.querySelector('[data-guardar]'), bD = caja.querySelector('[data-deshacer]'), mEl = caja.querySelector('[data-msg]');
+    const msg = (t) => { mEl.textContent = t; };
+    const pinta = () => {
+      lista.innerHTML = rutas.length ? '' : '<p class="vacio">Sin fotos.</p>';
+      rutas.forEach((r, i) => {
+        const d = document.createElement('div'); d.className = 'foto-ed'; d.draggable = true; d.dataset.i = i;
+        d.innerHTML = '<img alt="Foto ' + (i + 1) + '" draggable="false">' + (i === 0 ? '<span class="portada">Portada</span>' : '<span class="num">' + (i + 1) + '</span>')
+          + '<div class="foto-bt"><button type="button" data-h="izq" title="Mover a la izquierda"' + (i ? '' : ' disabled') + '>◀</button>'
+          + '<button type="button" data-h="der" title="Mover a la derecha"' + (i < rutas.length - 1 ? '' : ' disabled') + '>▶</button>'
+          + '<button type="button" data-h="portada" title="Poner de portada"' + (i ? '' : ' disabled') + '>★</button>'
+          + '<button type="button" data-h="editar" title="Recortar, girar y ajustar la luz">✎</button>'
+          + '<button type="button" data-h="quitar" title="Quitar">✕</button></div>';
+        d.querySelector('img').src = url(r);
+        lista.appendChild(d);
+      });
+      const cambio = rutas.join('|') !== guardadas.join('|');
+      bG.hidden = !cambio; bD.hidden = !cambio;
+    };
+    const guarda = async (ok) => {
+      msg('Guardando…');
+      const d = await post([['accion', 'alq-fotos-orden'], ['id', id]].concat(rutas.map((r) => ['ruta', r])));
+      if (!d.ok) { msg('No se ha podido guardar (' + (d.error || 'error') + ').'); return; }
+      rutas = d.fotos.slice(); guardadas = d.fotos.slice(); pinta(); msg(ok || 'Guardado: así se ve ya en la web.');
+    };
+    lista.addEventListener('click', (e) => {
+      const b = e.target.closest('[data-h]'); if (!b) return;
+      const i = Number(b.closest('.foto-ed').dataset.i), h = b.dataset.h;
+      if (h === 'editar') return editor(url(rutas[i]), async (blob) => { const [nueva] = await subir(id, [blob], msg); rutas[i] = nueva; await guarda('Foto editada y guardada.'); });
+      if (h === 'izq' && i > 0) rutas.splice(i - 1, 2, rutas[i], rutas[i - 1]);
+      if (h === 'der' && i < rutas.length - 1) rutas.splice(i, 2, rutas[i + 1], rutas[i]);
+      if (h === 'portada') rutas = [rutas[i]].concat(rutas.filter((_, k) => k !== i));
+      if (h === 'quitar') { if (rutas.length === 1) { msg('Tiene que quedar al menos una foto.'); return; } rutas = rutas.filter((_, k) => k !== i); }
+      pinta(); msg('Cambios sin guardar.');
+    });
+    let desde = -1;
+    lista.addEventListener('dragstart', (e) => { const d = e.target.closest('.foto-ed'); if (d) { desde = Number(d.dataset.i); d.classList.add('arrastrando'); } });
+    lista.addEventListener('dragend', () => { lista.querySelectorAll('.arrastrando').forEach((x) => x.classList.remove('arrastrando')); });
+    lista.addEventListener('dragover', (e) => { e.preventDefault(); });
+    lista.addEventListener('drop', (e) => {
+      e.preventDefault(); const d = e.target.closest('.foto-ed'); if (!d || desde < 0) return;
+      const a = Number(d.dataset.i); const x = rutas.splice(desde, 1)[0]; rutas.splice(a, 0, x); desde = -1; pinta(); msg('Cambios sin guardar.');
+    });
+    bG.addEventListener('click', () => guarda());
+    bD.addEventListener('click', () => { rutas = guardadas.slice(); pinta(); msg(''); });
+    caja.querySelector('[data-subir]').addEventListener('change', async (ev) => {
+      const files = Array.from(ev.target.files).filter((f) => f.type.indexOf('image/') === 0).slice(0, 20);
+      ev.target.value = '';
+      if (!files.length) return;
+      try { const blobs = []; for (const f of files) blobs.push(await reducir(f)); const nuevas = await subir(id, blobs, msg); rutas = rutas.concat(nuevas); await guarda(nuevas.length === 1 ? 'Foto añadida.' : nuevas.length + ' fotos añadidas.'); }
+      catch (e) { msg('No se han podido subir (' + e.message + ').'); }
+    });
+    pinta();
+  });
+})();
+`;
+
 /** Como los anuncios: pendiente (recibido, sin publicar) → publicado, o rechazado. Sin estado: de antes de la revisión. */
 export const estadoAlq = (c) => {
   const e = c?.alq?.estado;
@@ -158,10 +324,11 @@ function tarjetaAlquiler(cfg, c, p) {
   <div class="sol-cab"><h3>${esc(titulo(c))}</h3><span class="estado-s ${estado[0]}">${esc(estado[1])}</span></div>
   ${a.rechazado && e === 'rechazado' ? `<p class="aviso mal">Motivo del rechazo: ${esc(a.rechazado)}</p>` : ''}
   ${a.rechazado_antes && e === 'pendiente' ? `<p class="aviso">Lo rechazasteis antes («${esc(a.rechazado_antes)}») y lo ha vuelto a mandar cambiado.</p>` : ''}
-  <form method="post" action="?estado=alquileres#a${id}"><input type="hidden" name="accion" value="alq-fotos"><input type="hidden" name="id" value="${id}">
-    <div class="fotos-s">${rutas.map((r, i) => `<label><a href="${esc(urlFoto(cfg, r))}" target="_blank" rel="noopener"><img src="${esc(urlFoto(cfg, r))}" alt="Foto ${i + 1}" loading="lazy"></a>${i === 0 ? '<span class="portada">Portada</span>' : ''}<span class="quitar"><input type="checkbox" name="quitar" value="${i}"> Quitar</span></label>`).join('') || '<p class="vacio">Sin fotos.</p>'}</div>
-    <div class="acciones-s">${rutas.length ? `<button class="claro">Quitar las marcadas</button><label style="font-size:13px">Portada: <select name="portada">${rutas.map((_, i) => `<option value="${i}">Foto ${i + 1}</option>`).join('')}</select></label><button class="claro" name="hacer" value="portada">Poner de portada</button>` : ''}
-      <label class="boton claro subir-s">+ Añadir fotos<input type="file" accept="image/*" multiple data-subir="${id}" hidden></label><span class="sub" data-subir-msg="${id}"></span></div></form>
+  <div class="fotos-ed-caja" data-fotos="${id}" data-rutas="${esc(JSON.stringify(rutas))}">
+    <div class="fotos-ed-cab"><b>Fotos</b><span class="sub">La primera es la portada. Arrastra para ordenar, o usa los botones de cada foto. ✎ recorta, gira y ajusta la luz.</span></div>
+    <div class="fotos-ed-lista" data-lista></div>
+    <div class="acciones-s"><label class="boton claro subir-s">+ Añadir fotos<input type="file" accept="image/*" multiple data-subir hidden></label><button type="button" class="si" data-guardar hidden>Guardar cambios de fotos</button><button type="button" class="claro" data-deshacer hidden>Deshacer</button><span class="sub" data-msg></span></div>
+  </div>
   <div class="datos-s">${datos.map(([k, x]) => `<div><span>${esc(k)}</span><b>${esc(x)}</b></div>`).join('')}</div>
   ${c.historia ? `<p class="historia-s"><b>Su historia:</b> ${esc(c.historia)}</p>` : '<p class="historia-s"><b>Su historia:</b> <i>sin escribir</i></p>'}
   ${a.normas ? `<p class="historia-s"><b>Normas:</b> ${esc(a.normas)}</p>` : ''}
@@ -207,7 +374,7 @@ function paginaAlquileres(cfg, coches, perfiles, { ver, error, aviso }) {
   <div class="kpi"><span>Rechazados</span><b>${grupos.rechazados.length}</b><small>el dueño puede cambiarlo y volver a mandarlo</small></div>
 </div>
 <nav class="filtros-s">${Object.entries(nombres).map(([k, t]) => `<a href="?estado=alquileres&ver=${k}"${k === ver ? ' class="on"' : ''}>${t} (${grupos[k].length})</a>`).join('')}</nav>
-<div class="sol">${grupos[ver].map((c) => tarjetaAlquiler(cfg, c, de[String(c.cliente)])).join('') || '<p class="vacio">No hay vehículos aquí.</p>'}</div>
+<div class="sol" data-foto-base="${esc(urlFoto(cfg, ''))}">${grupos[ver].map((c) => tarjetaAlquiler(cfg, c, de[String(c.cliente)])).join('') || '<p class="vacio">No hay vehículos aquí.</p>'}</div>
 <script>
 document.querySelectorAll('[data-confirmar]').forEach((b) => b.addEventListener('click', (e) => { if (!confirm(b.dataset.confirmar)) e.preventDefault(); }));
 document.querySelectorAll('form.decidir-s').forEach((f) => f.addEventListener('submit', (e) => {
@@ -216,30 +383,8 @@ document.querySelectorAll('form.decidir-s').forEach((f) => f.addEventListener('s
   if (b && b.value === 'alq-publicar' && !confirm('¿Publicarlo en Alquiler? Le llega un email al dueño.')) return e.preventDefault();
   if (b) setTimeout(() => { b.disabled = true; b.textContent = 'Un momento…'; }, 0);
 }));
-// Añadir fotos: pide permiso al panel, las sube a Supabase y las añade al coche
-document.querySelectorAll('[data-subir]').forEach((inp) => inp.addEventListener('change', async () => {
-  const id = inp.dataset.subir, msg = document.querySelector('[data-subir-msg="' + id + '"]');
-  const files = [...inp.files].filter((x) => /^image\\//.test(x.type)).slice(0, 20);
-  if (!files.length) return;
-  const reducir = (file) => new Promise((ok) => { const img = new Image(); img.onload = () => { const k = Math.min(1, 1600 / Math.max(img.width, img.height)); const cv = document.createElement('canvas'); cv.width = Math.round(img.width * k); cv.height = Math.round(img.height * k); cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height); cv.toBlob((b) => ok(b || file), 'image/jpeg', 0.86); URL.revokeObjectURL(img.src); }; img.onerror = () => ok(file); img.src = URL.createObjectURL(file); });
-  try {
-    msg.textContent = 'Subiendo ' + files.length + '…';
-    const pedir = new URLSearchParams({ accion: 'alq-subir', id, n: String(files.length) });
-    const r = await (await fetch('?estado=alquileres', { method: 'POST', body: pedir, headers: { Accept: 'application/json' } })).json();
-    if (!r.ok) throw new Error(r.error || 'permiso');
-    for (let i = 0; i < files.length; i++) {
-      const blob = await reducir(files[i]);
-      const s = await fetch(r.subidas[i].url, { method: 'PUT', body: blob, headers: { 'Content-Type': 'image/jpeg', 'x-upsert': 'false' } });
-      if (!s.ok) throw new Error('subida ' + s.status);
-      msg.textContent = 'Subidas ' + (i + 1) + ' de ' + files.length + '…';
-    }
-    const fin = new URLSearchParams({ accion: 'alq-fotos-nuevas', id }); r.subidas.forEach((x) => fin.append('ruta', x.ruta));
-    const d = document.createElement('form'); d.method = 'post'; d.action = '?estado=alquileres#a' + id;
-    for (const [k, v] of fin) { const h = document.createElement('input'); h.type = 'hidden'; h.name = k; h.value = v; d.appendChild(h); }
-    document.body.appendChild(d); d.submit();
-  } catch (e) { msg.textContent = 'No se han podido subir (' + e.message + ').'; }
-}));
-</script>`;
+</script>
+<script>${FOTOS_JS}</script>`;
 }
 
 /** El email al dueño cuando Sidonia lo aprueba (si ya puede alquilarse) */
@@ -282,7 +427,7 @@ export async function rutasSolicitudes(req, cfg, deps, html, marco) {
     if (req.method === 'POST' && Number(b.id)) {
       try {
         const [c] = await tG.leer(`id=eq.${Number(b.id)}&limit=1`);
-        if (!c && b.accion === 'alq-subir') return json({ ok: false, error: 'no-existe' });
+        if (!c && ['alq-subir', 'alq-fotos-orden'].includes(b.accion)) return json({ ok: false, error: 'no-existe' });
         if (c) {
           const alq = c.alq || {};
           const ahora = new Date().toISOString();
@@ -292,6 +437,15 @@ export async function rutasSolicitudes(req, cfg, deps, html, marco) {
           if (b.accion === 'alq-subir') {
             const n = Math.max(1, Math.min(20, Number(b.n) || 1));
             return json(await (deps.subidas || permisosSubida)(cfg, c.cliente, Array(n).fill('image/jpeg'), deps.fetch).catch((e) => ({ ok: false, error: String(e.message).slice(0, 120) })));
+          }
+          // El orden de las fotos (la primera es la portada), con las quitadas fuera y las nuevas o editadas dentro
+          if (b.accion === 'alq-fotos-orden') {
+            const carpeta = String(c.cliente).replace(/\W/g, '');
+            const valida = (r) => (c.fotos || []).includes(r) || (r.startsWith(`${carpeta}/`) && /^[\w-]+\/[\w-]+\.(jpg|png|webp)$/.test(r));
+            const fotos = [...new Set([].concat(b.ruta || []).map(String).filter(valida))].slice(0, 30);
+            if (!fotos.length) return json({ ok: false, error: 'Tiene que quedar al menos una foto.' });
+            await tG.cambiar(c.id, { fotos });
+            return json({ ok: true, fotos });
           }
           if (b.accion === 'alq-fotos-nuevas') {
             const carpeta = String(c.cliente).replace(/\W/g, '');
@@ -347,7 +501,7 @@ export async function rutasSolicitudes(req, cfg, deps, html, marco) {
             if (!error) await tG.cambiar(c.id, { fotos });
           }
         }
-      } catch (e) { console.error(e); if (b.accion === 'alq-subir') return json({ ok: false, error: 'motor' }); error = 'No se ha podido guardar.'; }
+      } catch (e) { console.error(e); if (['alq-subir', 'alq-fotos-orden'].includes(b.accion)) return json({ ok: false, error: 'motor' }); error = 'No se ha podido guardar.'; }
     }
     let coches = [], perfiles = [];
     try {
