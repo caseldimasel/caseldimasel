@@ -97,21 +97,20 @@ test('alquiler con pago: sin el alta de cobros el coche SÍ se ve; sin la declar
   assert.equal((await api('api/alquiler/coche', { id: 7 }, {}, 'GET')).coche.alq.conductor, 'con');
 });
 
-test('alquiler con pago: solicitud con contrato firmado, retención, el dueño firma y se cobra; cancelar con 7 días devuelve todo', async () => {
+test('alquiler con pago: solicitud (acepta condiciones y contrato tipo), retención, el dueño acepta y se cobra; cancelar con 7 días devuelve todo', async () => {
   const { api, deps, stripe, correos } = preparar();
   // Datos que faltan o no cuadran
-  assert.equal((await api('api/alquiler/reservar', { ...pedir, dni: '87654321Y' }, quien('77'))).error, 'dni');
-  assert.equal((await api('api/alquiler/reservar', { ...pedir, firma: 'Otra Persona' }, quien('77'))).error, 'firma');
-  assert.equal((await api('api/alquiler/reservar', { ...pedir, acepto: '' }, quien('77'))).error, 'acepto');
-  assert.equal((await api('api/alquiler/reservar', { ...pedir, nacimiento: dia(-365 * 10) }, quien('77'))).error, 'nacimiento', 'mayor de edad');
-  assert.equal((await api('api/alquiler/reservar', { ...pedir, nacimiento: '2003-01-01', carne_fecha: '' }, quien('77'))).ok, true, 'no conduce: ni edad para conducir ni carné');
+  assert.equal((await api('api/alquiler/reservar', { ...pedir, acepto: '' }, quien('77'))).error, 'acepto', 'acepta las condiciones y firmar el contrato tipo');
+  // Sidonia no pide DNI, nacimiento, domicilio ni firma escrita: eso va en el contrato tipo, a mano
+  const { dni, nacimiento, domicilio, firma, ...sinDatos } = pedir;
+  assert.equal((await api('api/alquiler/reservar', sinDatos, quien('77'))).ok, true);
   // Bien: se guarda el contrato firmado por quien alquila y se va a Stripe a retener
   const r = await api('api/alquiler/reservar', pedir, quien('77'), 'POST', { 'x-forwarded-for': '81.2.3.4, 10.0.0.1', 'user-agent': 'Prueba' });
   assert.equal(r.ok, true); assert.equal(r.pagar, 'https://checkout.stripe.test/x');
   assert.equal(r.reserva.total, 495); assert.equal(r.reserva.tarifa, 45);
   const fila = deps.reservas.filas.at(-1);
-  assert.equal(fila.pago, 'sin-pagar'); assert.equal(fila.firma_cliente.ip, '81.2.3.4'); assert.equal(fila.firma_cliente.hash, fila.contrato.hash);
-  assert.match(fila.contrato.html, /1234ABC/); assert.match(fila.contrato.html, /87654321X/); assert.match(fila.contrato.html, /12345678Z/);
+  assert.equal(fila.pago, 'sin-pagar'); assert.equal(fila.firma_cliente.ip, '81.2.3.4'); assert.equal(fila.firma_cliente.acepta, 'condiciones y contrato tipo');
+  assert.equal(fila.contrato, undefined, 'Sidonia no rellena ningún contrato');
   const ses = stripe.find((x) => x[1] === 'checkout/sessions')[2];
   assert.equal(ses.payment_intent_data.capture_method, 'manual'); assert.equal(ses.payment_intent_data.on_behalf_of, 'acct_1');
   assert.equal(ses.line_items[0].price_data.unit_amount, 45000); assert.equal(ses.line_items[1].price_data.unit_amount, 4500);
@@ -124,29 +123,20 @@ test('alquiler con pago: solicitud con contrato firmado, retención, el dueño f
   assert.ok(correos.some((c) => /Te han pedido tu coche/.test(c.html || '') && c.to?.includes?.('marta@x.es') || (c.to === 'marta@x.es')));
   let v = await api('api/alquiler/reservas', {}, quien('55'), 'GET');
   assert.equal(v.solicitudes.length, 1); assert.equal(v.solicitudes[0].gana, 450); assert.equal(v.solicitudes[0].otro.telefono, undefined);
-  // Los datos del coche para el contrato se piden al aceptar: sin ellos no se puede firmar; con ellos se guardan
-  assert.equal(v.solicitudes[0].vehiculo.matricula, '1234ABC', 'al dueño le llegan los que tiene guardados');
-  const cAlq = deps.garaje.filas[0].alq, guardados = { ...cAlq };
-  Object.assign(cAlq, { matricula: '', seguro_poliza: '', itv_hasta: '' });
-  const sinDatos = await api('api/alquiler/reserva', { id: fila.id, accion: 'aceptar', acepto: '1', firma: 'Marta Ruiz Pérez' }, quien('55'));
-  assert.equal(sinDatos.error, 'vehiculo'); assert.deepEqual(sinDatos.campos, ['matricula', 'seguro_poliza', 'itv_hasta']);
-  assert.equal((await api('api/alquiler/reserva', { id: fila.id, accion: 'aceptar', acepto: '1', firma: 'Marta Ruiz Pérez', matricula: '1234 ABC', seguro_poliza: 'POL-999', itv_hasta: dia(-1) }, quien('55'))).error, 'itv', 'la ITV tiene que estar en vigor el día del alquiler');
-  assert.equal(fila.pago, 'autorizado', 'todavía no se ha cobrado');
-  Object.assign(cAlq, guardados, { matricula: '' });
-  // El dueño acepta: tiene que firmar con su nombre
-  assert.equal((await api('api/alquiler/reserva', { id: fila.id, accion: 'aceptar', acepto: '1', firma: 'Marta', matricula: '1234ABC' }, quien('55'))).error, 'firma');
-  const ac = await api('api/alquiler/reserva', { id: fila.id, accion: 'aceptar', acepto: '1', firma: 'Marta Ruiz Pérez', matricula: '1234 abc' }, quien('55'));
-  assert.equal(deps.garaje.filas[0].alq.matricula, '1234ABC', 'la matrícula se guarda para la próxima vez');
+  // El dueño acepta: solo marca que acepta (ni datos del coche ni firma escrita: van en el contrato tipo)
+  assert.equal((await api('api/alquiler/reserva', { id: fila.id, accion: 'aceptar' }, quien('55'))).error, 'acepto');
+  const ac = await api('api/alquiler/reserva', { id: fila.id, accion: 'aceptar', acepto: '1' }, quien('55'));
   assert.equal(ac.ok, true);
   assert.ok(stripe.some((x) => x[1] === 'payment_intents/pi_1/capture'));
   assert.equal(fila.pago, 'pagado'); assert.equal(fila.estado, 'aceptada'); assert.equal(fila.firma_dueno.nombre, 'Marta Ruiz Pérez');
   v = await api('api/alquiler/reservas', {}, quien('77'), 'GET');
   assert.equal(v.viajes[0].otro.telefono, '600000000'); assert.equal(v.viajes[0].coche.entrega, 'Calle Secreta 1');
   assert.equal(v.viajes[0].si_cancelo.importe, 225, 'a 10 días: la mitad del alquiler');
-  // El contrato firmado por los dos
+  // El contrato: el tipo, en blanco, para rellenarlo y firmarlo a mano antes del servicio (Sidonia no rellena nada)
   const con = await api('alquiler/contrato', {}, Object.fromEntries(new URL(v.viajes[0].contrato).searchParams), 'GET');
-  assert.match(con.body, /Lucía Gómez Sanz/); assert.match(con.body, /Marta Ruiz Pérez · 12345678Z/); assert.match(con.body, /Firmado por las dos partes/);
-  assert.doesNotMatch(con.body, /Pendiente de firma/);
+  assert.match(con.body, /Contrato tipo para rellenar y firmar antes del alquiler/); assert.match(con.body, new RegExp(`Reserva n\\.º ${fila.id}`));
+  assert.doesNotMatch(con.body, /Lucía Gómez Sanz|Marta Ruiz Pérez|12345678Z|1234ABC|POL-999|autorización n/);
+  assert.ok(correos.some((c) => /descargar el contrato/.test(c.html || '')), 'a los dos les llega el enlace al contrato');
   // Cancela quien alquila con 10 días: se devuelve la mitad del alquiler (la tarifa no)
   const ca = await api('api/alquiler/reserva', { id: fila.id, accion: 'cancelar' }, quien('77'));
   assert.equal(ca.reembolso, 225);
@@ -202,8 +192,8 @@ test('alquiler con pago: el modelo de contrato y las condiciones se leen sin dat
   const { api } = preparar();
   const m = await api('alquiler/contrato-modelo', {}, { coche: '7', desde: dia(10), hasta: dia(12) }, 'GET');
   assert.equal(m.status, 200);
-  assert.match(m.body, /Contrato de arrendamiento de vehículo con conductor/); assert.match(m.body, /Marta Ruiz Pérez/);
-  assert.doesNotMatch(m.body, /1234ABC|POL-999|12345678Z|Calle Secreta|Calle Mayor/);
+  assert.match(m.body, /Contrato de arrendamiento de vehículo con conductor/); assert.match(m.body, /Contrato tipo para rellenar/);
+  assert.doesNotMatch(m.body, /Marta Ruiz Pérez|1234ABC|POL-999|12345678Z|Calle Secreta|Calle Mayor|autorización n/);
   const c = await api('alquiler/condiciones', {}, {}, 'GET');
   assert.match(c.body, /Condiciones del servicio de alquiler/);
 });
@@ -238,8 +228,7 @@ test('siempre con su dueño al volante: no hay alquiler sin conductor', async ()
   const r = await api('api/alquiler/reservar', { ...pedir, conductor: 'sin', desde: dia(10), hasta: dia(10), pasajeros: 9 }, quien('77'));
   assert.equal(r.ok, true); assert.equal(r.reserva.fianza, 0);
   const fila = deps.reservas.filas.at(-1);
-  assert.equal(fila.conductor, 'con'); assert.equal(fila.datos.pasajeros, 3, 'como mucho las plazas menos el conductor'); assert.equal(fila.datos.carne_num, '');
-  assert.match(fila.contrato.html, /con conductor/); assert.doesNotMatch(fila.contrato.html, /Fianza\.<\/b> El Arrendatario entregará/);
+  assert.equal(fila.conductor, 'con'); assert.equal(fila.datos.pasajeros, 3, 'como mucho las plazas menos el conductor'); assert.equal(fila.datos.carne_num, undefined);
 });
 
 test('por horas: un precio por hora para todo, mínimo de horas y varios días con sus horas', async () => {
@@ -271,7 +260,6 @@ test('por horas: un precio por hora para todo, mínimo de horas y varios días c
   assert.equal(r.ok, true);
   const fila = deps.reservas.filas.at(-1);
   assert.deepEqual([fila.horas, fila.desde, fila.hasta, fila.dias, fila.para], [7.5, dia(10), dia(11), 2, 'rodaje']);
-  assert.match(fila.contrato.html, /de 10:00 a 14:30 h/); assert.match(fila.contrato.html, /120 € por hora/);
   assert.equal(stripe.find((x) => x[1] === 'checkout/sessions')[2].line_items[0].price_data.unit_amount, 90000);
 });
 

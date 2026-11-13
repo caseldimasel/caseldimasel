@@ -69,7 +69,7 @@ export function condicionesAlquiler(cfg = {}) {
 <p class="meta">Versión ${VERSION_CONDICIONES}. ${esc(s.razon)}${s.nif ? `, NIF ${esc(s.nif)}` : ''}${s.domicilio ? `, con domicilio en ${esc(s.domicilio)}` : ''} (en adelante, «Sidonia»). Contacto: ${esc(s.email)}.</p>
 ${sec('1. Qué hace Sidonia',
   'Sidonia es una plataforma en línea que pone en contacto a personas que tienen un vehículo y quieren alquilarlo (los «dueños») con personas que quieren alquilarlo (los «arrendatarios»). Sidonia actúa exclusivamente como prestador de un servicio de intermediación de la sociedad de la información, en los términos de la Ley 34/2002, de servicios de la sociedad de la información y de comercio electrónico (LSSI).',
-  'El servicio de Sidonia consiste en: publicar los anuncios; gestionar las solicitudes y reservas; facilitar la mensajería entre las partes; poner a su disposición un modelo de contrato que las partes rellenan y firman electrónicamente; y gestionar, a través del proveedor de pagos Stripe, el cobro del precio por cuenta del dueño y su abono al dueño, descontando la tarifa de servicio de Sidonia.')}
+  'El servicio de Sidonia consiste en: publicar los anuncios; gestionar las solicitudes y reservas; facilitar la mensajería entre las partes; poner a su disposición un contrato tipo que las partes rellenan y firman entre ellas antes del servicio; y gestionar, a través del proveedor de pagos Stripe, el cobro del precio por cuenta del dueño y su abono al dueño, descontando la tarifa de servicio de Sidonia.')}
 ${sec('2. Qué no es Sidonia',
   ul(['Sidonia <b>no es parte</b> del contrato de alquiler. El contrato se celebra única y directamente entre el dueño y el arrendatario.',
     'Sidonia <b>no es propietaria</b> de los vehículos, no los alquila, no los entrega ni los recoge, y no presta servicios de transporte.',
@@ -82,10 +82,11 @@ ${sec('3. Requisitos para usar el servicio',
     '<b>Declaración responsable del dueño:</b> al publicar su anuncio, el dueño declara que es titular del vehículo o está autorizado para alquilarlo; que tiene en vigor el seguro, la ITV, las licencias y las autorizaciones que exija el uso que ofrece; que el conductor que, en su caso, designe tiene el permiso y la habilitación necesarios; y que responde frente al arrendatario y frente a terceros de todo ello. Sidonia no comprueba estos extremos ni responde de ellos.',
     '<b>Siempre con su dueño al volante:</b> en Sidonia no hay alquiler sin conductor. El vehículo lo conduce siempre su dueño (o el conductor que él ponga, bajo su exclusiva responsabilidad); el arrendatario y sus acompañantes viajan como pasajeros y nunca lo conducen.']))}
 ${sec('4. Cómo funciona una reserva',
-  ul(['El arrendatario elige fechas, rellena sus datos, acepta estas condiciones y firma el contrato de alquiler.',
+  ul(['El arrendatario elige fechas, acepta estas condiciones y se compromete a firmar con el dueño el contrato de alquiler antes del servicio.',
     'Al enviar la solicitud, se <b>retiene</b> el importe en su tarjeta, pero no se cobra. El dueño tiene 24 horas para aceptarla.',
-    'Si el dueño la acepta, firma el contrato y se cobra el importe. Si la rechaza o no responde en 24 horas, la retención se anula y no se cobra nada.',
-    'Si el dueño tiene la «reserva inmediata», el contrato queda firmado por él de antemano y el importe se cobra al reservar.',
+    'Si el dueño la acepta (y se compromete a firmar el contrato de alquiler antes del servicio), se cobra el importe. Si la rechaza o no responde en 24 horas, la retención se anula y no se cobra nada.',
+    'Si el dueño tiene la «reserva inmediata», la reserva queda aceptada al hacerla y el importe se cobra al reservar.',
+    'Con la reserva confirmada, los dos reciben el contrato tipo de Sidonia. Antes del servicio, el dueño y el arrendatario lo rellenan con sus datos, los del vehículo (matrícula, seguro e ITV), las fechas y el precio, y lo firman los dos. Sidonia no lo rellena ni comprueba sus datos.',
     'Cuando la reserva está confirmada, las partes ven el contacto del otro y acuerdan por la mensajería de Sidonia dónde y a qué hora el dueño recoge a los pasajeros, y dónde los deja. Quien alquila nunca recoge ni conduce el vehículo.']))}
 ${sec('5. Precio, pagos y tarifa de servicio',
   `El precio del alquiler lo fija libremente el dueño. Al precio se suma la tarifa de servicio de Sidonia${pct ? ` (${pct} % del precio del alquiler, más el ${iva} % de IVA)` : ''}, que se muestra antes de reservar, lleva el IVA incluido en el importe que se muestra y retribuye el servicio de intermediación.`,
@@ -243,7 +244,9 @@ export function contratoAlquiler(cfg, d) {
     'Sidonia podrá facilitar a las partes la información de la reserva y ayudarles a entenderse, pero no actúa como árbitro ni resuelve sus reclamaciones.');
   const datos = cl('Protección de datos',
     'Cada parte tratará los datos personales de la otra que figuran en este contrato únicamente para celebrarlo, cumplirlo y atender las obligaciones legales que deriven de él, como responsable independiente, y los conservará solo el tiempo necesario para ello y para atender posibles reclamaciones.');
-  const firma = cl('Firma electrónica',
+  const firma = d.papel ? cl('Firma',
+    'Las partes firman este contrato en papel, por duplicado y a un solo efecto, antes del inicio del servicio, y cada una conserva un ejemplar. Las partes son las únicas responsables de que los datos que figuran en él sean completos y correctos.')
+    : cl('Firma electrónica',
     'Las partes firman este contrato electrónicamente a través de Sidonia, mediante firma electrónica simple conforme al Reglamento (UE) n.º 910/2014 y a la Ley 6/2020, y reconocen su plena validez y eficacia. Sidonia conserva el texto firmado, su huella digital (SHA-256) y el registro de fecha, hora, dirección IP y dispositivo de cada firma, y lo pone a disposición de ambas partes.');
   const ley = cl('Ley aplicable y jurisdicción',
     'Este contrato se rige por la ley española, en particular por los artículos 1542 y siguientes del Código Civil. Para cualquier controversia, las partes se someten a los juzgados y tribunales que correspondan conforme a la ley; si el Arrendatario actúa como consumidor frente a un Arrendador profesional, serán competentes los de su domicilio.');
@@ -274,6 +277,17 @@ export function bloqueFirmas(f = {}) {
 }
 export const conFirmas = (html, f) => String(html || '').replace(/<section id="firmas">[\s\S]*?<\/section>/, bloqueFirmas(f));
 
+/** El contrato tipo, en blanco: Sidonia no rellena nada. Las partes lo imprimen (o lo guardan en PDF), lo rellenan a
+ *  mano con sus datos, los del coche (matrícula, seguro, ITV), las fechas y el precio, y lo firman los dos antes del
+ *  servicio. ref: el n.º de reserva de Sidonia, si lo hay (solo como referencia). */
+export function contratoTipo(cfg, ref = '') {
+  const html = contratoAlquiler(cfg, { reserva: { id: ref, conductor: 'con' }, coche: {}, dueno: {}, cliente: {}, firmas: {}, papel: true });
+  const aMano = `<section id="firmas"><h2>Firmas</h2><p>En ${hueco('', '________________')}, a ${hueco('', '____')} de ${hueco('', '______________')} de 20${hueco('', '____')}.</p>
+<div class="firmas"><div class="firma firma--mano"><b>El Arrendador</b><small>Nombre y firma</small></div><div class="firma firma--mano"><b>El Arrendatario</b><small>Nombre y firma</small></div></div></section>`;
+  const nota = `<div class="nota"><b>Contrato tipo para rellenar y firmar antes del alquiler.</b> Imprímelo o guárdalo en PDF. El dueño y quien alquila lo rellenan con sus datos, los del coche (matrícula, seguro e ITV), las fechas y el precio, y lo firman los dos antes de empezar. Cada uno se queda una copia. Sidonia no lo rellena ni es parte de él.</div>`;
+  return nota + String(html).replace(/<section id="firmas">[\s\S]*?<\/section>/, aMano);
+}
+
 /** El contenido que se firma (sin las firmas), su huella y la versión: se guarda en la reserva */
 export function huella(html) {
   return createHash('sha256').update(String(html), 'utf8').digest('hex');
@@ -293,6 +307,8 @@ main{max-width:780px;margin:24px auto;background:#fff;border-radius:18px;padding
 h1{font-size:24px;line-height:1.2;margin:0 0 6px;text-transform:uppercase}h2{font-size:17px;margin:26px 0 8px}h3{font-size:15px;margin:18px 0 6px}
 p,li{margin:0 0 8px}ul{padding-left:20px}.meta{color:#666;font-size:13px}
 .hueco{display:inline-block;min-width:110px;border-bottom:1px solid #999;color:#999}
+.nota{margin:0 0 20px;padding:14px 16px;border-radius:12px;background:#f4f4f4;font-size:14px}.firma--mano{min-height:110px}
+@media print{.nota{display:none}}
 table.t{width:100%;border-collapse:collapse;margin:6px 0 10px;font-size:14px}table.t th,table.t td{border:1px solid #ddd;padding:7px 9px;text-align:left;vertical-align:top}table.t th{background:#f7f7f5;width:34%}
 table.acta td{height:26px}
 .firmas{display:grid;grid-template-columns:1fr 1fr;gap:16px}.firma{border:1px solid #ddd;border-radius:12px;padding:12px}.firma b,.firma span,.firma small{display:block}.firma small{color:#666;font-size:12px}
