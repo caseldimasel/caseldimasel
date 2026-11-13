@@ -113,5 +113,5 @@ test('reservas: el perfil del dueño enseña sus coches en alquiler, sus reseña
   assert.equal(d.coches.length, 1); assert.equal(d.alquileres, 1); assert.equal(d.n, 1); assert.equal(d.perfil.tipo, 'profesional');
   assert.equal(d.resenas[0].coche, 'ALFA ROMEO SPIDER 1975');
   const f = await api('api/alquiler/coche', { id: 7 }, {}, 'GET');
-  assert.deepEqual(f.dueno, { nota: 5, resenas: 1, alquileres: 1, coches: 1 });
+  assert.deepEqual(f.dueno, { nota: 5, resenas: 1, alquileres: 1, coches: 1, cancelaciones: 0 });
 });

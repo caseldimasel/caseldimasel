@@ -139,7 +139,7 @@ export async function rutasCobros({ ruta, method, body, ip }, cliente, cfg, deps
  *  precio · matricula · seguro (compañía, póliza, tipo y que cubra a quien alquila) · itv · vtc (con conductor) · datos · cobros */
 /** Como los anuncios: lo que se sube para alquilar lo revisa Sidonia antes de publicarlo (alq.estado: pendiente →
  *  publicado, o rechazado). Los de antes de la revisión (sin estado) siguen publicados. */
-export const enRevision = (c) => ['pendiente', 'rechazado'].includes(c?.alq?.estado);
+export const enRevision = (c) => ['pendiente', 'rechazado', 'suspendido'].includes(c?.alq?.estado);
 export function faltaParaAlquilar(c, p, cobrar) {
   const a = (c && c.alq) || {};
   const f = [];

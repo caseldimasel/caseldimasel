@@ -296,11 +296,11 @@ const FOTOS_JS = String.raw`(() => {
 /** Como los anuncios: pendiente (recibido, sin publicar) → publicado, o rechazado. Sin estado: de antes de la revisión. */
 export const estadoAlq = (c) => {
   const e = c?.alq?.estado;
-  if (e === 'pendiente' || e === 'rechazado' || e === 'publicado') return e;
+  if (e === 'pendiente' || e === 'rechazado' || e === 'publicado' || e === 'suspendido') return e;
   return c?.alq?.revisado ? 'publicado' : 'antiguo';
 };
 export const porRevisar = (c) => ['pendiente', 'antiguo'].includes(estadoAlq(c));
-const ESTADO_ALQ = { pendiente: ['nueva', 'Por revisar · no se ve'], rechazado: ['oculto', 'Rechazado · no se ve'], antiguo: ['nueva', 'Publicado sin revisar'] };
+const ESTADO_ALQ = { suspendido: ['oculto', 'Suspendido por fallar a una reserva · no se ve'], pendiente: ['nueva', 'Por revisar · no se ve'], rechazado: ['oculto', 'Rechazado · no se ve'], antiguo: ['nueva', 'Publicado sin revisar'] };
 
 function tarjetaAlquiler(cfg, c, p) {
   const a = c.alq || {};
@@ -324,6 +324,7 @@ function tarjetaAlquiler(cfg, c, p) {
   return `<article class="card${porRevisar(c) ? ' pendiente-s' : ''}" id="a${id}">
   <div class="sol-cab"><h3>${esc(titulo(c))}</h3><span class="estado-s ${estado[0]}">${esc(estado[1])}</span></div>
   ${sinVeh.length ? `<p class="aviso">Le faltan datos del coche para el contrato (${sinVeh.join(', ')}). Se le piden al aceptar su primera reserva, o rellénalos en «Editar».</p>` : ''}
+  ${e === 'suspendido' && a.suspendido ? `<p class="aviso mal">Suspendido el ${esc(fecha(a.suspendido.fecha))}: ${esc(a.suspendido.motivo || '')} (reserva #${Number(a.suspendido.reserva) || '—'}). Para levantarlo, pulsa «Publicar».</p>` : ''}
   ${a.rechazado && e === 'rechazado' ? `<p class="aviso mal">Motivo del rechazo: ${esc(a.rechazado)}</p>` : ''}
   ${a.rechazado_antes && e === 'pendiente' ? `<p class="aviso">Lo rechazasteis antes («${esc(a.rechazado_antes)}») y lo ha vuelto a mandar cambiado.</p>` : ''}
   <div class="fotos-ed-caja" data-fotos="${id}" data-rutas="${esc(JSON.stringify(rutas))}">
@@ -352,7 +353,7 @@ function tarjetaAlquiler(cfg, c, p) {
   </form></details>
   <form method="post" action="?estado=alquileres#a${id}" class="acciones-s decidir-s">
     <input type="hidden" name="id" value="${id}">
-    ${e !== 'publicado' ? `<button name="accion" value="alq-publicar" class="si">${e === 'antiguo' ? 'Revisado: todo bien' : 'Aprobar y publicar'}</button>` : ''}
+    ${e !== 'publicado' ? `<button name="accion" value="alq-publicar" class="si">${e === 'antiguo' ? 'Revisado: todo bien' : e === 'suspendido' ? 'Levantar la suspensión y publicar' : 'Aprobar y publicar'}</button>` : ''}
     ${e === 'publicado' || e === 'antiguo' ? (c.visible === false ? '<button name="accion" value="alq-mostrar" class="claro">Volver a enseñarlo</button>' : '<button name="accion" value="alq-ocultar" class="claro">Ocultarlo</button>') : ''}
     ${e !== 'rechazado' ? `<input name="motivo" placeholder="Motivo del rechazo (le llega por email)" style="flex:1;min-width:200px"><button name="accion" value="alq-rechazar" class="no">Rechazar</button>` : ''}
     <button name="accion" value="alq-borrar" class="no" data-confirmar="¿Borrarlo del todo? No se puede deshacer.">Borrar</button>

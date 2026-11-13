@@ -435,3 +435,76 @@ test('paga en Stripe y cierra la pestaña: el motor comprueba la sesión y la so
   assert.equal(fila.pago, 'autorizado'); assert.equal(v.solicitudes.length, 1, 'al dueño le aparece');
   assert.ok(correos.some((c) => /Te han pedido tu coche/.test(c.html || '')), 'y le llega el email');
 });
+
+test('el dueño que falla: penalización según la antelación, fechas bloqueadas, suspensión, descuento de sus cobros, no presentarse y confirmar que va', async () => {
+  const { penalizacionDueno } = await import('../lib/penalizaciones.mjs');
+  const { accionPanelReservas } = await import('../lib/reservas.mjs');
+  const r0 = { total: 450, tarifa: 50, desde: dia(60) };
+  assert.equal(penalizacionDueno(r0).pct, 10); assert.equal(penalizacionDueno(r0).importe, 40);
+  assert.equal(penalizacionDueno({ ...r0, desde: dia(20) }).pct, 25);
+  assert.equal(penalizacionDueno({ ...r0, desde: dia(4) }).pct, 50); assert.equal(penalizacionDueno({ ...r0, desde: dia(4) }).grave, false);
+  const ya = penalizacionDueno({ ...r0, desde: dia(1) }); assert.equal(ya.pct, 100); assert.equal(ya.importe, 400); assert.equal(ya.grave, true);
+  assert.equal(penalizacionDueno({ total: 110, tarifa: 10, desde: dia(60) }).importe, 30, 'mínimo 30 €');
+  assert.equal(penalizacionDueno({ ...r0, desde: dia(60) }, Date.now(), true).pct, 100, 'no presentarse: 100 %');
+
+  const { api, deps, correos, stripe } = preparar();
+  const reservaAceptada = async (desde, hasta) => {
+    await api('api/alquiler/reservar', { ...pedir, desde, hasta }, quien('77'));
+    const fila = deps.reservas.filas.at(-1);
+    const v = (await api('api/alquiler/reservas', {}, quien('77'), 'GET')).viajes.find((x) => x.id === fila.id);
+    if (v.pagar) await api('alquiler/pagado', {}, { r: String(fila.id), f: new URL(v.pagar).searchParams.get('f'), session_id: 'cs_test_1' }, 'GET');
+    assert.equal(fila.pago, 'autorizado');
+    assert.equal((await api('api/alquiler/reserva', { id: fila.id, accion: 'aceptar', acepto: '1' }, quien('55'))).ok, true);
+    return fila;
+  };
+  // 1. Cancela con 40 días: primero se le dice la penalización; si la acepta, 10 %, a quien alquila todo, fechas bloqueadas
+  const a = await reservaAceptada(dia(40), dia(41));
+  const ver = (await api('api/alquiler/reservas', {}, quien('55'), 'GET')).solicitudes.find((x) => x.id === a.id);
+  assert.equal(ver.pena_si_cancelo.pct, 10);
+  const aviso = await api('api/alquiler/reserva', { id: a.id, accion: 'cancelar' }, quien('55'));
+  assert.equal(aviso.error, 'penalizacion'); assert.equal(aviso.penalizacion.pct, 10); assert.equal(a.estado, 'aceptada', 'aún no se cancela');
+  const c1 = await api('api/alquiler/reserva', { id: a.id, accion: 'cancelar', acepto_penalizacion: '1' }, quien('55'));
+  assert.equal(c1.ok, true); assert.equal(c1.penalizacion.importe, 30, '10 % de 300 €, mínimo 30'); assert.equal(c1.penalizacion.suspendido, false);
+  assert.equal(a.pago, 'devuelto'); assert.equal(a.cancelada_por, 'dueno'); assert.equal(a.datos.penalizacion.importe, 30);
+  assert.deepEqual(deps.garaje.filas[0].alq.bloqueos_sancion, [[dia(40), dia(41)]]);
+  assert.equal((await api('api/alquiler/reservar', { ...pedir, desde: dia(40), hasta: dia(41) }, quien('78'))).error, 'ocupado', 'no puede alquilarlo esas fechas');
+  assert.ok(correos.some((x) => /URGENTE/.test(x.subject || '')), 'aviso urgente al equipo');
+  assert.ok(correos.some((x) => /Garantía Sidonia/.test(x.html || '') && x.to?.includes?.('lucia@x.es') || (x.to === 'lucia@x.es' && /Garantía Sidonia/.test(x.html || ''))));
+  const ficha = await api('api/alquiler/coche', { id: 7 }, {}, 'GET');
+  assert.equal(ficha.coche ? ficha.dueno.cancelaciones : null, 1, 'su anuncio enseña que canceló');
+  // 2. La segunda en 12 meses: suspendido (sus coches no se ven ni se pueden reservar)
+  const b = await reservaAceptada(dia(50), dia(51));
+  const c2 = await api('api/alquiler/reserva', { id: b.id, accion: 'cancelar', acepto_penalizacion: '1' }, quien('55'));
+  assert.equal(c2.penalizacion.suspendido, true); assert.equal(deps.garaje.filas[0].alq.estado, 'suspendido');
+  assert.equal((await api('api/alquiler/coche', { id: 7 }, {}, 'GET')).error, 'no-existe');
+  // 3. Se le descuenta de su próximo cobro (30 + 30 €)
+  deps.garaje.filas[0].alq.estado = 'publicado';
+  const hecha = { id: 950, coche_id: 7, dueno: '55', cliente: '77', desde: dia(-3), hasta: dia(-3), dias: 1, total: 330, tarifa: 30, pago: 'pagado', estado: 'aceptada', stripe_pi: 'pi_1', stripe_transfer: '', creado: new Date().toISOString(), email: 'lucia@x.es', nombre: 'Lucía', datos: {} };
+  deps.reservas.filas.push(hecha);
+  await ponerAlDia(cfg, deps, hecha);
+  const tr = stripe.filter((x) => x[1] === 'transfers').at(-1)[2];
+  assert.equal(tr.amount, 24000, '300 € menos 60 € de penalizaciones');
+  assert.equal(a.datos.penalizacion.cobrado, 30); assert.equal(b.datos.penalizacion.cobrado, 30);
+  // 4. No se presenta: quien alquila avisa, el panel decide «no se presentó» → todo devuelto, 100 % y suspensión
+  const n = await reservaAceptada(dia(5), dia(5));
+  n.desde = dia(-1); n.hasta = dia(-1);
+  assert.equal((await api('api/alquiler/reserva', { id: n.id, accion: 'incidencia', texto: 'El dueño no ha venido a la boda y no coge el teléfono.' }, quien('77'))).ok, true);
+  assert.equal(await accionPanelReservas({ accion: 'reserva-incidencia', id: n.id, decision: 'no-presentado' }, cfg, deps), '');
+  assert.equal(n.pago, 'devuelto'); assert.equal(n.estado, 'cancelada'); assert.equal(n.datos.penalizacion.pct, 100); assert.equal(n.datos.penalizacion.no_presentado, true);
+  assert.equal(deps.garaje.filas[0].alq.estado, 'suspendido');
+  // Fuerza mayor: Sidonia anula la penalización desde el panel
+  assert.equal(await accionPanelReservas({ accion: 'reserva-anular-pena', id: n.id, nota: 'Hospitalizado' }, cfg, deps), '');
+  assert.ok(n.datos.penalizacion.anulada);
+  // 5. Confirmar que va: 4 días antes se le pide; si no, a los 3 días aviso al equipo y a quien alquila; el día antes, recordatorio
+  deps.garaje.filas[0].alq.estado = 'publicado';
+  const p = await reservaAceptada(dia(5), dia(5));
+  const T = Date.parse(`${dia(5)}T10:00:00+01:00`);
+  await ponerAlDia(cfg, deps, p, T - 4.5 * 864e5);
+  assert.ok(p.datos.confirmar_pedido); assert.ok(correos.some((x) => /Confirma que vas/.test(x.subject || '')));
+  await ponerAlDia(cfg, deps, p, T - 2.5 * 864e5);
+  assert.ok(p.datos.confirmar_alerta); assert.ok(correos.some((x) => /no ha confirmado/.test(x.subject || '')));
+  assert.equal((await api('api/alquiler/reserva', { id: p.id, accion: 'confirmar' }, quien('77'))).error, 'estado', 'solo el dueño');
+  assert.equal((await api('api/alquiler/reserva', { id: p.id, accion: 'confirmar' }, quien('55'))).ok, true); assert.ok(p.datos.confirmado);
+  await ponerAlDia(cfg, deps, p, T - 20 * 3600e3);
+  assert.ok(p.datos.recordado_dia); assert.ok(correos.some((x) => /^Mañana/.test(x.subject || '')));
+});

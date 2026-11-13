@@ -256,6 +256,8 @@ export async function rutasGaraje({ ruta, method, body }, cliente, cfg, deps) {
       // Nuevo en alquiler (o vuelve tras un rechazo): como los anuncios, lo revisa Sidonia antes de publicarlo
       const nuevoAlq = Boolean(v.coche.alquiler && v.coche.alq && (!id || !antes?.alquiler || antes.alq?.estado === 'rechazado'));
       if (nuevoAlq) { v.coche.alq.estado = 'pendiente'; v.coche.alq.recibido = v.coche.alq.recibido || new Date().toISOString(); }
+      // Si falló a una reserva: sigue suspendido y con las fechas bloqueadas aunque edite el anuncio (solo Sidonia lo levanta)
+      if (v.coche.alq && antes?.alq) { for (const k of ['suspendido', 'bloqueos_sancion']) if (antes.alq[k]) v.coche.alq[k] = antes.alq[k]; if (antes.alq.estado === 'suspendido') v.coche.alq.estado = 'suspendido'; }
       if (id) await tG.cambiar(id, { ...v.coche, actualizado: new Date().toISOString() });
       else {
         if ((await tG.leer(`cliente=eq.${encodeURIComponent(cliente)}&select=id`)).length >= GARAJE_MAX) return json(200, { ok: false, error: 'maximo' });

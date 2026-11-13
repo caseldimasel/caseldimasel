@@ -12,10 +12,11 @@
  * Los datos de Sidonia (razón social, NIF y domicilio) salen de las variables SIDONIA_RAZON_SOCIAL, SIDONIA_NIF y
  * SIDONIA_DOMICILIO de Vercel.
  */
+import { GARANTIA, POLITICA_DUENO } from './penalizaciones.mjs';
 import { createHash } from 'node:crypto';
 
-export const VERSION_CONDICIONES = '2026-11-12c';
-export const VERSION_CONTRATO = '2026-11-03';
+export const VERSION_CONDICIONES = '2026-11-13';
+export const VERSION_CONTRATO = '2026-11-13';
 
 const esc = (t) => String(t ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const eur = (n) => `${(Math.round(Number(n || 0) * 100) / 100).toLocaleString('es-ES', { minimumFractionDigits: Number(n) % 1 ? 2 : 0, maximumFractionDigits: 2 })} €`;
@@ -50,7 +51,7 @@ export function reembolso(r, quien, ahora = Date.now()) {
   return { importe: 0, tarifa: false, motivo: `Cancelas con menos de ${DIAS_MITAD} días: no se devuelve el importe.` };
 }
 export const POLITICA_CANCELACION = [
-  'Si el dueño no acepta la solicitud en 24 horas, la rechaza o cancela una reserva ya aceptada, se devuelve a quien alquila el 100 % de lo pagado, tarifa de servicio incluida.',
+  'Si el dueño no acepta la solicitud en 24 horas o la rechaza, se libera el pago y no se cobra nada. Si cancela una reserva ya aceptada o no se presenta, se devuelve a quien alquila el 100 % de lo pagado, tarifa de servicio incluida, y el dueño paga la penalización que se explica más abajo.',
   'Cancelación gratuita: si quien alquila cancela con 14 días o más de antelación al inicio, se le devuelve el 100 % de lo pagado, tarifa de servicio incluida.',
   'Si cancela entre 14 y 7 días antes del inicio, el dueño se queda la mitad del precio del alquiler y se devuelve el resto de lo pagado; la tarifa de servicio no se devuelve.',
   'Si cancela con menos de 7 días, o no se presenta, no se devuelve el importe.',
@@ -95,9 +96,10 @@ ${sec('5. Precio, pagos y tarifa de servicio',
   'El servicio es siempre <b>con conductor</b>: el dueño conduce y el arrendatario y sus acompañantes viajan como pasajeros, con el itinerario, las paradas y las horas que se acuerden. El precio es por horas según el plan (boda, rodaje, evento, ruta…), con un mínimo de horas por día.')}
 ${sec('6. Cancelaciones y devoluciones', ul(POLITICA_CANCELACION), 'Las devoluciones se hacen a la misma tarjeta con la que se pagó, normalmente en un plazo de 5 a 10 días hábiles según el banco.',
   'Al tratarse de un servicio de alquiler de vehículos para una fecha o un periodo determinados, no se aplica el derecho de desistimiento de 14 días previsto para los contratos a distancia (artículo 103, letra l, del texto refundido de la Ley General para la Defensa de los Consumidores y Usuarios). La cancelación se rige por la política anterior.')}
-${sec('6 bis. Calendario y disponibilidad',
+${sec('6 bis. Si el dueño cancela o no se presenta', '<b>Una reserva aceptada es un compromiso firme.</b> Quien alquila cuenta con el coche para un día que no se repite (una boda, un rodaje, un evento), así que en Sidonia fallar tiene consecuencias graves para el dueño:', ul(POLITICA_DUENO), `<b>${GARANTIA}</b>`)}
+${sec('6 ter. Calendario y disponibilidad',
   'El dueño es el único responsable de mantener al día el calendario de su vehículo: los días que no puede alquilarlo (viajes, taller, uso propio…) debe marcarlos como no disponibles. Si acepta una reserva y después no puede prestar el servicio, se considera cancelación del dueño: se devuelve a quien alquila todo lo pagado y Sidonia puede ocultar o retirar sus anuncios.')}
-${sec('6 ter. Qué pasa si…',
+${sec('6 quater. Qué pasa si…',
   'Para que cualquiera de estos casos cuente, hay que <b>comunicarlo por el chat de Sidonia</b> (o al email de Sidonia) en el plazo indicado y, si se puede, con fotos o vídeos con fecha. Lo que no quede por escrito en Sidonia será difícil de comprobar.',
   ul([
     '<b>El dueño no se presenta</b>, o llega más de 30 minutos tarde sin avisar y sin acuerdo con quien alquila: se considera cancelación del dueño. Se devuelve a quien alquila todo lo pagado, tarifa de servicio incluida; el dueño no cobra nada y Sidonia puede retirar sus anuncios. Hay que comunicarlo en las 24 horas siguientes a la hora prevista.',
@@ -236,12 +238,16 @@ export function contratoAlquiler(cfg, d) {
   const multas = cl('Multas, sanciones y gastos',
     `El ${conConductor ? 'Arrendador' : 'Arrendatario'} responde de las infracciones de tráfico, sanciones, peajes, aparcamientos, retiradas por grúa y demás gastos que se produzcan durante el alquiler${conConductor ? ' por la conducción' : ''}.${conConductor ? '' : ' A efectos de lo previsto en el artículo 11 del Real Decreto Legislativo 6/2015 (Ley sobre Tráfico), el Arrendatario consiente que el Arrendador lo identifique como conductor ante la autoridad que lo requiera, facilitando sus datos y una copia de este contrato.'}`);
   const cancelacion = cl('Cancelación', 'Se aplica la política de cancelación publicada en Sidonia, que las partes aceptan:', ul(POLITICA_CANCELACION),
-    'Las devoluciones las tramita Sidonia a través de Stripe con cargo a lo pagado.');
+    'Las devoluciones las tramita Sidonia a través de Stripe con cargo a lo pagado.',
+    '<b>Compromiso del Arrendador y penalización por cancelar o no presentarse.</b> El Arrendador reconoce que el Arrendatario contrata el vehículo para una fecha concreta que no se puede aplazar y que su incumplimiento le causaría un perjuicio grave. Por ello, el Arrendador se obliga a prestar el servicio en el lugar, la fecha y la hora acordados, y acepta expresamente lo siguiente:',
+    ul(POLITICA_DUENO),
+    'La penalización tiene el carácter de cláusula penal (artículos 1152 y siguientes del Código Civil) y se paga a Sidonia, que la destina en primer lugar a ayudar al Arrendatario a encontrar otro vehículo. No sustituye la indemnización de los daños y perjuicios que el Arrendatario pueda reclamar al Arrendador por el incumplimiento.',
+    GARANTIA);
   const resolucion = cl('Resolución',
     'El incumplimiento grave de este contrato por cualquiera de las partes faculta a la otra para resolverlo, con la indemnización de daños y perjuicios que corresponda conforme a la ley.');
   const intermediacion = cl('Intervención de Sidonia',
     `Sidonia (${esc(s.razon)}) actúa únicamente como intermediario y gestor del cobro por cuenta del Arrendador. No es parte de este contrato, no es propietaria ni arrendadora del vehículo, no presta el servicio de transporte, no ofrece ningún seguro y no responde del cumplimiento de este contrato por las partes ni de los daños, accidentes, sanciones o perjuicios derivados del alquiler, sin perjuicio de su responsabilidad por su propio servicio en los términos de sus condiciones y de la ley. Las partes lo reconocen y aceptan expresamente.`,
-    'Sidonia podrá facilitar a las partes la información de la reserva y ayudarles a entenderse, pero no actúa como árbitro ni resuelve sus reclamaciones.');
+    'Sidonia podrá facilitar a las partes la información de la reserva y ayudarles a entenderse, pero no actúa como árbitro ni resuelve sus reclamaciones, salvo para aplicar la penalización del Arrendador prevista en la cláusula de cancelación (decidir si hubo cancelación o no presentación, y si concurre fuerza mayor) y para gestionar las devoluciones de lo pagado a través de la plataforma.');
   const datos = cl('Protección de datos',
     'Cada parte tratará los datos personales de la otra que figuran en este contrato únicamente para celebrarlo, cumplirlo y atender las obligaciones legales que deriven de él, como responsable independiente, y los conservará solo el tiempo necesario para ello y para atender posibles reclamaciones.');
   const firma = d.papel ? cl('Firma',
