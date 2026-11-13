@@ -289,6 +289,9 @@ async function devolver(st, r, importe, quien) {
 /** Lo que toca hacer con el dinero de una reserva según cómo esté: liberar la retención si caducó y transferir al dueño
  *  su parte 24 h después del servicio, y cobrar el resto 14 días antes. Lo llaman el repaso diario y la lista de reservas. */
 export async function ponerAlDia(cfg, deps, r, ahora = Date.now()) {
+  if (cfg.alquilerCobrar && r && r.pago === 'sin-pagar' && /^cs_/.test(String(r.stripe_sesion || '')) && ahora - Date.parse(r.creado) < 48 * 3600e3) {
+    try { return (await confirmarPago(cfg, deps, r.id, r.stripe_sesion)) || r; } catch (e) { console.error(e); return r; }
+  }
   if (!cfg.alquilerCobrar || !r || !r.stripe_pi) return r;
   const tR = tabla(cfg, deps, 'reservas');
   try {
@@ -391,6 +394,9 @@ export async function ponerAlDia(cfg, deps, r, ahora = Date.now()) {
 export async function revisarReservas(cfg, deps) {
   if (!cfg.alquilerCobrar) return { revisadas: 0 };
   const l = await tabla(cfg, deps, 'reservas').leer('pago=in.(autorizado,pagado,devuelto-parcial)&stripe_transfer=eq.&order=desde.asc&limit=500');
+  // Las que se pagaron en Stripe pero no volvieron a Sidonia (sin el aviso de Stripe): se comprueban
+  const hace2 = new Date(Date.now() - 48 * 3600e3).toISOString();
+  l.push(...(await tabla(cfg, deps, 'reservas').leer(`pago=eq.sin-pagar&creado=gte.${encodeURIComponent(hace2)}&order=creado.asc&limit=200`).catch(() => [])).filter((x) => x.stripe_sesion));
   let hechas = 0;
   for (const r of l) { const x = await ponerAlDia(cfg, deps, r); if (x !== r) hechas++; }
   // Coches que ya están listos y aún no recibieron el «ya se puede alquilar» (p. ej., los que se quedaron atascados)
@@ -542,6 +548,8 @@ export async function rutasReservas({ ruta, method, body, ip = '', ua = '' }, cl
         await tR.cambiar(r.id, { contrato: doc, firma_cliente });
         if (q.mensaje) await tM.guardar({ reserva_id: Number(r.id), de: String(cliente), texto: q.mensaje }, 'id').catch(() => null);
         const ses = await sesionPago(cfg, deps, { ...r, contrato: doc }, c, pD);
+        // La sesión de Stripe, guardada: si cierra la pestaña tras pagar (y no llega el aviso de Stripe), el motor la comprueba
+        if (ses && ses.id) await tR.cambiar(r.id, { stripe_sesion: ses.id }).catch((e) => console.error(e));
         return json(200, { ok: true, reserva: { id: r.id, estado: 'pendiente', ...pr, a_cuenta: r.a_cuenta, resto: r.resto }, pagar: ses.url });
       }
       const estado = c.alq.inmediata ? 'aceptada' : 'pendiente';
@@ -572,13 +580,14 @@ export async function rutasReservas({ ruta, method, body, ip = '', ua = '' }, cl
     try {
       const yo = encodeURIComponent(cliente);
       let [comoCliente, comoDueno] = await Promise.all([tR.leer(`cliente=eq.${yo}&order=creado.desc&limit=100`), tR.leer(`dueno=eq.${yo}&order=creado.desc&limit=200`)]);
-      // El dueño no ve las solicitudes que aún no se han pagado; y lo pendiente con el dinero se pone al día
-      comoDueno = comoDueno.filter((r) => r.pago !== 'sin-pagar');
-      comoCliente = comoCliente.filter((r) => !(r.pago === 'sin-pagar' && estadoActual(r) === 'caducada'));
+      // Lo pendiente con el dinero se pone al día (también las que se pagaron y no volvieron de Stripe); el dueño no ve las
+      // solicitudes que aún no se han pagado
       if (cfg.alquilerCobrar) {
-        const alDia = async (r) => (['autorizado', 'pagado', 'devuelto-parcial'].includes(r.pago) && !r.stripe_transfer ? ponerAlDia(cfg, deps, r) : r);
+        const alDia = async (r) => ((['autorizado', 'pagado', 'devuelto-parcial'].includes(r.pago) && !r.stripe_transfer) || (r.pago === 'sin-pagar' && r.stripe_sesion) ? ponerAlDia(cfg, deps, r) : r);
         [comoCliente, comoDueno] = await Promise.all([Promise.all(comoCliente.map(alDia)), Promise.all(comoDueno.map(alDia))]);
       }
+      comoDueno = comoDueno.filter((r) => r.pago !== 'sin-pagar');
+      comoCliente = comoCliente.filter((r) => !(r.pago === 'sin-pagar' && estadoActual(r) === 'caducada'));
       const todas = [...comoCliente, ...comoDueno];
       const ids = [...new Set(todas.map((r) => Number(r.coche_id)))];
       const coches = ids.length ? await tG.leer(`id=in.(${ids.join(',')})`) : [];

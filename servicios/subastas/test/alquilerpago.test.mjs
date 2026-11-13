@@ -32,6 +32,7 @@ const ALQ = { precio: 150, fianza: 500, km: 200, minimo: 1, conductor: 'con', pl
 function preparar({ alq = {}, perfil = {} } = {}) {
   const correos = [], stripe = [];
   let piEstado = 'requires_capture';
+  let pagadoEnStripe = false; // como en Stripe: la sesión está «open» hasta que se paga (en las pruebas, al volver de Stripe)
   const deps = { db: async () => null, fetch: async (u, o) => { correos.push(JSON.parse(o.body)); return { ok: true, json: async () => ({}) }; },
     garaje: memo([{ id: 7, cliente: '55', marca: 'Alfa Romeo', modelo: 'Spider', anio: 1975, fotos: ['55/aaaaaaaa.jpg'], alquiler: true, visible: true, likes: 0, bloqueos: [], alq: { ...ALQ, ...alq } }]),
     alquiler: memo([{ id: 1, rol: 'poner', cliente: '55', nombre: 'Marta', email: 'marta@x.es', telefono: '600000000' }]),
@@ -40,14 +41,14 @@ function preparar({ alq = {}, perfil = {} } = {}) {
     stripe: async (m, path, b) => {
       stripe.push([m, path, b]);
       if (path === 'checkout/sessions') return { id: 'cs_test_1', url: 'https://checkout.stripe.test/x' };
-      if (path.startsWith('checkout/sessions/')) return { metadata: { reserva: String(deps.reservas.filas.at(-1).id) }, status: 'complete', payment_intent: { id: 'pi_1', status: piEstado } };
+      if (path.startsWith('checkout/sessions/')) return { metadata: { reserva: String(deps.reservas.filas.at(-1).id) }, status: pagadoEnStripe ? 'complete' : 'open', payment_intent: { id: 'pi_1', status: piEstado } };
       if (path === 'payment_intents/pi_1') return { id: 'pi_1', latest_charge: 'ch_1' };
       if (path === 'transfers') return { id: 'tr_1' };
       if (path === 'accounts') return { id: 'acct_nuevo' };
       if (path === 'account_links') return { url: 'https://connect.stripe.test/alta' };
       return {};
     } };
-  const api = (ruta, body = {}, q = {}, method = 'POST', headers = {}) => atender({ method, ruta, query: { ...q, ...(method === 'GET' ? body : {}) }, body, directo: true, headers }, cfg, deps).then((r) => (/json/.test(r.headers?.['Content-Type'] || '') ? JSON.parse(r.body) : r));
+  const api = (ruta, body = {}, q = {}, method = 'POST', headers = {}) => (ruta === 'alquiler/pagado' || ruta === 'api/stripe' ? (pagadoEnStripe = true) : null, atender({ method, ruta, query: { ...q, ...(method === 'GET' ? body : {}) }, body, directo: true, headers }, cfg, deps).then((r) => (/json/.test(r.headers?.['Content-Type'] || '') ? JSON.parse(r.body) : r)));
   return { deps, api, correos, stripe, setPi: (e) => { piEstado = e; } };
 }
 const pedir = { coche_id: 7, desde: dia(10), hasta: dia(12), nombre: 'Lucía Gómez Sanz', email: 'lucia@x.es', telefono: '611111111', mensaje: 'Hola, es para mi boda, ¿puede ser?', para: 'boda',
@@ -407,4 +408,21 @@ test('pago en dos veces: 3 días antes de cobrar el resto se le avisa (una vez)'
   assert.ok(deps.reservas.filas.at(-1).datos.resto_recordado); assert.equal(deps.reservas.filas.at(-1).datos.pasajeros, 2);
   await ponerAlDia(cfg, deps, deps.reservas.filas.at(-1));
   assert.equal(correos.filter((c) => /cobramos el resto/.test(c.subject || '')).length, 1, 'no se repite');
+});
+
+test('paga en Stripe y cierra la pestaña: el motor comprueba la sesión y la solicitud le llega al dueño igual', async () => {
+  const { api, deps, correos } = preparar();
+  await api('api/alquiler/reservar', pedir, quien('77'));
+  const fila = deps.reservas.filas.at(-1);
+  assert.equal(fila.stripe_sesion, 'cs_test_1', 'la sesión se guarda al crearla'); assert.equal(fila.pago, 'sin-pagar');
+  // Sin pagar todavía: nada cambia
+  await revisarReservas(cfg, deps);
+  assert.equal(fila.pago, 'sin-pagar');
+  // Paga en Stripe (aviso de Stripe que no llega, pestaña cerrada): el repaso o la lista de reservas la comprueban
+  deps.stripe.pagado = true;
+  const st0 = deps.stripe;
+  deps.stripe = async (m, path, b) => (path.startsWith('checkout/sessions/') ? { metadata: { reserva: String(fila.id) }, status: 'complete', payment_intent: { id: 'pi_1', status: 'requires_capture' } } : st0(m, path, b));
+  const v = await api('api/alquiler/reservas', {}, quien('55'), 'GET');
+  assert.equal(fila.pago, 'autorizado'); assert.equal(v.solicitudes.length, 1, 'al dueño le aparece');
+  assert.ok(correos.some((c) => /Te han pedido tu coche/.test(c.html || '')), 'y le llega el email');
 });
