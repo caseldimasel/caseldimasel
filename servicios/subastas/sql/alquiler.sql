@@ -41,3 +41,7 @@ create table if not exists alquiler_contactos (
 create index if not exists alquiler_contactos_creado on alquiler_contactos (creado desc);
 alter table alquiler_contactos enable row level security;
 notify pgrst, 'reload schema';
+
+-- Peticiones con fotos de cómo se imagina el coche (hasta 3 rutas del almacén de fotos)
+alter table alquiler add column if not exists fotos jsonb not null default '[]'::jsonb;
+notify pgrst, 'reload schema';

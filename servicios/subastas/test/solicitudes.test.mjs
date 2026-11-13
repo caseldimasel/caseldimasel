@@ -113,3 +113,22 @@ test('alquiler › lo nuevo no se publica solo: queda por revisar, no sale en la
   await rutasGaraje({ ruta: 'api/garaje', method: 'POST', body: { ...coche, id: c.id } }, '55', cfg, deps);
   assert.equal(garaje.filas[0].alq.estado, 'pendiente'); assert.equal(garaje.filas[0].alq.rechazado_antes, 'Faltan fotos');
 });
+
+test('alquiler › «Pide un coche» con día, horas y fotos (solo las suyas), y se ven en «Lo que se busca»', async () => {
+  const { recibirAlquiler, peticionesPublicas } = await import('../lib/alquiler.mjs');
+  const filas = [];
+  const alquiler = { leer: async (f = '') => (f.includes('publico=eq.true') ? filas.filter((x) => x.publico) : []), guardar: async (x) => { const n = { id: filas.length + 1, estado: 'abierta', creado: new Date().toISOString(), ...x }; filas.push(n); return n; } };
+  const deps = { alquiler, fetch: async () => ({ ok: true, json: async () => ({}) }) };
+  const r = await recibirAlquiler({ rol: 'alquilar', publico: true, nombre: 'Lucía', email: 'l@x.es', busca: 'Un descapotable blanco', para: 'boda', fecha: '12 de diciembre · de 10:00 a 14:00', ciudad: 'Madrid', fotos: ['55/abcdefgh1.jpg', '99/ajena1234.jpg', '../mal.jpg'] }, '55', cfg, deps);
+  assert.equal(r.ok, true);
+  assert.deepEqual(filas[0].fotos, ['55/abcdefgh1.jpg']);
+  const l = await peticionesPublicas(cfg, deps);
+  assert.equal(l[0].busca, 'Un descapotable blanco'); assert.equal(l[0].fecha, '12 de diciembre · de 10:00 a 14:00');
+  assert.match(l[0].fotos[0], /\/storage\/v1\/object\/public\/anuncios\/55\/abcdefgh1\.jpg$/);
+  // Sin la columna «fotos» todavía: van en el mensaje y se leen igual
+  const filas2 = [];
+  const vieja = { leer: async () => filas2, guardar: async (x) => { if ('fotos' in x) throw new Error('column "fotos" does not exist'); const n = { id: 1, estado: 'abierta', publico: true, ...x }; filas2.push(n); return n; } };
+  await recibirAlquiler({ rol: 'alquilar', publico: true, nombre: 'Ana', email: 'a@x.es', busca: 'Un 2CV', fotos: ['55/abcdefgh2.jpg'] }, '55', cfg, { alquiler: vieja, fetch: deps.fetch });
+  assert.match(filas2[0].mensaje, /Fotos: 55\/abcdefgh2\.jpg/);
+  assert.match((await peticionesPublicas(cfg, { alquiler: vieja }))[0].fotos[0], /abcdefgh2\.jpg$/);
+});

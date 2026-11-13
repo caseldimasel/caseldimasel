@@ -12,7 +12,7 @@
  * - El equipo puede añadir la petición de un cliente que escribe por WhatsApp y ocultar o cerrar peticiones desde el panel.
  * Sin cobros ni seguro todavía.
  */
-import { esc, tablaAnuncios } from './circulo.mjs';
+import { esc, tablaAnuncios, urlFoto } from './circulo.mjs';
 import { datos, enviarCorreo, P, plantilla } from './correos.mjs';
 import { tapar } from './chat.mjs';
 
@@ -30,7 +30,9 @@ export function leerAlquiler(b = {}) {
     nombre: clip(b.nombre, 120), email: clip(b.email, 200).toLowerCase(), telefono: clip(b.telefono, 40),
     ciudad: clip(b.ciudad, 120), para: PARA[b.para] ? b.para : '', fecha: clip(b.fecha, 60),
     conductor: CONDUCTOR[b.conductor] ? b.conductor : '', coche: clip(b.coche, 200), mensaje: clip(b.mensaje, 2000),
-    busca: clip(b.busca, 160), publico: b.rol !== 'poner' && (b.publico === true || b.publico === 'true' || b.publico === 'on' || b.publico === '1')
+    busca: clip(b.busca, 160), publico: b.rol !== 'poner' && (b.publico === true || b.publico === 'true' || b.publico === 'on' || b.publico === '1'),
+    // Fotos de cómo se imagina el coche (subidas antes como las de los anuncios; se comprueba la carpeta al guardar)
+    fotos: (Array.isArray(b.fotos) ? b.fotos : []).map(String).filter((f) => /^[\w-]+\/[\w-]+\.(jpg|png|webp)$/.test(f)).slice(0, 3)
   };
   if (clip(b.web, 10)) return { ok: false, error: 'spam' };
   if (!s.nombre) return { ok: false, error: 'nombre' };
@@ -46,7 +48,8 @@ const filas = (s) => [
   ...(s.para ? [['Para', PARA[s.para]]] : []),
   ...(s.fecha ? [['Cuándo', s.fecha]] : []),
   ...(s.ciudad ? [['Dónde', s.ciudad]] : []),
-  ...(s.conductor ? [['Conductor', CONDUCTOR[s.conductor]]] : [])
+  ...(s.conductor ? [['Conductor', CONDUCTOR[s.conductor]]] : []),
+  ...(s.fotos && s.fotos.length ? [['Fotos', `${s.fotos.length} (se ven en la petición)`]] : [])
 ];
 
 /** Al equipo: quién es y cómo contestarle */
@@ -91,10 +94,18 @@ export async function recibirAlquiler(body, cliente, cfg, deps) {
     const hace = new Date(Date.now() - 3600e3).toISOString();
     if ((await t.leer(`email=eq.${encodeURIComponent(s.email)}&creado=gte.${encodeURIComponent(hace)}&select=id`)).length >= 5) return { ok: false, error: 'muchas' };
   } catch (e) { /* sin la tabla aún */ }
+  // Solo fotos de su propia carpeta
+  const carpeta = String(cliente || '').replace(/\W/g, '');
+  s.fotos = carpeta ? s.fotos.filter((f) => f.startsWith(`${carpeta}/`)) : [];
+  const { fotos, ...sinFotos } = s;
+  const conFotosEnMensaje = (m) => [m, fotos.length ? `Fotos: ${fotos.join(', ')}` : ''].filter(Boolean).join('\n');
   try { await t.guardar({ ...s, cliente: cliente || '' }, 'id'); } catch (e) {
-    // Sin las columnas nuevas (busca, publico) todavía: se guarda lo de siempre
-    const { busca, publico, ...base } = s;
-    try { await t.guardar({ ...base, cliente: cliente || '', mensaje: [busca && `Busca: ${busca}`, base.mensaje].filter(Boolean).join('\n') }, 'id'); } catch (e2) { console.error(e2); }
+    // Sin la columna «fotos» todavía (sql/alquiler.sql): van en el mensaje y se leen de ahí
+    try { await t.guardar({ ...sinFotos, cliente: cliente || '', mensaje: conFotosEnMensaje(sinFotos.mensaje) }, 'id'); } catch (e1) {
+      // Sin las columnas nuevas (busca, publico) todavía: se guarda lo de siempre
+      const { busca, publico, ...base } = sinFotos;
+      try { await t.guardar({ ...base, cliente: cliente || '', mensaje: conFotosEnMensaje([busca && `Busca: ${busca}`, base.mensaje].filter(Boolean).join('\n')) }, 'id'); } catch (e2) { console.error(e2); }
+    }
   }
   const enviar = (para, c, responder) => enviarCorreo(cfg, para, c.asunto, c.html, deps.fetch, responder).catch((e) => { console.error(e); return false; });
   const ce = correoAlquilerEquipo(cfg, s);
@@ -106,13 +117,15 @@ export async function recibirAlquiler(body, cliente, cfg, deps) {
 /* ---------------------------------------------------------------------------- Peticiones y contactos */
 const DIAS_PETICION = 90;
 /** Lo que se enseña de una petición: nada de quién es (solo la inicial) */
-export const peticionPublica = (x) => ({ id: x.id, chat: Boolean(x.cliente), busca: x.busca || '', para: x.para || '', para_txt: PARA[x.para] || '', fecha: x.fecha || '', ciudad: x.ciudad || '', conductor: x.conductor || '', inicial: String(x.nombre || '').trim().charAt(0).toUpperCase(), creado: x.creado });
+/** Las fotos de una petición: de su columna o, si aún no existe, de la línea «Fotos: …» del mensaje */
+export const fotosPeticion = (x) => (Array.isArray(x.fotos) && x.fotos.length ? x.fotos : String((/^Fotos: (.+)$/m.exec(x.mensaje || '') || [])[1] || '').split(',').map((f) => f.trim())).filter(Boolean).slice(0, 3);
+export const peticionPublica = (x, cfg = null) => ({ fotos: cfg ? fotosPeticion(x).map((f) => urlFoto(cfg, f)) : [], id: x.id, chat: Boolean(x.cliente), busca: x.busca || '', para: x.para || '', para_txt: PARA[x.para] || '', fecha: x.fecha || '', ciudad: x.ciudad || '', conductor: x.conductor || '', inicial: String(x.nombre || '').trim().charAt(0).toUpperCase(), creado: x.creado });
 
 export async function peticionesPublicas(cfg, deps) {
   const t = deps.alquiler || tablaAnuncios(cfg, deps.fetch, 'alquiler');
   const desde = new Date(Date.now() - DIAS_PETICION * 864e5).toISOString();
   const l = await t.leer(`rol=eq.alquilar&publico=eq.true&estado=eq.abierta&creado=gte.${encodeURIComponent(desde)}&order=creado.desc&limit=60`);
-  return l.map(peticionPublica);
+  return l.map((x) => peticionPublica(x, cfg));
 }
 
 /** Sidonia hace de intermediario: a la otra persona no le llega el contacto de quien escribe (solo al equipo) */

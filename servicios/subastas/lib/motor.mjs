@@ -43,7 +43,7 @@ import { guardarInvitacion, invitarSiToca, leerInvitacion } from './invitaciones
 import { rutasPreventa } from './preventa.mjs';
 import { condicionesSubasta, paginaDocumento } from './contratos.mjs';
 
-export const VERSION = '2026-11-13-editor-fotos';
+export const VERSION = '2026-11-13-peticiones-fotos';
 
 export function config(env = process.env) {
   return {
