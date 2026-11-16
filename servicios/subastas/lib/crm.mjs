@@ -36,7 +36,13 @@ export function temperatura(c, ahora = Date.now()) {
 
 const marco = (titulo, on, cuerpo) => `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>${esc(titulo)} · Panel de Sidonia</title><meta name="robots" content="noindex">${FAVICON}
-<style>${ESTILO}</style></head><body>
+<style>${ESTILO}
+  .ficha360 { display: grid; grid-template-columns: 180px 1fr auto; gap: 18px; align-items: center; }
+  .f360-foto { width: 180px; height: 135px; border-radius: 12px; object-fit: cover; display: block; background: var(--caja-3, #eee); }
+  .f360-txt h2 { margin: 0 0 6px; } .f360-txt p { margin: 4px 0; }
+  .f360-venta { display: flex; flex-direction: column; gap: 4px; min-width: 200px; font-size: 14px; } .f360-venta .boton { margin-top: 6px; text-align: center; }
+  @media (max-width: 700px) { .ficha360 { grid-template-columns: 1fr; } .f360-foto { width: 100%; height: 200px; } }
+</style></head><body>
 ${CABECERA}
 ${navPanel(on)}
 ${cuerpo}
@@ -160,8 +166,24 @@ ${(d.compras || []).length ? `<div class="card" style="margin-top:14px"><h2>Lo q
 }
 
 /* ---------------------------------------------------------------------------- Un anuncio: quién está interesado */
-export function paginaAnuncio(datos, { tienda = 'https://sidonia.es', error = '', ahora = Date.now() } = {}) {
-  const d = datos || {};
+export function paginaAnuncio(datos, { tienda = 'https://sidonia.es', error = '', ahora = Date.now(), ficha = null, venta = null, handle = '' } = {}) {
+  const d = { handle, ...(datos || {}) };
+  // El título de ahora (el de la web), no el que tenía cuando lo vieron
+  if (ficha) d.titulo = ficha.titulo;
+  const eur = (x) => (x == null || x === '' || !Number(x) ? '—' : `${Math.round(Number(x)).toLocaleString('es-ES')} €`);
+  const SIT = { en_venta: 'En venta', reservado: 'Reservado', vendido: 'Vendido', retirado: 'Retirado', oculto: 'Oculto' };
+  const situ = ficha ? ficha.situacion || 'en_venta' : '';
+  const cabecera = `<div class="card ficha360">
+  ${ficha?.foto ? `<img src="${esc(ficha.foto)}" alt="" class="f360-foto">` : '<span class="f360-foto"></span>'}
+  <div class="f360-txt"><h2>${esc(d.titulo || d.handle || '')}</h2>
+    <p>${ficha ? `<span class="pill ${situ === 'oculto' ? 'retirado' : situ}">${SIT[situ]}</span> · ${ficha.comunidad ? 'Comunidad (lo puso su dueño)' : 'Gestión de venta (Sidonia)'}${ficha.creado ? ` · en la web desde el ${new Date(ficha.creado).toLocaleDateString('es-ES')}` : ''}` : '<span class="pill retirado">Ya no está en la tienda</span>'}</p>
+    <p><a href="${esc(tienda)}/products/${esc(d.handle || '')}" target="_blank" rel="noopener">Ver en sidonia.es ›</a>${ficha ? ` · <a href="?estado=ficha&h=${encodeURIComponent(d.handle)}">Editar el anuncio ›</a>` : ''}</p></div>
+  <div class="f360-venta">${venta ? `<b>Venta</b><span><span class="pill ${esc(venta.estado)}">${esc(SIT[venta.estado] || venta.estado)}</span></span>
+    <span>${venta.estado === 'vendido' ? `Vendido por ${eur(venta.precio_venta)}${venta.fecha_venta ? ` el ${new Date(venta.fecha_venta).toLocaleDateString('es-ES')}` : ''}` : `Precio ${eur(venta.precio_anunciado)}`}</span>
+    ${venta.comision ? `<span>Comisión ${eur(venta.comision)}</span>` : ''}${venta.propietario_nombre ? `<span>Propietario: ${esc(venta.propietario_nombre)}</span>` : ''}${venta.comprador_nombre ? `<span>Comprador: ${esc(venta.comprador_nombre)}</span>` : ''}
+    <a class="boton claro" href="?estado=operacion&id=${Number(venta.id)}">Ver la venta ›</a>`
+    : ficha && !ficha.comunidad ? `<b>Venta</b><span class="sub">Sin venta en el centro operativo</span><a class="boton claro" href="?estado=operacion&de=${encodeURIComponent(d.handle)}">+ Crear la venta</a>` : ''}</div>
+</div>`;
   const t = d.total || {};
   const lista = d.interesados || [];
   const emails = lista.map((x) => x.email).filter(Boolean);
@@ -172,8 +194,9 @@ export function paginaAnuncio(datos, { tienda = 'https://sidonia.es', error = ''
   return marco(d.titulo || d.handle || 'Anuncio', 'estadisticas', `
 <p><a href="?estado=estadisticas">‹ Estadísticas</a></p>
 ${errorSql(error)}
-<div class="card cab">
-  <div><h2>${esc(d.titulo || d.handle || '')}</h2><p><a href="${esc(tienda)}/products/${esc(d.handle || '')}" target="_blank" rel="noopener">Ver la ficha en sidonia.es ›</a></p></div>
+${cabecera}
+<div class="card cab" style="${emails.length ? '' : 'display:none'}">
+  <div><b>Interesados con cuenta</b></div>
   ${emails.length ? `<div><a class="boton" href="mailto:?bcc=${encodeURIComponent(emails.join(','))}&subject=${encodeURIComponent(`Sobre el ${d.titulo || ''}`)}">Escribir a los ${fmt(emails.length)} interesados</a></div>` : ''}
 </div>
 <div class="kpis">

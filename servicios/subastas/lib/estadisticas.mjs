@@ -143,7 +143,7 @@ export function paginaEstadisticas(datos, { dias = 30, error = '', tienda = 'htt
     <p>De cada 100 fichas vistas, <b>${pct(contactos, conFicha).toLocaleString('es-ES')}</b> acaban en un contacto.${n(a.contactos_registro) ? ` Además, <b>${fmt(a.contactos_registro)}</b> veces quisieron contactar sin cuenta y les pedimos registrarse.` : ''}</p>
   </div>`;
 
-  const filas = (d.anuncios || []).map((x) => `<tr><td>${link(x.handle, x.titulo)}<br><a href="?estado=anuncio&h=${encodeURIComponent(x.handle)}" style="font-size:12px;opacity:.6">Quién está interesado ›</a></td><td>${fmt(x.vistas)}</td><td>${fmt(x.personas)}</td><td>${fmt(x.likes)}</td><td>${fmt(x.guardados)}</td><td>${fmt(x.contactos)}${n(x.contactos_registro) ? ` <small>(+${fmt(x.contactos_registro)} sin cuenta)</small>` : ''}</td><td>${pct(x.contactos, x.vistas).toLocaleString('es-ES')} %</td><td>${fmt(x.compartidos)}</td></tr>`).join('');
+  const filas = (d.anuncios || []).map((x) => `<tr><td>${link(x.handle, x.titulo)}${x.fuera ? '<span class="sub">Ya no está en la web</span>' : ''}<br><a href="?estado=anuncio&h=${encodeURIComponent(x.handle)}" style="font-size:12px;opacity:.6">Quién está interesado ›</a></td><td>${fmt(x.vistas)}</td><td>${fmt(x.personas)}</td><td>${fmt(x.likes)}</td><td>${fmt(x.guardados)}</td><td>${fmt(x.contactos)}${n(x.contactos_registro) ? ` <small>(+${fmt(x.contactos_registro)} sin cuenta)</small>` : ''}</td><td>${pct(x.contactos, x.vistas).toLocaleString('es-ES')} %</td><td>${fmt(x.compartidos)}</td></tr>`).join('');
   const canales = Object.entries(d.canales || {}).map(([k, v]) => ({ nombre: NOMBRE_CANAL[k] || k, n: v })).sort((x, y) => y.n - x.n);
   const origenes = (d.origenes || []).map((x) => ({ nombre: NOMBRE_ORIGEN(x.origen), n: x.n }));
   const dispositivos = [
@@ -195,7 +195,7 @@ ${actividad ? `<div class="card"><h2>Ahora en la web</h2>${cajaActividad(activid
   <div class="card"><h2>De dónde vienen</h2>${barras(origenes)}</div>
   <div class="card"><h2>Desde dónde</h2>${barras(dispositivos)}</div>
 </div>
-<div class="card" style="margin-top:14px"><h2>Anuncios</h2><div class="tabla"><table>
+<div class="card" style="margin-top:14px"><h2>Anuncios</h2><p class="nota" style="margin-top:0">Los 30 más vistos en este periodo. Todos los anuncios, con sus números, foto, estado y venta: <a href="?estado=fichas">Anuncios › En la web</a>.</p><div class="tabla"><table>
   <thead><tr><th>Anuncio</th><th>Vistas</th><th>Personas</th><th>Me gusta</th><th>Guardados ahora</th><th>Contactos</th><th>% contacto</th><th>Compartidos</th></tr></thead>
   <tbody>${filas || '<tr><td colspan="8" class="vacio">Aún sin datos: se empieza a contar desde que se activa.</td></tr>'}</tbody>
 </table></div></div>

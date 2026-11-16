@@ -207,15 +207,35 @@ create or replace function sidonia_crm_anuncio(p_handle text) returns jsonb lang
   )
 $$;
 
+-- Cada anuncio, todos (no solo los más vistos): sus números en los últimos p_dias días (null: desde siempre). Para la
+-- lista de Anuncios del panel y su ficha completa
+create or replace function sidonia_por_anuncio(p_dias integer default null) returns jsonb language sql stable as $$
+  with e as (select * from eventos where handle is not null and (p_dias is null or creado >= now() - make_interval(days => greatest(1, least(p_dias, 3650))))),
+  g as (select handle, greatest(0, count(*) filter (where tipo = 'like') - count(*) filter (where tipo = 'unlike')) as guardados
+          from eventos where tipo in ('like', 'unlike') and handle is not null group by handle)
+  select coalesce(jsonb_object_agg(x.handle, to_jsonb(x) - 'handle'), '{}'::jsonb) from (
+    select e.handle,
+      count(*) filter (where tipo = 'vista') as vistas,
+      count(distinct sesion) filter (where tipo = 'vista') as personas,
+      count(*) filter (where tipo = 'like') as likes,
+      count(*) filter (where tipo = 'contacto' and canal is distinct from 'registro') as contactos,
+      count(*) filter (where tipo = 'contacto' and canal = 'registro') as quiso_contactar,
+      count(*) filter (where tipo = 'compartir') as compartidos,
+      count(*) filter (where tipo = 'oferta') as ofertas,
+      coalesce(max(g.guardados), 0) as guardados,
+      max(creado) as ultima
+    from e left join g using (handle) group by e.handle) x
+$$;
+
 -- Solo para el servidor (clave de servicio)
-revoke execute on function sidonia_evento(jsonb), sidonia_estadisticas(integer), sidonia_eventos_clientes(timestamptz), sidonia_crm_clientes(integer), sidonia_crm_cliente(text), sidonia_crm_anuncio(text) from public;
+revoke execute on function sidonia_evento(jsonb), sidonia_estadisticas(integer), sidonia_eventos_clientes(timestamptz), sidonia_crm_clientes(integer), sidonia_crm_cliente(text), sidonia_crm_anuncio(text), sidonia_por_anuncio(integer) from public;
 do $$
 begin
   if exists (select 1 from pg_roles where rolname = 'anon') then
-    execute 'revoke execute on function sidonia_evento(jsonb), sidonia_estadisticas(integer), sidonia_eventos_clientes(timestamptz), sidonia_crm_clientes(integer), sidonia_crm_cliente(text), sidonia_crm_anuncio(text) from anon, authenticated';
+    execute 'revoke execute on function sidonia_evento(jsonb), sidonia_estadisticas(integer), sidonia_eventos_clientes(timestamptz), sidonia_crm_clientes(integer), sidonia_crm_cliente(text), sidonia_crm_anuncio(text), sidonia_por_anuncio(integer) from anon, authenticated';
   end if;
   if exists (select 1 from pg_roles where rolname = 'service_role') then
-    execute 'grant execute on function sidonia_evento(jsonb), sidonia_estadisticas(integer), sidonia_eventos_clientes(timestamptz), sidonia_crm_clientes(integer), sidonia_crm_cliente(text), sidonia_crm_anuncio(text) to service_role';
+    execute 'grant execute on function sidonia_evento(jsonb), sidonia_estadisticas(integer), sidonia_eventos_clientes(timestamptz), sidonia_crm_clientes(integer), sidonia_crm_cliente(text), sidonia_crm_anuncio(text), sidonia_por_anuncio(integer) to service_role';
   end if;
 end $$;
 notify pgrst, 'reload schema';

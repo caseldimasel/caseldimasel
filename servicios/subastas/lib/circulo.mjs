@@ -40,7 +40,7 @@ import { paginaOpiniones } from './opiniones.mjs';
 import { rutasFichas } from './fichas.mjs';
 import { rutasCorreos } from './plantillas.mjs';
 import { DETALLES, rutaDetalle } from './detalle.mjs';
-import { buscarAnuncios, cajaActividad, fotosDe, leerActividad } from './actividad.mjs';
+import { buscarAnuncios, cajaActividad, catalogoTienda, fotosDe, leerActividad, olvidarCatalogo } from './actividad.mjs';
 import { avisoMejoras, cajaMejoras, correoMejoras, CSS_MEJORAS, leerMejoras, listaMejoras, pendientes } from './mejoras.mjs';
 import { altaComunidad, cancelarRenovacion, enlacePago, leerTarifa, precioMes, rutasComunidad } from './comunidad.mjs';
 import { cookieFuera, cookieSesion, intentarEntrar, paginaEntrar, sesionValida } from './acceso.mjs';
@@ -431,6 +431,23 @@ export function productoShopify(cfg, a) {
   };
 }
 
+/** La portada de un producto de Shopify para el panel: su foto o, si solo tiene vídeo (los coches de Sidonia), la imagen
+ *  del vídeo. En las consultas: ${FOTO_GQL} (o FOTO_GQL_MINI, pequeña) */
+export const FOTO_GQL = 'featuredImage { url } featuredMedia { preview { image { url } } }';
+export const FOTO_GQL_MINI = 'featuredImage { url(transform: { maxWidth: 200, maxHeight: 200 }) } featuredMedia { preview { image { url(transform: { maxWidth: 200, maxHeight: 200 }) } } }';
+export const fotoProducto = (p) => p?.featuredImage?.url || p?.featuredMedia?.preview?.image?.url || '';
+/** Sin unidades a la venta en Shopify (así marca Sidonia los que vende: la web los enseña como vendidos) */
+export const agotado = (p) => (p?.variants?.nodes || []).length > 0 && p.variants.nodes.every((v) => v.availableForSale === false);
+/** Cómo está en la web: vendido (etiqueta «vendido» o sin unidades), reservado (etiqueta), oculto (borrador o archivado)
+ *  o en venta. Lo mismo en todo el panel (Anuncios, Ventas, Estadísticas) */
+export function situacionTienda(p) {
+  const tags = (p?.tags || []).map((t) => String(t).toLowerCase());
+  if (tags.some((t) => t.startsWith('vendid')) || agotado(p)) return 'vendido';
+  if (tags.some((t) => t.startsWith('reservad'))) return 'reservado';
+  if (p?.status && p.status !== 'ACTIVE') return 'oculto';
+  return 'en_venta';
+}
+
 /** Admin API de Shopify con la app de Sidonia (Dev Dashboard): token por «client credentials», dura 24 h */
 let tokenCache = null;
 export function shopifyAdmin(cfg, fetchImpl = fetch) {
@@ -466,6 +483,8 @@ export function shopifyAdmin(cfg, fetchImpl = fetch) {
       }
     }
     if (!r.ok || d.errors) throw new Error(`Shopify ${r.status}: ${JSON.stringify(d.errors || d).slice(0, 400)}`);
+    // Algo ha cambiado en la tienda: el catálogo del panel se vuelve a leer
+    if (/^\s*mutation/.test(query)) olvidarCatalogo();
     return d.data;
   };
 }
@@ -1083,8 +1102,13 @@ export async function atenderPanel(req, cfg, deps) {
   }
   if (req.query.estado === 'anuncio' && req.query.h) {
     let d = null, error = '';
-    try { d = await db('sidonia_crm_anuncio', { p_handle: String(req.query.h).slice(0, 160) }); } catch (e) { error = String(e.message || e); }
-    return html(paginaAnuncio(d, { tienda: cfg.tienda, error }));
+    const h = String(req.query.h).slice(0, 160);
+    try { d = await db('sidonia_crm_anuncio', { p_handle: h }); } catch (e) { error = String(e.message || e); }
+    // El anuncio de la tienda (foto, título y estado de ahora) y su venta del centro operativo
+    let ficha = null, venta = null;
+    try { ficha = (await catalogoTienda(cfg, deps)).get(h) || null; } catch (e) { console.error(e); }
+    try { venta = (await (deps.operaciones || tablaAnuncios(cfg, deps.fetch, 'operaciones')).leer(`handle=eq.${encodeURIComponent(h)}&select=*&limit=1`))[0] || null; } catch (e) { venta = null; }
+    return html(paginaAnuncio(d, { tienda: cfg.tienda, error, ficha, venta, handle: h }));
   }
   if (req.query.estado === 'estadisticas') {
     const dias = [1, 7, 30, 90, 365].includes(Number(req.query.dias)) ? Number(req.query.dias) : 30;
@@ -1097,6 +1121,13 @@ export async function atenderPanel(req, cfg, deps) {
     try { actividad = await leerActividad(cfg, deps); } catch (e) { console.error(e); }
     const handles = [...(actividad || []).flatMap((g) => g.acciones.map((x) => x.handle)), ...(datos?.anuncios || []).map((x) => x.handle), ...(datos?.mas_contactados || []).map((x) => x.handle), ...(datos?.mas_guardados || []).map((x) => x.handle)];
     try { fotos = await fotosDe(cfg, deps, handles); } catch (e) { console.error(e); }
+    // Los títulos de ahora (los de la tienda), y los que ya no están en la web, marcados
+    try {
+      const mapa = await catalogoTienda(cfg, deps);
+      const alDia = (x) => { if (!x?.handle) return; const f = mapa.get(x.handle); if (f) x.titulo = f.titulo; else if (mapa.size) x.fuera = true; };
+      for (const l of [datos?.anuncios, datos?.mas_contactados, datos?.mas_guardados]) (l || []).forEach(alDia);
+      for (const g of actividad || []) g.acciones.forEach(alDia);
+    } catch (e) { console.error(e); }
     // En vivo: solo la caja, para que se actualice sola
     if (req.query.vivo) return html(cajaActividad(actividad || [], fotos, { tienda: cfg.tienda }));
     // El buscador: los anuncios con esas palabras y sus números desde siempre

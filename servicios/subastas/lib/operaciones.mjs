@@ -14,7 +14,8 @@
  * Base de datos: sql/operaciones.sql (tabla operaciones).
  */
 import { CABECERA, FAVICON } from './marca.mjs';
-import { esc, shopifyAdmin, tablaAnuncios } from './circulo.mjs';
+import { esc, FOTO_GQL, fotoProducto, shopifyAdmin, situacionTienda, tablaAnuncios } from './circulo.mjs';
+import { catalogoTienda } from './actividad.mjs';
 import { ESTILO, fmt, n, navPanel } from './estadisticas.mjs';
 import { paginaMeses } from './meses.mjs';
 import { paginaOfertas } from './ofertas.mjs';
@@ -176,9 +177,9 @@ export async function productosTienda(gql) {
   const out = [];
   let despues = null;
   do {
-    const d = await gql(`query($despues: String) { products(first: 250, after: $despues) { nodes { handle title productType createdAt status tags
+    const d = await gql(`query($despues: String) { products(first: 250, after: $despues) { nodes { handle title productType createdAt status tags ${FOTO_GQL} variants(first: 1) { nodes { availableForSale } }
       precio: priceRangeV2 { minVariantPrice { amount } } } pageInfo { hasNextPage endCursor } } }`, { despues });
-    out.push(...d.products.nodes);
+    out.push(...d.products.nodes.map((p) => ({ ...p, foto: fotoProducto(p) })));
     despues = d.products.pageInfo.hasNextPage && out.length < 5000 ? d.products.pageInfo.endCursor : null;
   } while (despues);
   return out;
@@ -212,6 +213,8 @@ export function emparejar(ops, productos) {
     for (const p of productos) {
       if (usados.has(p.handle)) continue;
       if (!cubre(o.titulo, p.title)) continue;
+      // Una venta ya cerrada no se enlaza sola con un anuncio que sigue a la venta (será otro coche igual): a mano
+      if (o.estado === 'vendido' && situacionTienda(p) === 'en_venta') continue;
       // Si los dos tienen precio y se parecen poco (más de un 40 % de diferencia), no es el mismo coche: a mano
       const pp = Number(p.precio?.minVariantPrice?.amount), po = Number(o.precio_venta ?? o.precio_anunciado);
       if (pp > 0 && po > 0 && (pp / po > 1.4 || po / pp > 1.4)) continue;
@@ -222,7 +225,7 @@ export function emparejar(ops, productos) {
   const porHandle = new Map(productos.map((p) => [p.handle, p]));
   const estadoTienda = (o, p) => {
     if (!p || o.estado === 'vendido') return null;
-    if ((p.tags || []).some((t) => /^vendid/i.test(t))) return 'vendido';
+    if (situacionTienda(p) === 'vendido') return 'vendido';
     if (p.status === 'ARCHIVED' && o.estado !== 'retirado') return 'retirado';
     return null;
   };
@@ -312,7 +315,8 @@ ${cuerpo}
 const errorSql = (error) => (error ? `<p class="aviso mal">No se han podido leer las ventas: ${esc(/operaciones|relation|schema cache/.test(error) ? 'falta ejecutar sql/operaciones.sql en Supabase › SQL Editor.' : error)}</p>` : '');
 const pill = (e) => `<span class="pill ${esc(e)}">${esc(ESTADOS_OP[e] || e)}</span>`;
 
-export function paginaVentas(ops, { ver = 'todo', aviso = '', error = '', tienda = 'https://sidonia.es', tareas = [] } = {}) {
+export function paginaVentas(ops, { ver = 'todo', aviso = '', error = '', tienda = 'https://sidonia.es', tareas = [], fichas = null } = {}) {
+  const ficha = (o) => (fichas && o.handle ? fichas.get(o.handle) : null);
   const r = resumen(ops);
   const filtros = { todo: 'Todas', en_venta: 'En venta', vendido: 'Vendidas', encargo: 'Encargos', retirado: 'Retiradas', sinficha: 'Sin ficha' };
   const sinFicha = (o) => !o.handle && o.modalidad !== 'encargo';
@@ -322,8 +326,10 @@ export function paginaVentas(ops, { ver = 'todo', aviso = '', error = '', tienda
     const d = dias(o.fecha_alta, o.fecha_venta);
     const pct = n(o.comision) && n(o.precio_venta ?? o.precio_anunciado) ? (o.comision / (o.precio_venta ?? o.precio_anunciado)) * 100 : null;
     const q = normal(`${o.titulo} ${o.propietario_nombre || ''} ${o.comprador_nombre || ''} ${o.propietario_email || ''} ${o.comprador_email || ''} ${o.comercial || ''}`);
+    const fi = ficha(o);
     return `<tr data-q="${esc(q)}" onclick="if(!event.target.closest('a'))location.href='?estado=operacion&id=${o.id}'">
-      <td class="izq"><b>${esc(o.titulo)}</b><span class="sub">${esc(TIPOS_OP[o.tipo] || o.tipo)} · ${esc(MODALIDADES[o.modalidad] || o.modalidad)}${o.handle ? ` · <a href="${esc(tienda)}/products/${esc(o.handle)}" target="_blank" rel="noopener">ficha</a> · <a href="?estado=anuncio&h=${encodeURIComponent(o.handle)}">interesados</a>` : ''}</span></td>
+      <td class="foto">${fi?.foto ? `<img class="mini" src="${esc(fi.foto)}" alt="" loading="lazy">` : '<span class="mini"></span>'}</td>
+      <td class="izq"><b>${esc(o.titulo)}</b><span class="sub">${esc(TIPOS_OP[o.tipo] || o.tipo)} · ${esc(MODALIDADES[o.modalidad] || o.modalidad)}${o.handle ? ` · <a href="${esc(tienda)}/products/${esc(o.handle)}" target="_blank" rel="noopener">en la web</a> · <a href="?estado=anuncio&h=${encodeURIComponent(o.handle)}">anuncio y números</a>${fichas && !fi ? ' · <b style="color:#b45309">su anuncio ya no está en la tienda</b>' : ''}` : o.modalidad === 'encargo' ? '' : ' · <a href="?estado=enlazar" style="color:#b45309">sin anuncio: enlázala</a>'}</span></td>
       <td class="izq">${pill(o.estado)}</td>
       <td class="izq">${esc(o.propietario_nombre || '—')}${o.propietario_telefono ? `<span class="sub">${esc(o.propietario_telefono)}</span>` : ''}</td>
       <td class="izq">${esc(o.comprador_nombre || '—')}${o.comprador_telefono ? `<span class="sub">${esc(o.comprador_telefono)}</span>` : ''}</td>
@@ -362,8 +368,8 @@ ${tareas.length ? `<div class="tareas">${tareas.map(([t, href]) => `<a href="${h
   <a class="boton claro" href="?estado=ventas&csv=1">Descargar CSV</a>
 </div>
 <div class="card"><div class="tabla"><table>
-  <thead><tr><th class="izq">Vehículo</th><th class="izq">Estado</th><th class="izq">Propietario</th><th class="izq">Comprador</th><th>Precio</th><th>Comisión</th><th>Comercial</th><th>Anunciado</th><th>Vendido</th></tr></thead>
-  <tbody>${filas || '<tr><td colspan="9" class="vacio">Aún no hay nada aquí. Añade una venta o importa el Excel.</td></tr>'}</tbody>
+  <thead><tr><th class="izq"></th><th class="izq">Vehículo</th><th class="izq">Estado</th><th class="izq">Propietario</th><th class="izq">Comprador</th><th>Precio</th><th>Comisión</th><th>Comercial</th><th>Anunciado</th><th>Vendido</th></tr></thead>
+  <tbody>${filas || '<tr><td colspan="10" class="vacio">Aún no hay nada aquí. Añade una venta o importa el Excel.</td></tr>'}</tbody>
 </table></div></div>
 <p class="nota">Pulsa en una fila para ver o cambiar todo (propietario, comprador, precios, comisiones y fechas). «Enlazar con la tienda» busca el anuncio de cada uno, le pone su título, la fecha en que se anunció y, si en la web ya está vendido o archivado, lo pone igual aquí.</p>`);
 }
@@ -396,7 +402,7 @@ ${aviso ? `<p class="aviso${/^Error/.test(aviso) ? ' mal' : ''}">${esc(aviso)}</
     <div class="fila c3">${select('tipo', 'Tipo', TIPOS_OP)}${select('modalidad', 'Modalidad', MODALIDADES)}${select('estado', 'Estado', ESTADOS_OP)}</div>
     <div class="fila"><label class="ancho">Anuncio en la web<input name="handle" value="${esc(v.handle || '')}" placeholder="Escribe el coche para buscar su anuncio…" list="fichas-tienda" autocomplete="off">
       ${productos.length ? `<datalist id="fichas-tienda">${productos.map((p) => `<option value="${esc(p.handle)}">${esc(p.title)}</option>`).join('')}</datalist>` : ''}
-      <small>${v.handle ? `${esc(enlazado ? `Enlazado con «${enlazado.title}»` : v.handle)} · <a href="${esc(tienda)}/products/${esc(v.handle)}" target="_blank" rel="noopener">ver en la web</a> · <a href="?estado=ficha&h=${encodeURIComponent(v.handle)}">editar el anuncio</a> · <a href="?estado=anuncio&h=${encodeURIComponent(v.handle)}">interesados</a>` : 'Sin anuncio: al enlazarlo, esta venta toma el título y los datos del anuncio.'}</small></label></div>
+      ${enlazado?.foto ? `<img src="${esc(enlazado.foto)}" alt="" style="width:120px;height:90px;object-fit:cover;border-radius:10px;display:block;margin:6px 0">` : ''}<small>${v.handle ? `${esc(enlazado ? `Enlazado con «${enlazado.title}»` : v.handle)}${productos.length && !enlazado ? ' (ya no está en la tienda)' : ''} · <a href="${esc(tienda)}/products/${esc(v.handle)}" target="_blank" rel="noopener">ver en la web</a> · <a href="?estado=ficha&h=${encodeURIComponent(v.handle)}">editar el anuncio</a> · <a href="?estado=anuncio&h=${encodeURIComponent(v.handle)}">interesados</a>` : 'Sin anuncio: al enlazarlo, esta venta toma el título y los datos del anuncio.'}</small></label></div>
   </section>
   <div class="dos">
     <section class="grupo"><h3>Propietario</h3>
@@ -522,7 +528,7 @@ export function paginaEnlazar(ops, productos, { aviso = '', error = '', tienda =
     const sug = sugerencias(o.titulo, productos, 5);
     const boton = (p) => {
       const otra = usadas.get(p.handle);
-      return `<form method="post" action="?estado=enlazar" style="display:inline"><input type="hidden" name="id" value="${o.id}"><input type="hidden" name="handle" value="${esc(p.handle)}"><button class="boton claro" name="accion" value="ligar" title="${esc(p.handle)}"${otra ? ` onclick="return confirm('Esta ficha ya está enlazada con «${esc(otra.titulo).replace(/'/g, '')}». ¿Enlazarla también con esta venta?')"` : ''}>${esc(p.title)} <small style="opacity:.6">${Math.round(p.puntos * 100)} %${otra ? ' · ya enlazada' : ''}</small></button></form>`;
+      return `<form method="post" action="?estado=enlazar" style="display:inline"><input type="hidden" name="id" value="${o.id}"><input type="hidden" name="handle" value="${esc(p.handle)}"><button class="boton claro" name="accion" value="ligar" title="${esc(p.handle)}"${otra ? ` onclick="return confirm('Esta ficha ya está enlazada con «${esc(otra.titulo).replace(/'/g, '')}». ¿Enlazarla también con esta venta?')"` : ''} style="display:inline-flex;align-items:center;gap:8px">${p.foto ? `<img src="${esc(p.foto)}" alt="" style="width:44px;height:33px;object-fit:cover;border-radius:6px">` : ''}${esc(p.title)} <small style="opacity:.6">${Math.round(p.puntos * 100)} %${otra ? ' · ya enlazada' : ''}</small></button></form>`;
     };
     return `<div class="card">
       <div class="cab" style="margin-bottom:10px"><div><h2 style="font-size:18px">${esc(o.titulo)}</h2><p>${pill(o.estado)} ${euros(o.precio_venta ?? o.precio_anunciado)} · <a href="?estado=operacion&id=${o.id}">abrir la venta</a></p></div></div>
@@ -592,13 +598,14 @@ ${error ? `<p class="aviso mal">${esc(error)}</p>` : ''}
 }
 
 /* ---------------------------------------------------------------------------- Rutas del panel */
+let ultimoEnlace = 0;
 const ordenar = (ops) => ops.sort((a, b) => {
   const peso = { en_venta: 0, reservado: 0, vendido: 2, retirado: 3 };
   return (peso[a.estado] ?? 4) - (peso[b.estado] ?? 4) || String(b.fecha_venta || b.fecha_alta || b.creado || '').localeCompare(String(a.fecha_venta || a.fecha_alta || a.creado || '')) || b.id - a.id;
 });
 
 /** Enlaza con la tienda las que no tienen ficha. Devuelve cuántas */
-async function enlazar(cfg, deps, t, ops) {
+export async function enlazar(cfg, deps, t, ops) {
   const gql = deps.gql || shopifyAdmin(cfg, deps.fetch);
   const pares = emparejar(ops, await productosTienda(gql));
   for (const p of pares) await t.cambiar(p.id, { ...p.cambios, actualizado: new Date().toISOString() });
@@ -690,7 +697,7 @@ export async function rutasOperaciones(req, cfg, deps, html) {
     // «+ Crear venta» desde un anuncio de la web: ya rellena con lo de la ficha
     if (!o && req.query.de) {
       const p = productos.find((x) => x.handle === req.query.de);
-      if (p) o = { titulo: p.title, handle: p.handle, estado: (p.tags || []).some((t) => /^vendid/i.test(t)) ? 'vendido' : 'en_venta', modalidad: 'gestion',
+      if (p) o = { titulo: p.title, handle: p.handle, estado: { vendido: 'vendido', reservado: 'reservado', oculto: 'retirado' }[situacionTienda(p)] || 'en_venta', modalidad: 'gestion',
         tipo: TIPO_SHOPIFY[normal(p.productType)] || tipoDe(p.title), precio_anunciado: Number(p.precio?.minVariantPrice?.amount) || null, fecha_alta: p.createdAt ? p.createdAt.slice(0, 10) : null };
     }
     return html(paginaOperacion(o, { error, tienda: cfg.tienda, productos }));
@@ -756,10 +763,16 @@ export async function rutasOperaciones(req, cfg, deps, html) {
   // Ventas
   let ops = [], error = '', aviso = '';
   if (req.method === 'POST' && req.body?.accion === 'enlazar') {
-    try { aviso = `Enlazadas con su ficha: ${fmt(await enlazar(cfg, deps, t, await leerTodas()))}.`; } catch (e) { aviso = `Error: ${e.message}`; }
+    try { aviso = `Enlazadas con su ficha: ${fmt(await enlazar(cfg, deps, t, await leerTodas()))}.`; ultimoEnlace = Date.now(); } catch (e) { aviso = `Error: ${e.message}`; }
+  } else if (req.method === 'GET' && Date.now() - ultimoEnlace > 5 * 60e3 && (deps.gql || (cfg.shopifyTienda && cfg.shopifyClientId))) {
+    // Solo, cada pocos minutos: las ventas nuevas se enlazan con su anuncio y lo vendido o archivado en la tienda se pone igual aquí
+    ultimoEnlace = Date.now();
+    try { const k = await enlazar(cfg, deps, t, await leerTodas()); if (k) aviso = `Puestas al día con la tienda: ${fmt(k)} ${k === 1 ? 'venta' : 'ventas'} (enlace con su anuncio, título, fecha o estado).`; } catch (e) { console.error(e); }
   }
+  let fichas = null;
+  try { fichas = await catalogoTienda(cfg, deps); if (!fichas.size) fichas = null; } catch (e) { fichas = null; }
   try { ops = await leerTodas(); } catch (e) { error = e.message; }
   if (req.query.csv) return { status: 200, headers: { 'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': 'attachment; filename="ventas-sidonia.csv"', 'Cache-Control': 'no-store' }, body: csvOperaciones(ops) };
   const ver = ['todo', 'en_venta', 'vendido', 'encargo', 'retirado', 'sinficha'].includes(req.query.ver) ? req.query.ver : 'todo';
-  return html(paginaVentas(ops, { ver, aviso, error, tienda: cfg.tienda, tareas: deps.tareas }));
+  return html(paginaVentas(ops, { ver, aviso, error, tienda: cfg.tienda, tareas: deps.tareas, fichas }));
 }

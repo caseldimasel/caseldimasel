@@ -3,7 +3,7 @@
  * su nombre y email si ha entrado con su cuenta. Cada anuncio con la foto de su portada en Shopify, para ubicarlo.
  * Lee la tabla eventos (sql/estadisticas.sql) y clientes (sql/circulo.sql); las fotos, de Shopify (fotosDe).
  */
-import { esc, shopifyAdmin, tablaAnuncios } from './circulo.mjs';
+import { esc, FOTO_GQL_MINI, fotoProducto, shopifyAdmin, situacionTienda, tablaAnuncios } from './circulo.mjs';
 
 const ORIGEN = { instagram: 'Instagram', google: 'Google', facebook: 'Facebook', whatsapp: 'WhatsApp', tiktok: 'TikTok', youtube: 'YouTube', linkedin: 'LinkedIn', x: 'X', bing: 'Bing', app: 'la app', email: 'un email de alertas' };
 const CONTACTO = { whatsapp: 'Escribió por WhatsApp por', llamar: 'Llamó por', email: 'Mandó un email por', registro: 'Quiso contactar (le pedimos registrarse) por' };
@@ -24,61 +24,61 @@ export function frase(e) {
   }
 }
 
-// Las portadas de Shopify, guardadas un rato (cambian poco)
-const cacheFotos = new Map();
-const HORA = 3600e3;
-
-/** { handle: url de la portada (pequeña) } de los anuncios que se piden, desde Shopify */
-export async function fotosDe(cfg, deps, handles) {
-  const out = {};
-  const faltan = [];
-  for (const h of new Set(handles.filter(Boolean))) {
-    const c = cacheFotos.get(h);
-    if (c && c.hasta > Date.now()) out[h] = c.url;
-    else faltan.push(h);
-  }
-  if (!faltan.length || !(deps.gql || (cfg.shopifyTienda && cfg.shopifyClientId))) return out;
-  const gql = deps.gql || shopifyAdmin(cfg, deps.fetch);
-  for (let i = 0; i < faltan.length; i += 50) {
-    const lote = faltan.slice(i, i + 50);
-    try {
-      const d = await gql(`query($q: String!) { products(first: 50, query: $q) { nodes { handle featuredImage { url(transform: { maxWidth: 200, maxHeight: 200 }) } } } }`,
-        { q: lote.map((h) => `handle:${h}`).join(' OR ') });
-      for (const p of d?.data?.products?.nodes || d?.products?.nodes || []) {
-        const url = p.featuredImage?.url || '';
-        out[p.handle] = url;
-        cacheFotos.set(p.handle, { url, hasta: Date.now() + HORA });
-      }
-    } catch (e) { console.error(e); }
-  }
-  return out;
-}
-
-// Todos los anuncios de la tienda (título, handle y portada), para el buscador de Estadísticas web
-let catalogo = { hasta: 0, lista: [] };
+// El catálogo de la tienda (todos los productos: título, portada, estado), guardado 2 minutos: lo usan las fotos, el
+// buscador y las estadísticas del panel, así un anuncio nuevo sale enseguida y con su título de ahora
+// (uno por conexión a Shopify: en las pruebas, cada una con su tienda falsa)
+const catalogos = new Map();
+const VIDA = 2 * 60e3;
 export const normalizar = (t) => String(t || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+// (una función: circulo.mjs y este archivo se importan entre sí)
+const CONSULTA_CATALOGO = () => `query($tras: String) { products(first: 250, after: $tras, sortKey: CREATED_AT, reverse: true) { nodes { handle title status tags vendor productType createdAt
+  ${FOTO_GQL_MINI} variants(first: 1) { nodes { availableForSale } } anuncio: metafield(namespace: "custom", key: "anuncio_id") { value } } pageInfo { hasNextPage endCursor } } }`;
 
-/** Los anuncios cuyo título tiene todas las palabras buscadas (como el buscador de la web: «944» encuentra «944S2») */
-export async function buscarAnuncios(cfg, deps, q, limite = 12) {
-  const palabras = normalizar(q).split(/[^a-z0-9]+/).filter(Boolean);
-  if (!palabras.length || !(deps.gql || (cfg.shopifyTienda && cfg.shopifyClientId))) return [];
-  if (catalogo.hasta < Date.now()) {
+/** Map handle → { handle, titulo, foto, status, tags, comunidad, creado } de toda la tienda */
+export async function catalogoTienda(cfg, deps, { fresco = false } = {}) {
+  if (!(deps.gql || (cfg.shopifyTienda && cfg.shopifyClientId))) return new Map();
+  const clave = deps.gql || 'shopify';
+  const catalogo = catalogos.get(clave) || { hasta: 0, mapa: new Map(), cargando: null };
+  catalogos.set(clave, catalogo);
+  if (!fresco && catalogo.hasta > Date.now()) return catalogo.mapa;
+  if (catalogo.cargando) return catalogo.cargando;
+  catalogo.cargando = (async () => {
     const gql = deps.gql || shopifyAdmin(cfg, deps.fetch);
-    const lista = [];
+    const mapa = new Map();
     let tras = null;
-    for (let i = 0; i < 8; i += 1) {
-      const d = await gql(`query($tras: String) { products(first: 250, after: $tras, sortKey: CREATED_AT, reverse: true) { nodes { handle title featuredImage { url(transform: { maxWidth: 200, maxHeight: 200 }) } } pageInfo { hasNextPage endCursor } } }`, { tras });
+    for (let i = 0; i < 20; i += 1) {
+      const d = await gql(CONSULTA_CATALOGO(), { tras });
       const p = d?.data?.products || d?.products;
       for (const x of p?.nodes || []) {
-        lista.push({ handle: x.handle, titulo: x.title, foto: x.featuredImage?.url || '' });
-        cacheFotos.set(x.handle, { url: x.featuredImage?.url || '', hasta: Date.now() + HORA });
+        mapa.set(x.handle, { handle: x.handle, titulo: x.title, foto: fotoProducto(x), status: x.status || 'ACTIVE', tags: x.tags || [], tipo: x.productType || '', creado: x.createdAt || '', situacion: situacionTienda(x),
+          comunidad: (x.tags || []).some((t) => String(t).toLowerCase() === 'dueno') || Boolean(x.anuncio?.value) });
       }
       if (!p?.pageInfo?.hasNextPage) break;
       tras = p.pageInfo.endCursor;
     }
-    catalogo = { hasta: Date.now() + 10 * 60e3, lista };
-  }
-  return catalogo.lista.filter((x) => { const t = normalizar(`${x.titulo} ${x.handle}`); return palabras.every((w) => t.includes(w)); }).slice(0, limite);
+    Object.assign(catalogo, { hasta: Date.now() + VIDA, mapa, cargando: null });
+    return mapa;
+  })().catch((e) => { catalogo.cargando = null; throw e; });
+  return catalogo.cargando;
+}
+/** Para las pruebas */
+export const olvidarCatalogo = () => catalogos.clear();
+
+/** { handle: url de la portada (pequeña) } de los anuncios que se piden (foto, o la imagen del vídeo) */
+export async function fotosDe(cfg, deps, handles) {
+  const out = {};
+  let mapa = new Map();
+  try { mapa = await catalogoTienda(cfg, deps); } catch (e) { console.error(e); }
+  for (const h of new Set(handles.filter(Boolean))) if (mapa.has(h)) out[h] = mapa.get(h).foto;
+  return out;
+}
+
+/** Los anuncios cuyo título tiene todas las palabras buscadas (como el buscador de la web: «944» encuentra «944S2») */
+export async function buscarAnuncios(cfg, deps, q, limite = 12) {
+  const palabras = normalizar(q).split(/[^a-z0-9]+/).filter(Boolean);
+  if (!palabras.length) return [];
+  const mapa = await catalogoTienda(cfg, deps);
+  return [...mapa.values()].filter((x) => { const t = normalizar(`${x.titulo} ${x.handle}`); return palabras.every((w) => t.includes(w)); }).slice(0, limite);
 }
 
 /** Lo último que ha pasado, agrupado por persona: [{ sesion, cliente, quien, email, movil, app, ultima, acciones: [...] }] */

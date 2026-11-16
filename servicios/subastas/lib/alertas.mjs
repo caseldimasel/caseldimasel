@@ -114,7 +114,7 @@ export async function rutasAlertas({ ruta, method, body }, cliente, cfg, deps) {
 /* ---------------------------------------------------------------------------- El repaso diario */
 const CONSULTA = `query($despues: String, $q: String) { products(first: 100, after: $despues, query: $q, sortKey: CREATED_AT, reverse: true) {
   nodes { handle title productType vendor tags createdAt status description(truncateAt: 1500)
-    precio: priceRangeV2 { minVariantPrice { amount } } featuredImage { url }
+    precio: priceRangeV2 { minVariantPrice { amount } } featuredImage { url } featuredMedia { preview { image { url } } }
     provincia: metafield(namespace: "custom", key: "provincia") { value }
     collections(first: 25) { nodes { handle } } }
   pageInfo { hasNextPage endCursor } } }`;
@@ -130,7 +130,7 @@ export async function productosNuevos(gql, desde) {
       out.push({
         handle: n.handle, title: n.title, productType: n.productType, vendor: n.vendor, tags: n.tags || [], creado: n.createdAt,
         descripcion: n.description || '', provincia: n.provincia?.value || '', precio: Number(n.precio?.minVariantPrice?.amount) || 0,
-        foto: n.featuredImage?.url || '', colecciones: (n.collections?.nodes || []).map((c) => c.handle)
+        foto: n.featuredImage?.url || n.featuredMedia?.preview?.image?.url || '', colecciones: (n.collections?.nodes || []).map((c) => c.handle)
       });
     }
     despues = d.products.pageInfo.hasNextPage && out.length < 500 ? d.products.pageInfo.endCursor : null;

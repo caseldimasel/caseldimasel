@@ -30,7 +30,7 @@ import { revisarReservas, rutasPagoReserva, rutasReservas } from './reservas.mjs
 import { rutasCobros } from './cobros.mjs';
 import { rutasChat } from './chat.mjs';
 import { createHmac, timingSafeEqual } from 'node:crypto';
-import { rutasTienda, tablaAnuncios } from './circulo.mjs';
+import { rutasTienda, shopifyAdmin, tablaAnuncios } from './circulo.mjs';
 import { cuentaFirebase, registrarDispositivo } from './avisos.mjs';
 import { revisarAlertas, rutasAlertas } from './alertas.mjs';
 import { registrarEvento } from './estadisticas.mjs';
@@ -43,7 +43,7 @@ import { guardarInvitacion, invitarSiToca, leerInvitacion } from './invitaciones
 import { rutasPreventa } from './preventa.mjs';
 import { condicionesSubasta, paginaDocumento } from './contratos.mjs';
 
-export const VERSION = '2026-11-13-penalizacion-dueno';
+export const VERSION = '2026-11-16-panel-tienda';
 
 export function config(env = process.env) {
   return {
@@ -242,6 +242,14 @@ async function paginaConexion(query, cfg, { db, fetch: fetchImpl = fetch }) {
     try { anuncios = Array.isArray(await db('sidonia_anuncios_lista', { p_estado: 'ninguno' })); } catch (e) { console.error(e); }
     fotos = await cuboFotos(cfg, fetchImpl);
   }
+  // Estadísticas de cada anuncio en el panel (sql/estadisticas.sql) y lectura de los productos de Shopify
+  let porAnuncio = false, tiendaLee = null;
+  if (firma) {
+    try { const r = await db('sidonia_por_anuncio', { p_dias: 1 }); porAnuncio = Boolean(r) && typeof r === 'object'; } catch (e) { console.error(e); }
+    if (cfg.shopifyTienda && cfg.shopifyClientId) {
+      try { const d = await shopifyAdmin(cfg, fetchImpl)('{ productsCount { count } }'); tiendaLee = Number(d?.productsCount?.count); } catch (e) { console.error(e); tiendaLee = NaN; }
+    }
+  }
   // Las columnas que necesitan el alquiler y la RD10 (si falta alguna, ese SQL no se ha ejecutado)
   const COLUMNAS = [
     ['perfiles', 'cliente,alq_legal,stripe_cuenta,cobros_ok', 'Alquiler: datos y cobros del dueño', 'sql/reservas.sql'],
@@ -261,7 +269,7 @@ async function paginaConexion(query, cfg, { db, fetch: fetchImpl = fetch }) {
   const panel = Boolean(cfg.adminClave);
   const shopify = Boolean(cfg.shopifyTienda && cfg.shopifyClientId);
   const fila = (ok, si, no) => `<li style="margin:.5rem 0">${ok ? '✅' : '❌'} ${ok ? si : no}</li>`;
-  const todo = firma && base && anuncios && fotos && columnas.every((c) => c.ok);
+  const todo = firma && base && anuncios && fotos && porAnuncio && columnas.every((c) => c.ok);
   return liquid(`<div class="page-width" style="max-width:600px;margin:3rem auto;padding:0 1.25rem">
   <p style="font-size:.75rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;opacity:.55;margin:0">Motor de Sidonia · ${VERSION}</p>
   <h1 style="margin:.3rem 0 1rem">${todo ? 'Todo conectado' : 'Al motor le falta algo'}</h1>
@@ -280,6 +288,8 @@ async function paginaConexion(query, cfg, { db, fetch: fetchImpl = fetch }) {
     ${fila(Boolean(cfg.stripeWebhook), 'Avisos de Stripe (por si alguien cierra la página al pagar): configurados', 'Avisos de Stripe: falta STRIPE_WEBHOOK_SECRET en Vercel (recomendado)')}
     ${fila(Boolean(cfg.googleMapsKey), 'Fotos de Google Maps de talleres y eventos: configurado', 'Fotos de Google Maps de talleres y eventos: falta GOOGLE_MAPS_KEY en Vercel (opcional)')}
     ${fila(shopify, 'Publicar en Shopify desde el panel: configurado', 'Publicar en Shopify desde el panel: faltan SHOPIFY_TIENDA y SHOPIFY_CLIENT_ID en Vercel')}
+    ${shopify && firma ? fila(Number.isFinite(tiendaLee), `El panel lee los productos de Shopify (${tiendaLee} productos)`, 'El panel no puede leer los productos de Shopify: revisa los permisos de la app (read_products) en el Dev Dashboard') : ''}
+    ${firma ? fila(porAnuncio, 'Panel: vistas y contactos de cada anuncio (base de datos al día)', 'Panel: para ver las vistas y contactos de cada anuncio, ejecuta otra vez sql/estadisticas.sql en Supabase › SQL Editor (entero; se puede repetir)') : ''}
     ${fila(Boolean(query.logged_in_customer_id), 'Has iniciado sesión', 'No has iniciado sesión (para anunciar o pujar hará falta)')}
   </ul>
 </div>`);

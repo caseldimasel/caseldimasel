@@ -280,5 +280,9 @@ export const ESTILO_PANEL = `
     .hist li { flex-direction: column; gap: 2px; } .hist time { width: auto; }
     .barra .boton, .filtros .boton { flex: 1 1 auto; }
   }
+
+  /* Miniatura de un anuncio en las tablas */
+  .mini { width: 64px; height: 48px; border-radius: 8px; object-fit: cover; display: block; background: var(--caja-3, #e9e9e9); }
+  td.foto { width: 64px; padding-right: 0; }
 `;
 
