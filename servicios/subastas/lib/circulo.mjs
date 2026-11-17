@@ -1073,7 +1073,7 @@ export async function atenderPanel(req, cfg, deps) {
     return html(paginaAlquiler(lista, { ver, error, marco, contactos, extra }));
   }
   // Ventas › Gastos: lo que gasta Sidonia cada mes (gastos.mjs)
-  if (seccion === 'gastos') return rutasGastos({ ...req, query: { ...req.query, estado: seccion } }, deps.gastos || tablaAnuncios(cfg, deps.fetch, 'gastos'), html);
+  if (seccion === 'gastos') return rutasGastos({ ...req, query: { ...req.query, estado: seccion } }, { t: deps.gastos || tablaAnuncios(cfg, deps.fetch, 'gastos'), ops: deps.operaciones || tablaAnuncios(cfg, deps.fetch, 'operaciones'), pagos: deps.pagos || tablaAnuncios(cfg, deps.fetch, 'pagos') }, html);
   if (['ventas', 'meses', 'ofertas', 'operacion', 'importar', 'duenos', 'enlazar'].includes(seccion)) {
     return rutasOperaciones({ ...req, query: { ...req.query, estado: seccion } }, cfg, { ...deps, tareas }, html);
   }

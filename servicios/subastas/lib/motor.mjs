@@ -43,7 +43,7 @@ import { guardarInvitacion, invitarSiToca, leerInvitacion } from './invitaciones
 import { rutasPreventa } from './preventa.mjs';
 import { condicionesSubasta, paginaDocumento } from './contratos.mjs';
 
-export const VERSION = '2026-11-17-gastos';
+export const VERSION = '2026-11-17-gastos-autonomo';
 
 export function config(env = process.env) {
   return {
