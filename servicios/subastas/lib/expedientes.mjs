@@ -20,12 +20,12 @@ import { esc, tablaAnuncios } from './circulo.mjs';
 import { documentoValido, normDoc } from './cobros.mjs';
 import { enviarCorreo, P, plantilla } from './correos.mjs';
 import { importe, n } from './estadisticas.mjs';
-import { marco } from './operaciones.mjs';
+import { marco, parecido } from './operaciones.mjs';
 
 export const VERSION_INTERMEDIACION = '2026-11-17';
 export const LIMITE_EFECTIVO = 1000;
 export const FORMAS_PAGO = { transferencia: 'Transferencia', bizum: 'Bizum', tarjeta: 'Tarjeta', efectivo: 'Efectivo' };
-export const FASES = [['captado', 'Captado'], ['contrato', 'Contrato enviado'], ['en_venta', 'En venta'], ['vendido', 'Vendido'], ['facturado', 'Facturado'], ['cobrado', 'Cobrado']];
+export const FASES = [['captado', 'Ficha creada'], ['contrato', 'Contrato enviado'], ['firmado', 'Firmado · vídeo'], ['en_web', 'En la web'], ['vendido', 'Vendido'], ['facturado', 'Facturado'], ['cobrado', 'Cobrado']];
 const ORIGENES = { persona: 'En persona', llamada: 'Por teléfono', web: 'Formulario de la web', recomendacion: 'Recomendación', otro: 'Otro' };
 const DIA = /^\d{4}-\d{2}-\d{2}$/;
 const hoyISO = () => new Date().toISOString().slice(0, 10);
@@ -59,10 +59,10 @@ export function faseDe(o, factura = null) {
   const x = o.expediente || {};
   if (factura && factura.estado !== 'anulada') return factura.cobrada ? 'cobrado' : 'facturado';
   if (o.estado === 'vendido') return 'vendido';
-  if (x.contrato?.firma) return 'en_venta';
+  if (x.contrato?.firma) return o.handle ? 'en_web' : 'firmado';
   if (x.contrato?.enviado) return 'contrato';
   if (o.estado === 'captado') return 'captado';
-  return 'en_venta';
+  return o.handle || !Object.keys(x).length ? 'en_web' : 'firmado';
 }
 export const tituloCoche = (c = {}) => [c.marca, c.modelo, c.anio].filter(Boolean).join(' ').toUpperCase();
 
@@ -80,8 +80,22 @@ export function leerExpediente(b, antes = {}) {
   const exp = { ...x, origen: ORIGENES[b.origen] ? b.origen : x.origen || 'persona', propietario, coche, condiciones, notas: t(b.notas, 1000) };
   // Si cambian los datos del contrato después de enviarlo (y antes de firmarlo), hay que volver a enviarlo
   if (x.contrato?.enviado && !x.contrato?.firma && JSON.stringify([x.propietario, x.coche, x.condiciones]) !== JSON.stringify([propietario, coche, condiciones])) exp.contrato = { ...x.contrato, cambiado: true };
-  return { op: { titulo: tituloCoche(coche), tipo: antes.tipo || 'coche', modalidad: 'gestion', propietario_nombre: propietario.nombre, propietario_email: propietario.email || null, propietario_telefono: propietario.telefono || null,
+  return { op: { titulo: tituloCoche(coche), tipo: antes.tipo || 'coche', modalidad: 'gestion', comercial: t(b.comercial, 60) || null,
+    ...(!antes.id && b.handle ? { handle: String(b.handle).replace(/[^a-z0-9-]/g, '').slice(0, 160) || null } : {}), propietario_nombre: propietario.nombre, propietario_email: propietario.email || null, propietario_telefono: propietario.telefono || null,
     precio_anunciado: condiciones.precio_salida, expediente: exp } };
+}
+/** «PORSCHE 911 CARRERA 3.2 1986» → { marca: 'Porsche', modelo: '911 Carrera 3.2', anio: '1986' } */
+const DOBLES = ['land rover', 'range rover', 'aston martin', 'alfa romeo', 'rolls royce', 'austin healey', 'mercedes benz', 'de tomaso'];
+export function cocheDeTitulo(titulo) {
+  const s = String(titulo || '').replace(/\s+/g, ' ').trim();
+  const anio = (s.match(/\b(19|20)\d{2}\b(?!.*\b(19|20)\d{2}\b)/) || [''])[0];
+  const sin = s.replace(anio, '').trim();
+  const bajo = sin.toLowerCase().replace(/-/g, ' ');
+  const doble = DOBLES.find((d) => bajo.startsWith(`${d} `));
+  const partes = sin.split(' ');
+  const n = doble && partes[0].toLowerCase().replace(/-/g, ' ') !== doble ? doble.split(' ').length : 1;
+  const cap = (w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase();
+  return { marca: partes.slice(0, n).map((w) => w.split('-').map(cap).join('-')).join(' '), modelo: partes.slice(n).join(' '), anio, matricula: '', bastidor: '', km: '' };
 }
 const conHistorial = (exp, texto) => ({ ...exp, historial: [...(exp.historial || []), { fecha: new Date().toISOString(), texto }].slice(-80) });
 
@@ -93,30 +107,49 @@ export function contratoIntermediacion(o, emisor, { firmado = null } = {}) {
   const e = leerEmisor(emisor);
   const cl = (() => { let i = 0; return (titulo, ...ps) => `<h3>${++i}. ${titulo}</h3>${ps.filter(Boolean).map((q) => (q.startsWith('<') ? q : `<p>${q}</p>`)).join('')}`; })();
   const veh = [c.marca, c.modelo, c.anio].filter(Boolean).join(' ');
+  // Un ejemplo con sus números: si se vende por el precio de salida
+  const pct = Number(k.comision_pct), ej = Number(k.precio_salida) > 0 && pct >= 0 ? Math.max(Number(k.precio_salida) * pct / 100, Number(k.comision_min) || 0) : 0;
+  const ivaPct = Number(e.iva_pct) || 21;
+  const ejemplo = ej ? `Por ejemplo: si el Vehículo se vende por ${eur0(k.precio_salida)}, los honorarios serían ${eur(ej)} más ${eur(ej * ivaPct / 100)} de IVA (${eur(ej * (1 + ivaPct / 100))} en total).` : '';
+  const marca = esc(e.marca || 'Sidonia');
   return `<h1>Contrato de intermediación y exclusividad de venta</h1>
 <p class="meta">Expediente n.º ${Number(o.id) || '—'} · Modelo ${VERSION_INTERMEDIACION}</p>
+<div class="nota"><b>Lo importante, en claro</b> (resumen informativo; lo que vale es el texto de las cláusulas):
+<ul style="margin:8px 0 0">
+<li><b>Qué hace ${marca}:</b> anuncia y vende tu ${hueco(veh)} por ti (fotos y vídeo, web y redes, interesados, visitas, negociación y papeles). No compra el coche: lo vendes tú al comprador y tú decides si aceptas cada oferta.</li>
+<li><b>Exclusiva ${hueco(k.exclusividad_meses, '__')} meses:</b> durante ese tiempo solo lo vende ${marca}; no lo anuncias ni lo vendes por otro lado.</li>
+<li><b>Cuánto cuesta:</b> el ${hueco(k.comision_pct, '__')} % del precio final de venta${k.comision_min ? ` (mínimo ${eur0(k.comision_min)})` : ''} + IVA, y solo si se vende. Si no se vende, no pagas nada. ${ejemplo}</li>
+<li><b>Puedes echarte atrás:</b> tienes 14 días desde que firmas para desistir sin dar explicaciones y sin coste (tienes el formulario al final).</li>
+<li><b>Firma:</b> firmas desde el móvil; te llega una copia por email y queda registrada con fecha, hora y huella digital.</li></ul></div>
 <h2>Reunidos</h2>
-<p><b>De una parte</b>, ${hueco(e.nombre)}, con NIF ${hueco(e.nif)} y domicilio en ${hueco(e.direccion, '______________________________')}, que actúa con la marca comercial «${esc(e.marca || 'Sidonia')}» (en adelante, «Sidonia»).</p>
-<p><b>De otra parte</b>, D./D.ª ${hueco(p.nombre)}, con DNI/NIE/CIF ${hueco(p.dni)}, con domicilio en ${hueco(p.direccion, '______________________________')}, teléfono ${hueco(p.telefono)} y email ${hueco(p.email)} (en adelante, «el Propietario»).</p>
-<p>Ambas partes se reconocen capacidad para contratar y</p>
+<p><b>De una parte</b>, ${hueco(e.nombre)}, con NIF ${hueco(e.nif)} y domicilio en ${hueco(e.direccion, '______________________________')}${e.email ? `, email ${esc(e.email)}` : ''}${e.telefono ? ` y teléfono ${esc(e.telefono)}` : ''}, que actúa con la marca comercial «${marca}» (en adelante, «Sidonia»).</p>
+<p><b>De otra parte</b>, D./D.ª ${hueco(p.nombre)}, con DNI/NIE/CIF ${hueco(p.dni)}, con domicilio en ${hueco(p.direccion, '______________________________')}, teléfono ${hueco(p.telefono)} y email ${hueco(p.email)}, que actúa en su propio nombre o en representación de la sociedad indicada (en adelante, «el Propietario»).</p>
+<p>Ambas partes se reconocen capacidad legal para contratar y</p>
 <h2>Exponen</h2>
-<p>I. Que el Propietario es titular del vehículo <b>${hueco(veh)}</b>, matrícula ${hueco(c.matricula)}, número de bastidor ${hueco(c.bastidor)}${c.km ? `, con ${esc(c.km)} km` : ''} (en adelante, «el Vehículo»), y que puede venderlo libremente, sin cargas ni embargos, salvo los que comunique por escrito a Sidonia.</p>
+<p>I. Que el Propietario es titular del vehículo <b>${hueco(veh)}</b>, matrícula ${hueco(c.matricula)}, número de bastidor ${hueco(c.bastidor)}${c.km ? `, con ${esc(c.km)} km` : ''} (en adelante, «el Vehículo»), y que puede venderlo libremente, sin cargas, embargos ni reservas de dominio, salvo los que comunique por escrito a Sidonia antes de firmar.</p>
 <p>II. Que Sidonia se dedica a la intermediación en la compraventa de vehículos clásicos y especiales, y que el Propietario le encarga la venta del Vehículo con arreglo a las siguientes</p>
 <h2>Cláusulas</h2>
-${cl('Objeto', 'El Propietario encarga a Sidonia, que acepta, la intermediación para la venta del Vehículo: anunciarlo en sidonia.es y en sus redes y canales, atender a los interesados, enseñar el Vehículo, transmitir y negociar las ofertas y acompañar a las partes hasta la firma de la compraventa y el cambio de titularidad.', 'Sidonia no compra el Vehículo ni es parte de la compraventa, que se celebra directamente entre el Propietario y el comprador. El Propietario decide siempre si acepta o no cada oferta.')}
-${cl('Precio', `El precio de salida es de <b>${k.precio_salida ? eur0(k.precio_salida) : hueco('', '________ €')}</b>${k.precio_minimo ? ` y el Propietario acepta vender a partir de <b>${eur0(k.precio_minimo)}</b>` : ''}. Sidonia consultará al Propietario cualquier oferta por debajo de ese precio. Las partes pueden cambiar el precio de común acuerdo por escrito (email o WhatsApp).`)}
-${cl('Exclusividad y duración', `Este encargo se hace <b>en exclusiva</b> durante <b>${hueco(k.exclusividad_meses, '__')} meses</b> desde su firma. Durante ese plazo, el Propietario no venderá el Vehículo por sí mismo ni a través de otros intermediarios, ni lo anunciará en otros medios, salvo que Sidonia lo autorice por escrito.`, 'Al terminar el plazo, el encargo seguirá sin exclusividad mientras ninguna de las partes lo dé por terminado por escrito. Las partes pueden prorrogar la exclusividad de común acuerdo por escrito.')}
-${cl('Honorarios de Sidonia', `Por su intermediación, Sidonia cobrará el <b>${hueco(k.comision_pct, '__')} %</b> del precio final de venta${k.comision_min ? `, con un mínimo de <b>${eur0(k.comision_min)}</b>` : ''}, más el IVA correspondiente.`, 'Los honorarios se devengan cuando se firma la compraventa del Vehículo con un comprador presentado por Sidonia, y se pagan cuando el Propietario cobra el precio, contra la factura de Sidonia. También se deben si, durante la exclusividad, el Propietario vende el Vehículo por su cuenta o por otro medio, o si en los 6 meses siguientes al fin del encargo lo vende a un comprador que le presentó Sidonia.', 'Si no se vende, el Propietario no paga nada a Sidonia, salvo los gastos extraordinarios que hubiera autorizado antes por escrito.')}
-${cl('Gastos', 'Los gastos de anuncio, fotografía y gestión ordinaria de la venta corren a cargo de Sidonia. Los del cambio de titularidad, la ITV, las reparaciones, el transporte y cualquier otro gasto del Vehículo corren a cargo del Propietario, salvo que se acuerde otra cosa por escrito.')}
-${cl('Obligaciones del Propietario', 'El Propietario garantiza que los datos del Vehículo son ciertos y se compromete a: tener en regla y facilitar su documentación (permiso de circulación, ficha técnica e ITV); informar de cualquier defecto, siniestro o carga que conozca; mantener el Vehículo asegurado y en buen estado mientras esté en venta; facilitar que los interesados lo vean y lo prueben en las condiciones que acuerden las partes; y avisar a Sidonia de inmediato si recibe una oferta por otro medio.')}
-${cl('Desistimiento', 'Si el Propietario actúa como consumidor y firma este contrato a distancia o fuera de un establecimiento, puede desistir de él en un plazo de 14 días naturales desde su firma, sin indicar el motivo y sin ningún coste, comunicándolo a Sidonia por cualquier medio que deje constancia (email o WhatsApp). Si pide que Sidonia empiece a anunciar el Vehículo durante ese plazo y después desiste, no tendrá que pagar nada.', 'Pasado ese plazo, si el Propietario termina el encargo antes de acabar la exclusividad sin causa imputable a Sidonia, abonará a Sidonia los gastos extraordinarios que hubiera autorizado y que estén justificados.')}
-${cl('Protección de datos', `Sidonia trata los datos del Propietario y del Vehículo para cumplir este contrato, anunciar el Vehículo y cumplir sus obligaciones legales y fiscales. No los cede salvo al comprador, en lo necesario para la compraventa, o por obligación legal. El Propietario puede ejercer sus derechos de acceso, rectificación, supresión, oposición, limitación y portabilidad escribiendo a ${hueco(e.email)}.`)}
-${cl('Firma electrónica', 'Las partes aceptan firmar este contrato electrónicamente mediante firma electrónica simple (Reglamento (UE) n.º 910/2014 y Ley 6/2020), y reconocen su validez. Sidonia conserva el texto firmado, su huella digital (SHA-256) y el registro de la fecha, la hora, la dirección IP y el dispositivo de la firma, y entrega una copia al Propietario.')}
-${cl('Ley aplicable', 'Este contrato se rige por la ley española. Si el Propietario es consumidor, son competentes los juzgados de su domicilio.')}
+${cl('Objeto y naturaleza', 'El Propietario encarga a Sidonia, que acepta, la intermediación para la venta del Vehículo: hacer fotos y vídeo, anunciarlo en sidonia.es y en sus redes y canales, atender a los interesados, enseñar el Vehículo, transmitir y negociar las ofertas y acompañar a las partes hasta la firma de la compraventa y el cambio de titularidad.', 'Es un contrato de mediación o corretaje (artículo 1255 del Código Civil): Sidonia no compra el Vehículo, no lo vende en su nombre ni es parte de la compraventa, que se celebra directamente entre el Propietario y el comprador. El Propietario decide siempre si acepta o no cada oferta. Sidonia pone los medios para venderlo, pero no garantiza que se venda ni en qué plazo.')}
+${cl('Precio', `El precio de salida es de <b>${k.precio_salida ? eur0(k.precio_salida) : hueco('', '________ €')}</b>${k.precio_minimo ? ` y el Propietario acepta vender a partir de <b>${eur0(k.precio_minimo)}</b>` : ''}. Sidonia consultará al Propietario cualquier oferta por debajo de ese precio y no cerrará ninguna venta sin su conformidad. Las partes pueden cambiar el precio de común acuerdo por escrito (por email o WhatsApp).`)}
+${cl('Exclusividad y duración', `Este encargo se hace <b>en exclusiva</b> durante <b>${hueco(k.exclusividad_meses, '__')} meses</b> desde su firma. Durante ese plazo, el Propietario no venderá el Vehículo por sí mismo ni a través de otros intermediarios, ni lo anunciará en otros medios (portales, redes, concesionarios), salvo que Sidonia lo autorice por escrito.`, 'Al terminar el plazo, el encargo seguirá sin exclusividad mientras ninguna de las partes lo dé por terminado por escrito, con un preaviso de 7 días. Las partes pueden prorrogar la exclusividad de común acuerdo por escrito.')}
+${cl('Honorarios de Sidonia', `Por su intermediación, Sidonia cobrará el <b>${hueco(k.comision_pct, '__')} %</b> del precio final de venta${k.comision_min ? `, con un mínimo de <b>${eur0(k.comision_min)}</b>` : ''}, más el IVA correspondiente (hoy, el ${ivaPct} %). ${ejemplo}`, 'Los honorarios se ganan cuando se firma la compraventa del Vehículo con un comprador presentado o atendido por Sidonia, y se pagan cuando el Propietario cobra el precio, contra la factura de Sidonia, por transferencia, Bizum o tarjeta (o en efectivo si el total es inferior a 1.000 €, como exige la Ley 7/2012). La factura puede ir a nombre de otra persona o empresa si el Propietario lo pide.', 'También se deben si, durante la exclusividad, el Propietario vende el Vehículo por su cuenta o por otro medio, o si en los 6 meses siguientes al fin del encargo lo vende a un comprador que conoció a través de Sidonia.', '<b>Si el Vehículo no se vende, el Propietario no paga nada a Sidonia</b>, salvo los gastos extraordinarios que hubiera autorizado antes por escrito.')}
+${cl('Gastos', 'Los gastos de anuncio, fotografía, vídeo y gestión ordinaria de la venta corren a cargo de Sidonia. Los del cambio de titularidad, la ITV, las reparaciones, la limpieza a fondo, el transporte y cualquier otro gasto del Vehículo corren a cargo del Propietario, salvo que se acuerde otra cosa por escrito.')}
+${cl('Fotos, vídeo y anuncio', 'El Propietario autoriza a Sidonia a hacer fotos y vídeos del Vehículo y a publicarlos en su web, sus redes y otros canales mientras dure el encargo. Las fotos y los vídeos son de Sidonia, que podrá seguir usándolos después para dar a conocer su trabajo (por ejemplo, «vendido por Sidonia»), sin mostrar la matrícula ni datos personales del Propietario.')}
+${cl('Obligaciones del Propietario', 'El Propietario garantiza que los datos del Vehículo son ciertos y se compromete a: tener en regla y facilitar su documentación (permiso de circulación, ficha técnica, ITV y, si las hay, facturas de mantenimiento); informar a Sidonia y a los interesados de cualquier defecto, siniestro o carga que conozca; mantener el Vehículo asegurado y en buen estado mientras esté en venta; facilitar que los interesados lo vean y lo prueben en las condiciones que acuerden las partes; y avisar a Sidonia de inmediato si recibe una oferta por otro medio.', 'El Propietario responde frente al comprador de lo que diga la compraventa (estado del Vehículo, vicios ocultos y documentación). Sidonia responde de su propia actuación como intermediario.')}
+${cl('El Vehículo bajo la custodia de Sidonia', 'Si el Propietario deja el Vehículo o sus llaves a Sidonia (para fotos, vídeo o visitas), Sidonia lo cuidará con diligencia y solo lo moverá para esos fines. El seguro del Vehículo sigue siendo el del Propietario. Las condiciones de un depósito prolongado se acordarán por escrito.')}
+${cl('Desistimiento', 'Si el Propietario actúa como consumidor y firma este contrato a distancia o fuera de un establecimiento de Sidonia, puede desistir de él en un plazo de <b>14 días naturales</b> desde su firma, sin indicar el motivo y sin ningún coste. Para hacerlo, basta con comunicarlo a Sidonia de forma inequívoca por email o WhatsApp, o con el formulario del final. Si pide que Sidonia empiece a anunciar el Vehículo durante ese plazo y después desiste, no tendrá que pagar nada.', 'Pasado ese plazo, si el Propietario termina el encargo antes de acabar la exclusividad sin causa imputable a Sidonia, abonará a Sidonia los gastos extraordinarios que hubiera autorizado por escrito y que estén justificados.')}
+${cl('Protección de datos', `Responsable: ${hueco(e.nombre)} (${marca}). Sidonia trata los datos del Propietario y del Vehículo para cumplir este contrato, anunciar el Vehículo (sin datos personales en los anuncios) y cumplir sus obligaciones legales y fiscales (como emitir la factura), con base en el propio contrato y en esas obligaciones. No los cede salvo al comprador, en lo necesario para la compraventa, a la gestoría y a la Administración cuando la ley lo exija. Los conserva mientras dure el contrato y los plazos legales. El Propietario puede ejercer sus derechos de acceso, rectificación, supresión, oposición, limitación y portabilidad escribiendo a ${hueco(e.email)}, y reclamar ante la Agencia Española de Protección de Datos.`)}
+${cl('Firma electrónica', 'Las partes firman este contrato electrónicamente mediante firma electrónica simple (Reglamento (UE) n.º 910/2014 y Ley 6/2020), con plena validez. Sidonia conserva el texto firmado, su huella digital (SHA-256) y el registro de la fecha, la hora, la dirección IP y el dispositivo de la firma, y envía una copia al Propietario.')}
+${cl('Comunicaciones y reclamaciones', `Las partes se comunican por email o WhatsApp en los datos de este contrato. Cualquier queja o reclamación puede dirigirse a ${hueco(e.email)}; Sidonia responderá en el plazo más breve posible y, como máximo, en un mes.`)}
+${cl('Ley aplicable', 'Este contrato se rige por la ley española. Si el Propietario es consumidor, son competentes los juzgados de su domicilio; en los demás casos, los que correspondan según la ley.')}
 <section id="firmas"><h2>Firmas</h2><div class="firmas">
   <div class="firma"><b>Sidonia</b><span>${esc(e.nombre || '')}</span><small>Ofrece el contrato a la firma el ${fechaTxt(x.contrato?.enviado || hoyISO())}</small></div>
   <div class="firma"><b>El Propietario</b>${firmado ? `<span>${esc(firmado.nombre)} · ${esc(firmado.dni)}</span><small>Firmado electrónicamente el ${esc(new Date(firmado.fecha).toLocaleString('es-ES', { timeZone: 'Europe/Madrid' }))}${firmado.ip ? ` · IP ${esc(firmado.ip)}` : ''}</small>` : '<span class="hueco">Pendiente de firma</span>'}</div>
-</div></section>`;
+</div></section>
+<h2>Anexo · Formulario de desistimiento</h2>
+<p class="meta">Solo debe rellenarlo y enviarlo si desea desistir del contrato.</p>
+<p>A la atención de ${hueco(e.nombre)} (${marca}), ${hueco(e.direccion, '______________________________')}, ${hueco(e.email)}:</p>
+<p>Por la presente le comunico que desisto de mi contrato de intermediación para la venta del vehículo ${hueco(veh)}, matrícula ${hueco(c.matricula)}, firmado el __________. Nombre del Propietario: __________________. Domicilio: __________________. Firma (solo si se presenta en papel) y fecha: __________________.</p>`;
 }
 const huella = (html) => createHash('sha256').update(String(html), 'utf8').digest('hex');
 
@@ -201,7 +234,7 @@ export const textoWaFactura = (cfg, o, f) => `Hola ${primerNombre(f.datos?.desti
 const CSS = `
   .exp-cab { display: grid; grid-template-columns: 1fr auto; gap: 16px; align-items: center; }
   .exp-cab h2 { margin: 0 0 4px; font-size: 22px; } .exp-cab p { margin: 2px 0; color: var(--suave); }
-  .pasos { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; margin: 14px 0 16px; counter-reset: p; }
+  .pasos { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; margin: 14px 0 16px; counter-reset: p; }
   .pasos li { list-style: none; padding: 10px 10px 10px 36px; position: relative; border-radius: 12px; background: var(--caja); border: 1px solid var(--linea); font-size: 13px; font-weight: 700; color: var(--flojo); }
   .pasos li::before { counter-increment: p; content: counter(p); position: absolute; left: 10px; top: 50%; transform: translateY(-50%); width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center; background: var(--caja-3); color: var(--suave); font-size: 11px; }
   .pasos li.ok { color: var(--texto); } .pasos li.ok::before { content: '✓'; background: var(--verde); color: var(--verde-tinta); }
@@ -217,14 +250,19 @@ const CSS = `
   fieldset.fs { border: 1px solid var(--linea); border-radius: 14px; padding: 12px 14px 14px; margin: 0 0 12px; } fieldset.fs legend { padding: 0 6px; font-weight: 800; font-size: 13px; }
   .resumen-f { display: grid; grid-template-columns: repeat(4, auto); gap: 6px 22px; justify-content: start; font-size: 14px; } .resumen-f span { color: var(--suave); }
   .aviso-ef { margin: 8px 0 0; font-size: 13px; color: #f0b400; }
+  .check { list-style: none; padding: 0; margin: 0 0 12px; display: flex; flex-wrap: wrap; gap: 8px 18px; font-size: 14px; } .check li { display: flex; align-items: center; gap: 8px; color: var(--suave); }
+  .check li::before { content: ''; width: 16px; height: 16px; border-radius: 50%; border: 2px solid var(--linea-2); flex: none; } .check li.ok { color: var(--texto); } .check li.ok::before { background: var(--verde); border-color: var(--verde); }
+  .check .mini { padding: 5px 10px; font-size: 12px; }
+  .anu { display: grid; grid-template-columns: 96px 1fr auto; gap: 12px; align-items: center; padding: 10px; border: 1px solid var(--linea); border-radius: 14px; margin: 0 0 8px; background: var(--caja-2); }
+  .anu img, .anu .anu-f { width: 96px; height: 72px; object-fit: cover; border-radius: 10px; display: block; background: var(--caja-3); } .anu b { display: block; } .anu span { font-size: 12px; color: var(--suave); }
   .hist { list-style: none; padding: 0; margin: 0; font-size: 13px; } .hist li { padding: 6px 0; border-bottom: 1px solid var(--linea); } .hist time { color: var(--flojo); margin-right: 8px; }
-  .kanban { display: grid; grid-template-columns: repeat(6, minmax(190px, 1fr)); gap: 10px; overflow-x: auto; padding-bottom: 6px; }
+  .kanban { display: grid; grid-template-columns: repeat(7, minmax(170px, 1fr)); gap: 10px; overflow-x: auto; padding-bottom: 6px; }
   .col { background: var(--caja); border: 1px solid var(--linea); border-radius: 16px; padding: 10px; min-height: 120px; }
   .col h3 { margin: 2px 4px 10px; font-size: 13px; display: flex; justify-content: space-between; } .col h3 b { color: var(--suave); }
   .tarj { display: block; background: var(--caja-2); border: 1px solid var(--linea); border-radius: 12px; padding: 10px; margin-bottom: 8px; text-decoration: none; color: inherit; }
   .tarj:hover { border-color: var(--verde); } .tarj b { display: block; font-size: 13px; line-height: 1.3; } .tarj span { display: block; font-size: 12px; color: var(--suave); margin-top: 3px; }
   .tarj .dinero { color: var(--verde); font-weight: 800; }
-  @media (max-width: 800px) { .pasos { grid-template-columns: repeat(3, 1fr); } .g2, .g3 { grid-template-columns: 1fr; } .exp-cab { grid-template-columns: 1fr; } .resumen-f { grid-template-columns: auto auto; } }`;
+  @media (max-width: 800px) { .pasos { grid-template-columns: repeat(4, 1fr); } .g2, .g3 { grid-template-columns: 1fr; } .exp-cab { grid-template-columns: 1fr; } .resumen-f { grid-template-columns: auto auto; } }`;
 
 const campo = (etq, nombre, valor, extra = '') => `<label>${etq}<input name="${nombre}" value="${esc(valor ?? '')}"${extra}></label>`;
 function formExpediente(o = {}, emisor = {}, { accion = 'guardar', boton = 'Guardar' } = {}) {
@@ -241,16 +279,18 @@ function formExpediente(o = {}, emisor = {}, { accion = 'guardar', boton = 'Guar
     ${campo('Comisión (%)', 'k_pct', k.comision_pct ?? e.comision_pct, ' inputmode="decimal" required')}${campo('Comisión mínima (€, opcional)', 'k_min', k.comision_min ?? (e.comision_min || ''), ' inputmode="decimal"')}${campo('Exclusividad (meses)', 'k_meses', k.exclusividad_meses ?? e.exclusividad_meses, ' inputmode="numeric"')}
     ${campo('Precio de salida (€)', 'k_salida', k.precio_salida ?? o.precio_anunciado, ' inputmode="decimal"')}${campo('Precio mínimo que acepta (€, opcional)', 'k_minimo', k.precio_minimo, ' inputmode="decimal"')}
     <label>Cómo llegó<select name="origen">${Object.entries(ORIGENES).map(([a, b]) => `<option value="${a}"${(x.origen || 'persona') === a ? ' selected' : ''}>${b}</option>`).join('')}</select></label></div>
-    <label style="display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--suave);margin-top:10px">Notas<input name="notas" value="${esc(x.notas || '')}"></label></fieldset>
+    <div class="g2" style="margin-top:10px"><label>Lo lleva<input name="comercial" value="${esc(o.comercial ?? 'Hugo')}" placeholder="Hugo"></label><label>Notas<input name="notas" value="${esc(x.notas || '')}"></label></div>
+    ${o.handle ? `<input type="hidden" name="handle" value="${esc(o.handle)}">` : ''}</fieldset>
   <button class="boton" name="accion" value="${accion}">${boton}</button></form>`;
 }
 
 /** Un expediente: los 6 pasos, cada uno con lo que se puede hacer */
-export function paginaExpediente(cfg, o, { factura = null, facturas = [], emisor = {}, aviso = '', anuncios = [] } = {}) {
+export function paginaExpediente(cfg, o, { factura = null, facturas = [], emisor = {}, aviso = '', anuncios = [], ligados = new Set() } = {}) {
   const x = o.expediente || {}, p = x.propietario || {}, c = x.coche || {}, k = x.condiciones || {}, e = leerEmisor(emisor);
   const fase = faseDe(o, factura), i = FASES.findIndex(([f]) => f === fase);
   const pasos = `<ol class="pasos">${FASES.map(([f, nombre], j) => `<li class="${j < i || fase === 'cobrado' ? 'ok' : ''}${j === i ? ' on' : ''}">${nombre}</li>`).join('')}</ol>`;
-  const blq = (j, titulo, estado, cuerpo) => `<div class="card bloque${j === i ? ' on' : j < i ? ' hecho' : ''}"><h2>${titulo} ${estado}</h2>${cuerpo}</div>`;
+  // (cada bloque, con sus fases: el de vídeo y web son dos)
+  const blq = (js, titulo, estado, cuerpo) => { const [a, z] = [].concat(js); const hasta = z ?? a; return `<div class="card bloque${i >= a && i <= hasta ? ' on' : hasta < i ? ' hecho' : ''}"><h2>${titulo} ${estado}</h2>${cuerpo}</div>`; };
   const id = Number(o.id);
   const f = (accion, txt, clase = 'boton claro', extra = '') => `<form method="post" action="?estado=expediente&id=${id}" style="display:inline"><button class="${clase}" name="accion" value="${accion}"${extra}>${txt}</button></form>`;
   const faltanContrato = [!emisorCompleto(e) && 'los datos de Sidonia (Finanzas › Datos de facturación)', !c.matricula && 'la matrícula', !k.comision_pct && k.comision_pct !== 0 && 'la comisión'].filter(Boolean);
@@ -268,9 +308,17 @@ export function paginaExpediente(cfg, o, { factura = null, facturas = [], emisor
     ? `<div class="resumen-f"><span>Vendido por</span><b>${eur0(o.precio_venta)}</b><span>Fecha</span><b>${esc(fechaTxt(o.fecha_venta))}</b><span>Comprador</span><b>${esc(o.comprador_nombre || '—')}</b><span>Comisión</span><b>${o.comision ? eur(o.comision) : '—'}</b></div>
        <details style="margin-top:10px"><summary>Cambiar la venta</summary>${formVenta(o)}</details>`
     : formVenta(o);
-  const anuncio = `${o.handle ? `<p>En la web: <a href="${esc(cfg.tienda)}/products/${esc(o.handle)}" target="_blank" rel="noopener">ver el anuncio</a> · <a href="?estado=anuncio&h=${encodeURIComponent(o.handle)}">sus números</a></p>` : '<p>Aún no está enlazado con su anuncio de la web.</p>'}
-    <form method="post" action="?estado=expediente&id=${id}" class="acc-row"><input name="handle" list="anuncios-web" value="${esc(o.handle || '')}" placeholder="Busca su anuncio…" style="min-width:280px"><button class="boton claro" name="accion" value="anuncio">Enlazar</button></form>
-    <datalist id="anuncios-web">${anuncios.map((a) => `<option value="${esc(a.handle)}">${esc(a.titulo)}</option>`).join('')}</datalist>`;
+  // 3. Vídeo y anuncio en la web: con el contrato firmado se hace el vídeo, se sube a Shopify y se liga aquí
+  const enWeb = o.handle ? anuncios.find((a) => a.handle === o.handle) : null;
+  const sugeridos = o.handle ? [] : anuncios.filter((a) => !a.comunidad && !ligados.has(a.handle)).map((a) => ({ ...a, puntos: parecido(o.titulo || tituloCoche(c), a.titulo, { anioDistinto: 0.25 }) })).filter((a) => a.puntos >= 0.45).sort((a, b) => b.puntos - a.puntos).slice(0, 3);
+  const tarjAnuncio = (a, boton) => `<div class="anu">${a.foto ? `<img src="${esc(a.foto)}" alt="">` : '<span class="anu-f"></span>'}<div><b>${esc(a.titulo)}</b><span>${a.situacion === 'vendido' ? 'Vendido en la web' : a.situacion === 'oculto' ? 'Oculto en la web' : 'En venta en la web'}${a.puntos ? ` · se parece un ${Math.round(a.puntos * 100)} %` : ''}</span></div>${boton}</div>`;
+  const anuncio = `<ol class="check"><li class="${ct.firma ? 'ok' : ''}">Contrato firmado</li><li class="${x.video ? 'ok' : ''}">Vídeo hecho ${x.video ? `<small>(${esc(fechaTxt(x.video))})</small>` : f('video', 'Ya está el vídeo', 'boton claro mini')}</li><li class="${o.handle ? 'ok' : ''}">Subido a Shopify y ligado con su ficha</li></ol>
+    ${enWeb ? tarjAnuncio(enWeb, `<div class="acc-row" style="margin:0"><a class="boton claro" href="${esc(cfg.tienda)}/products/${esc(o.handle)}" target="_blank" rel="noopener">Ver en la web</a><a class="boton claro" href="?estado=anuncio&h=${encodeURIComponent(o.handle)}">Sus números</a></div>`)
+      : o.handle ? `<p>Ligado con <b>${esc(o.handle)}</b> (ya no está en la tienda).</p>` : ''}
+    ${enWeb && enWeb.situacion === 'vendido' && o.estado !== 'vendido' ? '<p class="aviso">En la web ya está vendido: ponle abajo el precio final para hacer la factura.</p>' : ''}
+    ${!o.handle ? `${sugeridos.length ? `<p>¿Es alguno de estos anuncios de la web?</p>${sugeridos.map((a) => tarjAnuncio(a, `<form method="post" action="?estado=expediente&id=${id}"><input type="hidden" name="handle" value="${esc(a.handle)}"><button class="boton" name="accion" value="anuncio">Es este, ligar</button></form>`)).join('')}` : `<p class="sub">${ct.firma ? 'Cuando lo subáis a Shopify, aparecerá aquí para ligarlo.' : 'Primero, el contrato firmado; luego el vídeo y subirlo a Shopify.'}</p>`}` : ''}
+    <details${o.handle || sugeridos.length ? '' : ' open'}><summary>${o.handle ? 'Cambiar el anuncio' : 'Buscar otro anuncio'}</summary><form method="post" action="?estado=expediente&id=${id}" class="acc-row"><input name="handle" list="anuncios-web" value="${esc(o.handle || '')}" placeholder="Busca su anuncio…" style="min-width:280px"><button class="boton claro" name="accion" value="anuncio">Ligar</button></form>
+    <datalist id="anuncios-web">${anuncios.filter((a) => !a.comunidad).map((a) => `<option value="${esc(a.handle)}">${esc(a.titulo)}</option>`).join('')}</datalist></details>`;
   const prop = facturaPropuesta(o, e, facturas);
   const fact = factura
     ? `<div class="resumen-f"><span>Factura</span><b>${esc(factura.numero)}</b><span>Total</span><b>${eur(factura.total)}</b><span>A nombre de</span><b>${esc(factura.cliente)}</b><span>Pago</span><b>${esc(FORMAS_PAGO[factura.forma_pago] || '—')}</b></div>
@@ -287,18 +335,18 @@ export function paginaExpediente(cfg, o, { factura = null, facturas = [], emisor
     : '<p class="sub">Primero, la factura.</p>';
   const hist = (x.historial || []).slice().reverse().map((h) => `<li><time>${esc(new Date(h.fecha).toLocaleString('es-ES', { timeZone: 'Europe/Madrid', day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' }))}</time>${esc(h.texto)}</li>`).join('');
   return marco(o.titulo || 'Expediente', 'expedientes', `
-<p><a href="?estado=expedientes">‹ Coches en gestión</a></p>
+<p><a href="?estado=expedientes">‹ Coches de Sidonia</a></p>
 ${aviso ? `<p class="aviso${/^Error/.test(aviso) ? ' mal' : ''}">${esc(aviso)}</p>` : ''}
-<div class="card exp-cab"><div><h2>${esc(o.titulo || tituloCoche(c))}</h2><p>${esc([c.matricula, c.km && `${c.km} km`, ORIGENES[x.origen]].filter(Boolean).join(' · '))}</p>
+<div class="card exp-cab"><div><h2>${esc(o.titulo || tituloCoche(c))}</h2><p>${esc([c.matricula, c.km && `${c.km} km`, ORIGENES[x.origen], o.comercial && `lo lleva ${o.comercial}`].filter(Boolean).join(' · '))}</p>
   <p>Propietario: <b>${esc(p.nombre || o.propietario_nombre || '—')}</b>${p.telefono ? ` · <a href="tel:${esc(p.telefono)}">${esc(p.telefono)}</a>` : ''}${p.email ? ` · <a href="mailto:${esc(p.email)}">${esc(p.email)}</a>` : ''}</p></div>
   <div style="text-align:right"><span class="chip si">${esc(FASES[i][1])}</span><p>Comisión ${esc(String(k.comision_pct ?? '—').replace('.', ','))} %${k.precio_salida ? ` · sale a ${eur0(k.precio_salida)}` : ''}</p><p><a href="?estado=operacion&id=${id}">Todos los datos de la venta ›</a></p></div></div>
 ${pasos}
-${blq(0, '1. Datos del coche y del propietario', '', `<details${p.dni && c.matricula ? '' : ' open'}><summary>Ver y cambiar</summary>${formExpediente(o, e)}</details>`)}
+${blq(0, '1. La ficha: el coche y su propietario', '', `<details${p.dni && c.matricula ? '' : ' open'}><summary>Ver y cambiar</summary>${formExpediente(o, e)}</details>`)}
 ${blq(1, '2. Contrato de intermediación y exclusividad', chipC, contrato)}
-${blq(2, '3. En venta', o.handle ? '<span class="chip si">En la web</span>' : '', anuncio)}
-${blq(3, '4. Vendido', o.estado === 'vendido' ? '<span class="chip si">Vendido</span>' : '', venta)}
-${blq(4, '5. Factura', factura ? '<span class="chip si">Emitida</span>' : '', fact)}
-${blq(5, '6. Cobro', factura?.cobrada ? '<span class="chip si">Cobrada</span>' : factura ? '<span class="chip am">Pendiente</span>' : '', cobro)}
+${blq([2, 3], '3. Vídeo y anuncio en la web', o.handle ? '<span class="chip si">En la web</span>' : x.video ? '<span class="chip am">Vídeo hecho</span>' : '', anuncio)}
+${blq(4, '4. Vendido', o.estado === 'vendido' ? '<span class="chip si">Vendido</span>' : '', venta)}
+${blq(5, '5. Factura', factura ? '<span class="chip si">Emitida</span>' : '', fact)}
+${blq(6, '6. Cobro', factura?.cobrada ? '<span class="chip si">Cobrada</span>' : factura ? '<span class="chip am">Pendiente</span>' : '', cobro)}
 ${hist ? `<div class="card"><h2>Historial</h2><ul class="hist">${hist}</ul></div>` : ''}`, CSS);
 }
 function formVenta(o) {
@@ -335,12 +383,12 @@ export function paginaExpedientes(ops, facturas, { aviso = '', todos = false } =
   for (const o of lista) porFase[faseDe(o, facDe.get(Number(o.id)))]?.push(o);
   const tarj = (o) => { const x = o.expediente || {}, fa = facDe.get(Number(o.id));
     return `<a class="tarj" href="?estado=expediente&id=${Number(o.id)}"><b>${esc(o.titulo)}</b><span>${esc(x.propietario?.nombre || o.propietario_nombre || '—')}</span>${fa ? `<span class="dinero">${eur(fa.total)}</span>` : o.precio_venta ? `<span class="dinero">Vendido por ${eur0(o.precio_venta)}</span>` : x.condiciones?.precio_salida ? `<span>Sale a ${eur0(x.condiciones.precio_salida)}</span>` : ''}${x.contrato?.enviado && !x.contrato?.firma ? `<span>Contrato enviado el ${esc(fechaTxt(x.contrato.enviado))}</span>` : ''}</a>`; };
-  return marco('Coches en gestión', 'expedientes', `
+  return marco('Coches de Sidonia', 'expedientes', `
 ${aviso ? `<p class="aviso${/^Error/.test(aviso) ? ' mal' : ''}">${esc(aviso)}</p>` : ''}
-<div class="barra"><a class="boton" href="?estado=expediente&nuevo=1">+ Nuevo coche</a><a class="boton claro" href="?estado=gestiones">Desde el formulario de la web (Gestiones de venta)</a>
+<div class="barra"><a class="boton" href="?estado=expediente&nuevo=1">+ Nuevo coche (su ficha y su contrato)</a><a class="boton claro" href="?estado=gestiones">Los del formulario de la web (Gestiones de venta)</a>
   <a class="boton claro" href="?estado=expedientes${todos ? '' : '&todos=1'}">${todos ? 'Solo los expedientes' : 'Ver también las ventas de antes'}</a></div>
 <div class="kanban">${FASES.map(([f, nombre]) => `<div class="col"><h3>${nombre}<b>${porFase[f].length}</b></h3>${porFase[f].slice(0, 60).map(tarj).join('') || '<p class="sub" style="margin:4px">—</p>'}</div>`).join('')}</div>
-<p class="nota">Cada coche, de principio a fin: datos, contrato de intermediación (se firma desde el móvil), en venta, vendido, factura y cobro. Pulsa en uno para seguir.</p>`, CSS);
+<p class="nota">Cada coche que vende Sidonia, de principio a fin: la ficha (propietario y coche), el contrato de intermediación y exclusividad (se le envía por email o WhatsApp y lo firma desde el móvil), el vídeo y el anuncio en Shopify, la venta, la factura y el cobro. Pulsa en uno para seguir.</p>`, CSS);
 }
 
 /** Finanzas › Datos de facturación */
@@ -384,6 +432,29 @@ export async function rutasExpedientes(req, cfg, deps, html) {
     return html(paginaAjustes(req.method === 'POST' && !/^Error/.test(aviso) ? leerAjustesForm(b).emisor : emisor, { aviso }));
   }
 
+  // Ligar un anuncio de la web con la ficha de su propietario (desde Anuncios › En la web)
+  if (estado === 'ligar') {
+    const h = String(req.query.h || '').replace(/[^a-z0-9-]/g, '').slice(0, 160);
+    let ficha = null, ops = [];
+    try { const { catalogoTienda } = await import('./actividad.mjs'); ficha = (await catalogoTienda(cfg, deps)).get(h) || null; } catch (e) { ficha = null; }
+    try { ops = await tO.leer('select=*&order=id.desc&limit=5000'); } catch (e) { ops = []; }
+    if (req.method === 'POST' && Number(b.id) && h) {
+      const [o] = ops.filter((x) => Number(x.id) === Number(b.id));
+      if (o) {
+        await tO.cambiar(Number(o.id), { handle: h, expediente: conHistorial(o.expediente || {}, `Ligado con su anuncio de la web (${ficha?.titulo || h})`), actualizado: new Date().toISOString() });
+        return { status: 303, headers: { Location: `?estado=expediente&id=${Number(o.id)}`, 'Cache-Control': 'no-store' }, body: '' };
+      }
+    }
+    const ya = ops.find((x) => x.handle === h);
+    const cand = ops.filter((x) => !x.handle && x.modalidad !== 'encargo' && x.estado !== 'retirado').map((x) => ({ ...x, puntos: ficha ? parecido(x.titulo, ficha.titulo, { anioDistinto: 0.25 }) : 0 }))
+      .sort((a, b) => b.puntos - a.puntos || Number(Boolean(b.expediente?.contrato?.firma)) - Number(Boolean(a.expediente?.contrato?.firma))).slice(0, 12);
+    return html(marco('Ligar con su propietario', 'expedientes', `<p><a href="?estado=fichas">‹ Anuncios en la web</a></p>
+<div class="card">${ficha ? `<div class="anu">${ficha.foto ? `<img src="${esc(ficha.foto)}" alt="">` : '<span class="anu-f"></span>'}<div><b>${esc(ficha.titulo)}</b><span>Anuncio de la web</span></div><span></span></div>` : `<p>${esc(h)}</p>`}
+${ya ? `<p>Ya está ligado con la ficha de <b>${esc(ya.propietario_nombre || ya.titulo)}</b>. <a href="?estado=expediente&id=${Number(ya.id)}">Abrir su ficha ›</a></p>` : `<h3>¿De quién es? Elige su ficha</h3>
+${cand.map((x) => `<form method="post" action="?estado=ligar&h=${encodeURIComponent(h)}" class="anu"><span class="anu-f"></span><div><b>${esc(x.titulo)}</b><span>${esc(x.expediente?.propietario?.nombre || x.propietario_nombre || 'Sin propietario')}${x.expediente?.contrato?.firma ? ' · contrato firmado' : x.expediente?.contrato?.enviado ? ' · contrato enviado' : ''}${x.puntos ? ` · se parece un ${Math.round(x.puntos * 100)} %` : ''}</span></div><input type="hidden" name="id" value="${Number(x.id)}"><button class="boton">Es esta, ligar</button></form>`).join('') || '<p class="sub">No hay fichas sin anuncio.</p>'}
+<div class="acc-row"><a class="boton" href="?estado=expediente&nuevo=1&h=${encodeURIComponent(h)}">+ Crear su ficha (propietario y contrato)</a></div>`}</div>`, CSS));
+  }
+
   if (estado === 'expedientes') {
     let ops = [], aviso = '';
     try { ops = await tO.leer('select=*&order=id.desc&limit=5000'); } catch (e) { aviso = errorSql(e); }
@@ -419,8 +490,15 @@ export async function rutasExpedientes(req, cfg, deps, html) {
         } catch (e) { aviso = errorSql(e); }
       }
     }
-    return html(marco('Nuevo coche', 'expedientes', `<p><a href="?estado=expedientes">‹ Coches en gestión</a></p>${aviso ? `<p class="aviso mal">${esc(aviso)}</p>` : ''}
-<div class="card"><h2>Nuevo coche en gestión</h2><p class="sub">Para los que llegan en persona o por teléfono. Los del formulario de la web, ábrelos desde Gestiones de venta.</p>${formExpediente(aviso ? { expediente: { propietario: { nombre: b.p_nombre, dni: b.p_dni, telefono: b.p_telefono, email: b.p_email, direccion: b.p_direccion }, coche: { marca: b.c_marca, modelo: b.c_modelo, anio: b.c_anio, matricula: b.c_matricula, bastidor: b.c_bastidor, km: b.c_km } } } : {}, emisor, { accion: 'crear', boton: 'Crear el expediente' })}</div>`, CSS));
+    // Desde un anuncio de la web (Anuncios › En la web › «Ligar con su propietario» › «Crear su ficha»): con su coche
+    let base = aviso ? { comercial: b.comercial, handle: b.handle, expediente: { propietario: { nombre: b.p_nombre, dni: b.p_dni, telefono: b.p_telefono, email: b.p_email, direccion: b.p_direccion }, coche: { marca: b.c_marca, modelo: b.c_modelo, anio: b.c_anio, matricula: b.c_matricula, bastidor: b.c_bastidor, km: b.c_km } } } : {};
+    let deLaWeb = null;
+    if (!aviso && req.query.h) {
+      try { const { catalogoTienda } = await import('./actividad.mjs'); deLaWeb = (await catalogoTienda(cfg, deps)).get(String(req.query.h)) || null; } catch (e) { deLaWeb = null; }
+      if (deLaWeb) base = { handle: deLaWeb.handle, expediente: { coche: cocheDeTitulo(deLaWeb.titulo) } };
+    }
+    return html(marco('Nuevo coche', 'expedientes', `<p><a href="?estado=expedientes">‹ Coches de Sidonia</a></p>${aviso ? `<p class="aviso mal">${esc(aviso)}</p>` : ''}
+<div class="card"><h2>Nuevo coche: su ficha</h2><p class="sub">${deLaWeb ? `Para el anuncio <b>${esc(deLaWeb.titulo)}</b> de la web: pon los datos de su propietario y se quedan ligados.` : 'Los datos del propietario y del coche. Con ellos se hace el contrato de intermediación y exclusividad, que le envías para que lo firme desde el móvil. Los que llegan por el formulario de la web, ábrelos desde Gestiones de venta.'}</p>${formExpediente(base, emisor, { accion: 'crear', boton: 'Crear la ficha' })}</div>`, CSS));
   }
 
   let [o] = await tO.leer(`id=eq.${id}&select=*&limit=1`).catch(() => []);
@@ -467,6 +545,8 @@ export async function rutasExpedientes(req, cfg, deps, html) {
       } else if (a === 'contrato-firmado-papel') {
         await guardar({ estado: o.estado === 'captado' ? 'en_venta' : o.estado, expediente: { ...o.expediente, contrato: { ...(o.expediente.contrato || {}), enviado: new Date().toISOString(), via: 'en papel', firma: { nombre: p.nombre, dni: p.dni, fecha: new Date().toISOString(), ip: '', papel: true } } } }, 'Contrato firmado en papel');
         aviso = 'Apuntado: firmado en papel. Guarda el original.';
+      } else if (a === 'video') {
+        await guardar({ expediente: { ...o.expediente, video: new Date().toISOString() } }, 'Vídeo hecho'); aviso = '¡Vídeo hecho! Ahora, a subirlo a Shopify y ligarlo aquí.';
       } else if (a === 'anuncio') {
         const h = String(b.handle || '').replace(/^.*\/products\//, '').replace(/[?#].*$/, '').trim().toLowerCase();
         await guardar({ handle: h || null }, h ? `Enlazado con su anuncio (${h})` : 'Quitado el anuncio'); aviso = 'Guardado.';
@@ -520,8 +600,10 @@ export async function rutasExpedientes(req, cfg, deps, html) {
     } catch (e) { aviso = errorSql(e); }
   }
   let anuncios = [];
-  try { const { catalogoTienda } = await import('./actividad.mjs'); anuncios = [...(await catalogoTienda(cfg, deps)).values()].filter((x) => !x.comunidad).map((x) => ({ handle: x.handle, titulo: x.titulo })); } catch (e) { anuncios = []; }
-  return html(paginaExpediente(cfg, o, { factura, facturas, emisor, aviso, anuncios }));
+  try { const { catalogoTienda } = await import('./actividad.mjs'); anuncios = [...(await catalogoTienda(cfg, deps)).values()]; } catch (e) { anuncios = []; }
+  let ligados = new Set();
+  try { ligados = new Set((await tO.leer('select=id,handle&limit=5000')).filter((x) => x.handle && Number(x.id) !== id).map((x) => x.handle)); } catch (e) { ligados = new Set(); }
+  return html(paginaExpediente(cfg, o, { factura, facturas, emisor, aviso, anuncios, ligados }));
 }
 
 /* ---------------------------------------------------------------------------- Páginas públicas (enlace firmado) */

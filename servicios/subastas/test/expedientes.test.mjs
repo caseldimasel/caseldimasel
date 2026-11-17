@@ -105,7 +105,7 @@ test('centro operativo: de la web al contrato firmado, vendido, factura (editabl
 
 test('centro operativo: coche nuevo en persona y venta de antes sin factura', async () => {
   const { deps, pag, aviso } = preparar();
-  assert.match((await pag({ estado: 'expediente', nuevo: '1' })).body, /Nuevo coche en gestión/);
+  assert.match((await pag({ estado: 'expediente', nuevo: '1' })).body, /Nuevo coche: su ficha/);
   assert.match(aviso(await pag({ estado: 'expediente' }, 'POST', { accion: 'crear', ...EXP, c_marca: '' })), /marca y el modelo/);
   const r = await pag({ estado: 'expediente' }, 'POST', { accion: 'crear', ...EXP, p_nombre: 'Concesionario Prueba S.L.', p_dni: 'B11111111', origen: 'llamada' });
   assert.equal(r.status, 303);
@@ -118,7 +118,7 @@ test('centro operativo: coche nuevo en persona y venta de antes sin factura', as
   const p = facturaPropuesta(deps.operaciones.filas[0], {}, [{ numero: '2026-020' }]);
   assert.deepEqual([p.numero, p.base, p.pct], ['2026-021', 1700, 5.67]);
   const h = (await pag({ estado: 'finanzas', ano: '2026' })).body;
-  assert.match(h, /Hacer la factura: JAGUAR XJRS 1993/); assert.match(h, /Pendiente de facturar/);
+  assert.match(h, /Hacer la factura: JAGUAR XJRS 1993/); assert.match(h, /Sin factura/); assert.match(h, /Al ritmo de este año/);
 });
 
 test('el contrato sin firmar deja huecos y la factura valida su NIF; los números de factura siguen', () => {
@@ -140,4 +140,52 @@ test('Finanzas: ingresos, facturado, pendiente de facturar y de cobrar, gastos e
   assert.equal(T.facturado, 4000); assert.equal(T.pendienteFacturar, 2000); assert.equal(T.pendienteCobro, 1210); assert.equal(T.cobrado, 3630);
   assert.equal(T.gastos, 1100);
   assert.equal(Math.round(T.resultado), Math.round(6200 - 1100 - T.irpf));
+});
+
+test('Anuncios: crear la ficha desde un anuncio de la web, ligar con su propietario, vídeo hecho y quién lo lleva', async () => {
+  const { cocheDeTitulo } = await import('../lib/expedientes.mjs');
+  const { olvidarCatalogo } = await import('../lib/actividad.mjs');
+  assert.deepEqual([cocheDeTitulo('MERCEDES-BENZ 220 SEB COUPÉ 1963').marca, cocheDeTitulo('MERCEDES-BENZ 220 SEB COUPÉ 1963').anio], ['Mercedes-Benz', '1963']);
+  assert.deepEqual([cocheDeTitulo('LAND ROVER DEFENDER 110 2005').marca, cocheDeTitulo('LAND ROVER DEFENDER 110 2005').modelo], ['Land Rover', 'DEFENDER 110']);
+  const { deps, pag, aviso } = preparar();
+  olvidarCatalogo();
+  deps.gql = async () => ({ products: { nodes: [{ handle: 'land-rover-defender-110-1998', title: 'LAND ROVER DEFENDER 110 1998', status: 'ACTIVE', tags: [], featuredImage: { url: 'https://cdn/def.jpg' }, variants: { nodes: [{ availableForSale: true }] } },
+    { handle: 'porsche-912-1967', title: 'PORSCHE 912 1967', status: 'ACTIVE', tags: [], featuredImage: null, variants: { nodes: [{ availableForSale: false }] } }], pageInfo: { hasNextPage: false } } });
+  // Una ficha con su contrato, sin anuncio aún: sugiere el de la web que se parece
+  await pag({ estado: 'expediente' }, 'POST', { accion: 'crear', ...EXP, comercial: 'Hugo' });
+  const o = deps.operaciones.filas.at(-1);
+  assert.equal(o.comercial, 'Hugo');
+  let h = (await pag({ estado: 'expediente', id: String(o.id) })).body;
+  assert.match(h, /lo lleva Hugo/); assert.match(h, /¿Es alguno de estos anuncios de la web\?/); assert.match(h, /def\.jpg/); assert.match(h, /Es este, ligar/);
+  assert.match(aviso(await pag({ estado: 'expediente', id: String(o.id) }, 'POST', { accion: 'video' })), /Vídeo hecho/);
+  assert.ok(o.expediente.video);
+  await pag({ estado: 'expediente', id: String(o.id) }, 'POST', { accion: 'anuncio', handle: 'land-rover-defender-110-1998' });
+  assert.equal(o.handle, 'land-rover-defender-110-1998');
+  h = (await pag({ estado: 'expediente', id: String(o.id) })).body;
+  assert.match(h, /Ver en la web/); assert.doesNotMatch(h, /¿Es alguno de estos/);
+  // Desde Anuncios › En la web: ligar el otro anuncio (vendido en la web) con una ficha o crear su ficha
+  let l = (await pag({ estado: 'ligar', h: 'porsche-912-1967' })).body;
+  assert.match(l, /PORSCHE 912 1967/); assert.match(l, /JAGUAR XJRS 1993/); assert.match(l, /\+ Crear su ficha/);
+  const nueva = (await pag({ estado: 'expediente', nuevo: '1', h: 'porsche-912-1967' })).body;
+  assert.match(nueva, /value="Porsche"/); assert.match(nueva, /value="912"/); assert.match(nueva, /value="1967"/); assert.match(nueva, /name="handle" value="porsche-912-1967"/);
+  const r = await pag({ estado: 'ligar', h: 'porsche-912-1967' }, 'POST', { id: '1' });
+  assert.equal(r.status, 303); assert.equal(deps.operaciones.filas[0].handle, 'porsche-912-1967');
+  l = (await pag({ estado: 'ligar', h: 'porsche-912-1967' })).body;
+  assert.match(l, /Ya está ligado/);
+});
+
+test('Finanzas: el resumen con las ventas del mes y del año, y los impuestos aparte', async () => {
+  const { deps, pag } = preparar();
+  deps.gastos.filas.push({ id: 1, tipo: 'cuota', concepto: 'Canva Pro', categoria: 'Apps', importe: 12, fecha: '2026-01-01' }, { id: 2, tipo: 'cargo', concepto: 'IRPF (modelo 130)', categoria: 'Impuestos', importe: 300, fecha: '2026-04-20' });
+  const h = (await pag({ estado: 'finanzas', ano: '2026' })).body;
+  assert.match(h, /Este mes/); assert.match(h, /En el año · 2026/); assert.match(h, /Gastos fijos al mes/); assert.match(h, /Canva Pro/); assert.match(h, /JAGUAR XJRS 1993/);
+  assert.doesNotMatch(h, /Nuevo coche/); assert.doesNotMatch(h, /Hacienda:/);
+  const i = (await pag({ estado: 'impuestos' })).body;
+  assert.match(i, /<title>Impuestos/); assert.match(i, /IRPF \(modelo 130\)/); assert.match(i, /Lo próximo/);
+});
+
+test('el contrato explica lo importante y lleva el formulario de desistimiento', () => {
+  const html = contratoIntermediacion({ id: 9, expediente: { propietario: { nombre: 'Ana' }, coche: { marca: 'Seat', modelo: '600', anio: '1970' }, condiciones: { comision_pct: 6, comision_min: 1500, precio_salida: 42000, exclusividad_meses: 3 } } }, { nombre: 'Sidonia', iva_pct: 21 });
+  assert.match(html, /Lo importante, en claro/); assert.match(html, /si el Vehículo se vende por 42\.000 €, los honorarios serían 2\.520,00 € más 529,20 € de IVA \(3\.049,20 € en total\)/);
+  assert.match(html, /mediación o corretaje/); assert.match(html, /Fotos, vídeo y anuncio/); assert.match(html, /Formulario de desistimiento/); assert.match(html, /14 días naturales/);
 });

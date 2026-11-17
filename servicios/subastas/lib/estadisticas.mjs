@@ -44,9 +44,8 @@ export async function registrarEvento(db, body, cliente, headers = {}) {
  *   anunciantes de la comunidad y propietarios de las ventas gestionadas) · Estadísticas web · Herramientas
  */
 export const SECCIONES = [
-  ['finanzas', 'Finanzas', [['finanzas', 'Resumen'], ['meses', 'Por meses'], ['facturas', 'Facturas'], ['gastos', 'Gastos'], ['facturacion', 'Datos de facturación']], []],
-  ['ventas', 'Ventas', [['ventas', 'Ventas'], ['expedientes', 'Coches en gestión'], ['ofertas', 'Ofertas'], ['enlazar', 'Enlazar a mano'], ['importar', 'Importar Excel']], ['operacion', 'expediente']],
-  ['fichas', 'Anuncios', [['fichas', 'En la web'], ['cobros', 'Cobros comunidad'], ['pendiente', 'Por revisar'], ['cambios', 'Cambios'], ['aprobado', 'Aprobados'], ['publicado', 'Publicados'], ['vendido', 'Vendidos'], ['cancelados', 'Cancelados']], ['ficha', 'rechazado', 'retirado', 'cobrar', 'tarifa']],
+  ['finanzas', 'Finanzas', [['finanzas', 'Resumen'], ['ventas', 'Ventas'], ['meses', 'Por meses'], ['facturas', 'Facturas'], ['gastos', 'Gastos'], ['impuestos', 'Impuestos'], ['facturacion', 'Datos de facturación']], ['operacion', 'enlazar', 'importar']],
+  ['fichas', 'Anuncios', [['expedientes', 'Coches de Sidonia'], ['fichas', 'En la web'], ['ofertas', 'Ofertas'], ['cobros', 'Cobros comunidad'], ['pendiente', 'Por revisar'], ['cambios', 'Cambios'], ['aprobado', 'Aprobados'], ['publicado', 'Publicados'], ['vendido', 'Vendidos'], ['cancelados', 'Cancelados']], ['ficha', 'rechazado', 'retirado', 'cobrar', 'tarifa', 'expediente', 'ligar']],
   ['gestiones', 'Gestiones de venta', [], []],
   ['alquileres', 'Alquileres', [], []],
   ['clientes', 'Clientes', [['clientes', 'Interesados'], ['anunciantes', 'Anunciantes · comunidad'], ['duenos', 'Propietarios · gestión'], ['garajes', 'Garajes'], ['opiniones', 'Opiniones de profesionales'], ['alquiler', 'Alquiler · lista de espera']], ['cliente', 'anunciante']],

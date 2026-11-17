@@ -31,7 +31,16 @@ export function numerosFinanzas({ ops = [], facturas = [], gastos = [], pagos = 
   const deVenta = (f) => /gesti[oó]n de venta/i.test(String(f.concepto || ''));
   for (const f of fact) { const k = mesDe(f.fecha); if (!mes[k]) continue; mes[k].facturado += n(f.base); if (!f.operacion_id && !deVenta(f)) mes[k].servicios += n(f.base); }
   for (const p of pagos) { const k = mesDe(p.fecha); if (mes[k]) mes[k].comunidad += n(p.importe); }
-  for (const k of claves) { const x = mes[k]; x.ingresos = x.ventas + x.servicios + x.comunidad; x.resultado = x.ingresos - x.gastos - x.irpf; }
+  // Gastos fijos (lo que tiene cuota: suscripciones, Shopify, ManyChat, autónomo, gestoría) y puntuales (el resto)
+  const conCuota = new Set(gastos.filter((g) => g.tipo === 'cuota').map((g) => g.concepto));
+  for (const k of claves) {
+    const c = G.celdas[k] || {};
+    mes[k].fijos = Object.entries(c).filter(([con]) => conCuota.has(con)).reduce((s, [, v]) => s + n(v.importe), 0);
+    mes[k].puntuales = Math.max(0, mes[k].gastos - mes[k].fijos - n(G.comercial[k]));
+    mes[k].comercial = n(G.comercial[k]);
+  }
+  for (const o of vendidas) { const k = mesDe(o.fecha_venta); if (mes[k]) { mes[k].coches = (mes[k].coches || 0) + 1; mes[k].vendido = (mes[k].vendido || 0) + n(o.precio_venta); } }
+  for (const k of claves) { const x = mes[k]; x.coches ||= 0; x.vendido ||= 0; x.ingresos = x.ventas + x.servicios + x.comunidad; x.resultado = x.ingresos - x.gastos - x.irpf; }
   const sum = (c) => hasta.reduce((s, k) => s + n(mes[k][c]), 0);
   const facturaDe = new Map(fact.filter((f) => f.operacion_id).map((f) => [Number(f.operacion_id), f]));
   const vendidasA = vendidas.filter((o) => String(o.fecha_venta).startsWith(String(A)));
@@ -54,7 +63,7 @@ export function numerosFinanzas({ ops = [], facturas = [], gastos = [], pagos = 
   const irpfPagadoAno = gastos.filter((g) => g.tipo === 'cargo' && g.categoria === 'Impuestos' && trimestreDePago(g.fecha).startsWith(String(tA)) && trimestreDePago(g.fecha) < tPend).reduce((s, g) => s + n(g.importe), 0);
   const limite = tQ === 4 ? `${tA + 1}-01-30` : `${tA}-${String(tQ * 3 + 1).padStart(2, '0')}-20`;
   return {
-    claves, hasta, mes, sum, vendidasA, sinFactura, pendientesCobro, cobradas, porForma, facturaDe,
+    claves, hasta, mes, sum, ahora, G, conCuota, vendidasA, sinFactura, pendientesCobro, cobradas, porForma, facturaDe,
     sinEnlazar: fact.filter((f) => !f.operacion_id && deVenta(f) && String(f.fecha).startsWith(String(A))),
     hacienda: { t: tPend, iva: Math.round(ivaT * 100) / 100, irpf: Math.max(0, Math.round((rendAno * IRPF_PCT / 100 - irpfPagadoAno) * 100) / 100), limite },
     totales: { ingresos: sum('ingresos'), ventas: sum('ventas'), servicios: sum('servicios'), comunidad: sum('comunidad'), facturado: sum('facturado'), gastos: sum('gastos'), irpf: sum('irpf'), resultado: sum('resultado'),
@@ -123,48 +132,104 @@ const CSS = `
   @media (max-width: 1000px) { .fz-hero, .fz-row { grid-template-columns: 1fr 1fr; } .fz-3 { grid-template-columns: 1fr; } .embudo-f { grid-template-columns: repeat(3, 1fr); } }
   @media (max-width: 560px) { .fz-hero, .fz-row { grid-template-columns: 1fr; } .donut { grid-template-columns: 1fr; justify-items: center; } }`;
 
-export function paginaFinanzas(datos, { ano = null, hoy = new Date(), error = '' } = {}) {
+const CSS2 = `
+  .fz-sec { display: flex; align-items: baseline; gap: 12px; margin: 22px 0 10px; } .fz-sec h2 { margin: 0; font-size: 15px; letter-spacing: .08em; text-transform: uppercase; color: var(--suave); } .fz-sec small { color: var(--flojo); }
+  .fz-6 { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; }
+  .fz-6 .fz-k b { font-size: 26px; } .fz-6 .fz-k.top b { font-size: 30px; }
+  .fz-k em { font-style: normal; font-size: 12px; font-weight: 800; margin-left: 6px; } .fz-k em.sube { color: var(--verde); } .fz-k em.baja { color: var(--rojo); }
+  .ritmo { display: flex; flex-wrap: wrap; gap: 8px 22px; align-items: center; padding: 14px 18px; border-radius: 16px; background: linear-gradient(90deg, rgba(240,180,0,.12), transparent); border: 1px solid rgba(240,180,0,.3); margin-top: 10px; font-size: 14px; }
+  .ritmo b { font-size: 18px; color: #f0b400; } .ritmo span { color: var(--suave); }
+  .ventas-l td.foto img, .ventas-l td.foto span { width: 56px; height: 42px; border-radius: 8px; object-fit: cover; display: block; background: var(--caja-3); }
+  .estado-f { font-size: 12px; font-weight: 800; } .estado-f.ok { color: var(--verde); } .estado-f.pend { color: #f0b400; } .estado-f.no { color: var(--rojo); }
+  .fijos-l { list-style: none; padding: 0; margin: 0; font-size: 14px; } .fijos-l li { display: flex; justify-content: space-between; gap: 10px; padding: 6px 0; border-bottom: 1px solid var(--linea); } .fijos-l li span { color: var(--suave); font-size: 12px; }
+  @media (max-width: 1100px) { .fz-6 { grid-template-columns: repeat(3, 1fr); } } @media (max-width: 600px) { .fz-6 { grid-template-columns: 1fr 1fr; } }`;
+const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+const cambio = (a, b) => { if (!n(b)) return ''; const d = Math.round(((n(a) - n(b)) / Math.abs(n(b))) * 100); return d ? `<em class="${d > 0 ? 'sube' : 'baja'}">${d > 0 ? '+' : '−'}${Math.abs(d)} %</em>` : ''; };
+const kpi = (t, v, sub = '', cls = '', extra = '') => `<div class="fz-k ${cls}"><span>${t}</span><b>${v}${extra}</b><small>${sub}</small></div>`;
+
+/** Finanzas › Resumen: las ventas de este mes y del año (y a qué ritmo va), con sus gastos fijos y el resultado */
+export function paginaFinanzas(datos, { ano = null, hoy = new Date(), error = '', fotos = {}, avisos = [] } = {}) {
   const anos = [...new Set([hoy.getFullYear(), ...datos.ops.map((o) => Number(String(o.fecha_venta || '').slice(0, 4))), ...datos.facturas.map((f) => Number(String(f.fecha).slice(0, 4)))].filter((x) => x > 2000))].sort((a, b) => b - a);
   const A = anos.includes(Number(ano)) ? Number(ano) : hoy.getFullYear();
   const N = numerosFinanzas(datos, A, hoy), T = N.totales;
+  const esteAno = A === hoy.getFullYear();
+  const k = esteAno ? N.ahora : `${A}-12`, kAnt = N.claves[Number(k.slice(5)) - 2];
+  const m = N.mes[k] || {}, p = (kAnt && N.mes[kAnt]) || {};
+  const sumA = (c) => N.hasta.reduce((s, x) => s + n(N.mes[x][c]), 0);
+  // El ritmo: lo que va de año, llevado a 12 meses (con la parte del mes en curso)
+  const dias = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0).getDate();
+  const transcurrido = esteAno ? hoy.getMonth() + hoy.getDate() / dias : 12;
+  const anual = (v) => (transcurrido ? (v / transcurrido) * 12 : 0);
+  const vendidas = N.vendidasA.slice().sort((a, b) => String(b.fecha_venta).localeCompare(String(a.fecha_venta)));
   const facDe = N.facturaDe;
-  const fases = Object.fromEntries(FASES.map(([f]) => [f, 0]));
-  for (const o of datos.ops.filter((x) => (x.expediente && Object.keys(x.expediente).length) || x.estado === 'captado')) fases[faseDe(o, facDe.get(Number(o.id)))] += 1;
-  const maxF = Math.max(1, ...Object.values(fases));
-  const contratos = datos.ops.filter((o) => o.expediente?.contrato?.enviado && !o.expediente.contrato.firma);
+  const filas = vendidas.map((o) => { const f = facDe.get(Number(o.id));
+    const est = f ? (f.cobrada ? `<span class="estado-f ok">Factura ${esc(f.numero)} · cobrada</span>` : `<span class="estado-f pend">Factura ${esc(f.numero)} · sin cobrar</span>`) : '<span class="estado-f no">Sin factura</span>';
+    return `<tr><td class="foto">${fotos[o.handle] ? `<img src="${esc(fotos[o.handle])}" alt="" loading="lazy">` : '<span></span>'}</td><td class="izq"><b>${esc(o.titulo)}</b><span class="sub">${esc(new Date(`${String(o.fecha_venta).slice(0, 10)}T12:00:00Z`).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' }))}${o.propietario_nombre ? ` · ${esc(o.propietario_nombre)}` : ''}</span></td>
+      <td>${o.precio_venta ? eur(o.precio_venta) : '—'}</td><td><b>${o.comision ? eur(o.comision) : '—'}</b></td><td class="izq">${est}</td><td><a href="?estado=expediente&id=${Number(o.id)}">${f ? 'Ver' : 'Hacer factura'} ›</a></td></tr>`; }).join('');
+  const hoyD = hoy.toISOString().slice(0, 10);
+  const cuotas = datos.gastos.filter((g) => g.tipo === 'cuota' && String(g.fecha) <= hoyD && (!g.hasta || String(g.hasta) >= hoyD)).sort((a, b) => n(b.importe) - n(a.importe));
   const tareas = [
-    ...N.sinFactura.slice(0, 12).map((o) => [`Hacer la factura: ${o.titulo}`, `Vendido el ${String(o.fecha_venta).slice(0, 10)}${o.comision ? ` · comisión ${eur(o.comision)}` : ''}`, `?estado=expediente&id=${o.id}`, 'Hacer factura']),
-    ...N.pendientesCobro.slice(0, 12).map((f) => [`Cobrar la factura ${f.numero}`, `${f.cliente} · ${eur(f.total)} · ${FORMAS_PAGO[f.forma_pago] || ''}`, f.operacion_id ? `?estado=expediente&id=${f.operacion_id}` : '?estado=facturas', 'Marcar cobrada']),
-    ...N.sinEnlazar.slice(0, 12).map((f) => [`Enlazar la factura ${f.numero} con su venta`, `${f.concepto} · ${eur(f.base)}`, '?estado=facturas', 'Enlazar']),
-    ...contratos.slice(0, 12).map((o) => [`Contrato sin firmar: ${o.titulo}`, `Enviado el ${String(o.expediente.contrato.enviado).slice(0, 10)} a ${o.expediente.propietario?.nombre || ''}`, `?estado=expediente&id=${o.id}`, 'Recordar'])
-  ];
-  const tN = N.hacienda.t;
+    ...N.sinFactura.slice(0, 10).map((o) => [`Hacer la factura: ${o.titulo}`, `Vendido el ${String(o.fecha_venta).slice(0, 10)}${o.comision ? ` · comisión ${eur(o.comision)}` : ''}`, `?estado=expediente&id=${o.id}`, 'Hacer factura']),
+    ...N.pendientesCobro.slice(0, 10).map((f) => [`Cobrar la factura ${f.numero}`, `${f.cliente} · ${eur(f.total)}`, f.operacion_id ? `?estado=expediente&id=${f.operacion_id}` : '?estado=facturas', 'Marcar cobrada']),
+    ...N.sinEnlazar.slice(0, 10).map((f) => [`Enlazar la factura ${f.numero} con su venta`, `${f.concepto} · ${eur(f.base)}`, '?estado=facturas', 'Enlazar'])];
   return marco('Finanzas', 'finanzas', `
 ${error ? `<p class="aviso mal">${esc(error)}</p>` : ''}
-<div class="barra" style="margin-top:0"><div class="per" style="margin:0">${anos.map((a) => `<a href="?estado=finanzas&ano=${a}" class="${a === A ? 'on' : ''}">${a}</a>`).join('')}</div>
-  <a class="boton" href="?estado=expediente&nuevo=1">+ Nuevo coche</a><a class="boton claro" href="?estado=expedientes">Coches en gestión</a></div>
+${avisos.length ? `<div class="tareas">${avisos.map(([t, href]) => `<a href="${href}">${esc(t)}</a>`).join('')}</div>` : ''}
+<div class="per" style="margin-top:0">${anos.map((a) => `<a href="?estado=finanzas&ano=${a}" class="${a === A ? 'on' : ''}">${a}</a>`).join('')}</div>
+<div class="fz-sec"><h2>${esteAno ? 'Este mes' : 'Diciembre'} · ${MESES[Number(k.slice(5)) - 1]} ${k.slice(0, 4)}</h2><small>${esteAno ? `en curso · frente a ${kAnt ? MESES[Number(kAnt.slice(5)) - 1] : ''}` : ''}</small></div>
+<div class="fz-6">
+  ${kpi('Coches vendidos', fmt(m.coches), `${eur(m.vendido)} en ventas`, '', cambio(m.coches, p.coches))}
+  ${kpi('Comisión de ventas', eur(m.ventas), 'lo que gana Sidonia por vender', '', cambio(m.ventas, p.ventas))}
+  ${kpi('Otros ingresos', eur(n(m.servicios) + n(m.comunidad)), 'servicios facturados y comunidad')}
+  ${kpi('Gastos fijos', eur(m.fijos), `+ ${eur(m.puntuales)} puntuales${m.comercial ? ` · ${eur(m.comercial)} comercial` : ''}`)}
+  ${kpi('IRPF', eur(m.irpf), 'reserva del mes')}
+  ${kpi('Resultado del mes', eur(m.resultado), 'ingresos − gastos − IRPF', `top${n(m.resultado) < 0 ? ' neg' : ''}`)}
+</div>
+<div class="fz-sec"><h2>En el año · ${A}</h2><small>${esteAno ? `hasta hoy (${MESES[hoy.getMonth()]})` : 'el año entero'}</small></div>
+<div class="fz-6">
+  ${kpi('Coches vendidos', fmt(T.vendidos), `${eur(sumA('vendido'))} en ventas`)}
+  ${kpi('Comisión de ventas', eur(T.ventas), `ticket medio ${eur(T.vendidos ? T.ventas / T.vendidos : 0)}`)}
+  ${kpi('Otros ingresos', eur(T.servicios + T.comunidad), 'servicios y comunidad')}
+  ${kpi('Gastos', eur(T.gastos), `${eur(sumA('fijos'))} fijos · ${eur(sumA('puntuales'))} puntuales`)}
+  ${kpi('IRPF', eur(T.irpf), 'pagado o reservado')}
+  ${kpi(`Resultado ${A}`, eur(T.resultado), `ingresos ${eur(T.ingresos)}`, `top${T.resultado < 0 ? ' neg' : ''}`)}
+</div>
+${esteAno ? `<div class="ritmo"><span>Al ritmo de este año, ${A} cerraría con</span><b>${fmt(Math.round(anual(T.vendidos)))} coches</b><b>${eur(anual(T.ventas))} de comisión</b><b>${eur(anual(T.ingresos))} de ingresos</b><span>y un resultado de</span><b>${eur(anual(T.resultado))}</b></div>` : ''}
+<div class="card" style="margin-top:14px"><h2>Mes a mes</h2>${barras(N)}</div>
+<div class="grid2" style="margin-top:12px">
+  <div class="card"><div class="barra" style="margin:0 0 8px"><h2 style="margin:0">Ventas de ${A}</h2><a class="boton claro" href="?estado=ventas">Todas las ventas ›</a></div>
+    <div class="tabla ventas-l"><table><thead><tr><th></th><th class="izq">Coche</th><th>Vendido por</th><th>Comisión</th><th class="izq">Factura</th><th></th></tr></thead><tbody>${filas || '<tr><td colspan="6" class="vacio">Aún sin ventas este año.</td></tr>'}</tbody></table></div></div>
+  <div class="card"><div class="barra" style="margin:0 0 8px"><h2 style="margin:0">Gastos fijos al mes</h2><a class="boton claro" href="?estado=gastos">Gastos ›</a></div>
+    <ul class="fijos-l">${cuotas.map((g) => `<li><div>${esc(g.concepto)}<br><span>${esc(g.categoria)}${g.variable ? ' · cambia cada mes' : ''}</span></div><b>${eur(g.importe)}</b></li>`).join('') || '<li>Sin cuotas: añádelas en Gastos.</li>'}
+    <li><b>Total al mes</b><b>${eur(cuotas.reduce((s, g) => s + n(g.importe), 0))}</b></li></ul></div>
+</div>
+${tareas.length ? `<div class="card" style="margin-top:12px"><h2>Pendiente</h2><ul class="tareas-f">${tareas.map(([titulo, sub, href, boton]) => `<li><div>${esc(titulo)}<small>${esc(sub)}</small></div><span></span><a class="boton claro" href="${href}">${boton} ›</a></li>`).join('')}</ul></div>` : ''}
+<p class="nota">Una venta cuenta en el mes en que se vendió, por la comisión de Sidonia. Gastos fijos: los que tienen cuota (suscripciones, Shopify, ManyChat, autónomo, gestoría); puntuales, el resto (abogado, gasolina…). El IVA no es un gasto: está en Impuestos.</p>`, CSS + CSS2);
+}
+
+/** Finanzas › Impuestos: IRPF e IVA, lo pagado a Hacienda y lo que viene */
+export function paginaImpuestos(datos, { ano = null, hoy = new Date(), hacienda: H = [] } = {}) {
+  const A = Number(ano) || hoy.getFullYear();
+  const N = numerosFinanzas(datos, A, hoy), T = N.totales, h = N.hacienda;
+  const pagos = datos.gastos.filter((g) => g.tipo === 'cargo' && ['Impuestos', 'IVA'].includes(g.categoria)).sort((a, b) => String(b.fecha).localeCompare(String(a.fecha)));
+  const tot = (cat) => pagos.filter((g) => g.categoria === cat && String(g.fecha).startsWith(String(A))).reduce((s, g) => s + n(g.importe), 0);
+  const eur2 = (x) => `${n(x).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2, useGrouping: 'always' })} €`;
+  const filasH = H.map((x) => `<tr><td class="izq"><b>${x.t.slice(6)}.º trimestre de ${x.t.slice(0, 4)}</b><span class="sub">${fmt(x.facturas)} facturas</span></td><td>${eur2(x.base)}</td><td>${eur2(x.iva)}</td>
+    <td>${x.ivaPagado != null ? eur2(x.ivaPagado) : '<span class="sub">sin pagar aún</span>'}</td><td>${x.ivaGastos != null ? eur2(x.ivaGastos) : '—'}</td><td>${x.irpfPagado != null ? eur2(x.irpfPagado) : '<span class="sub">sin pagar aún</span>'}</td>
+    <td>${x.rendimiento != null ? eur2(x.rendimiento) : '—'}</td><td>${x.gastosDeclarados != null ? eur2(x.gastosDeclarados) : '—'}</td></tr>`).join('');
+  return marco('Impuestos', 'impuestos', `
+<div class="fz-sec" style="margin-top:0"><h2>Lo próximo: ${h.t.slice(6)}.º trimestre de ${h.t.slice(0, 4)}</h2><small>hasta el ${new Date(`${h.limite}T12:00:00Z`).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' })}</small></div>
 <div class="fz-hero">
-  <div class="fz-k top${T.resultado < 0 ? ' neg' : ''}"><span>Resultado ${A}</span><b>${eur(T.resultado)}</b><small>ingresos ${eur(T.ingresos)} − gastos ${eur(T.gastos)} − IRPF ${eur(T.irpf)}</small></div>
-  <div class="fz-k"><span>Ingresos</span><b>${eur(T.ingresos)}</b><small>${fmt(T.vendidos)} coches vendidos · servicios · comunidad</small></div>
-  <div class="fz-k"><span>Gastos</span><b>${eur(T.gastos)}</b><small><a href="?estado=gastos">ver los gastos ›</a></small></div>
-  <div class="fz-k"><span>IRPF</span><b>${eur(T.irpf)}</b><small>pagado o reservado (${IRPF_PCT} %)</small></div>
+  ${kpi('IVA de las facturas del trimestre', eur(h.iva), 'modelo 303: menos el IVA de los gastos que deduzca la gestoría', 'top')}
+  ${kpi('IRPF estimado', eur(h.irpf), `modelo 130: el ${IRPF_PCT} % del beneficio del año menos lo ya pagado`)}
+  ${kpi(`IRPF pagado ${A}`, eur(tot('Impuestos')), `y ${eur(T.irpf)} entre pagado y reservado`)}
+  ${kpi(`IVA pagado ${A}`, eur(tot('IVA')), 'el IVA no es un gasto: se cobra en la factura y se entrega')}
 </div>
-<div class="fz-row">
-  <div class="fz-k"><a class="ir" href="?estado=facturas">Facturas ›</a><span>Facturado</span><b>${eur(T.facturado)}</b><small>base imponible de las facturas de ${A}</small></div>
-  <div class="fz-k${T.pendienteFacturar ? ' neg' : ''}"><span>Pendiente de facturar</span><b>${eur(T.pendienteFacturar)}</b><small>${fmt(N.sinFactura.length)} ventas de ${A} sin factura</small></div>
-  <div class="fz-k"><span>Cobrado</span><b>${eur(T.cobrado)}</b><small>facturas cobradas en ${A} (con IVA)</small></div>
-  <div class="fz-k${T.pendienteCobro ? ' neg' : ''}"><span>Pendiente de cobro</span><b>${eur(T.pendienteCobro)}</b><small>${fmt(N.pendientesCobro.length)} facturas enviadas sin cobrar</small></div>
-</div>
-<div class="card"><h2>Mes a mes</h2>${barras(N)}</div>
-<div class="fz-3">
-  <div class="card"><h2>De dónde viene el dinero</h2>${donut([{ t: 'Comisiones de ventas', v: T.ventas, c: 'var(--verde)' }, { t: 'Otros servicios', v: T.servicios, c: '#5aa9ff' }, { t: 'Comunidad', v: T.comunidad, c: '#c08cff' }], eur(T.ingresos), `ingresos ${A}`)}</div>
-  <div class="card"><h2>Cómo cobramos</h2>${donut(Object.entries(N.porForma).map(([k, v], i) => ({ t: FORMAS_PAGO[k] || k, v, c: ['var(--verde)', '#5aa9ff', '#f0b400', '#c08cff'][i % 4] })), eur(T.cobrado), 'cobrado')}</div>
-  <div class="card"><h2>Hacienda: ${tN.slice(6)}.º trimestre de ${tN.slice(0, 4)}</h2><div class="hda"><div><span>IVA de las facturas</span><b>${eur(N.hacienda.iva)}</b><span>menos el IVA de los gastos que deduzca la gestoría</span></div><div><span>IRPF estimado</span><b>${eur(N.hacienda.irpf)}</b><span>${IRPF_PCT} % del beneficio del año menos lo ya pagado</span></div></div>
-    <p class="nota" style="margin:10px 0 0">Se paga hasta el <b>${new Date(`${N.hacienda.limite}T12:00:00Z`).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' })}</b> (modelos 303 y 130). Es una estimación: la cifra buena os la da la gestoría. Cuando lo paguéis, ponedlo en Gastos.</p></div>
-</div>
-<div class="card" style="margin-top:12px"><h2>Coches en gestión</h2><div class="embudo-f">${FASES.map(([f, nombre]) => `<a href="?estado=expedientes"><b>${fmt(fases[f])}</b><span>${nombre}</span><div class="bar" style="width:${Math.round((fases[f] / maxF) * 100)}%"></div></a>`).join('')}</div></div>
-<div class="card" style="margin-top:12px"><h2>Lo que hay que hacer</h2>${tareas.length ? `<ul class="tareas-f">${tareas.map(([titulo, sub, href, boton]) => `<li><div>${esc(titulo)}<small>${esc(sub)}</small></div><span></span><a class="boton claro" href="${href}">${boton} ›</a></li>`).join('')}</ul>` : '<p class="vacio">Todo al día. 🎉</p>'}</div>
-<p class="nota">Ingresos: la comisión de cada venta (en el mes en que se vendió), las facturas de otros servicios (marketing, asesoría…) y lo cobrado a la comunidad. Gastos: los de Gastos (sin el IVA, que no es un gasto) y la comisión del comercial. Pendiente de facturar: las ventas de ${A} que aún no tienen su factura enlazada (desde cada coche en gestión, o enlazándola en Facturas).</p>`, CSS);
+${filasH ? `<div class="card"><h2>Trimestre a trimestre</h2><div class="tabla"><table><thead><tr><th class="izq">Trimestre</th><th>Facturado</th><th>IVA cobrado</th><th>IVA pagado</th><th>IVA de los gastos</th><th>IRPF pagado</th><th>Beneficio declarado</th><th>Gastos declarados</th></tr></thead><tbody>${filasH}</tbody></table></div>
+  <p class="nota">El IVA pagado (303) es el cobrado en las facturas menos el de los gastos. El IRPF (130) es el ${IRPF_PCT} % del beneficio desde enero menos lo ya pagado: de ahí sale el beneficio declarado y, restándolo de lo facturado, los gastos que ha deducido la gestoría. Si son más que los de Gastos, pedid a la gestoría el libro de gastos.</p></div>` : ''}
+<div class="card"><div class="barra" style="margin:0 0 8px"><h2 style="margin:0">Pagos a Hacienda</h2><a class="boton claro" href="?estado=gastos">Apuntar un pago (en Gastos) ›</a></div><div class="tabla"><table><thead><tr><th class="izq">Fecha</th><th class="izq">Qué</th><th>Importe</th><th class="izq">Notas</th></tr></thead>
+  <tbody>${pagos.map((g) => `<tr><td class="izq">${esc(String(g.fecha).slice(0, 10))}</td><td class="izq"><b>${esc(g.concepto)}</b><span class="sub">${g.categoria === 'IVA' ? 'IVA' : 'IRPF'} · ${esc(trimestreDePago(g.fecha).slice(6))}.º trimestre</span></td><td>${eur2(g.importe)}</td><td class="izq">${esc(g.notas || '')}</td></tr>`).join('') || '<tr><td colspan="4" class="vacio">Aún no hay pagos apuntados.</td></tr>'}</tbody></table></div>
+  <p class="nota">Apuntad cada pago en Gastos: el IRPF (modelo 130) con categoría «Impuestos» y el IVA (modelo 303) con categoría «IVA». En el extracto, el «Tributo 130…» es IRPF y el «Tributo 303…», IVA.</p></div>`, CSS + CSS2);
 }
 
 export async function rutasFinanzas(req, cfg, deps, html) {
@@ -176,5 +241,11 @@ export async function rutasFinanzas(req, cfg, deps, html) {
     facturas: (facturas || []).map((f) => ({ ...f, fecha: String(f.fecha).slice(0, 10), base: n(f.base), iva: n(f.iva), total: n(f.total) })),
     gastos: (gastos || []).map((g) => ({ ...g, importe: n(g.importe), fecha: String(g.fecha).slice(0, 10), hasta: g.hasta ? String(g.hasta).slice(0, 10) : null }))
   };
-  return html(paginaFinanzas(datos, { ano: req.query.ano, error: faltan.length ? `Faltan datos (${faltan.join(', ')}): ejecuta sql/centro-operativo.sql en Supabase › SQL Editor.` : '' }));
+  if (req.query.estado === 'impuestos') {
+    const { hacienda } = await import('./facturas.mjs');
+    return html(paginaImpuestos(datos, { ano: req.query.ano, hacienda: hacienda(datos.facturas.filter((f) => f.estado !== 'anulada'), datos.gastos) }));
+  }
+  let fotos = {};
+  try { const { fotosDe } = await import('./actividad.mjs'); fotos = await fotosDe(cfg, deps, datos.ops.map((o) => o.handle).filter(Boolean)); } catch (e) { fotos = {}; }
+  return html(paginaFinanzas(datos, { ano: req.query.ano, error: faltan.length ? `Faltan datos (${faltan.join(', ')}): ejecuta sql/centro-operativo.sql en Supabase › SQL Editor.` : '', fotos, avisos: deps.tareas || [] }));
 }

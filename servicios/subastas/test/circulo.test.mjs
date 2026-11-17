@@ -136,7 +136,7 @@ test('panel: con contraseña; aprobar publica y marca el anuncio', async () => {
   assert.match(ok.body, /<img class="cabeza__logo" src="data:image\/png;base64,[^"]+" alt="Sidonia"/, 'el logo arriba');
   assert.match(ok.body, /data-tema|sidonia-panel-tema/, 'oscuro / claro');
   assert.match(ok.body, /<link rel="icon" type="image\/png"/, 'la «O» de icono');
-  assert.match(ok.body, /<title>Ventas · Panel de Sidonia/, 'la portada del panel es el centro operativo');
+  assert.match(ok.body, /<title>Finanzas · Panel de Sidonia/, 'la portada del panel es Finanzas');
   assert.match((await atenderPanel({ method: 'GET', query: { estado: 'pendiente' }, headers: auth('panel-secreto') }, cfg, { db })).body, /class="on">Anuncios/);
   const llamadas = [];
   const db2 = async (fn, a) => { llamadas.push([fn, a]); return db(fn); };

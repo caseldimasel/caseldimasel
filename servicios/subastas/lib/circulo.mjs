@@ -1029,7 +1029,7 @@ export async function atenderPanel(req, cfg, deps) {
     } catch (e) { /* sin sql/gestion.sql */ }
   }
   // La portada del panel es el centro operativo: Ventas, una venta, Importar Excel y Propietarios (operaciones.mjs)
-  const seccion = req.query.estado || (req.method === 'GET' ? 'ventas' : '');
+  const seccion = req.query.estado || (req.method === 'GET' ? 'finanzas' : '');
   // Anuncios › En la web: todos los anuncios de la tienda y su editor (fichas.mjs)
   if (seccion === 'fichas' || seccion === 'ficha') return rutasFichas({ ...req, query: { ...req.query, estado: seccion } }, cfg, deps, html);
   // Gestiones de venta y Alquileres (solicitudes.mjs)
@@ -1075,9 +1075,9 @@ export async function atenderPanel(req, cfg, deps) {
     return html(paginaAlquiler(lista, { ver, error, marco, contactos, extra }));
   }
   // Coches en gestión: el expediente de cada coche (captación, contrato, venta, factura y cobro) y los datos de facturación (expedientes.mjs)
-  if (['expedientes', 'expediente', 'facturacion'].includes(seccion)) return rutasExpedientes({ ...req, query: { ...req.query, estado: seccion } }, cfg, deps, html);
+  if (['expedientes', 'expediente', 'facturacion', 'ligar'].includes(seccion)) return rutasExpedientes({ ...req, query: { ...req.query, estado: seccion } }, cfg, deps, html);
   // Finanzas: el resumen (finanzas.mjs)
-  if (seccion === 'finanzas') { const { rutasFinanzas } = await import('./finanzas.mjs'); return rutasFinanzas(req, cfg, deps, html); }
+  if (seccion === 'finanzas' || seccion === 'impuestos') { const { rutasFinanzas } = await import('./finanzas.mjs'); return rutasFinanzas({ ...req, query: { ...req.query, estado: seccion } }, cfg, { ...deps, tareas }, html); }
   // Ventas › Gastos: lo que gasta Sidonia cada mes (gastos.mjs)
   if (seccion === 'gastos') return rutasGastos({ ...req, query: { ...req.query, estado: seccion } }, { t: deps.gastos || tablaAnuncios(cfg, deps.fetch, 'gastos'), ops: deps.operaciones || tablaAnuncios(cfg, deps.fetch, 'operaciones'), pagos: deps.pagos || tablaAnuncios(cfg, deps.fetch, 'pagos'), facturas: deps.facturas || tablaAnuncios(cfg, deps.fetch, 'facturas') }, html);
   // Ventas › Facturas: las facturas, enlazadas con su venta, y Hacienda trimestre a trimestre (facturas.mjs)

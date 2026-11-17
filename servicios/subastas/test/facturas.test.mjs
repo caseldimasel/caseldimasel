@@ -91,7 +91,9 @@ test('panel › Facturas: cargar, enlazar, Hacienda y en Ventas la factura de ca
   assert.match(await pag({ estado: 'facturas' }, 'POST', { accion: 'importar', csv: CSV }), /Importadas 0 facturas \(20 ya estaban\)/);
   assert.equal(facturas.filas.find((f) => f.numero === '2026-011').operacion_id, 900);
   const h = await pag({ estado: 'facturas' });
-  assert.match(h, /Hacienda, trimestre a trimestre/); assert.match(h, /9924,85 €|9\.924,85 €/); assert.match(h, /Ventas con factura<\/span><b>1 de 1/);
+  assert.match(h, /Finanzas › Impuestos/); assert.match(h, /Ventas con factura<\/span><b>1 de 1/);
+  const imp = await pag({ estado: 'impuestos' });
+  assert.match(imp, /Trimestre a trimestre/); assert.match(imp, /9\.924,85 €/);
   assert.match(await pag({ estado: 'ventas' }), /factura 2026-011/);
   const meses = await pag({ estado: 'meses', ano: '2026' });
   assert.match(meses, /<th>Otros servicios<\/th>/);

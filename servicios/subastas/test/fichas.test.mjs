@@ -62,8 +62,8 @@ test('panel › Anuncios › En la web: lista, editar (y la venta al día) y enl
   const l = await atenderPanel({ method: 'GET', query: { estado: 'fichas' }, headers: auth }, cfg, deps);
   assert.match(l.body, /<title>Anuncios en la web/);
   assert.match(l.body, /class="on">Anuncios/);
-  assert.match(l.body, /\?estado=operacion&id=5">Venta · 4194 €/);
-  assert.match(l.body, /\?estado=operacion&de=land-rover-santana" class="sub">\+ Crear venta/);
+  assert.match(l.body, /\?estado=expediente&id=5">[^<]* ›<\/a><span class="sub">sin contrato<\/span>/);
+  assert.match(l.body, /\?estado=ligar&h=land-rover-santana"[^>]*>Ligar con su propietario ›/);
   const e = await atenderPanel({ method: 'GET', query: { estado: 'ficha', h: 'porsche-914-6-1970' }, headers: auth }, cfg, deps);
   assert.match(e.body, /admin\.shopify\.com\/store\/sidonia\/products\/1/);
   const g = await atenderPanel({ method: 'POST', query: { estado: 'ficha', h: 'porsche-914-6-1970' }, body: { accion: 'guardar', titulo: 'PORSCHE 914/6 1970', situacion: 'vendido', status: 'ACTIVE', tipo: 'Coches', descripcion: '<p>Hola</p>', etiquetas: '', precio: '69914', precio_antes: '', provincia: 'Madrid', propietario: 'Carlos' }, headers: auth }, cfg, deps);

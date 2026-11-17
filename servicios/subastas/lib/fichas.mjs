@@ -97,7 +97,7 @@ export function paginaFichas(todas, ops, { ver = 'todo', de = 'todos', aviso = '
       <td class="izq">${esc(f.propietario || v?.propietario_nombre || '—')}</td>
       ${numeros ? `<td><a href="?estado=anuncio&h=${encodeURIComponent(f.handle)}">${fmt(nu(f.handle).vistas)}</a>${n(nu(f.handle).personas) ? `<span class="sub">${fmt(nu(f.handle).personas)} personas</span>` : ''}</td><td>${fmt(nu(f.handle).contactos)}</td><td>${fmt(nu(f.handle).guardados)}</td>` : ''}
       <td>${euros(f.precio)}${f.precio_antes > f.precio ? `<span class="sub" style="text-decoration:line-through">${euros(f.precio_antes)}</span>` : ''}</td>
-      <td class="izq">${v ? `<a href="?estado=operacion&id=${v.id}">Venta${v.comision ? ` · ${euros(v.comision)}` : ''}</a>` : f.comunidad ? (f.anuncio ? `<a href="?estado=cobrar&id=${f.anuncio}">Cobros ›</a>` : '<span class="sub">Comunidad</span>') : `<a href="?estado=operacion&de=${encodeURIComponent(f.handle)}" class="sub">+ Crear venta</a>`}</td>
+      <td class="izq">${v ? `<a href="?estado=expediente&id=${v.id}">${esc(v.expediente?.propietario?.nombre || v.propietario_nombre || 'Su ficha')} ›</a><span class="sub">${v.expediente?.contrato?.firma ? '<span style="color:var(--verde)">✓ contrato firmado</span>' : v.expediente?.contrato?.enviado ? 'contrato enviado' : 'sin contrato'}${v.estado === 'vendido' ? ` · vendido${v.comision ? ` · ${euros(v.comision)}` : ''}` : ''}</span>` : f.comunidad ? (f.anuncio ? `<a href="?estado=cobrar&id=${f.anuncio}">Cobros ›</a>` : '<span class="sub">Comunidad</span>') : `<a href="?estado=ligar&h=${encodeURIComponent(f.handle)}" style="color:#f0b400">Ligar con su propietario ›</a>`}</td>
       <td><a href="?estado=ficha&h=${encodeURIComponent(f.handle)}">Editar ›</a></td></tr>`;
   }).join('');
   return marco('Anuncios en la web', 'fichas', `
@@ -117,7 +117,7 @@ ${error ? `<p class="aviso mal">No se han podido leer los anuncios de la tienda:
   <input type="search" placeholder="Buscar coche, propietario, provincia…" oninput="const q=this.value.trim().toLowerCase().normalize('NFD').replace(/[\\u0300-\\u036f]/g,'');document.querySelectorAll('tr[data-q]').forEach((tr)=>{tr.hidden=q&&!tr.dataset.q.includes(q)})">
 </div>
 <div class="card"><div class="tabla"><table>
-  <thead><tr><th class="izq"></th><th class="izq">Anuncio</th><th class="izq">Estado</th><th class="izq">Propietario</th>${numeros ? `${['vistas', 'contactos', 'guardados'].map((k) => `<th><a href="?estado=fichas&de=${de}&ver=${ver}&orden=${orden === k ? 'reciente' : k}" title="Ordenar">${{ vistas: 'Vistas', contactos: 'Contactos', guardados: 'Guardados' }[k]}${orden === k ? ' ↓' : ''}</a></th>`).join('')}` : ''}<th>Precio</th><th class="izq">Venta</th><th></th></tr></thead>
+  <thead><tr><th class="izq"></th><th class="izq">Anuncio</th><th class="izq">Estado</th><th class="izq">Propietario</th>${numeros ? `${['vistas', 'contactos', 'guardados'].map((k) => `<th><a href="?estado=fichas&de=${de}&ver=${ver}&orden=${orden === k ? 'reciente' : k}" title="Ordenar">${{ vistas: 'Vistas', contactos: 'Contactos', guardados: 'Guardados' }[k]}${orden === k ? ' ↓' : ''}</a></th>`).join('')}` : ''}<th>Precio</th><th class="izq">Propietario y contrato</th><th></th></tr></thead>
   <tbody>${filas || `<tr><td colspan="${numeros ? 10 : 7}" class="vacio">No hay anuncios aquí.</td></tr>`}</tbody>
 </table></div></div>
 ${numeros ? '<p class="nota">Vistas, contactos y guardados: desde siempre (pulsa en el título de la columna para ordenar; en las vistas, para ver quién está interesado).</p>' : '<p class="nota">Para ver las vistas, contactos y guardados de cada anuncio aquí, ejecuta otra vez <b>sql/estadisticas.sql</b> en Supabase › SQL Editor.</p>'}
@@ -222,7 +222,7 @@ export async function guardarFicha(gql, f, c) {
 export async function rutasFichas(req, cfg, deps, html) {
   const gql = deps.gql || shopifyAdmin(cfg, deps.fetch);
   const tOps = deps.operaciones || tablaAnuncios(cfg, deps.fetch, 'operaciones');
-  const leerOps = async () => { try { return await tOps.leer('select=id,handle,titulo,estado,comision,propietario_nombre,comprador_nombre,fecha_venta&limit=5000'); } catch (e) { return []; } };
+  const leerOps = async () => { try { return await tOps.leer('select=*&limit=5000'); } catch (e) { return []; } };
   const tiendaAdmin = (cfg.shopifyTienda || '').replace(/\.myshopify\.com$/, '');
   let fichas = [], error = '';
   try { fichas = await leerFichas(gql); } catch (e) { error = e.message; }

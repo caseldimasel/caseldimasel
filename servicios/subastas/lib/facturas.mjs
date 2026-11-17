@@ -179,9 +179,7 @@ ${editar ? `<div class="card"><h2>Cambiar la factura ${esc(editar.numero)}</h2>$
   <div class="kpi"><span>IRPF pagado</span><b>${euros(irpfPagado)}</b><small>modelo 130</small></div>
   <div class="kpi"><span>Ventas con factura</span><b>${fmt(vendidas.filter((o) => conFactura.has(Number(o.id))).length)} de ${fmt(vendidas.length)}</b><small>${sinEnlazar.length ? `${fmt(sinEnlazar.length)} facturas de venta sin enlazar` : 'todas las facturas de venta, enlazadas'}</small></div>
 </div>
-${H.length ? `<div class="card"><h2>Hacienda, trimestre a trimestre</h2><div class="tabla"><table>
-  <thead><tr><th class="izq">Trimestre</th><th>Facturado</th><th>IVA cobrado</th><th>IVA pagado</th><th>IVA de los gastos</th><th>IRPF pagado</th><th>Beneficio declarado</th><th>Gastos declarados</th></tr></thead><tbody>${filasH}</tbody></table></div>
-  <p class="nota">El IVA pagado (modelo 303) es el IVA cobrado en las facturas menos el IVA de los gastos: la diferencia es el IVA de los gastos que se han deducido. El IRPF (modelo 130) es el ${IRPF_PCT} % del beneficio desde enero menos lo ya pagado ese año; de ahí sale el beneficio que se ha declarado cada trimestre y, restándolo de lo facturado, los gastos que la gestoría ha deducido. Si esos gastos son más que los del panel (Ventas › Gastos), pedid a la gestoría el libro de gastos para meterlos. Los pagos se ponen en Gastos: el IRPF con categoría «Impuestos» y el IVA con categoría «IVA».</p></div>` : ''}
+<p class="nota" style="margin:0 0 12px">El IVA y el IRPF de cada trimestre (lo cobrado, lo pagado a Hacienda y lo declarado) están en <a href="?estado=impuestos">Finanzas › Impuestos</a>.</p>
 <div class="card"><div class="barra" style="margin:0 0 8px"><h2 style="margin:0">Facturas</h2><a class="boton claro" href="?estado=facturas&csv=1">Descargar CSV</a></div><div class="tabla"><table>
   <thead><tr><th class="izq">Factura</th><th class="izq">Cliente</th><th class="izq">Concepto</th><th>Base</th><th>IVA</th><th>Total</th><th class="izq">Venta</th><th></th></tr></thead>
   <tbody>${filas || '<tr><td colspan="8" class="vacio">Aún no hay facturas.</td></tr>'}</tbody></table></div></div>
