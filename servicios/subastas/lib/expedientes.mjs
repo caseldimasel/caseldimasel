@@ -16,16 +16,17 @@
  * Base de datos: sql/centro-operativo.sql. Páginas públicas (enlace firmado): /tienda/intermediacion y /tienda/factura.
  */
 import { createHash, createHmac } from 'node:crypto';
-import { esc, tablaAnuncios } from './circulo.mjs';
+import { esc, shopifyAdmin, tablaAnuncios } from './circulo.mjs';
 import { documentoValido, normDoc } from './cobros.mjs';
 import { enviarCorreo, P, plantilla } from './correos.mjs';
-import { importe, n } from './estadisticas.mjs';
-import { marco, parecido } from './operaciones.mjs';
+import { fmt as fmtN, importe, n } from './estadisticas.mjs';
+import { marco, normal as normalTexto, parecido } from './operaciones.mjs';
 
 export const VERSION_INTERMEDIACION = '2026-11-17';
 export const LIMITE_EFECTIVO = 1000;
 export const FORMAS_PAGO = { transferencia: 'Transferencia', bizum: 'Bizum', tarjeta: 'Tarjeta', efectivo: 'Efectivo' };
-export const FASES = [['captado', 'Ficha creada'], ['contrato', 'Contrato enviado'], ['firmado', 'Firmado · vídeo'], ['en_web', 'En la web'], ['vendido', 'Vendido'], ['facturado', 'Facturado'], ['cobrado', 'Cobrado']];
+/** Los pasos de cada coche de Sidonia (y «hecho»: cobrado, retirado o una venta de antes) */
+export const PASOS = [['contrato', 'Contrato'], ['anuncio', 'Anuncio'], ['venta', 'En venta'], ['factura', 'Factura'], ['cobro', 'Cobro'], ['hecho', 'Cerrado']];
 const ORIGENES = { persona: 'En persona', llamada: 'Por teléfono', web: 'Formulario de la web', recomendacion: 'Recomendación', otro: 'Otro' };
 const DIA = /^\d{4}-\d{2}-\d{2}$/;
 const hoyISO = () => new Date().toISOString().slice(0, 10);
@@ -54,15 +55,70 @@ export const urlFactura = (cfg, id) => `${cfg.servidor}/tienda/factura?n=${Numbe
 export const firmaOk = (cfg, tipo, id, f) => Boolean(Number(id)) && String(f || '') === firma(cfg, tipo, id);
 
 /* ---------------------------------------------------------------------------- El expediente */
-/** La fase en la que está: la del contrato y la venta, y la de su factura (si la tiene) */
-export function faseDe(o, factura = null) {
+/**
+ * El paso en el que está un coche: contrato → anuncio → venta → factura → cobro → hecho.
+ * prod: su anuncio en la tienda (catalogoTienda); undefined si no se sabe (sin Shopify), null si ya no está.
+ */
+export function pasoDe(o, factura = null, prod = undefined, hoy = new Date()) {
   const x = o.expediente || {};
-  if (factura && factura.estado !== 'anulada') return factura.cobrada ? 'cobrado' : 'facturado';
-  if (o.estado === 'vendido') return 'vendido';
-  if (x.contrato?.firma) return o.handle ? 'en_web' : 'firmado';
-  if (x.contrato?.enviado) return 'contrato';
-  if (o.estado === 'captado') return 'captado';
-  return o.handle || !Object.keys(x).length ? 'en_web' : 'firmado';
+  const deAntes = !Object.keys(x).length && o.estado !== 'captado';
+  if (o.estado === 'retirado') return 'hecho';
+  if (factura && factura.estado !== 'anulada') return factura.cobrada ? 'hecho' : 'cobro';
+  if (o.estado === 'vendido' || prod?.situacion === 'vendido') {
+    // Las ventas de años anteriores sin expediente ya están cerradas (se facturaron fuera del panel)
+    return deAntes && String(o.fecha_venta || '').slice(0, 4) < String(hoy.getFullYear()) ? 'hecho' : 'factura';
+  }
+  if (o.handle && (prod === undefined || (prod && prod.status === 'ACTIVE'))) return 'venta';
+  if (deAntes) return o.handle ? 'anuncio' : 'venta';
+  return x.contrato?.firma ? 'anuncio' : 'contrato';
+}
+export const nombrePaso = (k) => (PASOS.find(([p]) => p === k) || [, k])[1];
+/** El anuncio en Shopify, en el panel de Shopify */
+export const adminShopify = (cfg, o) => {
+  const tienda = String(cfg.shopifyTienda || '').replace(/\.myshopify\.com$/, '');
+  const id = String(o.expediente?.shopify_id || '').split('/').pop();
+  return tienda ? `https://admin.shopify.com/store/${tienda}/products${id ? `/${id}` : `?query=${encodeURIComponent(o.handle || o.titulo || '')}`}` : '';
+};
+
+/** Crea su anuncio en Shopify como borrador (título, precio, Sidonia) ya ligado a la ficha. Devuelve { id, handle } */
+export async function crearBorrador(gql, o) {
+  const c = o.expediente?.coche || {}, k = o.expediente?.condiciones || {};
+  const titulo = o.titulo || tituloCoche(c);
+  const r = await gql(`mutation($product: ProductCreateInput!) { productCreate(product: $product) { product { id handle variants(first: 1) { nodes { id } } } userErrors { field message } } }`,
+    { product: { title: titulo, status: 'DRAFT', vendor: 'Sidonia', productType: 'Coches' } });
+  const errs = r.productCreate?.userErrors || [];
+  if (errs.length) throw new Error(`Shopify: ${errs.map((e) => e.message).join(' · ')}`);
+  const p = r.productCreate.product;
+  const precio = n(k.precio_salida ?? o.precio_anunciado);
+  const v = p.variants?.nodes?.[0];
+  if (v && precio) {
+    await gql(`mutation($productId: ID!, $variants: [ProductVariantsBulkInput!]!) { productVariantsBulkUpdate(productId: $productId, variants: $variants) { userErrors { field message } } }`,
+      { productId: p.id, variants: [{ id: v.id, price: String(precio), inventoryPolicy: 'CONTINUE' }] }).catch((e) => console.error(e));
+  }
+  // En la tienda online: así, cuando lo pongáis «Activo» en Shopify, ya se ve en la web
+  try {
+    const pubs = await gql('{ publications(first: 20) { nodes { id name } } }');
+    const tienda = pubs.publications.nodes.find((x) => /online store|tienda online/i.test(x.name)) || pubs.publications.nodes[0];
+    if (tienda) await gql('mutation($id: ID!, $input: [PublicationInput!]!) { publishablePublish(id: $id, input: $input) { userErrors { field message } } }', { id: p.id, input: [{ publicationId: tienda.id }] });
+  } catch (e) { console.error(e); }
+  return { id: p.id, handle: p.handle };
+}
+
+/** Las fichas firmadas sin anuncio que se ligan solas con el anuncio de Shopify que es suyo: [{ id, handle, titulo }] */
+export function ligarSolos(ops, catalogo) {
+  const ligados = new Set(ops.map((o) => o.handle).filter(Boolean));
+  const libres = [...catalogo.values()].filter((p) => !p.comunidad && !ligados.has(p.handle) && p.situacion !== 'vendido');
+  const hechos = [];
+  for (const o of ops) {
+    if (o.handle || o.modalidad === 'encargo' || ['vendido', 'retirado'].includes(o.estado) || !Object.keys(o.expediente || {}).length) continue;
+    const desde = o.creado ? new Date(o.creado).getTime() - 864e5 : 0;
+    const [mejor] = libres.filter((p) => !ligados.has(p.handle) && (!p.creado || new Date(p.creado).getTime() >= desde))
+      .map((p) => [parecido(o.titulo, p.titulo, { anioDistinto: 0.25 }), p]).filter(([x]) => x >= 0.9).sort((a, b) => b[0] - a[0]);
+    if (!mejor) continue;
+    ligados.add(mejor[1].handle);
+    hechos.push({ id: Number(o.id), handle: mejor[1].handle, titulo: mejor[1].titulo });
+  }
+  return hechos;
 }
 export const tituloCoche = (c = {}) => [c.marca, c.modelo, c.anio].filter(Boolean).join(' ').toUpperCase();
 
@@ -234,7 +290,7 @@ export const textoWaFactura = (cfg, o, f) => `Hola ${primerNombre(f.datos?.desti
 const CSS = `
   .exp-cab { display: grid; grid-template-columns: 1fr auto; gap: 16px; align-items: center; }
   .exp-cab h2 { margin: 0 0 4px; font-size: 22px; } .exp-cab p { margin: 2px 0; color: var(--suave); }
-  .pasos { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; margin: 14px 0 16px; counter-reset: p; }
+  .pasos { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; margin: 14px 0 16px; counter-reset: p; }
   .pasos li { list-style: none; padding: 10px 10px 10px 36px; position: relative; border-radius: 12px; background: var(--caja); border: 1px solid var(--linea); font-size: 13px; font-weight: 700; color: var(--flojo); }
   .pasos li::before { counter-increment: p; content: counter(p); position: absolute; left: 10px; top: 50%; transform: translateY(-50%); width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center; background: var(--caja-3); color: var(--suave); font-size: 11px; }
   .pasos li.ok { color: var(--texto); } .pasos li.ok::before { content: '✓'; background: var(--verde); color: var(--verde-tinta); }
@@ -262,7 +318,7 @@ const CSS = `
   .tarj { display: block; background: var(--caja-2); border: 1px solid var(--linea); border-radius: 12px; padding: 10px; margin-bottom: 8px; text-decoration: none; color: inherit; }
   .tarj:hover { border-color: var(--verde); } .tarj b { display: block; font-size: 13px; line-height: 1.3; } .tarj span { display: block; font-size: 12px; color: var(--suave); margin-top: 3px; }
   .tarj .dinero { color: var(--verde); font-weight: 800; }
-  @media (max-width: 800px) { .pasos { grid-template-columns: repeat(4, 1fr); } .g2, .g3 { grid-template-columns: 1fr; } .exp-cab { grid-template-columns: 1fr; } .resumen-f { grid-template-columns: auto auto; } }`;
+  @media (max-width: 800px) { .pasos { grid-template-columns: repeat(3, 1fr); } .g2, .g3 { grid-template-columns: 1fr; } .exp-cab { grid-template-columns: 1fr; } .resumen-f { grid-template-columns: auto auto; } }`;
 
 const campo = (etq, nombre, valor, extra = '') => `<label>${etq}<input name="${nombre}" value="${esc(valor ?? '')}"${extra}></label>`;
 function formExpediente(o = {}, emisor = {}, { accion = 'guardar', boton = 'Guardar' } = {}) {
@@ -287,10 +343,10 @@ function formExpediente(o = {}, emisor = {}, { accion = 'guardar', boton = 'Guar
 /** Un expediente: los 6 pasos, cada uno con lo que se puede hacer */
 export function paginaExpediente(cfg, o, { factura = null, facturas = [], emisor = {}, aviso = '', anuncios = [], ligados = new Set() } = {}) {
   const x = o.expediente || {}, p = x.propietario || {}, c = x.coche || {}, k = x.condiciones || {}, e = leerEmisor(emisor);
-  const fase = faseDe(o, factura), i = FASES.findIndex(([f]) => f === fase);
-  const pasos = `<ol class="pasos">${FASES.map(([f, nombre], j) => `<li class="${j < i || fase === 'cobrado' ? 'ok' : ''}${j === i ? ' on' : ''}">${nombre}</li>`).join('')}</ol>`;
-  // (cada bloque, con sus fases: el de vídeo y web son dos)
-  const blq = (js, titulo, estado, cuerpo) => { const [a, z] = [].concat(js); const hasta = z ?? a; return `<div class="card bloque${i >= a && i <= hasta ? ' on' : hasta < i ? ' hecho' : ''}"><h2>${titulo} ${estado}</h2>${cuerpo}</div>`; };
+  const enWeb = o.handle ? anuncios.find((a) => a.handle === o.handle) || null : null;
+  const paso = pasoDe(o, factura, anuncios.length ? enWeb : undefined), i = PASOS.findIndex(([f]) => f === paso);
+  const pasos = `<ol class="pasos">${PASOS.slice(0, 5).map(([, nombre], j) => `<li class="${j < i ? 'ok' : ''}${j === i ? ' on' : ''}">${nombre}</li>`).join('')}</ol>`;
+  const blq = (j, titulo, estado, cuerpo, ancla = '') => `<div class="card bloque${j === i ? ' on' : j < i ? ' hecho' : ''}"${ancla ? ` id="${ancla}"` : ''}><h2>${titulo} ${estado}</h2>${cuerpo}</div>`;
   const id = Number(o.id);
   const f = (accion, txt, clase = 'boton claro', extra = '') => `<form method="post" action="?estado=expediente&id=${id}" style="display:inline"><button class="${clase}" name="accion" value="${accion}"${extra}>${txt}</button></form>`;
   const faltanContrato = [!emisorCompleto(e) && 'los datos de Sidonia (Finanzas › Datos de facturación)', !c.matricula && 'la matrícula', !k.comision_pct && k.comision_pct !== 0 && 'la comisión'].filter(Boolean);
@@ -308,16 +364,19 @@ export function paginaExpediente(cfg, o, { factura = null, facturas = [], emisor
     ? `<div class="resumen-f"><span>Vendido por</span><b>${eur0(o.precio_venta)}</b><span>Fecha</span><b>${esc(fechaTxt(o.fecha_venta))}</b><span>Comprador</span><b>${esc(o.comprador_nombre || '—')}</b><span>Comisión</span><b>${o.comision ? eur(o.comision) : '—'}</b></div>
        <details style="margin-top:10px"><summary>Cambiar la venta</summary>${formVenta(o)}</details>`
     : formVenta(o);
-  // 3. Vídeo y anuncio en la web: con el contrato firmado se hace el vídeo, se sube a Shopify y se liga aquí
-  const enWeb = o.handle ? anuncios.find((a) => a.handle === o.handle) : null;
+  // 3. Su anuncio: se crea desde aquí en Shopify (borrador, ya ligado); allí se sube el vídeo y las fotos y se publica
   const sugeridos = o.handle ? [] : anuncios.filter((a) => !a.comunidad && !ligados.has(a.handle)).map((a) => ({ ...a, puntos: parecido(o.titulo || tituloCoche(c), a.titulo, { anioDistinto: 0.25 }) })).filter((a) => a.puntos >= 0.45).sort((a, b) => b.puntos - a.puntos).slice(0, 3);
-  const tarjAnuncio = (a, boton) => `<div class="anu">${a.foto ? `<img src="${esc(a.foto)}" alt="">` : '<span class="anu-f"></span>'}<div><b>${esc(a.titulo)}</b><span>${a.situacion === 'vendido' ? 'Vendido en la web' : a.situacion === 'oculto' ? 'Oculto en la web' : 'En venta en la web'}${a.puntos ? ` · se parece un ${Math.round(a.puntos * 100)} %` : ''}</span></div>${boton}</div>`;
-  const anuncio = `<ol class="check"><li class="${ct.firma ? 'ok' : ''}">Contrato firmado</li><li class="${x.video ? 'ok' : ''}">Vídeo hecho ${x.video ? `<small>(${esc(fechaTxt(x.video))})</small>` : f('video', 'Ya está el vídeo', 'boton claro mini')}</li><li class="${o.handle ? 'ok' : ''}">Subido a Shopify y ligado con su ficha</li></ol>
-    ${enWeb ? tarjAnuncio(enWeb, `<div class="acc-row" style="margin:0"><a class="boton claro" href="${esc(cfg.tienda)}/products/${esc(o.handle)}" target="_blank" rel="noopener">Ver en la web</a><a class="boton claro" href="?estado=anuncio&h=${encodeURIComponent(o.handle)}">Sus números</a></div>`)
-      : o.handle ? `<p>Ligado con <b>${esc(o.handle)}</b> (ya no está en la tienda).</p>` : ''}
+  const tarjAnuncio = (a, boton) => `<div class="anu">${a.foto ? `<img src="${esc(a.foto)}" alt="">` : '<span class="anu-f"></span>'}<div><b>${esc(a.titulo)}</b><span>${a.situacion === 'vendido' ? 'Vendido en la web' : a.status === 'DRAFT' ? 'Borrador en Shopify' : a.situacion === 'oculto' ? 'Oculto en la web' : 'En venta en la web'}${a.puntos ? ` · se parece un ${Math.round(a.puntos * 100)} %` : ''}</span></div>${boton}</div>`;
+  const enShopify = adminShopify(cfg, o);
+  const borrador = enWeb && enWeb.status !== 'ACTIVE' && enWeb.situacion !== 'vendido';
+  const anuncio = `${enWeb ? tarjAnuncio(enWeb, `<div class="acc-row" style="margin:0">${borrador ? `<a class="boton" href="${esc(enShopify)}" target="_blank" rel="noopener">Abrir en Shopify</a>` : `<a class="boton claro" href="${esc(cfg.tienda)}/products/${esc(o.handle)}" target="_blank" rel="noopener">Ver en la web</a><a class="boton claro" href="?estado=anuncio&h=${encodeURIComponent(o.handle)}">Sus números</a><a class="boton claro" href="?estado=ficha&h=${encodeURIComponent(o.handle)}">Editar</a>`}</div>`)
+      : o.handle ? `<p>Ligado con <b>${esc(o.handle)}</b>${anuncios.length ? ' (ya no está en la tienda)' : ''}.</p>` : ''}
+    ${borrador ? '<p class="aviso">Está en Shopify como <b>borrador</b>: sube allí el vídeo y las fotos, revisa la descripción y ponlo en <b>Activo</b>. En cuanto lo publiques, aquí pasa solo a «En venta».</p>' : ''}
     ${enWeb && enWeb.situacion === 'vendido' && o.estado !== 'vendido' ? '<p class="aviso">En la web ya está vendido: ponle abajo el precio final para hacer la factura.</p>' : ''}
-    ${!o.handle ? `${sugeridos.length ? `<p>¿Es alguno de estos anuncios de la web?</p>${sugeridos.map((a) => tarjAnuncio(a, `<form method="post" action="?estado=expediente&id=${id}"><input type="hidden" name="handle" value="${esc(a.handle)}"><button class="boton" name="accion" value="anuncio">Es este, ligar</button></form>`)).join('')}` : `<p class="sub">${ct.firma ? 'Cuando lo subáis a Shopify, aparecerá aquí para ligarlo.' : 'Primero, el contrato firmado; luego el vídeo y subirlo a Shopify.'}</p>`}` : ''}
-    <details${o.handle || sugeridos.length ? '' : ' open'}><summary>${o.handle ? 'Cambiar el anuncio' : 'Buscar otro anuncio'}</summary><form method="post" action="?estado=expediente&id=${id}" class="acc-row"><input name="handle" list="anuncios-web" value="${esc(o.handle || '')}" placeholder="Busca su anuncio…" style="min-width:280px"><button class="boton claro" name="accion" value="anuncio">Ligar</button></form>
+    ${!o.handle ? `<p>${ct.firma ? 'Contrato firmado: ¡a por el anuncio!' : 'Puedes ir preparándolo mientras firma el contrato.'} Se crea en Shopify como <b>borrador</b>, ya ligado a esta ficha, con su título y su precio. Allí subís el vídeo y las fotos y lo publicáis.</p>
+      <div class="acc-row">${f('crear-anuncio', 'Crear su anuncio en Shopify', ct.firma ? 'boton' : 'boton claro')}</div>
+      ${sugeridos.length ? `<p style="margin-top:14px">¿Ya lo habéis subido? Es alguno de estos:</p>${sugeridos.map((a) => tarjAnuncio(a, `<form method="post" action="?estado=expediente&id=${id}"><input type="hidden" name="handle" value="${esc(a.handle)}"><button class="boton" name="accion" value="anuncio">Es este, ligar</button></form>`)).join('')}` : ''}` : ''}
+    <details><summary>${o.handle ? 'Cambiar el anuncio' : 'Buscar otro anuncio de la web'}</summary><form method="post" action="?estado=expediente&id=${id}" class="acc-row"><input name="handle" list="anuncios-web" value="${esc(o.handle || '')}" placeholder="Busca su anuncio…" style="min-width:280px"><button class="boton claro" name="accion" value="anuncio">Ligar</button></form>
     <datalist id="anuncios-web">${anuncios.filter((a) => !a.comunidad).map((a) => `<option value="${esc(a.handle)}">${esc(a.titulo)}</option>`).join('')}</datalist></details>`;
   const prop = facturaPropuesta(o, e, facturas);
   const fact = factura
@@ -334,19 +393,19 @@ export function paginaExpediente(cfg, o, { factura = null, facturas = [], emisor
         ${n(factura.total) >= LIMITE_EFECTIVO ? `<p class="aviso-ef">Esta factura es de ${eur0(LIMITE_EFECTIVO)} o más: no se puede cobrar en efectivo (Ley 7/2012).</p>` : ''}`
     : '<p class="sub">Primero, la factura.</p>';
   const hist = (x.historial || []).slice().reverse().map((h) => `<li><time>${esc(new Date(h.fecha).toLocaleString('es-ES', { timeZone: 'Europe/Madrid', day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' }))}</time>${esc(h.texto)}</li>`).join('');
-  return marco(o.titulo || 'Expediente', 'expedientes', `
-<p><a href="?estado=expedientes">‹ Coches de Sidonia</a></p>
+  return marco(o.titulo || 'Expediente', 'sidonia', `
+<p><a href="?estado=sidonia">‹ Coches de Sidonia</a></p>
 ${aviso ? `<p class="aviso${/^Error/.test(aviso) ? ' mal' : ''}">${esc(aviso)}</p>` : ''}
 <div class="card exp-cab"><div><h2>${esc(o.titulo || tituloCoche(c))}</h2><p>${esc([c.matricula, c.km && `${c.km} km`, ORIGENES[x.origen], o.comercial && `lo lleva ${o.comercial}`].filter(Boolean).join(' · '))}</p>
   <p>Propietario: <b>${esc(p.nombre || o.propietario_nombre || '—')}</b>${p.telefono ? ` · <a href="tel:${esc(p.telefono)}">${esc(p.telefono)}</a>` : ''}${p.email ? ` · <a href="mailto:${esc(p.email)}">${esc(p.email)}</a>` : ''}</p></div>
-  <div style="text-align:right"><span class="chip si">${esc(FASES[i][1])}</span><p>Comisión ${esc(String(k.comision_pct ?? '—').replace('.', ','))} %${k.precio_salida ? ` · sale a ${eur0(k.precio_salida)}` : ''}</p><p><a href="?estado=operacion&id=${id}">Todos los datos de la venta ›</a></p></div></div>
+  <div style="text-align:right"><span class="chip si">${esc(nombrePaso(paso))}</span><p>Comisión ${esc(String(k.comision_pct ?? '—').replace('.', ','))} %${k.precio_salida ? ` · sale a ${eur0(k.precio_salida)}` : ''}</p><p><a href="?estado=operacion&id=${id}">Todos los datos de la venta ›</a></p></div></div>
 ${pasos}
-${blq(0, '1. La ficha: el coche y su propietario', '', `<details${p.dni && c.matricula ? '' : ' open'}><summary>Ver y cambiar</summary>${formExpediente(o, e)}</details>`)}
-${blq(1, '2. Contrato de intermediación y exclusividad', chipC, contrato)}
-${blq([2, 3], '3. Vídeo y anuncio en la web', o.handle ? '<span class="chip si">En la web</span>' : x.video ? '<span class="chip am">Vídeo hecho</span>' : '', anuncio)}
-${blq(4, '4. Vendido', o.estado === 'vendido' ? '<span class="chip si">Vendido</span>' : '', venta)}
-${blq(5, '5. Factura', factura ? '<span class="chip si">Emitida</span>' : '', fact)}
-${blq(6, '6. Cobro', factura?.cobrada ? '<span class="chip si">Cobrada</span>' : factura ? '<span class="chip am">Pendiente</span>' : '', cobro)}
+<div class="card bloque"><h2>Propietario y coche</h2><details${p.nombre && c.matricula ? '' : ' open'}><summary>Ver y cambiar sus datos</summary>${formExpediente(o, e)}</details></div>
+${blq(0, '1. Contrato de intermediación y exclusividad', chipC, contrato, 'contrato')}
+${blq(1, '2. Su anuncio en la web', enWeb && !borrador ? '<span class="chip si">En la web</span>' : borrador ? '<span class="chip am">Borrador en Shopify</span>' : '', anuncio, 'anuncio')}
+${blq(2, '3. Vendido', o.estado === 'vendido' ? '<span class="chip si">Vendido</span>' : '', venta, 'venta')}
+${blq(3, '4. Factura', factura ? '<span class="chip si">Emitida</span>' : '', fact, 'factura')}
+${blq(4, '5. Cobro', factura?.cobrada ? '<span class="chip si">Cobrada</span>' : factura ? '<span class="chip am">Pendiente</span>' : '', cobro, 'cobro')}
 ${hist ? `<div class="card"><h2>Historial</h2><ul class="hist">${hist}</ul></div>` : ''}`, CSS);
 }
 function formVenta(o) {
@@ -375,20 +434,96 @@ function formFactura(pr, e, id) {
     q('[data-pv]').addEventListener('input', base); q('[data-pct]').addEventListener('input', base); ['[data-base]', '[data-iva]', '[data-forma]'].forEach((s) => q(s).addEventListener('input', tot)); tot(); })();</script>`;
 }
 
-/** Coches en gestión: un tablero con cada fase */
-export function paginaExpedientes(ops, facturas, { aviso = '', todos = false } = {}) {
-  const facDe = new Map(facturas.filter((f) => f.operacion_id && f.estado !== 'anulada').map((f) => [Number(f.operacion_id), f]));
-  const lista = ops.filter((o) => todos || (o.expediente && Object.keys(o.expediente).length) || o.estado === 'captado');
-  const porFase = Object.fromEntries(FASES.map(([f]) => [f, []]));
-  for (const o of lista) porFase[faseDe(o, facDe.get(Number(o.id)))]?.push(o);
-  const tarj = (o) => { const x = o.expediente || {}, fa = facDe.get(Number(o.id));
-    return `<a class="tarj" href="?estado=expediente&id=${Number(o.id)}"><b>${esc(o.titulo)}</b><span>${esc(x.propietario?.nombre || o.propietario_nombre || '—')}</span>${fa ? `<span class="dinero">${eur(fa.total)}</span>` : o.precio_venta ? `<span class="dinero">Vendido por ${eur0(o.precio_venta)}</span>` : x.condiciones?.precio_salida ? `<span>Sale a ${eur0(x.condiciones.precio_salida)}</span>` : ''}${x.contrato?.enviado && !x.contrato?.firma ? `<span>Contrato enviado el ${esc(fechaTxt(x.contrato.enviado))}</span>` : ''}</a>`; };
-  return marco('Coches de Sidonia', 'expedientes', `
+/** Anuncios › De Sidonia: cada coche que vende Sidonia, con su foto, el paso en el que está y lo siguiente que hay que hacer */
+const CSS_SD = `
+  .sd-cab { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; margin: 4px 0 14px; }
+  .sd-cab h1 { margin: 0; font-size: 26px; letter-spacing: -.02em; } .sd-cab p { margin: 2px 0 0; color: var(--suave); font-size: 14px; }
+  .sd-cab .boton { padding: 12px 18px; font-size: 15px; }
+  .sd-aviso { display: flex; gap: 12px; align-items: center; justify-content: space-between; padding: 12px 16px; border-radius: 14px; margin: 0 0 12px; background: rgba(240,180,0,.1); border: 1px solid rgba(240,180,0,.35); font-size: 14px; }
+  .sd-flujo { display: grid; grid-template-columns: repeat(5, 1fr) auto; gap: 8px; margin: 0 0 12px; }
+  .sd-flujo a { position: relative; display: block; text-decoration: none; color: inherit; padding: 12px 14px; border-radius: 16px; background: var(--caja); border: 1px solid var(--linea); }
+  .sd-flujo a:hover { border-color: var(--linea-2); } .sd-flujo a.on { border-color: var(--verde); box-shadow: 0 0 0 1px var(--verde) inset; }
+  .sd-flujo small { display: block; font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--suave); }
+  .sd-flujo b { display: block; font-size: 28px; line-height: 1.15; } .sd-flujo span { font-size: 12px; color: var(--flojo); }
+  .sd-flujo a:not(:last-child):not(.otro)::after { content: '›'; position: absolute; right: -8px; top: 50%; transform: translateY(-50%); color: var(--flojo); font-weight: 800; z-index: 1; }
+  .sd-flujo a.otro { display: flex; flex-direction: column; justify-content: center; }
+  .sd-bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 0 0 14px; }
+  .sd-bar input[type=search] { flex: 1; min-width: 220px; }
+  .sd-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 14px; }
+  .sd-c { display: flex; flex-direction: column; border-radius: 18px; overflow: hidden; background: var(--caja); border: 1px solid var(--linea); transition: border-color .15s, transform .15s; }
+  .sd-c:hover { border-color: var(--linea-2); transform: translateY(-1px); }
+  .sd-f { position: relative; display: block; aspect-ratio: 4 / 3; background: var(--caja-3); }
+  .sd-f img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .sd-f .vacia { position: absolute; inset: 0; display: grid; place-items: center; color: var(--flojo); font-size: 13px; text-align: center; padding: 10px; }
+  .sd-p { position: absolute; left: 10px; top: 10px; padding: 4px 10px; border-radius: 999px; font-size: 12px; font-weight: 800; background: rgba(0,0,0,.65); color: #fff; backdrop-filter: blur(6px); }
+  .sd-p.contrato { background: #f0b400; color: #1d1600; } .sd-p.anuncio { background: #5aa2ff; color: #031226; } .sd-p.venta { background: var(--verde); color: var(--verde-tinta); }
+  .sd-p.factura { background: #ff8a3d; color: #241000; } .sd-p.cobro { background: #c58cff; color: #1b0630; }
+  .sd-b { display: flex; flex-direction: column; gap: 3px; padding: 12px 14px 14px; flex: 1; }
+  .sd-b > a { color: inherit; text-decoration: none; } .sd-b > a b { font-size: 15px; line-height: 1.25; }
+  .sd-b .q { font-size: 13px; color: var(--suave); } .sd-b .e { font-size: 12px; color: var(--flojo); }
+  .sd-b .e.am { color: #f0b400; }
+  .sd-a { display: flex; flex-wrap: wrap; gap: 6px; margin-top: auto; padding-top: 10px; }
+  .sd-a form { display: contents; } .sd-a .boton { padding: 8px 12px; font-size: 13px; } .sd-a .boton.wa { background: #25d366; color: #04150c !important; }
+  .sd-vacio { padding: 40px 20px; text-align: center; color: var(--suave); border: 1px dashed var(--linea-2); border-radius: 18px; }
+  @media (max-width: 900px) { .sd-flujo { grid-template-columns: repeat(3, 1fr); } .sd-flujo a::after { display: none; } }
+  @media (max-width: 520px) { .sd-flujo { grid-template-columns: 1fr 1fr; } .sd-grid { grid-template-columns: 1fr 1fr; gap: 10px; } .sd-a .boton { flex: 1; text-align: center; } }`;
+
+export function paginaSidonia(cfg, items, { ver = 'marcha', aviso = '', gestiones = 0, emisor = {} } = {}) {
+  const cuenta = (k) => items.filter((x) => (k === 'marcha' ? x.paso !== 'hecho' : k === 'sinficha' ? x.sinFicha && x.paso !== 'hecho' : x.paso === k)).length;
+  const ayuda = { contrato: 'por enviar o firmar', anuncio: 'por subir a la web', venta: 'a la venta en la web', factura: 'vendidos sin factura', cobro: 'facturas sin cobrar' };
+  const lista = items.filter((x) => (ver === 'marcha' ? x.paso !== 'hecho' : ver === 'sinficha' ? x.sinFicha && x.paso !== 'hecho' : ver === 'todo' ? true : x.paso === ver))
+    .sort((a, b) => PASOS.findIndex(([p]) => p === a.paso) - PASOS.findIndex(([p]) => p === b.paso) || String(b.o?.actualizado || b.o?.creado || b.prod?.creado || '').localeCompare(String(a.o?.actualizado || a.o?.creado || a.prod?.creado || '')));
+  const listoContrato = (o) => emisorCompleto(leerEmisor(emisor)) && o.expediente?.coche?.matricula;
+  const tarjeta = ({ o, prod, f, paso, sinFicha }) => {
+    const x = o?.expediente || {}, p = x.propietario || {}, ct = x.contrato || {};
+    const titulo = prod?.titulo || o?.titulo || '';
+    const enlace = o ? `?estado=expediente&id=${Number(o.id)}` : `?estado=ligar&h=${encodeURIComponent(prod.handle)}`;
+    const precio = o?.estado === 'vendido' && o.precio_venta ? `vendido por ${eur0(o.precio_venta)}` : n(x.condiciones?.precio_salida ?? o?.precio_anunciado) ? eur0(x.condiciones?.precio_salida ?? o.precio_anunciado) : '';
+    const quien = [p.nombre || o?.propietario_nombre, precio].filter(Boolean).join(' · ');
+    const post = (accion, txt, clase = 'boton') => `<form method="post" action="?estado=expediente&id=${Number(o.id)}"><input type="hidden" name="volver" value="sidonia"><button class="${clase}" name="accion" value="${accion}">${txt}</button></form>`;
+    let estado = '', acc = '';
+    if (sinFicha) {
+      estado = '<span class="e am">Sin ficha de propietario ni contrato</span>';
+      acc = `<a class="boton" href="${enlace}">Añadir su propietario</a>`;
+    } else if (paso === 'contrato') {
+      estado = ct.enviado ? `<span class="e am">Contrato enviado el ${esc(fechaTxt(ct.enviado))}: falta que lo firme</span>` : '<span class="e">Contrato sin enviar</span>';
+      acc = !listoContrato(o) ? `<a class="boton" href="${enlace}#contrato">Completar para el contrato</a>`
+        : `${p.telefono || o.propietario_telefono ? `<a class="boton wa" href="?estado=expediente&id=${Number(o.id)}&wa=contrato" target="_blank" rel="noopener">${ct.enviado ? 'Reenviar' : 'Enviar'} por WhatsApp</a>` : ''}${p.email ? post('contrato-email', ct.enviado ? 'Reenviar email' : 'Por email', p.telefono ? 'boton claro' : 'boton') : ''}`;
+    } else if (paso === 'anuncio') {
+      estado = o.handle ? '<span class="e am">Borrador en Shopify: falta el vídeo, las fotos y publicarlo</span>' : `<span class="e">${ct.firma ? 'Contrato firmado' : 'Sin contrato'} · falta su anuncio</span>`;
+      acc = o.handle ? `<a class="boton" href="${esc(adminShopify(cfg, o))}" target="_blank" rel="noopener">Abrir en Shopify</a>` : post('crear-anuncio', 'Crear su anuncio en Shopify');
+    } else if (paso === 'venta') {
+      estado = `<span class="e">${ct.firma ? 'Contrato firmado' : Object.keys(x).length ? 'Sin contrato firmado' : 'Sin contrato en el panel'}</span>`;
+      acc = `<a class="boton" href="${enlace}#venta">Vendido</a>${o.handle ? `<a class="boton claro" href="${esc(cfg.tienda)}/products/${esc(o.handle)}" target="_blank" rel="noopener">Ver</a><a class="boton claro" href="?estado=anuncio&h=${encodeURIComponent(o.handle)}">Números</a>` : ''}`;
+    } else if (paso === 'factura') {
+      estado = `<span class="e am">${o?.estado === 'vendido' ? 'Vendido: falta la factura' : 'Vendido en la web: pon el precio final'}</span>`;
+      acc = `<a class="boton" href="${enlace}#${o?.estado === 'vendido' ? 'factura' : 'venta'}">${o?.estado === 'vendido' ? 'Hacer la factura' : 'Poner el precio'}</a>`;
+    } else if (paso === 'cobro') {
+      estado = `<span class="e am">Factura ${esc(f.numero)} · ${eur(f.total)} sin cobrar</span>`;
+      acc = `<a class="boton" href="${enlace}#cobro">Marcar cobrada</a>${p.telefono || o.propietario_telefono ? `<a class="boton claro" href="?estado=expediente&id=${Number(o.id)}&wa=factura" target="_blank" rel="noopener">Reenviar</a>` : ''}`;
+    } else {
+      estado = `<span class="e">${o?.estado === 'retirado' ? 'Retirado' : f ? `Cobrado · factura ${esc(f.numero)}` : 'Vendido'}</span>`;
+      acc = `<a class="boton claro" href="${enlace}">Ver</a>`;
+    }
+    const q = normalTexto(`${titulo} ${p.nombre || o?.propietario_nombre || ''} ${o?.comercial || ''} ${x.coche?.matricula || ''}`);
+    return `<article class="sd-c" data-q="${esc(q)}"><a class="sd-f" href="${enlace}">${prod?.foto ? `<img src="${esc(prod.foto)}" alt="" loading="lazy">` : `<span class="vacia">${o?.handle ? 'Sin fotos aún' : 'Aún sin anuncio'}</span>`}<span class="sd-p ${paso}">${esc(sinFicha ? 'Sin propietario' : nombrePaso(paso))}</span></a>
+    <div class="sd-b"><a href="${enlace}"><b>${esc(titulo)}</b></a>${quien ? `<span class="q">${esc(quien)}</span>` : ''}${estado}<div class="sd-a">${acc}</div></div></article>`;
+  };
+  const flujo = PASOS.slice(0, 5).map(([k, t], j) => `<a href="?estado=sidonia&ver=${k}" class="${ver === k ? 'on' : ''}"><small>${j + 1} · ${t}</small><b>${fmtN(cuenta(k))}</b><span>${ayuda[k]}</span></a>`).join('');
+  return marco('Coches de Sidonia', 'sidonia', `
 ${aviso ? `<p class="aviso${/^Error/.test(aviso) ? ' mal' : ''}">${esc(aviso)}</p>` : ''}
-<div class="barra"><a class="boton" href="?estado=expediente&nuevo=1">+ Nuevo coche (su ficha y su contrato)</a><a class="boton claro" href="?estado=gestiones">Los del formulario de la web (Gestiones de venta)</a>
-  <a class="boton claro" href="?estado=expedientes${todos ? '' : '&todos=1'}">${todos ? 'Solo los expedientes' : 'Ver también las ventas de antes'}</a></div>
-<div class="kanban">${FASES.map(([f, nombre]) => `<div class="col"><h3>${nombre}<b>${porFase[f].length}</b></h3>${porFase[f].slice(0, 60).map(tarj).join('') || '<p class="sub" style="margin:4px">—</p>'}</div>`).join('')}</div>
-<p class="nota">Cada coche que vende Sidonia, de principio a fin: la ficha (propietario y coche), el contrato de intermediación y exclusividad (se le envía por email o WhatsApp y lo firma desde el móvil), el vídeo y el anuncio en Shopify, la venta, la factura y el cobro. Pulsa en uno para seguir.</p>`, CSS);
+<div class="sd-cab"><div><h1>Coches de Sidonia</h1><p>Del contrato a la factura: cada coche, en qué paso está y qué toca hacer.</p></div><a class="boton" href="?estado=expediente&nuevo=1">+ Nuevo coche</a></div>
+${gestiones ? `<div class="sd-aviso"><span><b>${fmtN(gestiones)}</b> ${gestiones === 1 ? 'persona quiere' : 'personas quieren'} que vendáis su coche (formulario de la web)</span><a class="boton" href="?estado=gestiones">Verlas</a></div>` : ''}
+<div class="sd-flujo">${flujo}<a class="otro${ver === 'marcha' ? ' on' : ''}" href="?estado=sidonia"><small>Todos</small><b>${fmtN(cuenta('marcha'))}</b><span>en marcha</span></a></div>
+<div class="sd-bar">
+  <input type="search" placeholder="Buscar coche, propietario, matrícula…" oninput="const q=this.value.trim().toLowerCase().normalize('NFD').replace(/[\\u0300-\\u036f]/g,'');document.querySelectorAll('.sd-c').forEach((c)=>{c.hidden=q&&!c.dataset.q.includes(q)})">
+  ${cuenta('sinficha') ? `<a class="boton claro${ver === 'sinficha' ? ' on' : ''}" href="?estado=sidonia&ver=sinficha">Sin propietario · ${fmtN(cuenta('sinficha'))}</a>` : ''}
+  <a class="boton claro" href="?estado=sidonia&ver=hecho">Cerrados · ${fmtN(cuenta('hecho'))}</a>
+  <a class="boton claro" href="?estado=ofertas">Ofertas</a>
+  <a class="boton claro" href="?estado=fichas">Tabla con números</a>
+</div>
+${lista.length ? `<div class="sd-grid">${lista.map(tarjeta).join('')}</div>` : `<div class="sd-vacio">${ver === 'marcha' ? 'No hay ningún coche en marcha. Empieza con «+ Nuevo coche».' : 'Nada en este paso.'}</div>`}
+<p class="nota">Así va cada coche: <b>1.</b> Hugo crea su ficha (propietario y coche) y le envía el contrato por WhatsApp o email; lo firma desde el móvil. <b>2.</b> «Crear su anuncio en Shopify» lo deja allí como borrador, ya ligado: subís el vídeo y las fotos y lo publicáis. Si lo subís directamente en Shopify, se liga solo con su ficha. <b>3.</b> Cuando se venda, «Vendido» con el precio final. <b>4.</b> La factura sale hecha y se envía por WhatsApp o email. <b>5.</b> Marcar cobrada.</p>`, CSS + CSS_SD);
 }
 
 /** Finanzas › Datos de facturación */
@@ -448,17 +583,35 @@ export async function rutasExpedientes(req, cfg, deps, html) {
     const ya = ops.find((x) => x.handle === h);
     const cand = ops.filter((x) => !x.handle && x.modalidad !== 'encargo' && x.estado !== 'retirado').map((x) => ({ ...x, puntos: ficha ? parecido(x.titulo, ficha.titulo, { anioDistinto: 0.25 }) : 0 }))
       .sort((a, b) => b.puntos - a.puntos || Number(Boolean(b.expediente?.contrato?.firma)) - Number(Boolean(a.expediente?.contrato?.firma))).slice(0, 12);
-    return html(marco('Ligar con su propietario', 'expedientes', `<p><a href="?estado=fichas">‹ Anuncios en la web</a></p>
+    return html(marco('Ligar con su propietario', 'sidonia', `<p><a href="?estado=sidonia">‹ Coches de Sidonia</a></p>
 <div class="card">${ficha ? `<div class="anu">${ficha.foto ? `<img src="${esc(ficha.foto)}" alt="">` : '<span class="anu-f"></span>'}<div><b>${esc(ficha.titulo)}</b><span>Anuncio de la web</span></div><span></span></div>` : `<p>${esc(h)}</p>`}
 ${ya ? `<p>Ya está ligado con la ficha de <b>${esc(ya.propietario_nombre || ya.titulo)}</b>. <a href="?estado=expediente&id=${Number(ya.id)}">Abrir su ficha ›</a></p>` : `<h3>¿De quién es? Elige su ficha</h3>
 ${cand.map((x) => `<form method="post" action="?estado=ligar&h=${encodeURIComponent(h)}" class="anu"><span class="anu-f"></span><div><b>${esc(x.titulo)}</b><span>${esc(x.expediente?.propietario?.nombre || x.propietario_nombre || 'Sin propietario')}${x.expediente?.contrato?.firma ? ' · contrato firmado' : x.expediente?.contrato?.enviado ? ' · contrato enviado' : ''}${x.puntos ? ` · se parece un ${Math.round(x.puntos * 100)} %` : ''}</span></div><input type="hidden" name="id" value="${Number(x.id)}"><button class="boton">Es esta, ligar</button></form>`).join('') || '<p class="sub">No hay fichas sin anuncio.</p>'}
 <div class="acc-row"><a class="boton" href="?estado=expediente&nuevo=1&h=${encodeURIComponent(h)}">+ Crear su ficha (propietario y contrato)</a></div>`}</div>`, CSS));
   }
 
-  if (estado === 'expedientes') {
-    let ops = [], aviso = '';
+  if (estado === 'expedientes' || estado === 'sidonia') {
+    let ops = [], aviso = String(req.query.aviso || '').slice(0, 300), catalogo = null, gestiones = 0;
     try { ops = await tO.leer('select=*&order=id.desc&limit=5000'); } catch (e) { aviso = errorSql(e); }
-    return html(paginaExpedientes(ops, await leerFacturas(), { aviso, todos: Boolean(req.query.todos) }));
+    try { const { catalogoTienda } = await import('./actividad.mjs'); catalogo = await catalogoTienda(cfg, deps); } catch (e) { catalogo = null; }
+    try { gestiones = (await tG.leer('estado=eq.nueva&select=id&limit=500')).length; } catch (e) { gestiones = 0; }
+    // Las fichas que ya tienen su anuncio en Shopify (subido allí a mano) se ligan solas
+    if (catalogo?.size) {
+      for (const l of ligarSolos(ops, catalogo)) {
+        const o = ops.find((x) => Number(x.id) === l.id);
+        try { await tO.cambiar(l.id, { handle: l.handle, expediente: conHistorial(o.expediente || {}, `Ligado solo con su anuncio de Shopify (${l.titulo})`), actualizado: new Date().toISOString() }); o.handle = l.handle; } catch (e) { console.error(e); }
+      }
+    }
+    const facturas = await leerFacturas();
+    const facDe = new Map(facturas.filter((f) => f.operacion_id && f.estado !== 'anulada').map((f) => [Number(f.operacion_id), f]));
+    const items = ops.filter((o) => o.modalidad !== 'encargo').map((o) => { const prod = o.handle && catalogo ? catalogo.get(o.handle) || (catalogo.size ? null : undefined) : undefined; const f = facDe.get(Number(o.id)) || null; return { o, prod, f, paso: pasoDe(o, f, prod) }; });
+    const ligados = new Set(ops.map((o) => o.handle).filter(Boolean));
+    for (const p of catalogo?.values() || []) {
+      if (p.comunidad || ligados.has(p.handle) || p.status === 'ARCHIVED') continue;
+      items.push({ prod: p, sinFicha: true, paso: p.situacion === 'vendido' ? 'hecho' : p.status === 'ACTIVE' ? 'venta' : 'anuncio' });
+    }
+    const ver = ['marcha', 'todo', 'sinficha', ...PASOS.map(([k]) => k)].includes(req.query.ver) ? req.query.ver : 'marcha';
+    return html(paginaSidonia(cfg, items, { ver, aviso, gestiones, emisor }));
   }
 
   // estado === 'expediente'
@@ -468,7 +621,7 @@ ${cand.map((x) => `<form method="post" action="?estado=ligar&h=${encodeURICompon
     if (req.method === 'POST' && b.accion === 'desde-gestion' && Number(b.gestion)) {
       try {
         const [g] = await tG.leer(`id=eq.${Number(b.gestion)}&limit=1`);
-        if (!g) return html(paginaExpedientes([], [], { aviso: 'Error: no encuentro esa gestión.' }));
+        if (!g) return html(paginaSidonia(cfg, [], { aviso: 'Error: no encuentro esa gestión.' }));
         const d = g.datos || {};
         const exp = conHistorial({ origen: 'web', gestion_id: Number(g.id), propietario: { nombre: t(d.nombre, 120), email: t(d.email, 160).toLowerCase(), telefono: t(d.telefono, 40), dni: '', direccion: '' },
           coche: { marca: t(d.marca, 40), modelo: t(d.modelo, 80), anio: t(d.anio, 4), km: t(d.km, 20), matricula: '', bastidor: '' },
@@ -477,7 +630,7 @@ ${cand.map((x) => `<form method="post" action="?estado=ligar&h=${encodeURICompon
           propietario_telefono: exp.propietario.telefono || null, precio_anunciado: exp.condiciones.precio_salida, origen: 'panel', expediente: exp }, 'id');
         await tG.cambiar(Number(g.id), { estado: g.estado === 'nueva' || g.estado === 'contactado' ? 'en_gestion' : g.estado, nota: `${g.nota ? `${g.nota} · ` : ''}Expediente n.º ${o.id}`, actualizado: new Date().toISOString() }).catch(() => null);
         return { status: 303, headers: { Location: `?estado=expediente&id=${Number(o.id)}`, 'Cache-Control': 'no-store' }, body: '' };
-      } catch (e) { return html(paginaExpedientes([], [], { aviso: errorSql(e) })); }
+      } catch (e) { return html(paginaSidonia(cfg, [], { aviso: errorSql(e) })); }
     }
     let aviso = '';
     if (req.method === 'POST' && b.accion === 'crear') {
@@ -497,12 +650,12 @@ ${cand.map((x) => `<form method="post" action="?estado=ligar&h=${encodeURICompon
       try { const { catalogoTienda } = await import('./actividad.mjs'); deLaWeb = (await catalogoTienda(cfg, deps)).get(String(req.query.h)) || null; } catch (e) { deLaWeb = null; }
       if (deLaWeb) base = { handle: deLaWeb.handle, expediente: { coche: cocheDeTitulo(deLaWeb.titulo) } };
     }
-    return html(marco('Nuevo coche', 'expedientes', `<p><a href="?estado=expedientes">‹ Coches de Sidonia</a></p>${aviso ? `<p class="aviso mal">${esc(aviso)}</p>` : ''}
+    return html(marco('Nuevo coche', 'sidonia', `<p><a href="?estado=sidonia">‹ Coches de Sidonia</a></p>${aviso ? `<p class="aviso mal">${esc(aviso)}</p>` : ''}
 <div class="card"><h2>Nuevo coche: su ficha</h2><p class="sub">${deLaWeb ? `Para el anuncio <b>${esc(deLaWeb.titulo)}</b> de la web: pon los datos de su propietario y se quedan ligados.` : 'Los datos del propietario y del coche. Con ellos se hace el contrato de intermediación y exclusividad, que le envías para que lo firme desde el móvil. Los que llegan por el formulario de la web, ábrelos desde Gestiones de venta.'}</p>${formExpediente(base, emisor, { accion: 'crear', boton: 'Crear la ficha' })}</div>`, CSS));
   }
 
   let [o] = await tO.leer(`id=eq.${id}&select=*&limit=1`).catch(() => []);
-  if (!o) return html(marco('Expediente', 'expedientes', '<p class="aviso mal">No encuentro ese coche.</p><p><a href="?estado=expedientes">‹ Coches en gestión</a></p>'));
+  if (!o) return html(marco('Expediente', 'sidonia', '<p class="aviso mal">No encuentro ese coche.</p><p><a href="?estado=sidonia">‹ Coches de Sidonia</a></p>'));
   o.expediente = o.expediente || {};
   let facturas = await leerFacturas();
   let factura = facturas.filter((f) => Number(f.operacion_id) === id && f.estado !== 'anulada').pop() || null;
@@ -545,6 +698,14 @@ ${cand.map((x) => `<form method="post" action="?estado=ligar&h=${encodeURICompon
       } else if (a === 'contrato-firmado-papel') {
         await guardar({ estado: o.estado === 'captado' ? 'en_venta' : o.estado, expediente: { ...o.expediente, contrato: { ...(o.expediente.contrato || {}), enviado: new Date().toISOString(), via: 'en papel', firma: { nombre: p.nombre, dni: p.dni, fecha: new Date().toISOString(), ip: '', papel: true } } } }, 'Contrato firmado en papel');
         aviso = 'Apuntado: firmado en papel. Guarda el original.';
+      } else if (a === 'crear-anuncio') {
+        if (o.handle) aviso = 'Error: ya tiene su anuncio.';
+        else {
+          const r = await crearBorrador(deps.gql || shopifyAdmin(cfg, deps.fetch), o);
+          await guardar({ handle: r.handle, expediente: { ...o.expediente, shopify_id: r.id } }, `Anuncio creado en Shopify como borrador (${r.handle})`);
+          try { const { olvidarCatalogo } = await import('./actividad.mjs'); olvidarCatalogo(); } catch (e) { /* nada */ }
+          aviso = `Creado en Shopify como borrador: ${o.titulo}. Ábrelo allí, sube el vídeo y las fotos y ponlo en Activo.`;
+        }
       } else if (a === 'video') {
         await guardar({ expediente: { ...o.expediente, video: new Date().toISOString() } }, 'Vídeo hecho'); aviso = '¡Vídeo hecho! Ahora, a subirlo a Shopify y ligarlo aquí.';
       } else if (a === 'anuncio') {
@@ -597,7 +758,9 @@ ${cand.map((x) => `<form method="post" action="?estado=ligar&h=${encodeURICompon
       } else if (a === 'cobro-deshacer' && factura) {
         await tF.cambiar(factura.id, { cobrada: null }); factura = { ...factura, cobrada: null }; await guardar({}, `Deshecho el cobro de la factura ${factura.numero}`); aviso = 'Deshecho.';
       }
-    } catch (e) { aviso = errorSql(e); }
+    } catch (e) { aviso = /Shopify|gql|GraphQL/i.test(String(e.message)) ? `Error: ${e.message}` : errorSql(e); }
+    // Desde la lista de coches: se vuelve a la lista con el aviso
+    if (b.volver === 'sidonia') return { status: 303, headers: { Location: `?estado=sidonia&aviso=${encodeURIComponent(aviso)}`, 'Cache-Control': 'no-store' }, body: '' };
   }
   let anuncios = [];
   try { const { catalogoTienda } = await import('./actividad.mjs'); anuncios = [...(await catalogoTienda(cfg, deps)).values()]; } catch (e) { anuncios = []; }

@@ -8,9 +8,8 @@
  */
 import { esc, tablaAnuncios } from './circulo.mjs';
 import { fmt, n } from './estadisticas.mjs';
-import { marco } from './operaciones.mjs';
+import { marco, resumen } from './operaciones.mjs';
 import { IRPF_PCT, porMesGastos, trimestreDePago } from './gastos.mjs';
-import { FASES, FORMAS_PAGO, faseDe } from './expedientes.mjs';
 
 const MES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
 const eur = (x) => `${Math.round(n(x)).toLocaleString('es-ES', { useGrouping: 'always' })} €`;
@@ -133,6 +132,13 @@ const CSS = `
   @media (max-width: 560px) { .fz-hero, .fz-row { grid-template-columns: 1fr; } .donut { grid-template-columns: 1fr; justify-items: center; } }`;
 
 const CSS2 = `
+  .fz-vf { grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); } .fz-vf .tabla { overflow-x: auto; }
+  .fz-big { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; } .fz-big a.fz-k { text-decoration: none; color: inherit; } .fz-big a.fz-k:hover { border-color: var(--linea-2); }
+  .fz-big .fz-k b { font-size: 30px; } .fz-big .fz-k.top b { font-size: 32px; }
+  .fz-atajos { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 10px 0 6px; }
+  .fz-atajos a { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 2px 10px; padding: 12px 16px; border-radius: 14px; background: var(--caja-2); border: 1px solid var(--linea); text-decoration: none; color: inherit; }
+  .fz-atajos a:hover { border-color: var(--verde); } .fz-atajos span { font-size: 12px; color: var(--suave); } .fz-atajos b { grid-row: 2; font-size: 20px; } .fz-atajos i { grid-row: 1 / 3; grid-column: 2; font-style: normal; font-size: 12px; color: var(--suave); text-align: right; }
+  @media (max-width: 1100px) { .fz-big { grid-template-columns: repeat(3, 1fr); } .fz-atajos { grid-template-columns: 1fr 1fr; } } @media (max-width: 900px) { .fz-vf { grid-template-columns: 1fr; } } @media (max-width: 600px) { .fz-big { grid-template-columns: 1fr 1fr; } .fz-atajos { grid-template-columns: 1fr; } }
   .fz-sec { display: flex; align-items: baseline; gap: 12px; margin: 22px 0 10px; } .fz-sec h2 { margin: 0; font-size: 15px; letter-spacing: .08em; text-transform: uppercase; color: var(--suave); } .fz-sec small { color: var(--flojo); }
   .fz-6 { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; }
   .fz-6 .fz-k b { font-size: 26px; } .fz-6 .fz-k.top b { font-size: 30px; }
@@ -148,10 +154,11 @@ const cambio = (a, b) => { if (!n(b)) return ''; const d = Math.round(((n(a) - n
 const kpi = (t, v, sub = '', cls = '', extra = '') => `<div class="fz-k ${cls}"><span>${t}</span><b>${v}${extra}</b><small>${sub}</small></div>`;
 
 /** Finanzas › Resumen: las ventas de este mes y del año (y a qué ritmo va), con sus gastos fijos y el resultado */
-export function paginaFinanzas(datos, { ano = null, hoy = new Date(), error = '', fotos = {}, avisos = [] } = {}) {
+export function paginaFinanzas(datos, { ano = null, hoy = new Date(), error = '', fotos = {}, avisos = [], web = null } = {}) {
   const anos = [...new Set([hoy.getFullYear(), ...datos.ops.map((o) => Number(String(o.fecha_venta || '').slice(0, 4))), ...datos.facturas.map((f) => Number(String(f.fecha).slice(0, 4)))].filter((x) => x > 2000))].sort((a, b) => b - a);
   const A = anos.includes(Number(ano)) ? Number(ano) : hoy.getFullYear();
-  const N = numerosFinanzas(datos, A, hoy), T = N.totales;
+  const N = numerosFinanzas(datos, A, hoy), T = N.totales, R = resumen(datos.ops);
+  const big = (t, v, sub, href, cls = '') => `<a class="fz-k ${cls}" href="${href}"><span>${t}</span><b>${v}</b><small>${sub}</small></a>`;
   const esteAno = A === hoy.getFullYear();
   const k = esteAno ? N.ahora : `${A}-12`, kAnt = N.claves[Number(k.slice(5)) - 2];
   const m = N.mes[k] || {}, p = (kAnt && N.mes[kAnt]) || {};
@@ -175,7 +182,22 @@ export function paginaFinanzas(datos, { ano = null, hoy = new Date(), error = ''
   return marco('Finanzas', 'finanzas', `
 ${error ? `<p class="aviso mal">${esc(error)}</p>` : ''}
 ${avisos.length ? `<div class="tareas">${avisos.map(([t, href]) => `<a href="${href}">${esc(t)}</a>`).join('')}</div>` : ''}
-<div class="per" style="margin-top:0">${anos.map((a) => `<a href="?estado=finanzas&ano=${a}" class="${a === A ? 'on' : ''}">${a}</a>`).join('')}</div>
+<div class="fz-sec" style="margin-top:0"><h2>Sidonia en números</h2><small>desde el principio</small></div>
+<div class="fz-big">
+  ${big('Coches vendidos', fmt(R.vendidos), `${fmt(T.vendidos)} en ${hoy.getFullYear()}`, '?estado=ventas&ver=vendido')}
+  ${big('Vendido en total', eur(R.facturado), `ticket medio ${eur(R.ticket)}`, '?estado=ventas&ver=vendido')}
+  ${big('Comisión de Sidonia', eur(R.comision), `${R.pct.toLocaleString('es-ES', { maximumFractionDigits: 1 })} % de media`, '?estado=ventas', 'top')}
+  ${big('En venta ahora', fmt(R.enVenta), `${eur(R.valorEnVenta)} · comisión prevista ${eur(R.comisionPrevista)}`, '?estado=sidonia&ver=venta')}
+  ${big('Contactos', web ? fmt(web.contactos) : '—', web ? `+${fmt(web.contactos30)} en los últimos 30 días` : 'personas que os escribieron o llamaron desde la web', '?estado=estadisticas')}
+  ${big('Registrados en la web', web ? fmt(web.registros) : '—', web ? `+${fmt(web.registros30)} en los últimos 30 días · ${fmt(web.visitantes30)} visitantes` : 'personas con cuenta', '?estado=clientes')}
+</div>
+<div class="fz-atajos">
+  <a href="?estado=gastos"><span>Gastos de ${MESES[hoy.getMonth()]}</span><b>${eur(n(N.mes[N.ahora]?.gastos))}</b><i>Gastos ›</i></a>
+  <a href="?estado=facturas"><span>Cobrado en ${A}${T.pendienteCobro ? ` · ${eur(T.pendienteCobro)} sin cobrar` : ''}</span><b>${eur(T.cobrado)}</b><i>Facturas ›</i></a>
+  <a href="?estado=impuestos"><span>IVA del ${N.hacienda.t.slice(6)}.º trimestre</span><b>${eur(N.hacienda.iva)}</b><i>IVA e IRPF ›</i></a>
+  <a href="?estado=impuestos"><span>IRPF estimado</span><b>${eur(N.hacienda.irpf)}</b><i>antes del ${new Date(`${N.hacienda.limite}T12:00:00Z`).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })} ›</i></a>
+</div>
+<div class="per">${anos.map((a) => `<a href="?estado=finanzas&ano=${a}" class="${a === A ? 'on' : ''}">${a}</a>`).join('')}</div>
 <div class="fz-sec"><h2>${esteAno ? 'Este mes' : 'Diciembre'} · ${MESES[Number(k.slice(5)) - 1]} ${k.slice(0, 4)}</h2><small>${esteAno ? `en curso · frente a ${kAnt ? MESES[Number(kAnt.slice(5)) - 1] : ''}` : ''}</small></div>
 <div class="fz-6">
   ${kpi('Coches vendidos', fmt(m.coches), `${eur(m.vendido)} en ventas`, '', cambio(m.coches, p.coches))}
@@ -196,7 +218,7 @@ ${avisos.length ? `<div class="tareas">${avisos.map(([t, href]) => `<a href="${h
 </div>
 ${esteAno ? `<div class="ritmo"><span>Al ritmo de este año, ${A} cerraría con</span><b>${fmt(Math.round(anual(T.vendidos)))} coches</b><b>${eur(anual(T.ventas))} de comisión</b><b>${eur(anual(T.ingresos))} de ingresos</b><span>y un resultado de</span><b>${eur(anual(T.resultado))}</b></div>` : ''}
 <div class="card" style="margin-top:14px"><h2>Mes a mes</h2>${barras(N)}</div>
-<div class="grid2" style="margin-top:12px">
+<div class="grid2 fz-vf" style="margin-top:12px">
   <div class="card"><div class="barra" style="margin:0 0 8px"><h2 style="margin:0">Ventas de ${A}</h2><a class="boton claro" href="?estado=ventas">Todas las ventas ›</a></div>
     <div class="tabla ventas-l"><table><thead><tr><th></th><th class="izq">Coche</th><th>Vendido por</th><th>Comisión</th><th class="izq">Factura</th><th></th></tr></thead><tbody>${filas || '<tr><td colspan="6" class="vacio">Aún sin ventas este año.</td></tr>'}</tbody></table></div></div>
   <div class="card"><div class="barra" style="margin:0 0 8px"><h2 style="margin:0">Gastos fijos al mes</h2><a class="boton claro" href="?estado=gastos">Gastos ›</a></div>
@@ -247,5 +269,13 @@ export async function rutasFinanzas(req, cfg, deps, html) {
   }
   let fotos = {};
   try { const { fotosDe } = await import('./actividad.mjs'); fotos = await fotosDe(cfg, deps, datos.ops.map((o) => o.handle).filter(Boolean)); } catch (e) { fotos = {}; }
-  return html(paginaFinanzas(datos, { ano: req.query.ano, error: faltan.length ? `Faltan datos (${faltan.join(', ')}): ejecuta sql/centro-operativo.sql en Supabase › SQL Editor.` : '', fotos, avisos: deps.tareas || [] }));
+  // La web: contactos y registrados desde siempre y en los últimos 30 días (sql/estadisticas.sql)
+  let web = null;
+  if (deps.db) {
+    try {
+      const [todo, mes] = await Promise.all([deps.db('sidonia_estadisticas', { p_dias: 3650 }), deps.db('sidonia_estadisticas', { p_dias: 30 })]);
+      if (todo && mes) web = { contactos: n(todo.actual?.contactos), registros: n(todo.registros), contactos30: n(mes.actual?.contactos), registros30: n(mes.registros), visitantes30: n(mes.actual?.visitantes) };
+    } catch (e) { web = null; }
+  }
+  return html(paginaFinanzas(datos, { web, ano: req.query.ano, error: faltan.length ? `Faltan datos (${faltan.join(', ')}): ejecuta sql/centro-operativo.sql en Supabase › SQL Editor.` : '', fotos, avisos: deps.tareas || [] }));
 }

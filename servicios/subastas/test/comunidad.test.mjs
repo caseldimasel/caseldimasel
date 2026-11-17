@@ -85,7 +85,7 @@ test('panel › Cobros, cobrar, tarifa y Clientes › Anunciantes', async () => 
   const deps = { db: async () => [], tabla, pagos, ajustes };
   const c = await atenderPanel({ method: 'GET', query: { estado: 'cobros' }, headers: auth }, cfg, deps);
   assert.match(c.body, /<title>Cobros de la comunidad/);
-  assert.match(c.body, /class="on">Cobros comunidad/);
+  assert.match(c.body, /class="on">De sus dueños/);
   assert.match(c.body, /Por cobrar<\/span>/);
   const ok = await atenderPanel({ method: 'POST', query: { estado: 'cobrar', id: '7' }, body: { accion: 'cobrar', meses: '3', importe: '44,7', metodo: 'bizum', fecha: '2026-10-26' }, headers: auth }, cfg, deps);
   assert.match(ok.body, /Apuntado: 44,70 € · 3 meses/);
@@ -93,7 +93,7 @@ test('panel › Cobros, cobrar, tarifa y Clientes › Anunciantes', async () => 
   assert.equal(pagos.filas[0].metodo, 'bizum');
   assert.ok(Date.parse(tabla.filas[0].caduca) > Date.now() + 80 * DIA);
   const an = await atenderPanel({ method: 'GET', query: { estado: 'anunciantes' }, headers: auth }, cfg, deps);
-  assert.match(an.body, /class="on">Anunciantes · comunidad/);
+  assert.match(an.body, /class="on">Anunciantes</);
   assert.match(an.body, /Luis/);
   const uno = await atenderPanel({ method: 'GET', query: { estado: 'anunciante', id: '55' }, headers: auth }, cfg, deps);
   assert.match(uno.body, /Lleva gastado<\/span><b>44,70 €/);

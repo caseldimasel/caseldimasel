@@ -1009,6 +1009,7 @@ export async function atenderPanel(req, cfg, deps) {
   // Cuántos anuncios hay por revisar: el número rojo de «Anuncios» y la lista de tareas de la portada
   ponerContadores({});
   const tareas = [];
+  let cuentas = {};
   if (deps.tabla || cfg.supabaseUrl) {
     try {
       const filas = await (deps.tabla || tablaAnuncios(cfg, deps.fetch)).leer('select=estado,revision&limit=5000');
@@ -1017,6 +1018,7 @@ export async function atenderPanel(req, cfg, deps) {
       const sol = await contarSolicitudes(cfg, deps);
       Object.assign(c, sol);
       ponerContadores(c);
+      cuentas = c;
       if (sol.gestiones) tareas.push([`${sol.gestiones} ${sol.gestiones === 1 ? 'gestión de venta nueva' : 'gestiones de venta nuevas'} ›`, '?estado=gestiones']);
       if (sol.alquileres) tareas.push([`${sol.alquileres} ${sol.alquileres === 1 ? 'vehículo de alquiler' : 'vehículos de alquiler'} por revisar ›`, '?estado=alquileres']);
       if (c.pendiente) tareas.push([`${c.pendiente} ${c.pendiente === 1 ? 'anuncio' : 'anuncios'} por revisar ›`, '?estado=pendiente']);
@@ -1029,6 +1031,8 @@ export async function atenderPanel(req, cfg, deps) {
     } catch (e) { /* sin sql/gestion.sql */ }
   }
   // La portada del panel es el centro operativo: Ventas, una venta, Importar Excel y Propietarios (operaciones.mjs)
+  // Anuncios › De sus dueños: lo que haya por revisar; si no, los publicados
+  if (req.query.estado === 'comunidad') req = { ...req, query: { ...req.query, estado: cuentas.pendiente ? 'pendiente' : cuentas.cambios ? 'cambios' : 'publicado' } };
   const seccion = req.query.estado || (req.method === 'GET' ? 'finanzas' : '');
   // Anuncios › En la web: todos los anuncios de la tienda y su editor (fichas.mjs)
   if (seccion === 'fichas' || seccion === 'ficha') return rutasFichas({ ...req, query: { ...req.query, estado: seccion } }, cfg, deps, html);
@@ -1075,7 +1079,7 @@ export async function atenderPanel(req, cfg, deps) {
     return html(paginaAlquiler(lista, { ver, error, marco, contactos, extra }));
   }
   // Coches en gestión: el expediente de cada coche (captación, contrato, venta, factura y cobro) y los datos de facturación (expedientes.mjs)
-  if (['expedientes', 'expediente', 'facturacion', 'ligar'].includes(seccion)) return rutasExpedientes({ ...req, query: { ...req.query, estado: seccion } }, cfg, deps, html);
+  if (['sidonia', 'expedientes', 'expediente', 'facturacion', 'ligar'].includes(seccion)) return rutasExpedientes({ ...req, query: { ...req.query, estado: seccion } }, cfg, deps, html);
   // Finanzas: el resumen (finanzas.mjs)
   if (seccion === 'finanzas' || seccion === 'impuestos') { const { rutasFinanzas } = await import('./finanzas.mjs'); return rutasFinanzas({ ...req, query: { ...req.query, estado: seccion } }, cfg, { ...deps, tareas }, html); }
   // Ventas › Gastos: lo que gasta Sidonia cada mes (gastos.mjs)

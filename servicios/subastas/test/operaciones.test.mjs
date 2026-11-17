@@ -226,7 +226,7 @@ test('ventas por meses: cada mes, mes anterior, año anterior y la comunidad', a
   const m = porMeses(ops, [{ fecha: '2026-10-03', importe: 12.9 }]);
   assert.deepEqual([m['2026-09'].neto, m['2026-09'].dias, m['2026-10'].total, m['2026-10'].altas], [2250, 40, 1212.9, 1]);
   const h = paginaMeses(ops, [{ fecha: '2026-10-03', importe: 12.9 }], { ano: '2026', hoy: new Date('2026-10-26T12:00:00Z') });
-  assert.match(h, /class="on">Por meses/);
+  assert.match(h, /class="on">Mes a mes/);
   assert.match(h, /<b>octubre<\/b><span class="sub">en curso/);
   assert.match(h, /−46 %/, 'octubre (1.213 €) frente a septiembre (2.250 €)');
   assert.match(h, /\+21 %/, 'octubre frente a octubre de 2025 (1.000 €)');

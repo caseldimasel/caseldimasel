@@ -149,6 +149,9 @@ export const ESTILO_PANEL = `
   nav.sub { margin: -6px 0 18px; gap: 2px; padding: 3px; width: max-content; max-width: 100%; border-radius: 12px; background: var(--caja); border: 1px solid var(--linea); }
   nav.sub a { padding: 7px 13px; border: 0; border-radius: 9px; background: transparent; font-size: 14px; }
   nav.sub a.on { background: var(--caja-3); }
+  nav.sub.chips-c { margin-top: -10px; background: transparent; border: 0; padding: 0; gap: 6px; flex-wrap: wrap; }
+  nav.sub.chips-c a { padding: 5px 11px; font-size: 13px; border: 1px solid var(--linea); border-radius: 999px; }
+  nav.sub.chips-c a.on { border-color: var(--verde); background: var(--verde-fondo); }
   nav .num { display: inline-block; min-width: 19px; padding: 0 6px; border-radius: 99px; background: var(--rojo); color: #fff; font-family: Inter, sans-serif; font-size: 11px; font-weight: 800; line-height: 19px; text-align: center; }
 
   /* Selector de periodo / filtros */

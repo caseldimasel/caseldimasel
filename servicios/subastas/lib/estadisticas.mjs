@@ -44,25 +44,31 @@ export async function registrarEvento(db, body, cliente, headers = {}) {
  *   anunciantes de la comunidad y propietarios de las ventas gestionadas) · Estadísticas web · Herramientas
  */
 export const SECCIONES = [
-  ['finanzas', 'Finanzas', [['finanzas', 'Resumen'], ['ventas', 'Ventas'], ['meses', 'Por meses'], ['facturas', 'Facturas'], ['gastos', 'Gastos'], ['impuestos', 'Impuestos'], ['facturacion', 'Datos de facturación']], ['operacion', 'enlazar', 'importar']],
-  ['fichas', 'Anuncios', [['expedientes', 'Coches de Sidonia'], ['fichas', 'En la web'], ['ofertas', 'Ofertas'], ['cobros', 'Cobros comunidad'], ['pendiente', 'Por revisar'], ['cambios', 'Cambios'], ['aprobado', 'Aprobados'], ['publicado', 'Publicados'], ['vendido', 'Vendidos'], ['cancelados', 'Cancelados']], ['ficha', 'rechazado', 'retirado', 'cobrar', 'tarifa', 'expediente', 'ligar']],
-  ['gestiones', 'Gestiones de venta', [], []],
-  ['alquileres', 'Alquileres', [], []],
-  ['clientes', 'Clientes', [['clientes', 'Interesados'], ['anunciantes', 'Anunciantes · comunidad'], ['duenos', 'Propietarios · gestión'], ['garajes', 'Garajes'], ['opiniones', 'Opiniones de profesionales'], ['alquiler', 'Alquiler · lista de espera']], ['cliente', 'anunciante']],
-  ['estadisticas', 'Estadísticas web', [['estadisticas', 'Web'], ['conversaciones', 'Conversaciones']], ['anuncio', 'chat']],
+  ['finanzas', 'Finanzas', [['finanzas', 'Resumen'], ['ventas', 'Ventas'], ['gastos', 'Gastos'], ['facturas', 'Facturas'], ['impuestos', 'IVA e IRPF'], ['meses', 'Mes a mes'], ['facturacion', 'Datos de facturación']], ['operacion', 'enlazar', 'importar']],
+  ['sidonia', 'Anuncios', [['sidonia', 'De Sidonia'], ['comunidad', 'De sus dueños'], ['alquileres', 'De alquiler']],
+    ['expedientes', 'expediente', 'ligar', 'fichas', 'ficha', 'gestiones', 'ofertas', 'cobros', 'cobrar', 'tarifa', 'pendiente', 'cambios', 'aprobado', 'publicado', 'vendido', 'cancelados', 'rechazado', 'retirado']],
+  ['clientes', 'Clientes', [['clientes', 'Interesados'], ['anunciantes', 'Anunciantes'], ['duenos', 'Propietarios'], ['garajes', 'Garajes'], ['opiniones', 'Opiniones de profesionales'], ['alquiler', 'Alquiler · lista de espera']], ['cliente', 'anunciante']],
+  ['estadisticas', 'Web', [['estadisticas', 'Visitas y contactos'], ['conversaciones', 'Conversaciones']], ['anuncio', 'chat']],
   ['herramientas', 'Herramientas', [['paginas', 'Páginas de la web'], ['ubicaciones', 'Ubicaciones'], ['propietarios', 'Propietario en las fichas'], ['avisos', 'Avisos al móvil'], ['correos', 'Emails']], []]
 ];
+/** Anuncios › De sus dueños: la revisión de los anuncios de la comunidad */
+const COMUNIDAD = [['pendiente', 'Por revisar'], ['cambios', 'Cambios'], ['aprobado', 'Aprobados'], ['publicado', 'Publicados'], ['vendido', 'Vendidos'], ['cancelados', 'Cancelados']];
 let contadores = {};
-/** Cuántos hay por revisar (para el número rojo de «Anuncios», «Por revisar» y «Cambios») */
 export function ponerContadores(c) { contadores = c || {}; }
 
 export function navPanel(on) {
   const seccion = SECCIONES.find(([k, , subs, otros]) => k === on || subs.some(([s]) => s === on) || otros.includes(on)) || SECCIONES[0];
   const num = (x) => (x ? ` <b class="num">${x}</b>` : '');
-  const arriba = SECCIONES.map(([k, t]) => `<a href="?estado=${k}"${k === seccion[0] ? ' class="on"' : ''}>${t}${k === 'fichas' ? num((contadores.pendiente || 0) + (contadores.cambios || 0)) : k === 'gestiones' ? num(contadores.gestiones) : k === 'alquileres' ? num(contadores.alquileres) : ''}</a>`).join('');
-  const subOn = { rechazado: 'cancelados', retirado: 'cancelados', operacion: 'ventas', ficha: 'fichas', cobrar: 'cobros', tarifa: 'cobros', cliente: 'clientes', anunciante: 'anunciantes' }[on] || on;
-  const abajo = seccion[2].length ? `<nav class="sub">${seccion[2].map(([k, t]) => `<a href="?estado=${k}"${k === subOn ? ' class="on"' : ''}>${t}${k === 'pendiente' || k === 'cambios' ? num(contadores[k]) : ''}</a>`).join('')}</nav>` : '';
-  return `<nav class="main">${arriba}</nav>${abajo}`;
+  const comunidad = (contadores.pendiente || 0) + (contadores.cambios || 0);
+  const arriba = SECCIONES.map(([k, t]) => `<a href="?estado=${k}"${k === seccion[0] ? ' class="on"' : ''}>${t}${k === 'sidonia' ? num(comunidad + (contadores.gestiones || 0) + (contadores.alquileres || 0)) : ''}</a>`).join('');
+  const subOn = { expedientes: 'sidonia', expediente: 'sidonia', ligar: 'sidonia', fichas: 'sidonia', ficha: 'sidonia', gestiones: 'sidonia', ofertas: 'sidonia',
+    cobros: 'comunidad', cobrar: 'comunidad', tarifa: 'comunidad', rechazado: 'comunidad', retirado: 'comunidad', ...Object.fromEntries(COMUNIDAD.map(([k]) => [k, 'comunidad'])),
+    operacion: 'ventas', enlazar: 'ventas', importar: 'ventas', cliente: 'clientes', anunciante: 'anunciantes', anuncio: 'estadisticas', chat: 'conversaciones' }[on] || on;
+  const cuantos = { sidonia: contadores.gestiones, comunidad, alquileres: contadores.alquileres };
+  const abajo = seccion[2].length ? `<nav class="sub">${seccion[2].map(([k, t]) => `<a href="?estado=${k}"${k === subOn ? ' class="on"' : ''}>${t}${num(cuantos[k])}</a>`).join('')}</nav>` : '';
+  const comOn = { rechazado: 'cancelados', retirado: 'cancelados' }[on] || on;
+  const chips = subOn === 'comunidad' && COMUNIDAD.some(([k]) => k === comOn) ? `<nav class="sub chips-c">${COMUNIDAD.map(([k, t]) => `<a href="?estado=${k}"${k === comOn ? ' class="on"' : ''}>${t}${k === 'pendiente' || k === 'cambios' ? num(contadores[k]) : ''}</a>`).join('')}</nav>` : '';
+  return `<nav class="main">${arriba}</nav>${abajo}${chips}`;
 }
 
 /** El estilo de las páginas de Estadísticas y Clientes */

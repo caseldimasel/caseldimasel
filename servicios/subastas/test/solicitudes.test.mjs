@@ -28,7 +28,7 @@ test('panel › Gestiones de venta: se ven con su WhatsApp, se cambia el estado 
   const r = await atenderPanel({ method: 'GET', query: { estado: 'gestiones' }, headers: auth }, cfg, deps);
   assert.match(r.body, /Aston Martin DB7 1996/);
   assert.match(r.body, /https:\/\/wa\.me\/34600112233\?text=Hola%20%C3%8D%C3%B1igo/);
-  assert.match(r.body, /Gestiones de venta <b class="num">1<\/b>/, 'el número rojo del menú');
+  assert.match(r.body, /De Sidonia <b class="num">1<\/b>/, 'el número rojo del menú');
   await atenderPanel({ method: 'POST', query: { estado: 'gestiones' }, body: { accion: 'gestion', id: '1', estado: 'contactado', nota: 'Le llamo el lunes' }, headers: auth }, cfg, deps);
   assert.equal(gestiones.filas[0].estado, 'contactado'); assert.equal(gestiones.filas[0].nota, 'Le llamo el lunes');
   await atenderPanel({ method: 'POST', query: { estado: 'gestiones' }, body: { accion: 'gestion-nueva', marca: 'Porsche', modelo: '911', nombre: 'Ana', telefono: '611222333', origen: 'Email' }, headers: auth }, cfg, deps);
@@ -44,7 +44,7 @@ test('panel › Alquileres: llega por revisar, se edita (fotos incluidas), se ap
     fetch: async (u, o) => { correos.push(JSON.parse(o.body)); return { ok: true, json: async () => ({}) }; } };
   const ir = (body, ver) => atenderPanel({ method: body ? 'POST' : 'GET', query: { estado: 'alquileres', ...(ver ? { ver } : {}) }, body, headers: auth }, cfg, deps);
   const r = await ir();
-  assert.match(r.body, /MERCEDES 280 SL 1970/); assert.match(r.body, /Por revisar · no se ve/); assert.match(r.body, /Aprobar y publicar/); assert.match(r.body, /Alquileres <b class="num">1<\/b>/);
+  assert.match(r.body, /MERCEDES 280 SL 1970/); assert.match(r.body, /Por revisar · no se ve/); assert.match(r.body, /Aprobar y publicar/); assert.match(r.body, /De alquiler <b class="num">1<\/b>/);
   assert.match(r.body, /wa\.me\/34600000000\?text=/);
   // Fotos: quitar, añadir (permiso + rutas de su carpeta) y portada
   await ir({ accion: 'alq-fotos', id: '7', quitar: ['0', '2'] }); assert.deepEqual(garaje.filas[0].fotos, ['55/aaaaaaaa2.jpg']);
