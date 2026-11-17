@@ -48,9 +48,9 @@ export const GASTOS_INICIALES = [
   ...[['2026-05-06', 104.8], ['2026-06-06', 48.4], ['2026-07-06', 48.4], ['2026-08-06', 48.4], ['2026-09-06', 48.4]]
     .map(([fecha, importe]) => ({ tipo: 'cargo', concepto: 'Gestoría', categoria: 'Gestoría y abogados', importe, fecha, notas: 'Sobre el día 6 de cada mes' })),
   // Abogado: no son fijos, pero se han pagado (los contratos, entre septiembre y octubre)
-  { tipo: 'cargo', concepto: 'Abogado · contratos', categoria: 'Gestoría y abogados', importe: 325, fecha: '2026-09-15', notas: 'Álvaro Sánchez Yera: los contratos (650 € entre septiembre y octubre; reparto por confirmar)' },
-  { tipo: 'cargo', concepto: 'Abogado · contratos', categoria: 'Gestoría y abogados', importe: 325, fecha: '2026-10-15', notas: 'Álvaro Sánchez Yera: los contratos (650 € entre septiembre y octubre; reparto por confirmar)' },
-  { tipo: 'cargo', concepto: 'Abogado · crear la empresa', categoria: 'Gestoría y abogados', importe: 200, fecha: '2026-11-17', notas: 'Álvaro Sánchez Yera: constitución de la sociedad' },
+  { tipo: 'cargo', concepto: 'Abogado · contratos', categoria: 'Gestoría y abogados', importe: 325, fecha: '2026-09-15', notas: 'Los contratos (650 € entre septiembre y octubre; reparto por confirmar)' },
+  { tipo: 'cargo', concepto: 'Abogado · contratos', categoria: 'Gestoría y abogados', importe: 325, fecha: '2026-10-15', notas: 'Los contratos (650 € entre septiembre y octubre; reparto por confirmar)' },
+  { tipo: 'cargo', concepto: 'Abogado · crear la empresa', categoria: 'Gestoría y abogados', importe: 200, fecha: '2026-11-17', notas: 'Constitución de la sociedad' },
   // Hacienda: el IRPF (modelo 130, «Tributo 130…») y el IVA (modelo 303, «Tributo 303…») de cada trimestre
   ...[['2026-04-20', 2111.37, 2354.59, '1.er'], ['2026-07-20', 2204.25, 3002.96, '2.º'], ['2026-10-20', 554.83, 1814.69, '3.er']].flatMap(([fecha, irpf, iva, t]) => [
     { tipo: 'cargo', concepto: 'IRPF (modelo 130)', categoria: 'Impuestos', importe: irpf, fecha, notas: `${t} trimestre de 2026` },

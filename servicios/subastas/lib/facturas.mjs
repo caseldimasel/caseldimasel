@@ -16,29 +16,31 @@ const DIA = /^\d{4}-\d{2}-\d{2}$/;
 const trimestre = (f) => `${String(f).slice(0, 4)}-T${Math.ceil(Number(String(f).slice(5, 7)) / 3)}`;
 const nombreT = (t) => `${t.slice(6)}.º trimestre de ${t.slice(0, 4)}`;
 
-/** Las facturas emitidas hasta septiembre de 2026 (1.º, 2.º y 3.er trimestre) */
-export const FACTURAS_INICIALES = [
-  {numero: '2026-001', fecha: '2026-01-20', cliente: 'Tonneau S.L', nif: 'B87703534', concepto: 'Gestión de Venta Jaguar XJRS 1067 DCS', base: 1700.0, iva: 357.0, total: 2057.0},
-  {numero: '2026-002', fecha: '2026-01-29', cliente: 'Eduardo Luque Delgado', nif: '24842560F', concepto: 'Gestión de Venta Jaguar XJ8 M 6420 ZC', base: 1045.0, iva: 219.45, total: 1264.45},
-  {numero: '2026-003', fecha: '2026-02-02', cliente: 'Santiago Gantes Rodríguez', nif: '48903116X', concepto: 'Gestión redes sociales y publicidad', base: 2125.0, iva: 446.25, total: 2571.25},
-  {numero: '2026-004', fecha: '2026-02-04', cliente: 'Wally B2B S.L', nif: 'B87068219', concepto: 'Acción de Marketing', base: 250.0, iva: 52.5, total: 302.5},
-  {numero: '2026-005', fecha: '2026-02-05', cliente: 'Tranquilito Media SL', nif: 'B56445091', concepto: 'Acción de Marketing', base: 250.0, iva: 52.5, total: 302.5},
-  {numero: '2026-006', fecha: '2026-02-12', cliente: 'Cristal Celtiberia S.L', nif: 'B85533859', concepto: 'Asesoramiento y trabajos de estrategia de marketing en redes sociales y repaso de la página web.', base: 2065.0, iva: 433.65, total: 2498.65},
-  {numero: '2026-007', fecha: '2026-02-14', cliente: 'Reisinger Studio S.L', nif: 'B93737500', concepto: 'Gestión de Venta Porsche 1347 GBY', base: 3816.0, iva: 801.36, total: 4617.36},
-  {numero: '2026-008', fecha: '2026-03-30', cliente: 'Ricardo Majo Romero', nif: '29138366B', concepto: 'Gestión de Venta Vehículo 3561 CFF', base: 704.0, iva: 147.84, total: 851.84},
-  {numero: '2026-009', fecha: '2026-03-30', cliente: 'Jose Antonio Naval', nif: 'Y3512045M', concepto: 'Servicio ITV Detailing Integral Batería Varta Blue 95 AH-800A Cambio de 8 Bujías + Mano de Obra', base: 466.16, iva: 97.89, total: 564.05},
-  {numero: '2026-010', fecha: '2026-04-11', cliente: 'Indico Soluciones S.L.', nif: 'B84728427', concepto: 'Gestión de Venta Vehículo 3795 LDV', base: 2625.0, iva: 551.25, total: 3176.25},
-  {numero: '2026-011', fecha: '2026-04-15', cliente: 'Eduardo Luis Álvarez Aznar', nif: '50888936X', concepto: 'Gestión de Venta Cadillac 0694 KLX', base: 3300.0, iva: 693.0, total: 3993.0},
-  {numero: '2026-012', fecha: '2026-05-05', cliente: 'Land Legends S.L', nif: 'B42870998', concepto: 'Gestión de Venta Vehículo', base: 6900.0, iva: 1449.0, total: 8349.0},
-  {numero: '2026-013', fecha: '2026-05-29', cliente: 'Joaquín Planet Martí', nif: '38803785W', concepto: 'Gestión de Venta Vehículo', base: 2940.0, iva: 617.4, total: 3557.4},
-  {numero: '2026-014', fecha: '2026-07-01', cliente: 'Ascendía Reingenieria y Consulting S.L', nif: 'B91407510', concepto: 'Asesoramiento en procesos de venta y negocio', base: 1500.0, iva: 315.0, total: 1815.0},
-  {numero: '2026-015', fecha: '2026-07-02', cliente: 'EXOTIC MACHINES SL', nif: 'B27625805', concepto: 'Gestión redes sociales y publicidad', base: 3995.0, iva: 838.95, total: 4833.95},
-  {numero: '2026-016', fecha: '2026-07-03', cliente: 'Carlos Franco Valdivieso', nif: '47284215X', concepto: 'Gestión de Venta Vehículo H 1741 BBJ', base: 2080.0, iva: 436.8, total: 2516.8},
-  {numero: '2026-017', fecha: '2026-07-16', cliente: 'Nuptia Cars SL', nif: 'B98258544', concepto: 'Gestión de Venta Vehículo Mercedes-Benz CLK 430. Matricula M8215WV', base: 330.0, iva: 69.3, total: 399.3},
-  {numero: '2026-018', fecha: '2026-07-16', cliente: 'Nuptia Cars SL', nif: 'B98258544', concepto: 'Gestión de Venta Vehículo Mercedes-Benz Millie Miglia. Matricula O7353CB', base: 2100.0, iva: 441.0, total: 2541.0},
-  {numero: '2026-019', fecha: '2026-07-16', cliente: 'Nuptia Cars SL', nif: 'B98258544', concepto: 'Gestión de Venta Vehículo Mercedes-Benz 280SEL. Matricula H0875BBD', base: 1200.0, iva: 252.0, total: 1452.0},
-  {numero: '2026-020', fecha: '2026-09-03', cliente: 'BOOHI CAPITAL SL', nif: 'B19718766', concepto: 'Gestión de Venta Vehículo Land Cruiser BJ40 3.0 . Matrícula 3360 CVY', base: 1494.0, iva: 313.74, total: 1807.74}
-];
+/** Importar facturas pegando un CSV (o el archivo): numero;fecha;cliente;nif;concepto;base;iva;total (con cabecera; la
+ *  fecha, 2026-01-20 o 20/01/2026; los importes, 1.700,00 o 1700.00). Los datos de clientes no van en el código: el
+ *  repositorio es público. Devuelve { facturas, errores } */
+export function leerCsvFacturas(texto) {
+  const lineas = String(texto || '').replace(/^\ufeff/, '').split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+  if (!lineas.length) return { facturas: [], errores: ['El archivo está vacío.'] };
+  const sep = lineas[0].includes(';') ? ';' : lineas[0].includes('\t') ? '\t' : ',';
+  const partir = (l) => { const out = []; let cur = '', q = false; for (const ch of l) { if (ch === '"') q = !q; else if (ch === sep && !q) { out.push(cur); cur = ''; } else cur += ch; } out.push(cur); return out.map((x) => x.trim()); };
+  const cab = partir(lineas[0]).map((x) => x.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, ''));
+  const col = (k) => cab.findIndex((c) => c === k || c.startsWith(k));
+  const idx = { numero: col('numero'), fecha: col('fecha'), cliente: col('cliente'), nif: col('nif'), concepto: col('concepto'), base: col('base'), iva: col('iva'), total: col('total') };
+  if (idx.numero < 0 || idx.fecha < 0 || idx.base < 0) return { facturas: [], errores: ['Falta la cabecera: numero;fecha;cliente;nif;concepto;base;iva;total'] };
+  const num = (v) => { const t = String(v || '').replace(/\s|€/g, ''); return Number(/,\d{1,2}$/.test(t) ? t.replace(/\./g, '').replace(',', '.') : t.replace(/,/g, '')); };
+  const fecha = (v) => { const t = String(v || ''); const a = t.match(/^(\d{4})-(\d{2})-(\d{2})/); if (a) return a[0]; const b = t.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/); return b ? `${b[3].length === 2 ? `20${b[3]}` : b[3]}-${b[2].padStart(2, '0')}-${b[1].padStart(2, '0')}` : ''; };
+  const facturas = [], errores = [];
+  lineas.slice(1).forEach((l, i) => {
+    const c = partir(l), v = (k) => (idx[k] >= 0 ? c[idx[k]] || '' : '');
+    const f = { numero: v('numero').slice(0, 30), fecha: fecha(v('fecha')), cliente: v('cliente').slice(0, 160), nif: v('nif').toUpperCase().slice(0, 20), concepto: v('concepto').slice(0, 300), base: num(v('base')) };
+    f.iva = idx.iva >= 0 && v('iva') !== '' ? num(v('iva')) : Math.round(f.base * 21) / 100;
+    f.total = idx.total >= 0 && v('total') !== '' ? num(v('total')) : Math.round((f.base + f.iva) * 100) / 100;
+    if (!f.numero || !f.fecha || !(f.base >= 0)) errores.push(`Línea ${i + 2}: falta el número, la fecha o la base.`);
+    else facturas.push(f);
+  });
+  return { facturas, errores };
+}
 
 export const esDeVenta = (f) => /gesti[oó]n de venta/i.test(String(f.concepto || ''));
 
@@ -138,7 +140,6 @@ export function paginaFacturas(facturas, { ops = [], gastos = [], aviso = '', er
   const H = hacienda(facturas, gastos);
   const suma = (k) => facturas.reduce((s, f) => s + n(f[k]), 0);
   const deVenta = facturas.filter(esDeVenta), sinEnlazar = deVenta.filter((f) => !f.operacion_id);
-  const faltan = FACTURAS_INICIALES.filter((x) => !facturas.some((f) => f.numero === x.numero));
   const vendidas = ops.filter((o) => o.estado === 'vendido' && o.modalidad !== 'encargo');
   const conFactura = new Set(facturas.map((f) => Number(f.operacion_id)).filter(Boolean));
   const ivaPagado = H.reduce((s, x) => s + n(x.ivaPagado), 0), irpfPagado = H.reduce((s, x) => s + n(x.irpfPagado), 0);
@@ -166,8 +167,8 @@ export function paginaFacturas(facturas, { ops = [], gastos = [], aviso = '', er
   return marco('Facturas', 'facturas', `
 ${aviso ? `<p class="aviso${/^Error/.test(aviso) ? ' mal' : ''}">${esc(aviso)}</p>` : ''}
 ${error ? `<p class="aviso mal">${esc(/facturas|relation|schema/.test(error) ? 'Falta crear la tabla de facturas: ejecuta sql/facturas.sql en Supabase › SQL Editor.' : error)}</p>` : ''}
-${!error && faltan.length ? `<div class="card"><h2>${facturas.length ? 'Facturas que faltan' : 'Empezar'}</h2><p>${faltan.length} facturas de 2026 (de la ${esc(faltan[0].numero)} a la ${esc(faltan[faltan.length - 1].numero)}) aún no están. Al cargarlas, las de «Gestión de venta» se enlazan solas con su venta.</p>
-  <form method="post" action="?estado=facturas"><button class="boton" name="accion" value="iniciales">Cargar las ${faltan.length} facturas</button></form></div>` : ''}
+${!error ? `<details class="card"${facturas.length ? '' : ' open'}><summary><b>Importar facturas (CSV)</b></summary><p>Pega aquí el CSV (o elige el archivo): <code>numero;fecha;cliente;nif;concepto;base;iva;total</code>, con esa cabecera. Las que ya estén (mismo número) no se repiten, y las de «Gestión de venta» se enlazan solas con su venta.</p>
+  <form method="post" action="?estado=facturas"><input type="file" accept=".csv,.txt,text/csv" onchange="const f=this.files[0];if(f)f.text().then((t)=>{this.form.csv.value=t})"><textarea name="csv" rows="6" style="width:100%;margin:8px 0;font-family:ui-monospace,monospace;font-size:12px" placeholder="numero;fecha;cliente;nif;concepto;base;iva;total"></textarea><button class="boton" name="accion" value="importar">Importar</button></form></details>` : ''}
 ${editar ? `<div class="card"><h2>Cambiar la factura ${esc(editar.numero)}</h2>${form(editar)}</div>` : ''}
 <div class="kpis">
   <div class="kpi"><span>Facturado</span><b>${euros(suma('base'))}</b><small>${fmt(facturas.length)} facturas · base imponible</small></div>
@@ -199,12 +200,13 @@ export async function rutasFacturas(req, { t, ops: tOps, gastos: tGastos }, html
   const enlazarSolas = async (lista) => { const pares = emparejarFacturas(lista, ops); for (const p of pares) await t.cambiar(p.factura.id, { operacion_id: Number(p.op.id) }); return pares.length; };
   if (req.method === 'POST') {
     try {
-      if (b.accion === 'iniciales') {
+      if (b.accion === 'importar') {
+        const { facturas: leidas, errores } = leerCsvFacturas(b.csv);
         const ya = await leer();
-        const nuevas = FACTURAS_INICIALES.filter((x) => !ya.some((f) => f.numero === x.numero));
+        const nuevas = leidas.filter((x) => !ya.some((f) => f.numero === x.numero));
         for (const f of nuevas) await t.guardar({ ...f, notas: '' }, 'id');
         const k = await enlazarSolas(await leer());
-        aviso = `Cargadas ${nuevas.length} facturas${k ? `; ${k} enlazadas con su venta` : ''}.`;
+        aviso = `${errores.length && !nuevas.length ? 'Error: ' : ''}Importadas ${nuevas.length} facturas${leidas.length - nuevas.length ? ` (${leidas.length - nuevas.length} ya estaban)` : ''}${k ? `; ${k} enlazadas con su venta` : ''}.${errores.length ? ` ${errores.slice(0, 3).join(' ')}` : ''}`;
       } else if (b.accion === 'ligar' && Number(b.id)) {
         await t.cambiar(Number(b.id), { operacion_id: Number(b.operacion_id) || null }); aviso = 'Guardado.';
       } else if (b.accion === 'borrar' && Number(b.id)) {
