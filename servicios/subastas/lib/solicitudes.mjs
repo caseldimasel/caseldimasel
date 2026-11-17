@@ -123,6 +123,7 @@ function tarjetaGestion(cfg, g) {
     ${d.telefono ? `<a class="boton claro" href="tel:${esc(String(d.telefono).replace(/\s/g, ''))}">Llamar</a>` : ''}
     ${d.email ? `<a class="boton claro" href="mailto:${esc(d.email)}?subject=${encodeURIComponent(`Tu ${coche} en Sidonia`)}">Email</a>` : ''}
   </div>
+  ${/Expediente n\.º \d+/.test(g.nota || '') ? `<p class="historia-s"><a class="boton claro" href="?estado=expediente&id=${Number((g.nota.match(/Expediente n\.º (\d+)/) || [])[1])}">Ver su expediente ›</a></p>` : `<form method="post" action="?estado=expediente" class="acciones-s"><input type="hidden" name="gestion" value="${Number(g.id)}"><button name="accion" value="desde-gestion">Abrir expediente (contrato, venta y factura) ›</button></form>`}
   <form method="post" action="?estado=gestiones#g${Number(g.id)}" class="acciones-s">
     <input type="hidden" name="accion" value="gestion"><input type="hidden" name="id" value="${Number(g.id)}">
     <select name="estado">${Object.entries(ESTADOS_GESTION).map(([k, t]) => `<option value="${k}"${k === g.estado ? ' selected' : ''}>${t}</option>`).join('')}</select>

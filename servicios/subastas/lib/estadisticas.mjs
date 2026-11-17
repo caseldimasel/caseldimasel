@@ -44,7 +44,8 @@ export async function registrarEvento(db, body, cliente, headers = {}) {
  *   anunciantes de la comunidad y propietarios de las ventas gestionadas) · Estadísticas web · Herramientas
  */
 export const SECCIONES = [
-  ['ventas', 'Ventas', [['ventas', 'Ventas'], ['meses', 'Por meses'], ['gastos', 'Gastos'], ['facturas', 'Facturas'], ['ofertas', 'Ofertas'], ['enlazar', 'Enlazar a mano'], ['importar', 'Importar Excel']], ['operacion']],
+  ['finanzas', 'Finanzas', [['finanzas', 'Resumen'], ['meses', 'Por meses'], ['facturas', 'Facturas'], ['gastos', 'Gastos'], ['facturacion', 'Datos de facturación']], []],
+  ['ventas', 'Ventas', [['ventas', 'Ventas'], ['expedientes', 'Coches en gestión'], ['ofertas', 'Ofertas'], ['enlazar', 'Enlazar a mano'], ['importar', 'Importar Excel']], ['operacion', 'expediente']],
   ['fichas', 'Anuncios', [['fichas', 'En la web'], ['cobros', 'Cobros comunidad'], ['pendiente', 'Por revisar'], ['cambios', 'Cambios'], ['aprobado', 'Aprobados'], ['publicado', 'Publicados'], ['vendido', 'Vendidos'], ['cancelados', 'Cancelados']], ['ficha', 'rechazado', 'retirado', 'cobrar', 'tarifa']],
   ['gestiones', 'Gestiones de venta', [], []],
   ['alquileres', 'Alquileres', [], []],
@@ -68,6 +69,15 @@ export function navPanel(on) {
 /** El estilo de las páginas de Estadísticas y Clientes */
 export const ESTILO = ESTILO_PANEL;
 export const n = (x) => Number(x) || 0;
+/** Un importe escrito a mano: «40.000», «1.234,56», «2400», «9,68», «12.50», «1500 €» → número (o null) */
+export function importe(v) {
+  let s = String(v ?? '').replace(/\s|€|%/g, '');
+  if (!s) return null;
+  if (s.includes(',')) s = s.replace(/\./g, '').replace(',', '.');
+  else if (/^-?\d{1,3}(\.\d{3})+$/.test(s)) s = s.replace(/\./g, '');
+  const x = Number(s);
+  return Number.isFinite(x) ? x : null;
+}
 export const fmt = (x) => n(x).toLocaleString('es-ES');
 export const pct = (a, b) => (b > 0 ? Math.round((a / b) * 1000) / 10 : 0);
 

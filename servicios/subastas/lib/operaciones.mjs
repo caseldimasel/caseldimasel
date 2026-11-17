@@ -21,7 +21,7 @@ import { paginaMeses } from './meses.mjs';
 import { paginaOfertas } from './ofertas.mjs';
 import { leerXlsx } from './xlsx.mjs';
 
-export const ESTADOS_OP = { en_venta: 'En venta', reservado: 'Reservado', vendido: 'Vendido', retirado: 'Retirado' };
+export const ESTADOS_OP = { captado: 'Captado', en_venta: 'En venta', reservado: 'Reservado', vendido: 'Vendido', retirado: 'Retirado' };
 export const MODALIDADES = { gestion: 'Venta gestionada', encargo: 'Encargo', subasta: 'Subasta', particular: 'Anuncio de particular' };
 /** El comercial de Sidonia: las comisiones de comercial del Excel son suyas */
 export const COMERCIAL = 'Hugo';
@@ -330,7 +330,7 @@ export function paginaVentas(ops, { ver = 'todo', aviso = '', error = '', tienda
     const fi = ficha(o);
     return `<tr data-q="${esc(q)}" onclick="if(!event.target.closest('a'))location.href='?estado=operacion&id=${o.id}'">
       <td class="foto">${fi?.foto ? `<img class="mini" src="${esc(fi.foto)}" alt="" loading="lazy">` : '<span class="mini"></span>'}</td>
-      <td class="izq"><b>${esc(o.titulo)}</b><span class="sub">${esc(TIPOS_OP[o.tipo] || o.tipo)} · ${esc(MODALIDADES[o.modalidad] || o.modalidad)}${o.handle ? ` · <a href="${esc(tienda)}/products/${esc(o.handle)}" target="_blank" rel="noopener">en la web</a> · <a href="?estado=anuncio&h=${encodeURIComponent(o.handle)}">anuncio y números</a>${fichas && !fi ? ' · <b style="color:#b45309">su anuncio ya no está en la tienda</b>' : ''}` : o.modalidad === 'encargo' ? '' : ' · <a href="?estado=enlazar" style="color:#b45309">sin anuncio: enlázala</a>'}</span></td>
+      <td class="izq"><b>${esc(o.titulo)}</b><span class="sub">${esc(TIPOS_OP[o.tipo] || o.tipo)} · ${esc(MODALIDADES[o.modalidad] || o.modalidad)}${o.modalidad !== 'encargo' ? ` · <a href="?estado=expediente&id=${o.id}">contrato y factura</a>` : ''}${o.handle ? ` · <a href="${esc(tienda)}/products/${esc(o.handle)}" target="_blank" rel="noopener">en la web</a> · <a href="?estado=anuncio&h=${encodeURIComponent(o.handle)}">anuncio y números</a>${fichas && !fi ? ' · <b style="color:#b45309">su anuncio ya no está en la tienda</b>' : ''}` : o.modalidad === 'encargo' ? '' : ' · <a href="?estado=enlazar" style="color:#b45309">sin anuncio: enlázala</a>'}</span></td>
       <td class="izq">${pill(o.estado)}${facturaDe.get(Number(o.id)) ? `<span class="sub"><a href="?estado=facturas">factura ${esc(facturaDe.get(Number(o.id)).numero)}</a></span>` : ''}</td>
       <td class="izq">${esc(o.propietario_nombre || '—')}${o.propietario_telefono ? `<span class="sub">${esc(o.propietario_telefono)}</span>` : ''}</td>
       <td class="izq">${esc(o.comprador_nombre || '—')}${o.comprador_telefono ? `<span class="sub">${esc(o.comprador_telefono)}</span>` : ''}</td>
@@ -601,7 +601,7 @@ ${error ? `<p class="aviso mal">${esc(error)}</p>` : ''}
 /* ---------------------------------------------------------------------------- Rutas del panel */
 let ultimoEnlace = 0;
 const ordenar = (ops) => ops.sort((a, b) => {
-  const peso = { en_venta: 0, reservado: 0, vendido: 2, retirado: 3 };
+  const peso = { captado: 0, en_venta: 0, reservado: 0, vendido: 2, retirado: 3 };
   return (peso[a.estado] ?? 4) - (peso[b.estado] ?? 4) || String(b.fecha_venta || b.fecha_alta || b.creado || '').localeCompare(String(a.fecha_venta || a.fecha_alta || a.creado || '')) || b.id - a.id;
 });
 
@@ -761,7 +761,7 @@ export async function rutasOperaciones(req, cfg, deps, html) {
     let gastos = null;
     try { gastos = (await (deps.gastos || tablaAnuncios(cfg, deps.fetch, 'gastos')).leer('select=*&limit=20000')).map((g) => ({ ...g, fecha: String(g.fecha).slice(0, 10), hasta: g.hasta ? String(g.hasta).slice(0, 10) : null })); } catch (e) { gastos = null; }
     let facturas = [];
-    try { facturas = (await (deps.facturas || tablaAnuncios(cfg, deps.fetch, 'facturas')).leer('select=numero,fecha,base,operacion_id&limit=5000')).map((f) => ({ ...f, fecha: String(f.fecha).slice(0, 10) })); } catch (e) { facturas = []; }
+    try { facturas = (await (deps.facturas || tablaAnuncios(cfg, deps.fetch, 'facturas')).leer('select=*&limit=5000')).filter((f) => f.estado !== 'anulada').map((f) => ({ ...f, fecha: String(f.fecha).slice(0, 10) })); } catch (e) { facturas = []; }
     return html(paginaMeses(ops, pagos, { ano: req.query.ano, error, gastos, facturas }));
   }
 
@@ -780,6 +780,6 @@ export async function rutasOperaciones(req, cfg, deps, html) {
   if (req.query.csv) return { status: 200, headers: { 'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': 'attachment; filename="ventas-sidonia.csv"', 'Cache-Control': 'no-store' }, body: csvOperaciones(ops) };
   const ver = ['todo', 'en_venta', 'vendido', 'encargo', 'retirado', 'sinficha'].includes(req.query.ver) ? req.query.ver : 'todo';
   let facturas = null;
-  try { facturas = await (deps.facturas || tablaAnuncios(cfg, deps.fetch, 'facturas')).leer('select=numero,operacion_id&limit=5000'); } catch (e) { facturas = null; }
+  try { facturas = (await (deps.facturas || tablaAnuncios(cfg, deps.fetch, 'facturas')).leer('select=*&limit=5000')).filter((f) => f.estado !== 'anulada'); } catch (e) { facturas = null; }
   return html(paginaVentas(ops, { ver, aviso, error, tienda: cfg.tienda, tareas: deps.tareas, fichas, facturas }));
 }

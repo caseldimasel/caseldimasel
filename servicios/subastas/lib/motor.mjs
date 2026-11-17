@@ -43,7 +43,7 @@ import { guardarInvitacion, invitarSiToca, leerInvitacion } from './invitaciones
 import { rutasPreventa } from './preventa.mjs';
 import { condicionesSubasta, paginaDocumento } from './contratos.mjs';
 
-export const VERSION = '2026-11-17-facturas-hacienda';
+export const VERSION = '2026-11-17-centro-operativo';
 
 export function config(env = process.env) {
   return {
@@ -257,8 +257,9 @@ async function paginaConexion(query, cfg, { db, fetch: fetchImpl = fetch }) {
     ['gestiones', 'id,estado,datos,nota', 'Gestiones de venta en el panel', 'sql/gestiones.sql'],
     ['reservas', 'id,datos,contrato,firma_cliente,stripe_pi,tramos,horas,a_cuenta,resto,resto_pi,resto_pagado', 'Alquiler: reservas por horas y pago en dos partes', 'sql/reservas.sql'],
     ['chats', 'id', 'Chat de Sidonia', 'sql/chat.sql'],
-    ['gastos', 'id,tipo,concepto,importe,fecha,hasta,variable', 'Gastos de Sidonia en el panel', 'sql/gastos.sql'],
-    ['facturas', 'id,numero,fecha,base,iva,total,operacion_id', 'Facturas de Sidonia en el panel', 'sql/facturas.sql']
+    ['gastos', 'id,tipo,concepto,importe,fecha,hasta,variable', 'Gastos de Sidonia en el panel', 'sql/centro-operativo.sql'],
+    ['facturas', 'id,numero,fecha,base,iva,total,operacion_id,estado,forma_pago,cobrada,datos', 'Facturas de Sidonia en el panel', 'sql/centro-operativo.sql'],
+    ['operaciones', 'id,expediente', 'Coches en gestión (contrato, venta, factura y cobro)', 'sql/centro-operativo.sql']
   ];
   const columnas = [];
   if (firma && cfg.supabaseUrl && cfg.supabaseKey) {
@@ -312,6 +313,8 @@ export async function atender(req, cfg, deps) {
     // «¿Lo vendemos nosotros?» (enlace firmado del email, sin sesión): gestion.mjs
     // Pagar una reserva de alquiler (enlace firmado): a Stripe y la vuelta (reservas.mjs)
     if (/^alquiler\/(pagar|pagado|pagar-resto|resto-pagado|contrato|contrato-modelo|condiciones)$/.test(ruta)) return rutasPagoReserva({ ruta, query: req.query || {} }, cfg, deps);
+    // El contrato de intermediación (leer y firmar) y las facturas (enlace firmado): expedientes.mjs
+    if (ruta === 'intermediacion' || ruta === 'factura') { const h = req.headers || {}; const { rutasDocumentos } = await import('./expedientes.mjs'); return rutasDocumentos({ ruta, method: req.method, query: req.query || {}, body: req.body || {}, ip: String(h['x-forwarded-for'] || h['x-real-ip'] || '').split(',')[0].trim(), ua: String(h['user-agent'] || '') }, cfg, deps); }
     // Las condiciones de las subastas (las que se aceptan al registrarse para pujar)
     if (ruta === 'subastas/condiciones') return { status: 200, headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'public, max-age=600' }, body: paginaDocumento('Condiciones de las subastas', condicionesSubasta(cfg)) };
     // Fotos de Google Maps de los talleres y los eventos (lugares.mjs)

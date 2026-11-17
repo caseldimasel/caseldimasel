@@ -54,12 +54,12 @@ export function paginaMeses(ops, pagos, { ano = null, error = '', hoy = new Date
   const m = porMeses(ops, pagos);
   // Otros servicios: las facturas que no son de una venta (marketing, asesoría…) también son ingresos
   for (const f of facturas) {
-    if (!f.fecha || f.operacion_id) continue;
+    if (!f.fecha || f.operacion_id || /gesti[oó]n de venta/i.test(String(f.concepto || ''))) continue;
     const k = String(f.fecha).slice(0, 7);
     const x = (m[k] ||= { vendidos: 0, facturado: 0, comision: 0, comercial: 0, neto: 0, comunidad: 0, total: 0, altas: 0, tiempos: [], porTipo: {}, ticket: 0, dias: null, pct: 0 });
     x.servicios = (x.servicios || 0) + n(f.base); x.total += n(f.base);
   }
-  const conServicios = facturas.some((f) => !f.operacion_id);
+  const conServicios = facturas.some((f) => !f.operacion_id && !/gesti[oó]n de venta/i.test(String(f.concepto || '')));
   // Los gastos de Sidonia (gastos.mjs): cada mes, y lo que queda (resultado = ingresos − gastos)
   // (el comercial ya está restado en el neto; la reserva de IRPF, aparte)
   const G = gastos ? porMesGastos(gastos, hoy, { ops, pagos, facturas }) : null;

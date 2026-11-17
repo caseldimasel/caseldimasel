@@ -7,7 +7,7 @@
  * categoría «IVA» e «Impuestos») y lo que eso dice de lo declarado: el IVA de los gastos y los gastos deducidos.
  */
 import { esc } from './circulo.mjs';
-import { fmt, n } from './estadisticas.mjs';
+import { fmt, importe, n } from './estadisticas.mjs';
 import { marco, normal } from './operaciones.mjs';
 import { IRPF_PCT, trimestreDePago } from './gastos.mjs';
 
@@ -28,7 +28,7 @@ export function leerCsvFacturas(texto) {
   const col = (k) => cab.findIndex((c) => c === k || c.startsWith(k));
   const idx = { numero: col('numero'), fecha: col('fecha'), cliente: col('cliente'), nif: col('nif'), concepto: col('concepto'), base: col('base'), iva: col('iva'), total: col('total') };
   if (idx.numero < 0 || idx.fecha < 0 || idx.base < 0) return { facturas: [], errores: ['Falta la cabecera: numero;fecha;cliente;nif;concepto;base;iva;total'] };
-  const num = (v) => { const t = String(v || '').replace(/\s|€/g, ''); return Number(/,\d{1,2}$/.test(t) ? t.replace(/\./g, '').replace(',', '.') : t.replace(/,/g, '')); };
+  const num = (v) => importe(v) ?? NaN;
   const fecha = (v) => { const t = String(v || ''); const a = t.match(/^(\d{4})-(\d{2})-(\d{2})/); if (a) return a[0]; const b = t.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/); return b ? `${b[3].length === 2 ? `20${b[3]}` : b[3]}-${b[2].padStart(2, '0')}-${b[1].padStart(2, '0')}` : ''; };
   const facturas = [], errores = [];
   lineas.slice(1).forEach((l, i) => {
@@ -50,7 +50,7 @@ export function leerFactura(b) {
   if (!numero) return { error: 'Pon el número de factura.' };
   const fecha = String(b.fecha || '');
   if (!DIA.test(fecha)) return { error: 'Pon la fecha.' };
-  const num = (v) => Number(String(v ?? '').replace(/\s|€/g, '').replace(/\.(?=\d{3}(\D|$))/g, '').replace(',', '.'));
+  const num = (v) => importe(v) ?? NaN;
   const base = num(b.base);
   if (!(base >= 0) || String(b.base ?? '').trim() === '') return { error: 'La base no es un número.' };
   const pct = String(b.iva_pct ?? '').trim() === '' ? 21 : num(b.iva_pct);
@@ -134,9 +134,11 @@ export function csvFacturas(facturas, ops = []) {
 }
 
 /* ---------------------------------------------------------------------------- La página */
-export function paginaFacturas(facturas, { ops = [], gastos = [], aviso = '', error = '', editar = null } = {}) {
+export function paginaFacturas(todas, { ops = [], gastos = [], aviso = '', error = '', editar = null, enlace = null } = {}) {
+  const facturas = todas.filter((f) => f.estado !== 'anulada');
+  const FP = { transferencia: 'Transferencia', bizum: 'Bizum', tarjeta: 'Tarjeta', efectivo: 'Efectivo' };
   const porId = new Map(ops.map((o) => [Number(o.id), o]));
-  const lista = [...facturas].sort((a, b) => String(b.fecha).localeCompare(String(a.fecha)) || String(b.numero).localeCompare(String(a.numero)));
+  const lista = [...todas].sort((a, b) => String(b.fecha).localeCompare(String(a.fecha)) || String(b.numero).localeCompare(String(a.numero)));
   const H = hacienda(facturas, gastos);
   const suma = (k) => facturas.reduce((s, f) => s + n(f[k]), 0);
   const deVenta = facturas.filter(esDeVenta), sinEnlazar = deVenta.filter((f) => !f.operacion_id);
@@ -145,7 +147,7 @@ export function paginaFacturas(facturas, { ops = [], gastos = [], aviso = '', er
   const ivaPagado = H.reduce((s, x) => s + n(x.ivaPagado), 0), irpfPagado = H.reduce((s, x) => s + n(x.irpfPagado), 0);
   const opciones = (f) => `<select name="operacion_id"><option value="">— Sin venta (otro servicio) —</option>${ops.filter((o) => !conFactura.has(Number(o.id)) || Number(o.id) === Number(f.operacion_id)).map((o) => `<option value="${o.id}"${Number(o.id) === Number(f.operacion_id) ? ' selected' : ''}>${esc(o.titulo)}${o.fecha_venta ? ` · ${esc(String(o.fecha_venta).slice(0, 10))}` : ''}${n(o.comision) ? ` · comisión ${Math.round(n(o.comision))} €` : ''}</option>`).join('')}</select>`;
   const filas = lista.map((f) => { const o = porId.get(Number(f.operacion_id)); return `<tr>
-    <td class="izq"><b>${esc(f.numero)}</b><span class="sub">${esc(String(f.fecha).slice(0, 10))}</span></td>
+    <td class="izq"><b>${enlace ? `<a href="${esc(enlace(f))}" target="_blank" rel="noopener">${esc(f.numero)}</a>` : esc(f.numero)}</b><span class="sub">${esc(String(f.fecha).slice(0, 10))}</span>${f.estado === 'anulada' ? '<span class="sub" style="color:var(--rojo)">Anulada</span>' : f.cobrada ? `<span class="sub" style="color:var(--verde)">Cobrada${FP[f.forma_pago] ? ` · ${FP[f.forma_pago]}` : ''}</span>` : f.forma_pago ? '<span class="sub" style="color:#f0b400">Pendiente de cobro</span>' : ''}</td>
     <td class="izq">${esc(f.cliente)}<span class="sub">${esc(f.nif || '')}</span></td>
     <td class="izq">${esc(f.concepto)}${f.notas ? `<span class="sub">${esc(f.notas)}</span>` : ''}</td>
     <td>${euros(f.base)}</td><td>${euros(f.iva)}</td><td><b>${euros(f.total)}</b></td>
@@ -190,7 +192,7 @@ ${H.length ? `<div class="card"><h2>Hacienda, trimestre a trimestre</h2><div cla
 }
 
 /* ---------------------------------------------------------------------------- La ruta */
-export async function rutasFacturas(req, { t, ops: tOps, gastos: tGastos }, html) {
+export async function rutasFacturas(req, { t, ops: tOps, gastos: tGastos, cfg = {} }, html) {
   const b = req.body || {};
   let aviso = '', ops = [], gastos = [];
   try { ops = await tOps.leer('select=id,titulo,estado,modalidad,comision,fecha_venta,handle&limit=5000'); } catch (e) { ops = []; }
@@ -223,5 +225,6 @@ export async function rutasFacturas(req, { t, ops: tOps, gastos: tGastos }, html
   try { facturas = await leer(); } catch (e) { error = e.message; }
   if (req.query.csv) return { status: 200, headers: { 'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': 'attachment; filename="facturas-sidonia.csv"', 'Cache-Control': 'no-store' }, body: csvFacturas(facturas, ops) };
   const editar = Number(req.query.editar) ? facturas.find((f) => Number(f.id) === Number(req.query.editar)) || null : null;
-  return html(paginaFacturas(facturas, { ops, gastos, aviso, error, editar }));
+  const { urlFactura } = await import('./expedientes.mjs');
+  return html(paginaFacturas(facturas, { ops, gastos, aviso, error, editar, enlace: cfg.servidor ? (f) => urlFactura(cfg, f.id) : null }));
 }

@@ -1,0 +1,143 @@
+// El centro operativo: de la gestión de la web (o en persona) al contrato firmado, la venta, la factura y el cobro;
+// y el resumen de Finanzas
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { config, atender } from '../lib/motor.mjs';
+import { atenderPanel } from '../lib/circulo.mjs';
+import { GASTOS_INICIALES } from '../lib/gastos.mjs';
+import { contratoIntermediacion, facturaPropuesta, faseDe, leerFacturaForm, siguienteNumero } from '../lib/expedientes.mjs';
+import { numerosFinanzas } from '../lib/finanzas.mjs';
+import { importe } from '../lib/estadisticas.mjs';
+
+let id = 1000;
+const tabla = (filas, clave = 'id') => ({ filas, leer: async (q = '') => { let l = filas; for (const m of q.matchAll(/(\w+)=eq\.([^&]+)/g)) l = l.filter((x) => String(x[m[1]]) === decodeURIComponent(m[2])); return l; },
+  guardar: async (x, k = 'id') => { const ya = k !== 'id' && filas.find((y) => y[k] === x[k]); if (ya) return Object.assign(ya, x); const nn = { id: id++, creado: new Date().toISOString(), ...x }; filas.push(nn); return nn; },
+  cambiar: async (i, c) => Object.assign(filas.find((x) => Number(x.id) === Number(i)), c), borrar: async () => {} });
+const cfg = config({ ADMIN_CLAVE: 'p', TIENDA_URL: 'https://sidonia.es', SERVIDOR_URL: 'https://motor.test', SUBASTAS_CLAVE: 'k', RESEND_API_KEY: 're_x', AVISOS_EQUIPO: 'equipo@sidonia.es' });
+const auth = { authorization: 'Basic ' + Buffer.from('e:p').toString('base64') };
+function preparar() {
+  const correos = [];
+  const deps = { operaciones: tabla([{ id: 1, titulo: 'JAGUAR XJRS 1993', estado: 'vendido', modalidad: 'gestion', comision: 1700, precio_venta: 30000, fecha_venta: '2026-01-18' }]), facturas: tabla([]), gastos: tabla([]), pagos: tabla([]), ajustes: tabla([], 'clave'),
+    gestiones: tabla([{ id: 77, estado: 'nueva', datos: { marca: 'Land Rover', modelo: 'Defender 110', anio: '1998', km: '180000', precio: '42000', nombre: 'Íñigo Prueba', telefono: '600111222', email: 'inigo@ejemplo.es' }, nota: '' }]),
+    tabla: { leer: async () => [] }, fetch: async (u, o) => { correos.push(JSON.parse(o.body)); return { ok: true, json: async () => ({}), text: async () => '' }; } };
+  const pag = (query, method = 'GET', body = {}) => atenderPanel({ method, query, body, headers: auth }, cfg, deps);
+  const aviso = (r) => (r.body.match(/class="aviso[^"]*">([^<]*)/) || [])[1] || '';
+  const pub = (ruta, url, method = 'GET', body = {}) => atender({ method, ruta, query: Object.fromEntries(new URL(url).searchParams), body, directo: true, headers: { 'x-forwarded-for': '81.1.1.1', 'user-agent': 'Prueba' } }, cfg, deps);
+  return { deps, correos, pag, aviso, pub };
+}
+const EXP = { p_nombre: 'Íñigo Prueba Martín', p_telefono: '600111222', p_email: 'inigo@ejemplo.es', c_marca: 'Land Rover', c_modelo: 'Defender 110', c_anio: '1998', c_matricula: '1234 bcd', c_bastidor: 'SALLDHMF7WA123456', c_km: '180000', k_pct: '6', k_min: '1500', k_meses: '3', k_salida: '42.000', origen: 'web' };
+
+test('importes escritos a mano', () => {
+  assert.deepEqual(['40.000', '1.234,56', '2400', '9,68', '12.50', '1500 €', '', 'x'].map(importe), [40000, 1234.56, 2400, 9.68, 12.5, 1500, null, null]);
+});
+
+test('centro operativo: de la web al contrato firmado, vendido, factura (editable) y cobro', async () => {
+  const { deps, correos, pag, aviso, pub } = preparar();
+  // Sin los datos de facturación, avisa
+  await pag({ estado: 'facturacion' }, 'POST', { nombre: 'Titular de Prueba', nif: '12345678Z', direccion: 'Calle Falsa 1, 28001 Madrid', email: 'hola@sidonia.es', iban: 'ES00 1111', comision_pct: '5', exclusividad_meses: '3', iva_pct: '21' });
+  assert.equal(deps.ajustes.filas[0].valor.nif, '12345678Z');
+  // Desde la gestión del formulario de la web
+  const r = await pag({ estado: 'expediente' }, 'POST', { accion: 'desde-gestion', gestion: '77' });
+  assert.equal(r.status, 303);
+  const eid = Number(r.headers.Location.match(/id=(\d+)/)[1]);
+  const o = () => deps.operaciones.filas.find((x) => x.id === eid);
+  assert.equal(o().estado, 'captado'); assert.equal(o().expediente.coche.marca, 'Land Rover'); assert.equal(o().precio_anunciado, 42000);
+  assert.equal(deps.gestiones.filas[0].estado, 'en_gestion'); assert.match(deps.gestiones.filas[0].nota, new RegExp(`Expediente n\\.º ${eid}`));
+  // Datos completos (DNI mal: avisa)
+  assert.match(aviso(await pag({ estado: 'expediente', id: String(eid) }, 'POST', { accion: 'guardar', ...EXP, p_dni: '12345678A' })), /DNI/);
+  assert.equal(aviso(await pag({ estado: 'expediente', id: String(eid) }, 'POST', { accion: 'guardar', ...EXP })), 'Guardado.');
+  assert.equal(o().expediente.coche.matricula, '1234BCD'); assert.equal(o().expediente.condiciones.comision_pct, 6); assert.equal(o().titulo, 'LAND ROVER DEFENDER 110 1998');
+  // Contrato por email (con su enlace firmado) y por WhatsApp
+  assert.match(aviso(await pag({ estado: 'expediente', id: String(eid) }, 'POST', { accion: 'contrato-email' })), /Enviado a inigo@ejemplo\.es/);
+  assert.equal(faseDe(o()), 'contrato');
+  const enlace = correos.at(-1).html.match(/https:\/\/motor\.test\/tienda\/intermediacion\?o=\d+&amp;f=\w+/)[0].replace('&amp;', '&');
+  const wa = await pag({ estado: 'expediente', id: String(eid), wa: 'contrato' });
+  assert.equal(wa.status, 302); assert.match(wa.headers.Location, /^https:\/\/wa\.me\/34600111222\?text=Hola%20%C3%8D%C3%B1igo/);
+  // Un enlace falso no vale
+  assert.match((await pub('intermediacion', enlace.replace(/f=\w+/, 'f=mal'))).body, /Enlace no válido/);
+  // El propietario lo lee (con sus datos y las condiciones) y lo firma
+  const ver = (await pub('intermediacion', enlace)).body;
+  assert.match(ver, /LAND ROVER|Land Rover Defender 110 1998/); assert.match(ver, /<b>6 %<\/b>/); assert.match(ver, /1\.500 €/); assert.match(ver, /<b>3 meses<\/b>/); assert.match(ver, /Titular de Prueba/); assert.match(ver, /desistir/);
+  assert.match((await pub('intermediacion', enlace, 'POST', { nombre: 'Íñigo Prueba Martín', dni: '12345678Z', direccion: 'Calle del Prado 3, Madrid' })).body, /Marca la casilla/);
+  assert.match((await pub('intermediacion', enlace, 'POST', { nombre: 'Íñigo Prueba Martín', dni: '1234', direccion: 'Calle del Prado 3, Madrid', acepto: '1' })).body, /Revisa tu DNI/);
+  const firmado = (await pub('intermediacion', enlace, 'POST', { nombre: 'Íñigo Prueba Martín', dni: '12345678z', direccion: 'Calle del Prado 3, 28014 Madrid', acepto: '1' })).body;
+  assert.match(firmado, /¡Firmado!/); assert.match(firmado, /Huella SHA-256/);
+  const ct = o().expediente.contrato;
+  assert.equal(ct.firma.dni, '12345678Z'); assert.equal(ct.firma.ip, '81.1.1.1'); assert.equal(ct.hash.length, 64); assert.match(ct.html, /Calle del Prado 3/);
+  assert.equal(o().estado, 'en_venta'); assert.equal(o().expediente.propietario.dni, '12345678Z');
+  assert.ok(correos.some((c) => c.to.includes('equipo@sidonia.es') && /Contrato firmado/.test(c.subject)));
+  // Firmado, ya no se puede volver a firmar
+  await pub('intermediacion', enlace, 'POST', { nombre: 'Otro', dni: '87654321X', direccion: 'Otra calle 1, Madrid', acepto: '1' });
+  assert.equal(o().expediente.contrato.firma.nombre, 'Íñigo Prueba Martín');
+  // Vendido: la comisión, el % del precio final (con el mínimo)
+  assert.match(aviso(await pag({ estado: 'expediente', id: String(eid) }, 'POST', { accion: 'vendido', precio_venta: '40.000', fecha_venta: '2026-11-15', comprador_nombre: 'Comprador' })), /2\.400,00 €/);
+  assert.equal(o().estado, 'vendido'); assert.equal(o().comision, 2400);
+  // La factura propuesta y la de verdad: a nombre de otra empresa, con la comisión rebajada; en efectivo ≥ 1.000 €, no
+  const prop = facturaPropuesta(o(), deps.ajustes.filas[0].valor, []);
+  assert.deepEqual([prop.numero.slice(5), prop.base, prop.destinatario.nombre], ['001', 2400, 'Íñigo Prueba Martín']);
+  const fac = { accion: 'factura', numero: '2026-021', fecha: '2026-11-16', d_nombre: 'Prueba Motor S.L.', d_nif: 'B12345678', d_direccion: 'Calle Uno 1, Madrid', precio_venta: '40000', pct: '5', base: '2.000', iva_pct: '21', concepto: 'Gestión de Venta Land Rover Defender 110 1234BCD' };
+  assert.match(aviso(await pag({ estado: 'expediente', id: String(eid) }, 'POST', { ...fac, forma_pago: 'efectivo' })), /En efectivo solo/);
+  assert.match(aviso(await pag({ estado: 'expediente', id: String(eid) }, 'POST', { ...fac, forma_pago: 'transferencia' })), /Factura 2026-021 creada/);
+  const f = deps.facturas.filas.at(-1);
+  assert.deepEqual([f.base, f.iva, f.total, f.cliente, f.nif, f.operacion_id, f.forma_pago], [2000, 420, 2420, 'Prueba Motor S.L.', 'B12345678', eid, 'transferencia']);
+  assert.equal(o().comision, 2000, 'la comisión de la venta, la de la factura');
+  assert.equal(faseDe(o(), f), 'facturado');
+  assert.match(aviso(await pag({ estado: 'expediente', id: String(eid) }, 'POST', { ...fac, numero: '2026-022' })), /ya tiene factura/);
+  // Enviarla y verla (con el diseño de Sidonia)
+  assert.match(aviso(await pag({ estado: 'expediente', id: String(eid) }, 'POST', { accion: 'factura-email' })), /Enviada a inigo@ejemplo\.es/);
+  const ef = correos.at(-1).html.match(/https:\/\/motor\.test\/tienda\/factura\?n=\d+&amp;f=\w+/)[0].replace('&amp;', '&');
+  const vf = (await pub('factura', ef)).body;
+  assert.match(vf, /FACTURA/); assert.match(vf, /2026-021/); assert.match(vf, /Prueba Motor S\.L\./); assert.match(vf, /2\.420,00 €/); assert.match(vf, /ES00 1111/); assert.match(vf, /Titular de Prueba/);
+  assert.match((await pub('factura', ef.replace(/f=\w+/, 'f=x'))).body, /Enlace no válido/);
+  // Cobrada (en efectivo no, por el importe); deshacer
+  assert.match(aviso(await pag({ estado: 'expediente', id: String(eid) }, 'POST', { accion: 'cobrada', cobrada: '2026-11-17', forma_pago: 'efectivo' })), /no se puede cobrar en efectivo/);
+  assert.equal(aviso(await pag({ estado: 'expediente', id: String(eid) }, 'POST', { accion: 'cobrada', cobrada: '2026-11-17', forma_pago: 'bizum' })), '¡Cobrada!');
+  assert.equal(f.cobrada, '2026-11-17'); assert.equal(f.forma_pago, 'bizum'); assert.equal(faseDe(o(), f), 'cobrado');
+  // Anular: queda anulada y se puede hacer otra
+  await pag({ estado: 'expediente', id: String(eid) }, 'POST', { accion: 'factura-anular' });
+  assert.equal(f.estado, 'anulada'); assert.equal(faseDe(o(), null), 'vendido');
+  // El historial lo cuenta todo
+  assert.ok(o().expediente.historial.length >= 8);
+  // El tablero y el resumen
+  assert.match((await pag({ estado: 'expedientes' })).body, /LAND ROVER DEFENDER 110 1998/);
+  assert.match((await pag({ estado: 'finanzas', ano: '2026' })).body, /Resultado 2026/);
+});
+
+test('centro operativo: coche nuevo en persona y venta de antes sin factura', async () => {
+  const { deps, pag, aviso } = preparar();
+  assert.match((await pag({ estado: 'expediente', nuevo: '1' })).body, /Nuevo coche en gestión/);
+  assert.match(aviso(await pag({ estado: 'expediente' }, 'POST', { accion: 'crear', ...EXP, c_marca: '' })), /marca y el modelo/);
+  const r = await pag({ estado: 'expediente' }, 'POST', { accion: 'crear', ...EXP, p_nombre: 'Concesionario Prueba S.L.', p_dni: 'B11111111', origen: 'llamada' });
+  assert.equal(r.status, 303);
+  const nuevo = deps.operaciones.filas.at(-1);
+  assert.equal(nuevo.estado, 'captado'); assert.equal(nuevo.expediente.origen, 'llamada');
+  // Firmado en papel
+  await pag({ estado: 'expediente', id: String(nuevo.id) }, 'POST', { accion: 'contrato-firmado-papel' });
+  assert.ok(nuevo.expediente.contrato.firma.papel); assert.equal(nuevo.estado, 'en_venta');
+  // La venta de antes: su factura, con la comisión que ya tenía
+  const p = facturaPropuesta(deps.operaciones.filas[0], {}, [{ numero: '2026-020' }]);
+  assert.deepEqual([p.numero, p.base, p.pct], ['2026-021', 1700, 5.67]);
+  const h = (await pag({ estado: 'finanzas', ano: '2026' })).body;
+  assert.match(h, /Hacer la factura: JAGUAR XJRS 1993/); assert.match(h, /Pendiente de facturar/);
+});
+
+test('el contrato sin firmar deja huecos y la factura valida su NIF; los números de factura siguen', () => {
+  const html = contratoIntermediacion({ id: 5, expediente: { propietario: { nombre: 'Ana' }, coche: { marca: 'Seat', modelo: '600' }, condiciones: { comision_pct: 5, exclusividad_meses: 3 } } }, {});
+  assert.match(html, /class="hueco"/); assert.match(html, /Pendiente de firma/);
+  assert.match(leerFacturaForm({ numero: '1', fecha: '2026-01-01', base: '100', d_nombre: 'X', d_nif: '123' }, { id: 1 }).error, /NIF/);
+  assert.equal(siguienteNumero([{ numero: '2026-009' }, { numero: '2026-021' }, { numero: '2025-050' }, { numero: 'otra' }], '2026-11-17'), '2026-022');
+  assert.equal(siguienteNumero([], '2027-01-02'), '2027-001');
+});
+
+test('Finanzas: ingresos, facturado, pendiente de facturar y de cobrar, gastos e IRPF', () => {
+  const ops = [{ id: 1, estado: 'vendido', fecha_venta: '2026-03-10', comision: 3000 }, { id: 2, estado: 'vendido', fecha_venta: '2026-05-10', comision: 2000 }];
+  const facturas = [{ numero: '2026-001', fecha: '2026-03-12', base: 3000, iva: 630, total: 3630, operacion_id: 1, forma_pago: 'transferencia', cobrada: '2026-03-20' },
+    { numero: '2026-002', fecha: '2026-04-02', base: 1000, iva: 210, total: 1210, concepto: 'Marketing', forma_pago: 'transferencia' },
+    { numero: '2026-003', fecha: '2026-04-03', base: 500, iva: 105, total: 605, concepto: 'Gestión de Venta Seat', estado: 'anulada' }];
+  const N = numerosFinanzas({ ops, facturas, gastos: [{ tipo: 'cuota', concepto: 'Canva', categoria: 'Apps', importe: 100, fecha: '2026-01-01' }], pagos: [{ fecha: '2026-06-01', importe: 200 }] }, 2026, new Date('2026-11-17T12:00:00Z'));
+  const T = N.totales;
+  assert.equal(T.ventas, 5000); assert.equal(T.servicios, 1000); assert.equal(T.comunidad, 200); assert.equal(T.ingresos, 6200);
+  assert.equal(T.facturado, 4000); assert.equal(T.pendienteFacturar, 2000); assert.equal(T.pendienteCobro, 1210); assert.equal(T.cobrado, 3630);
+  assert.equal(T.gastos, 1100);
+  assert.equal(Math.round(T.resultado), Math.round(6200 - 1100 - T.irpf));
+});

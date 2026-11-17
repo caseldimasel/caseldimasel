@@ -40,6 +40,7 @@ import { paginaOpiniones } from './opiniones.mjs';
 import { rutasFichas } from './fichas.mjs';
 import { rutasGastos } from './gastos.mjs';
 import { rutasFacturas } from './facturas.mjs';
+import { rutasExpedientes } from './expedientes.mjs';
 import { rutasCorreos } from './plantillas.mjs';
 import { DETALLES, rutaDetalle } from './detalle.mjs';
 import { buscarAnuncios, cajaActividad, catalogoTienda, fotosDe, leerActividad, olvidarCatalogo } from './actividad.mjs';
@@ -1073,10 +1074,14 @@ export async function atenderPanel(req, cfg, deps) {
     const ver = ['todos', 'alquilar', 'poner'].includes(req.query.ver) ? req.query.ver : 'todos';
     return html(paginaAlquiler(lista, { ver, error, marco, contactos, extra }));
   }
+  // Coches en gestión: el expediente de cada coche (captación, contrato, venta, factura y cobro) y los datos de facturación (expedientes.mjs)
+  if (['expedientes', 'expediente', 'facturacion'].includes(seccion)) return rutasExpedientes({ ...req, query: { ...req.query, estado: seccion } }, cfg, deps, html);
+  // Finanzas: el resumen (finanzas.mjs)
+  if (seccion === 'finanzas') { const { rutasFinanzas } = await import('./finanzas.mjs'); return rutasFinanzas(req, cfg, deps, html); }
   // Ventas › Gastos: lo que gasta Sidonia cada mes (gastos.mjs)
   if (seccion === 'gastos') return rutasGastos({ ...req, query: { ...req.query, estado: seccion } }, { t: deps.gastos || tablaAnuncios(cfg, deps.fetch, 'gastos'), ops: deps.operaciones || tablaAnuncios(cfg, deps.fetch, 'operaciones'), pagos: deps.pagos || tablaAnuncios(cfg, deps.fetch, 'pagos'), facturas: deps.facturas || tablaAnuncios(cfg, deps.fetch, 'facturas') }, html);
   // Ventas › Facturas: las facturas, enlazadas con su venta, y Hacienda trimestre a trimestre (facturas.mjs)
-  if (seccion === 'facturas') return rutasFacturas({ ...req, query: { ...req.query, estado: seccion } }, { t: deps.facturas || tablaAnuncios(cfg, deps.fetch, 'facturas'), ops: deps.operaciones || tablaAnuncios(cfg, deps.fetch, 'operaciones'), gastos: deps.gastos || tablaAnuncios(cfg, deps.fetch, 'gastos') }, html);
+  if (seccion === 'facturas') return rutasFacturas({ ...req, query: { ...req.query, estado: seccion } }, { t: deps.facturas || tablaAnuncios(cfg, deps.fetch, 'facturas'), ops: deps.operaciones || tablaAnuncios(cfg, deps.fetch, 'operaciones'), gastos: deps.gastos || tablaAnuncios(cfg, deps.fetch, 'gastos'), cfg }, html);
   if (['ventas', 'meses', 'ofertas', 'operacion', 'importar', 'duenos', 'enlazar'].includes(seccion)) {
     return rutasOperaciones({ ...req, query: { ...req.query, estado: seccion } }, cfg, { ...deps, tareas }, html);
   }

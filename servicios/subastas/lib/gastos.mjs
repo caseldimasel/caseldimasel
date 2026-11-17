@@ -109,7 +109,8 @@ export function porMesGastos(gastos, hoy = new Date(), { ops = [], pagos = [], f
   for (const o of ops) if (o.estado === 'vendido' && o.fecha_venta) { const k = mesDe(o.fecha_venta); ingresos[k] = (ingresos[k] || 0) + n(o.comision); }
   for (const p of pagos) if (p.fecha) { const k = mesDe(p.fecha); ingresos[k] = (ingresos[k] || 0) + n(p.importe); }
   // Las facturas de otros servicios (marketing, asesoría…: las que no son de una venta) también son ingresos
-  for (const f of facturas) if (f.fecha && !f.operacion_id) { const k = mesDe(f.fecha); ingresos[k] = (ingresos[k] || 0) + n(f.base); }
+  // (las de una venta sin enlazar no: su ingreso es la comisión de la venta)
+  for (const f of facturas) if (f.fecha && !f.operacion_id && !/gesti[oó]n de venta/i.test(String(f.concepto || ''))) { const k = mesDe(f.fecha); ingresos[k] = (ingresos[k] || 0) + n(f.base); }
   const conImpuestos = new Set(cargos.filter((g) => g.categoria === 'Impuestos').map((g) => trimestreDePago(g.fecha)));
   const irpf = {}, beneficio = {};
   for (const k of meses) {
@@ -290,6 +291,6 @@ export async function rutasGastos(req, { t, ops: tOps = null, pagos: tPagos = nu
   try { if (tOps) ops = await tOps.leer('select=estado,fecha_venta,comision,comision_comercial,comercial&limit=5000'); } catch (e) { ops = []; }
   try { if (tPagos) pagos = await tPagos.leer('select=fecha,importe&limit=20000'); } catch (e) { pagos = []; }
   let facturas = [];
-  try { if (tFacturas) facturas = await tFacturas.leer('select=fecha,base,operacion_id&limit=5000'); } catch (e) { facturas = []; }
+  try { if (tFacturas) facturas = (await tFacturas.leer('select=*&limit=5000')).filter((f) => f.estado !== 'anulada'); } catch (e) { facturas = []; }
   return html(paginaGastos(gastos, { aviso, error, editar, ops, pagos, facturas }));
 }

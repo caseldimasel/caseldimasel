@@ -52,7 +52,7 @@ test('Gastos: el IVA no cuenta como gasto y el IRPF pagado tapa la reserva de su
   assert.equal(r.iva['2026-10'], 1814.69); assert.equal(r.celdas['2026-10']['IVA (modelo 303)'], undefined);
   assert.equal(r.celdas['2026-10']['IRPF (modelo 130)'].importe, 554.83);
   assert.equal(r.irpf['2026-02'], undefined, 'el 1.er trimestre está pagado');
-  assert.equal(r.ingresos['2026-02'], 2125 + 250 + 250 + 2065 + 3816, 'las facturas sin venta son ingresos');
+  assert.equal(r.ingresos['2026-02'], 2125 + 250 + 250 + 2065, 'las facturas de otros servicios son ingresos; las de una venta sin enlazar, no (su ingreso es la comisión de la venta)');
 });
 
 test('facturas: cada una de venta se enlaza con su venta (comisión, fecha y coche)', () => {
