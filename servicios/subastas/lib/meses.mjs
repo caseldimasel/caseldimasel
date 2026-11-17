@@ -7,6 +7,7 @@
 import { esc } from './circulo.mjs';
 import { fmt, n } from './estadisticas.mjs';
 import { marco, TIPOS_OP } from './operaciones.mjs';
+import { porMesGastos } from './gastos.mjs';
 
 const MES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
 const euros = (x) => `${Math.round(n(x)).toLocaleString('es-ES')} €`;
@@ -49,9 +50,12 @@ export function crece(ahora, antes) {
   return d ? `<em class="${d > 0 ? 'sube' : 'baja'}">${d > 0 ? '+' : '−'}${Math.abs(d)} %</em>` : '<em>=</em>';
 }
 
-export function paginaMeses(ops, pagos, { ano = null, error = '', hoy = new Date() } = {}) {
+export function paginaMeses(ops, pagos, { ano = null, error = '', hoy = new Date(), gastos = null } = {}) {
   const m = porMeses(ops, pagos);
-  const anos = [...new Set([...Object.keys(m).map((k) => Number(k.slice(0, 4))), hoy.getFullYear()])].filter(Boolean).sort((a, b) => b - a);
+  // Los gastos de Sidonia (gastos.mjs): cada mes, y lo que queda (resultado = ingresos − gastos)
+  const g = gastos ? porMesGastos(gastos, hoy).total : null;
+  const gasto = (k) => (g ? n(g[k]) : 0);
+  const anos = [...new Set([...Object.keys(m).map((k) => Number(k.slice(0, 4))), ...Object.keys(g || {}).map((k) => Number(k.slice(0, 4))), hoy.getFullYear()])].filter(Boolean).sort((a, b) => b - a);
   const A = anos.includes(Number(ano)) ? Number(ano) : hoy.getFullYear();
   const ultimoMes = A === hoy.getFullYear() ? hoy.getMonth() + 1 : 12;
   const claves = Array.from({ length: 12 }, (_, i) => `${A}-${String(i + 1).padStart(2, '0')}`);
@@ -84,6 +88,7 @@ export function paginaMeses(ops, pagos, { ano = null, error = '', hoy = new Date
       <td><b>${euros(x.neto)}</b></td>
       <td>${x.comunidad ? euros(x.comunidad) : '—'}</td>
       <td><b>${euros(x.total)}</b></td>
+      ${g ? `<td>${gasto(k) ? euros(gasto(k)) : '—'}</td><td><b style="color:var(${x.total - gasto(k) < 0 ? '--rojo' : '--verde'})">${euros(x.total - gasto(k))}</b></td>` : ''}
       <td>${crece(x.total, p.total)}<span class="sub">vs ${MES[Number(anterior(k).slice(5)) - 1].slice(0, 3)}</span></td>
       <td>${crece(x.total, y.total)}<span class="sub">vs ${A - 1}</span></td>
       <td>${fmt(x.altas)}</td>
@@ -99,11 +104,13 @@ ${error ? `<p class="aviso mal">${esc(error)}</p>` : ''}
   <div class="kpi"><span>Comunidad</span><b>${euros(comunidadA)}</b>${crece(comunidadA, suma(antes, 'comunidad'))}<small>cobrado por anuncios</small></div>
   <div class="kpi"><span>Vendidos</span><b>${fmt(vendidosA)}</b>${crece(vendidosA, suma(antes, 'vendidos'))}<small>${euros(facturadoA)} vendidos en total</small></div>
   <div class="kpi"><span>Media al mes</span><b>${euros(totalA / Math.max(1, ultimoMes))}</b><small>${fmt(vendidosA / Math.max(1, ultimoMes))} ventas al mes</small></div>
+  ${g ? `<div class="kpi"><span>Gastos ${A}</span><b>${euros(hasta.reduce((s, k) => s + gasto(k), 0))}</b><small><a href="?estado=gastos">ver los gastos ›</a></small></div>
+  <div class="kpi"><span>Resultado ${A}</span><b>${euros(totalA - hasta.reduce((s, k) => s + gasto(k), 0))}</b><small>ingresos menos gastos</small></div>` : ''}
   <div class="kpi"><span>Mejor mes</span><b>${mejor ? MES[Number(mejor.slice(5)) - 1] : '—'}</b><small>${mejor ? euros(de(mejor).total) : 'aún sin ventas'}</small></div>
 </div>
 <div class="card"><h2>Mes a mes</h2>${grafica}</div>
 <div class="card"><div class="tabla"><table>
-  <thead><tr><th class="izq">Mes</th><th>Vendidos</th><th>Facturado</th><th>Comisión</th><th>Comercial</th><th>Neto ventas</th><th>Comunidad</th><th>Total</th><th>Mes anterior</th><th>Año anterior</th><th>Nuevos en venta</th><th>Días en venta</th></tr></thead>
+  <thead><tr><th class="izq">Mes</th><th>Vendidos</th><th>Facturado</th><th>Comisión</th><th>Comercial</th><th>Neto ventas</th><th>Comunidad</th><th>Total</th>${g ? '<th>Gastos</th><th>Resultado</th>' : ''}<th>Mes anterior</th><th>Año anterior</th><th>Nuevos en venta</th><th>Días en venta</th></tr></thead>
   <tbody>${filas || '<tr><td colspan="12" class="vacio">Aún sin datos este año.</td></tr>'}</tbody>
 </table></div></div>
 <p class="nota">Una venta cuenta en el mes en que se vendió (su fecha de venta); los nuevos en venta, en el de su fecha de alta. «Total» = neto de Sidonia (comisión menos comerciales) + lo cobrado a la comunidad. Las ventas sin fecha de venta no salen aquí: pónsela en su ficha.</p>`, `

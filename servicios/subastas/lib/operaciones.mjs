@@ -757,7 +757,9 @@ export async function rutasOperaciones(req, cfg, deps, html) {
     let ops = [], pagos = [], error = '';
     try { ops = await leerTodas(); } catch (e) { error = 'Las ventas aún no están: ejecuta sql/operaciones.sql en Supabase › SQL Editor.'; }
     try { pagos = await (deps.pagos || tablaAnuncios(cfg, deps.fetch, 'pagos')).leer('select=fecha,importe&limit=20000'); } catch (e) { pagos = []; }
-    return html(paginaMeses(ops, pagos, { ano: req.query.ano, error }));
+    let gastos = null;
+    try { gastos = (await (deps.gastos || tablaAnuncios(cfg, deps.fetch, 'gastos')).leer('select=*&limit=20000')).map((g) => ({ ...g, fecha: String(g.fecha).slice(0, 10), hasta: g.hasta ? String(g.hasta).slice(0, 10) : null })); } catch (e) { gastos = null; }
+    return html(paginaMeses(ops, pagos, { ano: req.query.ano, error, gastos }));
   }
 
   // Ventas

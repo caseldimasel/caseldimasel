@@ -38,6 +38,7 @@ import { leerTarifa as leerTarifaAlq } from './comunidad.mjs';
 import { paginaGarajes } from './garaje.mjs';
 import { paginaOpiniones } from './opiniones.mjs';
 import { rutasFichas } from './fichas.mjs';
+import { rutasGastos } from './gastos.mjs';
 import { rutasCorreos } from './plantillas.mjs';
 import { DETALLES, rutaDetalle } from './detalle.mjs';
 import { buscarAnuncios, cajaActividad, catalogoTienda, fotosDe, leerActividad, olvidarCatalogo } from './actividad.mjs';
@@ -1071,6 +1072,8 @@ export async function atenderPanel(req, cfg, deps) {
     const ver = ['todos', 'alquilar', 'poner'].includes(req.query.ver) ? req.query.ver : 'todos';
     return html(paginaAlquiler(lista, { ver, error, marco, contactos, extra }));
   }
+  // Ventas › Gastos: lo que gasta Sidonia cada mes (gastos.mjs)
+  if (seccion === 'gastos') return rutasGastos({ ...req, query: { ...req.query, estado: seccion } }, deps.gastos || tablaAnuncios(cfg, deps.fetch, 'gastos'), html);
   if (['ventas', 'meses', 'ofertas', 'operacion', 'importar', 'duenos', 'enlazar'].includes(seccion)) {
     return rutasOperaciones({ ...req, query: { ...req.query, estado: seccion } }, cfg, { ...deps, tareas }, html);
   }
