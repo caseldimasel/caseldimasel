@@ -44,7 +44,7 @@ export async function registrarEvento(db, body, cliente, headers = {}) {
  *   anunciantes de la comunidad y propietarios de las ventas gestionadas) · Estadísticas web · Herramientas
  */
 export const SECCIONES = [
-  ['ventas', 'Ventas', [['ventas', 'Ventas'], ['meses', 'Por meses'], ['gastos', 'Gastos'], ['ofertas', 'Ofertas'], ['enlazar', 'Enlazar a mano'], ['importar', 'Importar Excel']], ['operacion']],
+  ['ventas', 'Ventas', [['ventas', 'Ventas'], ['meses', 'Por meses'], ['gastos', 'Gastos'], ['facturas', 'Facturas'], ['ofertas', 'Ofertas'], ['enlazar', 'Enlazar a mano'], ['importar', 'Importar Excel']], ['operacion']],
   ['fichas', 'Anuncios', [['fichas', 'En la web'], ['cobros', 'Cobros comunidad'], ['pendiente', 'Por revisar'], ['cambios', 'Cambios'], ['aprobado', 'Aprobados'], ['publicado', 'Publicados'], ['vendido', 'Vendidos'], ['cancelados', 'Cancelados']], ['ficha', 'rechazado', 'retirado', 'cobrar', 'tarifa']],
   ['gestiones', 'Gestiones de venta', [], []],
   ['alquileres', 'Alquileres', [], []],

@@ -315,7 +315,8 @@ ${cuerpo}
 const errorSql = (error) => (error ? `<p class="aviso mal">No se han podido leer las ventas: ${esc(/operaciones|relation|schema cache/.test(error) ? 'falta ejecutar sql/operaciones.sql en Supabase › SQL Editor.' : error)}</p>` : '');
 const pill = (e) => `<span class="pill ${esc(e)}">${esc(ESTADOS_OP[e] || e)}</span>`;
 
-export function paginaVentas(ops, { ver = 'todo', aviso = '', error = '', tienda = 'https://sidonia.es', tareas = [], fichas = null } = {}) {
+export function paginaVentas(ops, { ver = 'todo', aviso = '', error = '', tienda = 'https://sidonia.es', tareas = [], fichas = null, facturas = null } = {}) {
+  const facturaDe = new Map((facturas || []).filter((f) => f.operacion_id).map((f) => [Number(f.operacion_id), f]));
   const ficha = (o) => (fichas && o.handle ? fichas.get(o.handle) : null);
   const r = resumen(ops);
   const filtros = { todo: 'Todas', en_venta: 'En venta', vendido: 'Vendidas', encargo: 'Encargos', retirado: 'Retiradas', sinficha: 'Sin ficha' };
@@ -330,7 +331,7 @@ export function paginaVentas(ops, { ver = 'todo', aviso = '', error = '', tienda
     return `<tr data-q="${esc(q)}" onclick="if(!event.target.closest('a'))location.href='?estado=operacion&id=${o.id}'">
       <td class="foto">${fi?.foto ? `<img class="mini" src="${esc(fi.foto)}" alt="" loading="lazy">` : '<span class="mini"></span>'}</td>
       <td class="izq"><b>${esc(o.titulo)}</b><span class="sub">${esc(TIPOS_OP[o.tipo] || o.tipo)} · ${esc(MODALIDADES[o.modalidad] || o.modalidad)}${o.handle ? ` · <a href="${esc(tienda)}/products/${esc(o.handle)}" target="_blank" rel="noopener">en la web</a> · <a href="?estado=anuncio&h=${encodeURIComponent(o.handle)}">anuncio y números</a>${fichas && !fi ? ' · <b style="color:#b45309">su anuncio ya no está en la tienda</b>' : ''}` : o.modalidad === 'encargo' ? '' : ' · <a href="?estado=enlazar" style="color:#b45309">sin anuncio: enlázala</a>'}</span></td>
-      <td class="izq">${pill(o.estado)}</td>
+      <td class="izq">${pill(o.estado)}${facturaDe.get(Number(o.id)) ? `<span class="sub"><a href="?estado=facturas">factura ${esc(facturaDe.get(Number(o.id)).numero)}</a></span>` : ''}</td>
       <td class="izq">${esc(o.propietario_nombre || '—')}${o.propietario_telefono ? `<span class="sub">${esc(o.propietario_telefono)}</span>` : ''}</td>
       <td class="izq">${esc(o.comprador_nombre || '—')}${o.comprador_telefono ? `<span class="sub">${esc(o.comprador_telefono)}</span>` : ''}</td>
       <td>${o.estado === 'vendido' ? euros(o.precio_venta) : euros(o.precio_anunciado)}${o.estado === 'vendido' && n(o.precio_anunciado) ? `<span class="sub">salía a ${euros(o.precio_anunciado)}</span>` : ''}</td>
@@ -759,7 +760,9 @@ export async function rutasOperaciones(req, cfg, deps, html) {
     try { pagos = await (deps.pagos || tablaAnuncios(cfg, deps.fetch, 'pagos')).leer('select=fecha,importe&limit=20000'); } catch (e) { pagos = []; }
     let gastos = null;
     try { gastos = (await (deps.gastos || tablaAnuncios(cfg, deps.fetch, 'gastos')).leer('select=*&limit=20000')).map((g) => ({ ...g, fecha: String(g.fecha).slice(0, 10), hasta: g.hasta ? String(g.hasta).slice(0, 10) : null })); } catch (e) { gastos = null; }
-    return html(paginaMeses(ops, pagos, { ano: req.query.ano, error, gastos }));
+    let facturas = [];
+    try { facturas = (await (deps.facturas || tablaAnuncios(cfg, deps.fetch, 'facturas')).leer('select=numero,fecha,base,operacion_id&limit=5000')).map((f) => ({ ...f, fecha: String(f.fecha).slice(0, 10) })); } catch (e) { facturas = []; }
+    return html(paginaMeses(ops, pagos, { ano: req.query.ano, error, gastos, facturas }));
   }
 
   // Ventas
@@ -776,5 +779,7 @@ export async function rutasOperaciones(req, cfg, deps, html) {
   try { ops = await leerTodas(); } catch (e) { error = e.message; }
   if (req.query.csv) return { status: 200, headers: { 'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': 'attachment; filename="ventas-sidonia.csv"', 'Cache-Control': 'no-store' }, body: csvOperaciones(ops) };
   const ver = ['todo', 'en_venta', 'vendido', 'encargo', 'retirado', 'sinficha'].includes(req.query.ver) ? req.query.ver : 'todo';
-  return html(paginaVentas(ops, { ver, aviso, error, tienda: cfg.tienda, tareas: deps.tareas, fichas }));
+  let facturas = null;
+  try { facturas = await (deps.facturas || tablaAnuncios(cfg, deps.fetch, 'facturas')).leer('select=numero,operacion_id&limit=5000'); } catch (e) { facturas = null; }
+  return html(paginaVentas(ops, { ver, aviso, error, tienda: cfg.tienda, tareas: deps.tareas, fichas, facturas }));
 }

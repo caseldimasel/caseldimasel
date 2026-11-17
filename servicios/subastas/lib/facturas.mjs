@@ -1,0 +1,225 @@
+/* SIDONIA · Panel › Ventas › Facturas: las facturas que emite Sidonia, enlazadas con su venta, y lo pagado a Hacienda.
+ *
+ *   ?estado=facturas[&csv=1]
+ * Tabla facturas (sql/facturas.sql). Una factura «Gestión de venta…» se enlaza con su venta (por el importe de la
+ * comisión, la fecha y el coche); las demás (marketing, asesoría…) son ingresos de otros servicios.
+ * Hacienda, cada trimestre: lo facturado, el IVA cobrado, lo pagado (modelo 303 de IVA y 130 de IRPF, en Gastos con
+ * categoría «IVA» e «Impuestos») y lo que eso dice de lo declarado: el IVA de los gastos y los gastos deducidos.
+ */
+import { esc } from './circulo.mjs';
+import { fmt, n } from './estadisticas.mjs';
+import { marco, normal } from './operaciones.mjs';
+import { IRPF_PCT, trimestreDePago } from './gastos.mjs';
+
+const euros = (x) => `${n(x).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2, useGrouping: 'always' })} €`;
+const DIA = /^\d{4}-\d{2}-\d{2}$/;
+const trimestre = (f) => `${String(f).slice(0, 4)}-T${Math.ceil(Number(String(f).slice(5, 7)) / 3)}`;
+const nombreT = (t) => `${t.slice(6)}.º trimestre de ${t.slice(0, 4)}`;
+
+/** Las facturas emitidas hasta septiembre de 2026 (1.º, 2.º y 3.er trimestre) */
+export const FACTURAS_INICIALES = [
+  {numero: '2026-001', fecha: '2026-01-20', cliente: 'Tonneau S.L', nif: 'B87703534', concepto: 'Gestión de Venta Jaguar XJRS 1067 DCS', base: 1700.0, iva: 357.0, total: 2057.0},
+  {numero: '2026-002', fecha: '2026-01-29', cliente: 'Eduardo Luque Delgado', nif: '24842560F', concepto: 'Gestión de Venta Jaguar XJ8 M 6420 ZC', base: 1045.0, iva: 219.45, total: 1264.45},
+  {numero: '2026-003', fecha: '2026-02-02', cliente: 'Santiago Gantes Rodríguez', nif: '48903116X', concepto: 'Gestión redes sociales y publicidad', base: 2125.0, iva: 446.25, total: 2571.25},
+  {numero: '2026-004', fecha: '2026-02-04', cliente: 'Wally B2B S.L', nif: 'B87068219', concepto: 'Acción de Marketing', base: 250.0, iva: 52.5, total: 302.5},
+  {numero: '2026-005', fecha: '2026-02-05', cliente: 'Tranquilito Media SL', nif: 'B56445091', concepto: 'Acción de Marketing', base: 250.0, iva: 52.5, total: 302.5},
+  {numero: '2026-006', fecha: '2026-02-12', cliente: 'Cristal Celtiberia S.L', nif: 'B85533859', concepto: 'Asesoramiento y trabajos de estrategia de marketing en redes sociales y repaso de la página web.', base: 2065.0, iva: 433.65, total: 2498.65},
+  {numero: '2026-007', fecha: '2026-02-14', cliente: 'Reisinger Studio S.L', nif: 'B93737500', concepto: 'Gestión de Venta Porsche 1347 GBY', base: 3816.0, iva: 801.36, total: 4617.36},
+  {numero: '2026-008', fecha: '2026-03-30', cliente: 'Ricardo Majo Romero', nif: '29138366B', concepto: 'Gestión de Venta Vehículo 3561 CFF', base: 704.0, iva: 147.84, total: 851.84},
+  {numero: '2026-009', fecha: '2026-03-30', cliente: 'Jose Antonio Naval', nif: 'Y3512045M', concepto: 'Servicio ITV Detailing Integral Batería Varta Blue 95 AH-800A Cambio de 8 Bujías + Mano de Obra', base: 466.16, iva: 97.89, total: 564.05},
+  {numero: '2026-010', fecha: '2026-04-11', cliente: 'Indico Soluciones S.L.', nif: 'B84728427', concepto: 'Gestión de Venta Vehículo 3795 LDV', base: 2625.0, iva: 551.25, total: 3176.25},
+  {numero: '2026-011', fecha: '2026-04-15', cliente: 'Eduardo Luis Álvarez Aznar', nif: '50888936X', concepto: 'Gestión de Venta Cadillac 0694 KLX', base: 3300.0, iva: 693.0, total: 3993.0},
+  {numero: '2026-012', fecha: '2026-05-05', cliente: 'Land Legends S.L', nif: 'B42870998', concepto: 'Gestión de Venta Vehículo', base: 6900.0, iva: 1449.0, total: 8349.0},
+  {numero: '2026-013', fecha: '2026-05-29', cliente: 'Joaquín Planet Martí', nif: '38803785W', concepto: 'Gestión de Venta Vehículo', base: 2940.0, iva: 617.4, total: 3557.4},
+  {numero: '2026-014', fecha: '2026-07-01', cliente: 'Ascendía Reingenieria y Consulting S.L', nif: 'B91407510', concepto: 'Asesoramiento en procesos de venta y negocio', base: 1500.0, iva: 315.0, total: 1815.0},
+  {numero: '2026-015', fecha: '2026-07-02', cliente: 'EXOTIC MACHINES SL', nif: 'B27625805', concepto: 'Gestión redes sociales y publicidad', base: 3995.0, iva: 838.95, total: 4833.95},
+  {numero: '2026-016', fecha: '2026-07-03', cliente: 'Carlos Franco Valdivieso', nif: '47284215X', concepto: 'Gestión de Venta Vehículo H 1741 BBJ', base: 2080.0, iva: 436.8, total: 2516.8},
+  {numero: '2026-017', fecha: '2026-07-16', cliente: 'Nuptia Cars SL', nif: 'B98258544', concepto: 'Gestión de Venta Vehículo Mercedes-Benz CLK 430. Matricula M8215WV', base: 330.0, iva: 69.3, total: 399.3},
+  {numero: '2026-018', fecha: '2026-07-16', cliente: 'Nuptia Cars SL', nif: 'B98258544', concepto: 'Gestión de Venta Vehículo Mercedes-Benz Millie Miglia. Matricula O7353CB', base: 2100.0, iva: 441.0, total: 2541.0},
+  {numero: '2026-019', fecha: '2026-07-16', cliente: 'Nuptia Cars SL', nif: 'B98258544', concepto: 'Gestión de Venta Vehículo Mercedes-Benz 280SEL. Matricula H0875BBD', base: 1200.0, iva: 252.0, total: 1452.0},
+  {numero: '2026-020', fecha: '2026-09-03', cliente: 'BOOHI CAPITAL SL', nif: 'B19718766', concepto: 'Gestión de Venta Vehículo Land Cruiser BJ40 3.0 . Matrícula 3360 CVY', base: 1494.0, iva: 313.74, total: 1807.74}
+];
+
+export const esDeVenta = (f) => /gesti[oó]n de venta/i.test(String(f.concepto || ''));
+
+/** Lee el formulario: { factura } o { error } */
+export function leerFactura(b) {
+  const numero = String(b.numero || '').trim().slice(0, 30);
+  if (!numero) return { error: 'Pon el número de factura.' };
+  const fecha = String(b.fecha || '');
+  if (!DIA.test(fecha)) return { error: 'Pon la fecha.' };
+  const num = (v) => Number(String(v ?? '').replace(/\s|€/g, '').replace(/\.(?=\d{3}(\D|$))/g, '').replace(',', '.'));
+  const base = num(b.base);
+  if (!(base >= 0) || String(b.base ?? '').trim() === '') return { error: 'La base no es un número.' };
+  const pct = String(b.iva_pct ?? '').trim() === '' ? 21 : num(b.iva_pct);
+  if (!(pct >= 0 && pct <= 30)) return { error: 'El % de IVA no es válido.' };
+  const iva = Math.round(base * pct) / 100;
+  return { factura: { numero, fecha, cliente: String(b.cliente || '').trim().slice(0, 160), nif: String(b.nif || '').trim().toUpperCase().slice(0, 20), concepto: String(b.concepto || '').trim().slice(0, 300),
+    base: Math.round(base * 100) / 100, iva, total: Math.round((base + iva) * 100) / 100, notas: String(b.notas || '').trim().slice(0, 300) } };
+}
+
+/** Las palabras del coche (sin «gestión», «venta», «vehículo», la matrícula…) */
+const palabras = (t) => normal(t).split(' ').filter((w) => w.length >= 3 && !['gestion', 'venta', 'vehiculo', 'matricula'].includes(w) && !/^\d{4}$/.test(w));
+/**
+ * Para cada factura de una venta sin enlazar, la venta que es: la comisión igual a la base (o al total), la fecha de venta
+ * cerca y el coche parecido. Devuelve [{ factura, op, puntos }] (cada venta, con una sola factura)
+ */
+export function emparejarFacturas(facturas, ops) {
+  const usadas = new Set(facturas.map((f) => Number(f.operacion_id)).filter(Boolean));
+  const pares = [];
+  for (const f of facturas.filter((x) => !x.operacion_id && esDeVenta(x))) {
+    const pf = palabras(f.concepto);
+    for (const o of ops) {
+      if (usadas.has(Number(o.id)) || o.modalidad === 'encargo') continue;
+      const importe = n(o.comision) > 0 && (Math.abs(n(o.comision) - n(f.base)) <= 1 || Math.abs(n(o.comision) - n(f.total)) <= 1);
+      const po = palabras(o.titulo);
+      const comunes = pf.filter((w) => po.some((x) => x === w || (x.length >= 4 && w.length >= 4 && (x.startsWith(w) || w.startsWith(x))))).length;
+      const dias = o.fecha_venta ? Math.abs(new Date(o.fecha_venta) - new Date(f.fecha)) / 864e5 : null;
+      if (dias != null && dias > 90) continue;
+      const puntos = (importe ? 3 : 0) + Math.min(2, comunes) + (dias != null && dias <= 45 ? 1 : 0);
+      if (puntos >= 4 || (importe && dias != null && dias <= 45)) pares.push({ factura: f, op: o, puntos });
+    }
+  }
+  pares.sort((a, b) => b.puntos - a.puntos);
+  const hechas = new Set(), out = [];
+  for (const p of pares) {
+    if (hechas.has(p.factura.numero) || usadas.has(Number(p.op.id))) continue;
+    hechas.add(p.factura.numero); usadas.add(Number(p.op.id)); out.push(p);
+  }
+  return out;
+}
+
+/**
+ * Hacienda, por trimestre: { t, base, iva, ivaPagado, irpfPagado, ivaGastos, rendimiento, gastosDeclarados } — el IVA de
+ * los gastos = el cobrado menos el pagado (modelo 303); con el IRPF pagado (modelo 130, que es acumulado en el año: el
+ * 20 % del rendimiento desde enero menos lo ya pagado) sale el rendimiento declarado y, con lo facturado, los gastos deducidos
+ */
+export function hacienda(facturas, gastos) {
+  const t = {};
+  const de = (k) => (t[k] ||= { t: k, base: 0, iva: 0, facturas: 0, ivaPagado: null, irpfPagado: null });
+  for (const f of facturas) { const x = de(trimestre(f.fecha)); x.base += n(f.base); x.iva += n(f.iva); x.facturas += 1; }
+  for (const g of gastos.filter((x) => x.tipo === 'cargo' && ['IVA', 'Impuestos'].includes(x.categoria))) {
+    const x = de(trimestreDePago(g.fecha));
+    if (g.categoria === 'IVA') x.ivaPagado = (x.ivaPagado || 0) + n(g.importe); else x.irpfPagado = (x.irpfPagado || 0) + n(g.importe);
+  }
+  const lista = Object.values(t).sort((a, b) => a.t.localeCompare(b.t));
+  const porAno = {};
+  for (const x of lista) {
+    const a = (porAno[x.t.slice(0, 4)] ||= { base: 0, pagado: 0, gastos: 0, completo: true });
+    a.base += x.base;
+    if (x.ivaPagado != null) x.ivaGastos = Math.round((x.iva - x.ivaPagado) * 100) / 100;
+    if (x.irpfPagado != null && a.completo) {
+      // Rendimiento desde enero = (lo pagado este trimestre + lo de antes) / 20 %
+      const rendAcum = (x.irpfPagado + a.pagado) / (IRPF_PCT / 100);
+      const gastosAcum = a.base - rendAcum;
+      x.rendimiento = Math.round((rendAcum - (a.rend || 0)) * 100) / 100;
+      x.gastosDeclarados = Math.round((gastosAcum - a.gastos) * 100) / 100;
+      a.pagado += x.irpfPagado; a.gastos = gastosAcum; a.rend = rendAcum;
+    } else a.completo = false;
+    x.base = Math.round(x.base * 100) / 100; x.iva = Math.round(x.iva * 100) / 100;
+  }
+  return lista;
+}
+
+/** CSV (; y BOM, para Excel) */
+export function csvFacturas(facturas, ops = []) {
+  const celda = (v) => { const t = String(v ?? ''); return /[;"\n\r]/.test(t) || /^[=+\-@]/.test(t) ? `"${t.replace(/^([=+\-@])/, "'$1").replace(/"/g, '""')}"` : t; };
+  const num = (x) => n(x).toFixed(2).replace('.', ',');
+  const porId = new Map(ops.map((o) => [Number(o.id), o]));
+  const cab = ['numero', 'fecha', 'cliente', 'nif', 'concepto', 'base', 'iva', 'total', 'trimestre', 'venta_id', 'venta'];
+  const filas = facturas.map((f) => [f.numero, f.fecha, f.cliente, f.nif, f.concepto, num(f.base), num(f.iva), num(f.total), trimestre(f.fecha), f.operacion_id || '', porId.get(Number(f.operacion_id))?.titulo || ''].map(celda).join(';'));
+  return `﻿${[cab.join(';'), ...filas].join('\r\n')}\r\n`;
+}
+
+/* ---------------------------------------------------------------------------- La página */
+export function paginaFacturas(facturas, { ops = [], gastos = [], aviso = '', error = '', editar = null } = {}) {
+  const porId = new Map(ops.map((o) => [Number(o.id), o]));
+  const lista = [...facturas].sort((a, b) => String(b.fecha).localeCompare(String(a.fecha)) || String(b.numero).localeCompare(String(a.numero)));
+  const H = hacienda(facturas, gastos);
+  const suma = (k) => facturas.reduce((s, f) => s + n(f[k]), 0);
+  const deVenta = facturas.filter(esDeVenta), sinEnlazar = deVenta.filter((f) => !f.operacion_id);
+  const faltan = FACTURAS_INICIALES.filter((x) => !facturas.some((f) => f.numero === x.numero));
+  const vendidas = ops.filter((o) => o.estado === 'vendido' && o.modalidad !== 'encargo');
+  const conFactura = new Set(facturas.map((f) => Number(f.operacion_id)).filter(Boolean));
+  const ivaPagado = H.reduce((s, x) => s + n(x.ivaPagado), 0), irpfPagado = H.reduce((s, x) => s + n(x.irpfPagado), 0);
+  const opciones = (f) => `<select name="operacion_id"><option value="">— Sin venta (otro servicio) —</option>${ops.filter((o) => !conFactura.has(Number(o.id)) || Number(o.id) === Number(f.operacion_id)).map((o) => `<option value="${o.id}"${Number(o.id) === Number(f.operacion_id) ? ' selected' : ''}>${esc(o.titulo)}${o.fecha_venta ? ` · ${esc(String(o.fecha_venta).slice(0, 10))}` : ''}${n(o.comision) ? ` · comisión ${Math.round(n(o.comision))} €` : ''}</option>`).join('')}</select>`;
+  const filas = lista.map((f) => { const o = porId.get(Number(f.operacion_id)); return `<tr>
+    <td class="izq"><b>${esc(f.numero)}</b><span class="sub">${esc(String(f.fecha).slice(0, 10))}</span></td>
+    <td class="izq">${esc(f.cliente)}<span class="sub">${esc(f.nif || '')}</span></td>
+    <td class="izq">${esc(f.concepto)}${f.notas ? `<span class="sub">${esc(f.notas)}</span>` : ''}</td>
+    <td>${euros(f.base)}</td><td>${euros(f.iva)}</td><td><b>${euros(f.total)}</b></td>
+    <td class="izq">${o ? `<a href="?estado=operacion&id=${o.id}">${esc(o.titulo)}</a>${o.handle ? ` · <a href="?estado=anuncio&h=${encodeURIComponent(o.handle)}">anuncio</a>` : ''}` : esDeVenta(f) ? '<span style="color:#b45309">Sin enlazar con su venta</span>' : '<span class="sub">Otro servicio</span>'}
+      <form method="post" action="?estado=facturas" class="enl"><input type="hidden" name="id" value="${f.id}">${opciones(f)}<button class="claro" name="accion" value="ligar">Guardar</button></form></td>
+    <td><a href="?estado=facturas&editar=${f.id}">Cambiar</a></td></tr>`; }).join('');
+  const form = (f = {}) => `<form method="post" action="?estado=facturas" class="op g-form">${f.id ? `<input type="hidden" name="id" value="${f.id}">` : ''}
+    <label>N.º de factura<input name="numero" required value="${esc(f.numero || '')}" placeholder="2026-021"></label>
+    <label>Fecha<input type="date" name="fecha" required value="${esc(String(f.fecha || new Date().toISOString()).slice(0, 10))}"></label>
+    <label>Cliente<input name="cliente" value="${esc(f.cliente || '')}"></label><label>NIF / CIF<input name="nif" value="${esc(f.nif || '')}"></label>
+    <label class="ancho">Concepto<input name="concepto" value="${esc(f.concepto || '')}" placeholder="Gestión de Venta Porsche 911 1234 ABC"></label>
+    <label>Base imponible (€)<input name="base" required inputmode="decimal" value="${f.base != null ? esc(String(f.base).replace('.', ',')) : ''}"></label>
+    <label>IVA (%)<input name="iva_pct" inputmode="decimal" value="${f.base ? esc(String(Math.round((n(f.iva) / n(f.base)) * 1000) / 10).replace('.', ',')) : '21'}"></label>
+    <label class="ancho">Notas<input name="notas" value="${esc(f.notas || '')}"></label>
+    <div class="acc"><button class="boton" name="accion" value="guardar">${f.id ? 'Guardar' : 'Añadir'}</button>${f.id ? `<a class="boton claro" href="?estado=facturas">Cancelar</a><button class="boton rojo no" name="accion" value="borrar" onclick="return confirm('¿Borrar la factura ${esc(f.numero)}?')">Borrar</button>` : ''}</div></form>`;
+  const filasH = H.map((x) => `<tr><td class="izq"><b>${nombreT(x.t)}</b><span class="sub">${fmt(x.facturas)} facturas</span></td><td>${euros(x.base)}</td><td>${euros(x.iva)}</td>
+    <td>${x.ivaPagado != null ? euros(x.ivaPagado) : '<span class="sub">sin pagar aún</span>'}</td><td>${x.ivaGastos != null ? euros(x.ivaGastos) : '—'}</td>
+    <td>${x.irpfPagado != null ? euros(x.irpfPagado) : '<span class="sub">sin pagar aún</span>'}</td><td>${x.rendimiento != null ? euros(x.rendimiento) : '—'}</td><td>${x.gastosDeclarados != null ? euros(x.gastosDeclarados) : '—'}</td></tr>`).join('');
+  return marco('Facturas', 'facturas', `
+${aviso ? `<p class="aviso${/^Error/.test(aviso) ? ' mal' : ''}">${esc(aviso)}</p>` : ''}
+${error ? `<p class="aviso mal">${esc(/facturas|relation|schema/.test(error) ? 'Falta crear la tabla de facturas: ejecuta sql/facturas.sql en Supabase › SQL Editor.' : error)}</p>` : ''}
+${!error && faltan.length ? `<div class="card"><h2>${facturas.length ? 'Facturas que faltan' : 'Empezar'}</h2><p>${faltan.length} facturas de 2026 (de la ${esc(faltan[0].numero)} a la ${esc(faltan[faltan.length - 1].numero)}) aún no están. Al cargarlas, las de «Gestión de venta» se enlazan solas con su venta.</p>
+  <form method="post" action="?estado=facturas"><button class="boton" name="accion" value="iniciales">Cargar las ${faltan.length} facturas</button></form></div>` : ''}
+${editar ? `<div class="card"><h2>Cambiar la factura ${esc(editar.numero)}</h2>${form(editar)}</div>` : ''}
+<div class="kpis">
+  <div class="kpi"><span>Facturado</span><b>${euros(suma('base'))}</b><small>${fmt(facturas.length)} facturas · base imponible</small></div>
+  <div class="kpi"><span>IVA cobrado</span><b>${euros(suma('iva'))}</b><small>en las facturas</small></div>
+  <div class="kpi"><span>IVA pagado</span><b>${euros(ivaPagado)}</b><small>modelo 303</small></div>
+  <div class="kpi"><span>IRPF pagado</span><b>${euros(irpfPagado)}</b><small>modelo 130</small></div>
+  <div class="kpi"><span>Ventas con factura</span><b>${fmt(vendidas.filter((o) => conFactura.has(Number(o.id))).length)} de ${fmt(vendidas.length)}</b><small>${sinEnlazar.length ? `${fmt(sinEnlazar.length)} facturas de venta sin enlazar` : 'todas las facturas de venta, enlazadas'}</small></div>
+</div>
+${H.length ? `<div class="card"><h2>Hacienda, trimestre a trimestre</h2><div class="tabla"><table>
+  <thead><tr><th class="izq">Trimestre</th><th>Facturado</th><th>IVA cobrado</th><th>IVA pagado</th><th>IVA de los gastos</th><th>IRPF pagado</th><th>Beneficio declarado</th><th>Gastos declarados</th></tr></thead><tbody>${filasH}</tbody></table></div>
+  <p class="nota">El IVA pagado (modelo 303) es el IVA cobrado en las facturas menos el IVA de los gastos: la diferencia es el IVA de los gastos que se han deducido. El IRPF (modelo 130) es el ${IRPF_PCT} % del beneficio desde enero menos lo ya pagado ese año; de ahí sale el beneficio que se ha declarado cada trimestre y, restándolo de lo facturado, los gastos que la gestoría ha deducido. Si esos gastos son más que los del panel (Ventas › Gastos), pedid a la gestoría el libro de gastos para meterlos. Los pagos se ponen en Gastos: el IRPF con categoría «Impuestos» y el IVA con categoría «IVA».</p></div>` : ''}
+<div class="card"><div class="barra" style="margin:0 0 8px"><h2 style="margin:0">Facturas</h2><a class="boton claro" href="?estado=facturas&csv=1">Descargar CSV</a></div><div class="tabla"><table>
+  <thead><tr><th class="izq">Factura</th><th class="izq">Cliente</th><th class="izq">Concepto</th><th>Base</th><th>IVA</th><th>Total</th><th class="izq">Venta</th><th></th></tr></thead>
+  <tbody>${filas || '<tr><td colspan="8" class="vacio">Aún no hay facturas.</td></tr>'}</tbody></table></div></div>
+<div class="card"><h2>Añadir una factura</h2>${form()}</div>`, `
+  .g-form { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; } .g-form .ancho, .g-form .acc { grid-column: 1 / -1; }
+  form.enl { display: flex; gap: 6px; margin-top: 6px; } form.enl select { max-width: 260px; font-size: 13px; } form.enl button { padding: 6px 10px; font-size: 13px; }
+  @media (max-width: 700px) { .g-form { grid-template-columns: 1fr; } }`);
+}
+
+/* ---------------------------------------------------------------------------- La ruta */
+export async function rutasFacturas(req, { t, ops: tOps, gastos: tGastos }, html) {
+  const b = req.body || {};
+  let aviso = '', ops = [], gastos = [];
+  try { ops = await tOps.leer('select=id,titulo,estado,modalidad,comision,fecha_venta,handle&limit=5000'); } catch (e) { ops = []; }
+  try { gastos = (await tGastos.leer('select=tipo,categoria,importe,fecha&limit=20000')).map((g) => ({ ...g, fecha: String(g.fecha).slice(0, 10) })); } catch (e) { gastos = []; }
+  const leer = async () => (await t.leer('select=*&order=fecha.asc&limit=5000')).map((f) => ({ ...f, fecha: String(f.fecha).slice(0, 10), base: n(f.base), iva: n(f.iva), total: n(f.total) }));
+  // Las de venta sin enlazar se enlazan solas con su venta
+  const enlazarSolas = async (lista) => { const pares = emparejarFacturas(lista, ops); for (const p of pares) await t.cambiar(p.factura.id, { operacion_id: Number(p.op.id) }); return pares.length; };
+  if (req.method === 'POST') {
+    try {
+      if (b.accion === 'iniciales') {
+        const ya = await leer();
+        const nuevas = FACTURAS_INICIALES.filter((x) => !ya.some((f) => f.numero === x.numero));
+        for (const f of nuevas) await t.guardar({ ...f, notas: '' }, 'id');
+        const k = await enlazarSolas(await leer());
+        aviso = `Cargadas ${nuevas.length} facturas${k ? `; ${k} enlazadas con su venta` : ''}.`;
+      } else if (b.accion === 'ligar' && Number(b.id)) {
+        await t.cambiar(Number(b.id), { operacion_id: Number(b.operacion_id) || null }); aviso = 'Guardado.';
+      } else if (b.accion === 'borrar' && Number(b.id)) {
+        await t.borrar(`id=eq.${Number(b.id)}`); aviso = 'Factura borrada.';
+      } else if (b.accion === 'guardar') {
+        const { factura, error } = leerFactura(b);
+        if (error) aviso = `Error: ${error}`;
+        else if (Number(b.id)) { await t.cambiar(Number(b.id), factura); aviso = `Guardada la factura ${factura.numero}.`; }
+        else { await t.guardar(factura, 'id'); const k = await enlazarSolas(await leer()); aviso = `Añadida la factura ${factura.numero}${k ? ', enlazada con su venta' : ''}.`; }
+      }
+    } catch (e) { aviso = `Error: ${/facturas|relation|schema/.test(e.message) ? 'falta crear la tabla: ejecuta sql/facturas.sql en Supabase › SQL Editor.' : /duplicate|unique/.test(e.message) ? 'ya hay una factura con ese número.' : e.message}`; }
+  }
+  let facturas = [], error = '';
+  try { facturas = await leer(); } catch (e) { error = e.message; }
+  if (req.query.csv) return { status: 200, headers: { 'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': 'attachment; filename="facturas-sidonia.csv"', 'Cache-Control': 'no-store' }, body: csvFacturas(facturas, ops) };
+  const editar = Number(req.query.editar) ? facturas.find((f) => Number(f.id) === Number(req.query.editar)) || null : null;
+  return html(paginaFacturas(facturas, { ops, gastos, aviso, error, editar }));
+}

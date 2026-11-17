@@ -50,11 +50,19 @@ export function crece(ahora, antes) {
   return d ? `<em class="${d > 0 ? 'sube' : 'baja'}">${d > 0 ? '+' : '−'}${Math.abs(d)} %</em>` : '<em>=</em>';
 }
 
-export function paginaMeses(ops, pagos, { ano = null, error = '', hoy = new Date(), gastos = null } = {}) {
+export function paginaMeses(ops, pagos, { ano = null, error = '', hoy = new Date(), gastos = null, facturas = [] } = {}) {
   const m = porMeses(ops, pagos);
+  // Otros servicios: las facturas que no son de una venta (marketing, asesoría…) también son ingresos
+  for (const f of facturas) {
+    if (!f.fecha || f.operacion_id) continue;
+    const k = String(f.fecha).slice(0, 7);
+    const x = (m[k] ||= { vendidos: 0, facturado: 0, comision: 0, comercial: 0, neto: 0, comunidad: 0, total: 0, altas: 0, tiempos: [], porTipo: {}, ticket: 0, dias: null, pct: 0 });
+    x.servicios = (x.servicios || 0) + n(f.base); x.total += n(f.base);
+  }
+  const conServicios = facturas.some((f) => !f.operacion_id);
   // Los gastos de Sidonia (gastos.mjs): cada mes, y lo que queda (resultado = ingresos − gastos)
   // (el comercial ya está restado en el neto; la reserva de IRPF, aparte)
-  const G = gastos ? porMesGastos(gastos, hoy, { ops, pagos }) : null;
+  const G = gastos ? porMesGastos(gastos, hoy, { ops, pagos, facturas }) : null;
   const g = G ? G.resto : null;
   const gasto = (k) => (g ? n(g[k]) : 0);
   const irpf = (k) => (G ? n(G.irpf[k]) : 0);
@@ -89,7 +97,7 @@ export function paginaMeses(ops, pagos, { ano = null, error = '', hoy = new Date
       <td>${euros(x.comision)}${x.pct ? `<span class="sub">${x.pct.toLocaleString('es-ES', { maximumFractionDigits: 1 })} %</span>` : ''}</td>
       <td>${x.comercial ? euros(x.comercial) : '—'}</td>
       <td><b>${euros(x.neto)}</b></td>
-      <td>${x.comunidad ? euros(x.comunidad) : '—'}</td>
+      <td>${x.comunidad ? euros(x.comunidad) : '—'}</td>${conServicios ? `<td>${x.servicios ? euros(x.servicios) : '—'}</td>` : ''}
       <td><b>${euros(x.total)}</b></td>
       ${g ? `<td>${gasto(k) ? euros(gasto(k)) : '—'}</td><td>${irpf(k) ? euros(irpf(k)) : '—'}</td><td><b style="color:var(${x.total - gasto(k) - irpf(k) < 0 ? '--rojo' : '--verde'})">${euros(x.total - gasto(k) - irpf(k))}</b></td>` : ''}
       <td>${crece(x.total, p.total)}<span class="sub">vs ${MES[Number(anterior(k).slice(5)) - 1].slice(0, 3)}</span></td>
@@ -102,7 +110,7 @@ export function paginaMeses(ops, pagos, { ano = null, error = '', hoy = new Date
 ${error ? `<p class="aviso mal">${esc(error)}</p>` : ''}
 <div class="per">${anos.map((a) => `<a href="?estado=meses&ano=${a}" class="${a === A ? 'on' : ''}">${a}</a>`).join('')}</div>
 <div class="kpis">
-  <div class="kpi"><span>Ingresos ${A}</span><b>${euros(totalA)}</b>${crece(totalA, suma(antes, 'total'))}<small>neto ventas + comunidad · vs ${A - 1} (mismos meses)</small></div>
+  <div class="kpi"><span>Ingresos ${A}</span><b>${euros(totalA)}</b>${crece(totalA, suma(antes, 'total'))}<small>neto ventas + comunidad + otros servicios facturados · vs ${A - 1} (mismos meses)</small></div>
   <div class="kpi"><span>Neto de ventas</span><b>${euros(netoA)}</b>${crece(netoA, suma(antes, 'neto'))}<small>comisión de Sidonia menos comerciales</small></div>
   <div class="kpi"><span>Comunidad</span><b>${euros(comunidadA)}</b>${crece(comunidadA, suma(antes, 'comunidad'))}<small>cobrado por anuncios</small></div>
   <div class="kpi"><span>Vendidos</span><b>${fmt(vendidosA)}</b>${crece(vendidosA, suma(antes, 'vendidos'))}<small>${euros(facturadoA)} vendidos en total</small></div>
@@ -114,7 +122,7 @@ ${error ? `<p class="aviso mal">${esc(error)}</p>` : ''}
 </div>
 <div class="card"><h2>Mes a mes</h2>${grafica}</div>
 <div class="card"><div class="tabla"><table>
-  <thead><tr><th class="izq">Mes</th><th>Vendidos</th><th>Facturado</th><th>Comisión</th><th>Comercial</th><th>Neto ventas</th><th>Comunidad</th><th>Total</th>${g ? '<th>Gastos</th><th>IRPF (reserva)</th><th>Resultado</th>' : ''}<th>Mes anterior</th><th>Año anterior</th><th>Nuevos en venta</th><th>Días en venta</th></tr></thead>
+  <thead><tr><th class="izq">Mes</th><th>Vendidos</th><th>Facturado</th><th>Comisión</th><th>Comercial</th><th>Neto ventas</th><th>Comunidad</th>${conServicios ? '<th>Otros servicios</th>' : ''}<th>Total</th>${g ? '<th>Gastos</th><th>IRPF (reserva)</th><th>Resultado</th>' : ''}<th>Mes anterior</th><th>Año anterior</th><th>Nuevos en venta</th><th>Días en venta</th></tr></thead>
   <tbody>${filas || '<tr><td colspan="12" class="vacio">Aún sin datos este año.</td></tr>'}</tbody>
 </table></div></div>
 <p class="nota">Una venta cuenta en el mes en que se vendió (su fecha de venta); los nuevos en venta, en el de su fecha de alta. «Total» = neto de Sidonia (comisión menos comerciales) + lo cobrado a la comunidad. Las ventas sin fecha de venta no salen aquí: pónsela en su ficha.</p>`, `

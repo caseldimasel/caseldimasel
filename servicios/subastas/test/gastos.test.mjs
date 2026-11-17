@@ -80,10 +80,15 @@ test('gastos: la comisión del comercial y la reserva de IRPF (20 % del benefici
   assert.equal(r.irpf['2026-01'], undefined, 'sin beneficio, sin IRPF');
   assert.equal(r.resto['2026-02'], 100, 'Por meses: el comercial y el IRPF van aparte');
   // Pagado el IRPF del trimestre: cuenta lo pagado, no la reserva
-  const r2 = porMesGastos([...g, { tipo: 'cargo', concepto: 'IRPF modelo 130', categoria: 'Impuestos', importe: 300, fecha: '2026-04-20' }], HOY, { ops });
+  // (el modelo 130 del 20 de julio es del 2.º trimestre; el del 20 de abril, del 1.º)
+  const r2 = porMesGastos([...g, { tipo: 'cargo', concepto: 'IRPF modelo 130', categoria: 'Impuestos', importe: 300, fecha: '2026-07-20' }], HOY, { ops });
   assert.equal(r2.irpf['2026-02'], 460, 'el primer trimestre aún sin pagar');
-  const r3 = porMesGastos([...g, { tipo: 'cargo', concepto: 'IRPF modelo 130', categoria: 'Impuestos', importe: 300, fecha: '2026-03-20' }], HOY, { ops });
-  assert.equal(r3.irpf['2026-02'], undefined); assert.equal(r3.celdas['2026-03']['IRPF modelo 130'].importe, 300);
+  const r3 = porMesGastos([...g, { tipo: 'cargo', concepto: 'IRPF modelo 130', categoria: 'Impuestos', importe: 300, fecha: '2026-04-20' }], HOY, { ops });
+  assert.equal(r3.irpf['2026-02'], undefined); assert.equal(r3.celdas['2026-04']['IRPF modelo 130'].importe, 300);
+  // El IVA va aparte (no es gasto) y las facturas de otros servicios son ingresos
+  const r4 = porMesGastos([...g, { tipo: 'cargo', concepto: 'IVA (modelo 303)', categoria: 'IVA', importe: 999, fecha: '2026-04-20' }], HOY, { facturas: [{ fecha: '2026-02-02', base: 2125 }, { fecha: '2026-02-03', base: 500, operacion_id: 3 }] });
+  assert.equal(r4.iva['2026-04'], 999); assert.equal(r4.total['2026-04'], 100);
+  assert.equal(r4.ingresos['2026-02'], 2125, 'la factura de una venta ya cuenta en su venta');
 });
 
 test('gastos: lo que viene (en enero sube el autónomo)', () => {

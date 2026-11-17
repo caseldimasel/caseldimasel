@@ -13,12 +13,14 @@ import { fmt, n } from './estadisticas.mjs';
 import { marco } from './operaciones.mjs';
 
 const MES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
-export const CATEGORIAS = ['Comercial', 'Autónomo', 'Impuestos', 'Gestoría y abogados', 'Web', 'Apps', 'Marketing', 'Banco', 'Transporte', 'Otros'];
+export const CATEGORIAS = ['Comercial', 'Autónomo', 'Impuestos', 'IVA', 'Gestoría y abogados', 'Web', 'Apps', 'Marketing', 'Banco', 'Transporte', 'Otros'];
 /** IRPF: lo que se adelanta cada trimestre (modelo 130) es el 20 % del beneficio; mientras no se pongan los pagos reales, se reserva eso */
 export const IRPF_PCT = 20;
 const IRPF = `IRPF (reserva del ${IRPF_PCT} %)`;
 const trimestre = (k) => `${k.slice(0, 4)}-T${Math.ceil(Number(k.slice(5)) / 3)}`;
-const euros = (x, dec = false) => `${n(x).toLocaleString('es-ES', { minimumFractionDigits: dec ? 2 : 0, maximumFractionDigits: dec ? 2 : 0 })} €`;
+/** El trimestre que paga un modelo 130 o 303 (se paga del 1 al 20 del mes siguiente: el del 20 de abril es el 1.er trimestre) */
+export const trimestreDePago = (fecha) => { const d = new Date(`${String(fecha).slice(0, 10)}T12:00:00Z`); d.setUTCDate(d.getUTCDate() - 25); return trimestre(d.toISOString().slice(0, 7)); };
+const euros = (x, dec = false) => `${n(x).toLocaleString('es-ES', { minimumFractionDigits: dec ? 2 : 0, maximumFractionDigits: dec ? 2 : 0, useGrouping: 'always' })} €`;
 const mesDe = (f) => String(f || '').slice(0, 7);
 const nombreMes = (k) => `${MES[Number(k.slice(5)) - 1]} ${k.slice(0, 4)}`;
 const siguiente = (k) => { const [a, m] = k.split('-').map(Number); return m === 12 ? `${a + 1}-01` : `${a}-${String(m + 1).padStart(2, '0')}`; };
@@ -38,25 +40,36 @@ export const GASTOS_INICIALES = [
     ['2026-08-01', 130.65], ['2026-08-26', 15.63], ['2026-08-29', 17.85], ['2026-09-01', 99.61], ['2026-09-26', 16.01], ['2026-09-29', 18.27], ['2026-10-01', 102.23], ['2026-10-26', 16.3],
     ['2026-10-29', 18.51], ['2026-11-01', 103.66]]
     .map(([fecha, importe]) => ({ tipo: 'cargo', concepto: 'ManyChat', categoria: 'Marketing', importe, fecha, notas: 'Extracto Revolut (cobrado en dólares)' })),
-  // Autónomo: tarifa plana hasta diciembre de 2026; desde enero, la cuota normal (más de 300 €: estimación hasta saber la buena)
-  { tipo: 'cuota', concepto: 'Cuota de autónomo', categoria: 'Autónomo', importe: 88.56, fecha: '2026-05-01', hasta: '2026-12-31', notas: 'Tarifa plana (fecha de alta por confirmar)' },
+  // Autónomo: alta en enero de 2026; la primera cuota (tarifa plana) se cobró el 1 de abril. Desde enero de 2027, la normal
+  { tipo: 'cuota', concepto: 'Cuota de autónomo', categoria: 'Autónomo', importe: 88.56, fecha: '2026-04-01', hasta: '2026-12-31', notas: 'Tarifa plana (alta en enero; la primera cuota se cobró el 1 de abril)' },
   { tipo: 'cuota', concepto: 'Cuota de autónomo', categoria: 'Autónomo', importe: 310, fecha: '2027-01-01', variable: true, notas: 'Se acaba la tarifa plana: más de 300 € (pon la cuota exacta cuando la sepas; si pasas a autónomo societario, la que diga la gestoría)' },
-  // Gestoría: el alta en mayo y luego cada mes
-  { tipo: 'cuota', concepto: 'Gestoría', categoria: 'Gestoría y abogados', importe: 48.4, fecha: '2026-05-01', notas: 'Gestión de autónomos' },
-  ...[['2026-05-01', 104.8], ['2026-06-01', 48.4], ['2026-07-01', 48.4], ['2026-08-01', 48.4], ['2026-09-01', 48.4]]
-    .map(([fecha, importe]) => ({ tipo: 'cargo', concepto: 'Gestoría', categoria: 'Gestoría y abogados', importe, fecha, notas: 'Día del mes por confirmar' })),
-  // Abogado: no son fijos, pero se han pagado
-  { tipo: 'cargo', concepto: 'Abogado · contratos', categoria: 'Gestoría y abogados', importe: 650, fecha: '2026-10-15', notas: 'Álvaro Sánchez Yera: los contratos (fecha por confirmar)' },
-  { tipo: 'cargo', concepto: 'Abogado · crear la empresa', categoria: 'Gestoría y abogados', importe: 200, fecha: '2026-11-17', notas: 'Álvaro Sánchez Yera: constitución de la sociedad' }
+  // Gestoría: el alta en mayo y luego cada mes, sobre el día 6
+  { tipo: 'cuota', concepto: 'Gestoría', categoria: 'Gestoría y abogados', importe: 48.4, fecha: '2026-05-01', notas: 'Gestión de autónomos, sobre el día 6' },
+  ...[['2026-05-06', 104.8], ['2026-06-06', 48.4], ['2026-07-06', 48.4], ['2026-08-06', 48.4], ['2026-09-06', 48.4]]
+    .map(([fecha, importe]) => ({ tipo: 'cargo', concepto: 'Gestoría', categoria: 'Gestoría y abogados', importe, fecha, notas: 'Sobre el día 6 de cada mes' })),
+  // Abogado: no son fijos, pero se han pagado (los contratos, entre septiembre y octubre)
+  { tipo: 'cargo', concepto: 'Abogado · contratos', categoria: 'Gestoría y abogados', importe: 325, fecha: '2026-09-15', notas: 'Álvaro Sánchez Yera: los contratos (650 € entre septiembre y octubre; reparto por confirmar)' },
+  { tipo: 'cargo', concepto: 'Abogado · contratos', categoria: 'Gestoría y abogados', importe: 325, fecha: '2026-10-15', notas: 'Álvaro Sánchez Yera: los contratos (650 € entre septiembre y octubre; reparto por confirmar)' },
+  { tipo: 'cargo', concepto: 'Abogado · crear la empresa', categoria: 'Gestoría y abogados', importe: 200, fecha: '2026-11-17', notas: 'Álvaro Sánchez Yera: constitución de la sociedad' },
+  // Hacienda: el IRPF (modelo 130, «Tributo 130…») y el IVA (modelo 303, «Tributo 303…») de cada trimestre
+  ...[['2026-04-20', 2111.37, 2354.59, '1.er'], ['2026-07-20', 2204.25, 3002.96, '2.º'], ['2026-10-20', 554.83, 1814.69, '3.er']].flatMap(([fecha, irpf, iva, t]) => [
+    { tipo: 'cargo', concepto: 'IRPF (modelo 130)', categoria: 'Impuestos', importe: irpf, fecha, notas: `${t} trimestre de 2026` },
+    { tipo: 'cargo', concepto: 'IVA (modelo 303)', categoria: 'IVA', importe: iva, fecha, notas: `${t} trimestre de 2026: el IVA cobrado en las facturas menos el de los gastos` }])
 ];
 /** El mismo gasto (para no meter dos veces uno de partida) */
+/** Los de partida de antes que se han corregido (si siguen como se cargaron, se quitan al añadir los nuevos) */
+export const PARTIDA_CORREGIDOS = [
+  { tipo: 'cuota', concepto: 'Cuota de autónomo', importe: 88.56, fecha: '2026-05-01' },
+  ...['2026-05-01', '2026-06-01', '2026-07-01', '2026-08-01', '2026-09-01'].map((fecha, i) => ({ tipo: 'cargo', concepto: 'Gestoría', importe: i ? 48.4 : 104.8, fecha })),
+  { tipo: 'cargo', concepto: 'Abogado · contratos', importe: 650, fecha: '2026-10-15' }
+];
 const mismo = (a, b) => a.tipo === b.tipo && a.concepto === b.concepto && String(a.fecha).slice(0, 10) === b.fecha && Math.abs(n(a.importe) - n(b.importe)) < 0.005;
 
 /**
  * Mes a mes: { meses: ['2025-06', …], conceptos: [{ concepto, categoria }], celdas: { '2026-10': { ManyChat: { importe, real } } },
  * total: { '2026-10': x }, porCategoria: { '2026-10': { Web: x } } } desde el primer gasto hasta hoy
  */
-export function porMesGastos(gastos, hoy = new Date(), { ops = [], pagos = [] } = {}) {
+export function porMesGastos(gastos, hoy = new Date(), { ops = [], pagos = [], facturas = [] } = {}) {
   const ahora = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}`;
   const primero = gastos.map((g) => mesDe(g.fecha)).filter(Boolean).sort()[0];
   const meses = [];
@@ -74,8 +87,11 @@ export function porMesGastos(gastos, hoy = new Date(), { ops = [], pagos = [] } 
   };
   const cargos = gastos.filter((g) => g.tipo === 'cargo');
   const conCargo = new Set(cargos.map((g) => `${mesDe(g.fecha)}|${g.concepto}`));
-  for (const g of cargos) poner(mesDe(g.fecha), g, n(g.importe), true);
-  for (const g of gastos.filter((x) => x.tipo === 'cuota')) {
+  // El IVA no es un gasto de Sidonia (se cobra en las facturas y se entrega a Hacienda): va aparte
+  const iva = {};
+  for (const g of cargos.filter((x) => x.categoria === 'IVA')) { const k = mesDe(g.fecha); iva[k] = Math.round(((iva[k] || 0) + n(g.importe)) * 100) / 100; }
+  for (const g of cargos.filter((x) => x.categoria !== 'IVA')) poner(mesDe(g.fecha), g, n(g.importe), true);
+  for (const g of gastos.filter((x) => x.tipo === 'cuota' && x.categoria !== 'IVA')) {
     const fin = g.hasta ? mesDe(g.hasta) : ahora;
     for (const k of meses) if (k >= mesDe(g.fecha) && k <= fin && !conCargo.has(`${k}|${g.concepto}`)) poner(k, g, n(g.importe), false);
   }
@@ -92,7 +108,9 @@ export function porMesGastos(gastos, hoy = new Date(), { ops = [], pagos = [] } 
   const ingresos = {};
   for (const o of ops) if (o.estado === 'vendido' && o.fecha_venta) { const k = mesDe(o.fecha_venta); ingresos[k] = (ingresos[k] || 0) + n(o.comision); }
   for (const p of pagos) if (p.fecha) { const k = mesDe(p.fecha); ingresos[k] = (ingresos[k] || 0) + n(p.importe); }
-  const conImpuestos = new Set(cargos.filter((g) => g.categoria === 'Impuestos').map((g) => trimestre(mesDe(g.fecha))));
+  // Las facturas de otros servicios (marketing, asesoría…: las que no son de una venta) también son ingresos
+  for (const f of facturas) if (f.fecha && !f.operacion_id) { const k = mesDe(f.fecha); ingresos[k] = (ingresos[k] || 0) + n(f.base); }
+  const conImpuestos = new Set(cargos.filter((g) => g.categoria === 'Impuestos').map((g) => trimestreDePago(g.fecha)));
   const irpf = {}, beneficio = {};
   for (const k of meses) {
     beneficio[k] = Math.round((n(ingresos[k]) - n(total[k])) * 100) / 100;
@@ -103,7 +121,7 @@ export function porMesGastos(gastos, hoy = new Date(), { ops = [], pagos = [] } 
   const orden = [...conceptos.entries()].sort((a, b) => CATEGORIAS.indexOf(a[1]) - CATEGORIAS.indexOf(b[1]) || a[0].localeCompare(b[0]));
   // resto: lo que no es ni el comercial ni la reserva de IRPF (Por meses los pone aparte)
   const resto = Object.fromEntries(meses.map((k) => [k, Math.round((n(total[k]) - n(comercial[k]) - n(irpf[k])) * 100) / 100]));
-  return { meses, conceptos: orden.map(([concepto, categoria]) => ({ concepto, categoria })), celdas, total, porCategoria, ahora, comercial, irpf, resto, ingresos, beneficio };
+  return { meses, conceptos: orden.map(([concepto, categoria]) => ({ concepto, categoria })), celdas, total, porCategoria, ahora, comercial, irpf, resto, ingresos, beneficio, iva };
 }
 
 /** Los próximos meses: lo que costarán las cuotas (las que empiezan, acaban o suben), sin cargos sueltos ni impuestos */
@@ -154,9 +172,10 @@ export function csvGastos(gastos, hoy = new Date(), extra = {}) {
 }
 
 /* ---------------------------------------------------------------------------- La página */
-export function paginaGastos(gastos, { aviso = '', error = '', hoy = new Date(), editar = null, ops = [], pagos = [] } = {}) {
-  const r = porMesGastos(gastos, hoy, { ops, pagos });
+export function paginaGastos(gastos, { aviso = '', error = '', hoy = new Date(), editar = null, ops = [], pagos = [], facturas = [] } = {}) {
+  const r = porMesGastos(gastos, hoy, { ops, pagos, facturas });
   const faltan = GASTOS_INICIALES.filter((x) => !gastos.some((g) => mismo(g, x)));
+  const corregir = gastos.filter((g) => PARTIDA_CORREGIDOS.some((x) => mismo(g, x)));
   const prev = prevision(gastos, hoy);
   const k = r.ahora, kAnt = r.meses[r.meses.length - 2];
   const cerrados = r.meses.filter((x) => x < k).slice(-12);
@@ -188,8 +207,8 @@ export function paginaGastos(gastos, { aviso = '', error = '', hoy = new Date(),
   return marco('Gastos', 'gastos', `
 ${aviso ? `<p class="aviso${/^Error/.test(aviso) ? ' mal' : ''}">${esc(aviso)}</p>` : ''}
 ${error ? `<p class="aviso mal">${esc(/gastos|relation|schema/.test(error) ? 'Falta crear la tabla de gastos: ejecuta sql/gastos.sql en Supabase › SQL Editor.' : error)}</p>` : ''}
-${!error && faltan.length ? `<div class="card"><h2>${gastos.length ? 'Gastos de partida nuevos' : 'Empezar'}</h2><p>${gastos.length ? `Hay ${faltan.length} gastos de partida que aún no están: ${esc([...new Set(faltan.map((x) => x.concepto))].join(', '))}.` : 'Carga los gastos de partida: las suscripciones (desde junio de 2025), Shopify y ManyChat con sus cargos del extracto, la cuota de autónomo, la gestoría y el abogado.'} Luego los cambias o añades lo que falte.</p>
-  <form method="post" action="?estado=gastos"><button class="boton" name="accion" value="iniciales">${gastos.length ? `Añadir los ${faltan.length} que faltan` : 'Cargar los gastos de partida'}</button></form></div>` : ''}
+${!error && (faltan.length || corregir.length) ? `<div class="card"><h2>${gastos.length ? 'Gastos de partida nuevos' : 'Empezar'}</h2><p>${gastos.length ? `Hay ${faltan.length} gastos de partida que aún no están: ${esc([...new Set(faltan.map((x) => x.concepto))].join(', '))}.` : 'Carga los gastos de partida: las suscripciones (desde junio de 2025), Shopify y ManyChat con sus cargos del extracto, la cuota de autónomo, la gestoría y el abogado.'} Luego los cambias o añades lo que falte.</p>
+  <form method="post" action="?estado=gastos"><button class="boton" name="accion" value="iniciales">${gastos.length ? `Añadir los ${faltan.length} que faltan${corregir.length ? ` y corregir ${corregir.length}` : ''}` : 'Cargar los gastos de partida'}</button></form></div>` : ''}
 ${editar ? `<div class="card"><h2>Cambiar «${esc(editar.concepto)}»</h2>${form(editar)}</div>` : ''}
 <div class="kpis">
   <div class="kpi"><span>Este mes</span><b>${euros(r.total[k])}</b><small>${nombreMes(k)} · en curso</small></div>
@@ -234,16 +253,19 @@ ${r.meses.length ? `<div class="card"><div class="barra" style="margin:0 0 8px">
 }
 
 /* ---------------------------------------------------------------------------- La ruta */
-export async function rutasGastos(req, { t, ops: tOps = null, pagos: tPagos = null }, html) {
+export async function rutasGastos(req, { t, ops: tOps = null, pagos: tPagos = null, facturas: tFacturas = null }, html) {
   const b = req.body || {};
   let aviso = '', editar = null;
   if (req.method === 'POST') {
     try {
       if (b.accion === 'iniciales') {
         const ya = (await t.leer('select=*&limit=20000')).map((g) => ({ ...g, fecha: String(g.fecha).slice(0, 10) }));
+        // Los de partida que se han corregido (si nadie los ha cambiado) se quitan, y se añaden los que faltan
+        const viejos = ya.filter((g) => PARTIDA_CORREGIDOS.some((x) => mismo(g, x)));
+        for (const g of viejos) await t.borrar(`id=eq.${Number(g.id)}`);
         const nuevos = GASTOS_INICIALES.filter((x) => !ya.some((g) => mismo(g, x)));
         for (const g of nuevos) await t.guardar({ hasta: null, variable: false, ...g }, 'id');
-        aviso = nuevos.length ? `Añadidos ${nuevos.length} gastos de partida.` : 'Ya estaban todos.';
+        aviso = nuevos.length || viejos.length ? `Añadidos ${nuevos.length} gastos de partida${viejos.length ? ` (y corregidos ${viejos.length} de antes)` : ''}.` : 'Ya estaban todos.';
       } else if (b.accion === 'borrar' && Number(b.id)) {
         await t.borrar(`id=eq.${Number(b.id)}`); aviso = 'Borrado.';
       } else if (b.accion === 'guardar') {
@@ -267,5 +289,7 @@ export async function rutasGastos(req, { t, ops: tOps = null, pagos: tPagos = nu
   let ops = [], pagos = [];
   try { if (tOps) ops = await tOps.leer('select=estado,fecha_venta,comision,comision_comercial,comercial&limit=5000'); } catch (e) { ops = []; }
   try { if (tPagos) pagos = await tPagos.leer('select=fecha,importe&limit=20000'); } catch (e) { pagos = []; }
-  return html(paginaGastos(gastos, { aviso, error, editar, ops, pagos }));
+  let facturas = [];
+  try { if (tFacturas) facturas = await tFacturas.leer('select=fecha,base,operacion_id&limit=5000'); } catch (e) { facturas = []; }
+  return html(paginaGastos(gastos, { aviso, error, editar, ops, pagos, facturas }));
 }
