@@ -49,7 +49,7 @@ test('centro operativo: de la web al contrato firmado, vendido, factura (editabl
   assert.equal(o().expediente.coche.matricula, '1234BCD'); assert.equal(o().expediente.condiciones.comision_pct, 6); assert.equal(o().titulo, 'LAND ROVER DEFENDER 110 1998');
   // Contrato por email (con su enlace firmado) y por WhatsApp
   assert.match(aviso(await pag({ estado: 'expediente', id: String(eid) }, 'POST', { accion: 'contrato-email' })), /Enviado a inigo@ejemplo\.es/);
-  assert.equal(pasoDe(o()), 'contrato');
+  assert.equal(pasoDe(o()), 'venta');
   const enlace = correos.at(-1).html.match(/https:\/\/motor\.test\/tienda\/intermediacion\?o=\d+&amp;f=\w+/)[0].replace('&amp;', '&');
   const wa = await pag({ estado: 'expediente', id: String(eid), wa: 'contrato' });
   assert.equal(wa.status, 302); assert.match(wa.headers.Location, /^https:\/\/wa\.me\/34600111222\?text=Hola%20%C3%8D%C3%B1igo/);
@@ -194,20 +194,22 @@ test('el contrato explica lo importante y lleva el formulario de desistimiento',
   assert.match(html, /mediación o corretaje/); assert.match(html, /Fotos, vídeo y anuncio/); assert.match(html, /Formulario de desistimiento/); assert.match(html, /14 días naturales/);
 });
 
-test('pasos de cada coche: contrato, anuncio, en venta, factura, cobro y cerrado', () => {
+test('pasos de cada coche: en cartera (contrato y anuncio a la vez), por facturar, por cobrar y cerrado', async () => {
+  const { situacionCartera } = await import('../lib/expedientes.mjs');
   const firmado = { expediente: { contrato: { firma: { nombre: 'A' } } }, estado: 'en_venta' };
-  assert.equal(pasoDe({ expediente: { propietario: { nombre: 'A' } }, estado: 'captado' }), 'contrato');
-  assert.equal(pasoDe(firmado), 'anuncio');
-  assert.equal(pasoDe({ ...firmado, handle: 'x' }, null, { status: 'DRAFT', situacion: 'oculto' }), 'anuncio', 'borrador en Shopify');
-  assert.equal(pasoDe({ ...firmado, handle: 'x' }, null, { status: 'ACTIVE', situacion: 'en_venta' }), 'venta');
+  assert.equal(pasoDe({ expediente: { propietario: { nombre: 'A' } }, estado: 'captado' }), 'venta');
+  assert.deepEqual(situacionCartera({ expediente: { propietario: { nombre: 'A' } }, estado: 'captado' }), { contrato: 'sin_enviar', anuncio: 'sin_anuncio' });
+  assert.deepEqual(situacionCartera({ ...firmado, handle: 'x' }, { status: 'DRAFT' }), { contrato: 'firmado', anuncio: 'borrador' });
+  assert.deepEqual(situacionCartera({ ...firmado, handle: 'x' }, { status: 'ACTIVE' }), { contrato: 'firmado', anuncio: 'en_web' });
   assert.equal(pasoDe({ ...firmado, handle: 'x' }, null, { status: 'ACTIVE', situacion: 'vendido' }), 'factura', 'vendido en la web');
+  assert.equal(pasoDe({ ...firmado, handle: 'x' }, null, { status: 'ARCHIVED', situacion: 'oculto' }), 'hecho', 'archivado');
   assert.equal(pasoDe({ ...firmado, estado: 'vendido' }, { estado: 'emitida' }), 'cobro');
   assert.equal(pasoDe({ ...firmado, estado: 'vendido' }, { estado: 'emitida', cobrada: '2026-11-17' }), 'hecho');
   assert.equal(pasoDe({ estado: 'vendido', fecha_venta: '2025-06-01' }, null, undefined, new Date('2026-11-17')), 'hecho', 'una venta de antes');
   assert.equal(pasoDe({ estado: 'retirado' }), 'hecho');
 });
 
-test('Anuncios › De Sidonia: tarjetas por paso, crear el anuncio en Shopify (borrador ligado) y ligar solo lo subido a mano', async () => {
+test('Anuncios › De Sidonia: alta del coche (borrador en Shopify y contrato), lista por estados y ligar solo lo subido a mano', async () => {
   const { olvidarCatalogo } = await import('../lib/actividad.mjs');
   const { deps, pag, aviso } = preparar();
   olvidarCatalogo();
@@ -224,36 +226,39 @@ test('Anuncios › De Sidonia: tarjetas por paso, crear el anuncio en Shopify (b
     if (/publishablePublish/.test(q)) return { publishablePublish: { userErrors: [] } };
     return { products: { nodes: tienda, pageInfo: { hasNextPage: false } } };
   };
-  // Una ficha nueva (sin contrato): tarjeta en «Contrato», con WhatsApp y email
-  await pag({ estado: 'expediente' }, 'POST', { accion: 'crear', ...EXP, comercial: 'Hugo' });
+  // Hugo da de alta el coche: a la vez, su borrador en Shopify (título, descripción, precio) y el contrato listo para enviar
+  const alta = await pag({ estado: 'expediente' }, 'POST', { accion: 'crear', ...EXP, comercial: 'Hugo', k_comercial: '30', c_ubicacion: 'Madrid', c_descripcion: 'Un Defender de los buenos.\n\nRestaurado en 2020.', k_especiales: 'Incluye la baca original.' });
   const o = deps.operaciones.filas.at(-1);
+  assert.equal(alta.status, 303); assert.match(decodeURIComponent(alta.headers.Location), /aviso=Creado: su borrador ya está en Shopify/);
+  assert.deepEqual([mutaciones[0].status, mutaciones[0].title, mutaciones[0].vendor, mutaciones[0].templateSuffix, mutaciones[1].price], ['DRAFT', 'LAND ROVER DEFENDER 110 1998', 'Sidonia', 'cars', '42000']);
+  assert.match(mutaciones[0].descriptionHtml, /<p>Un Defender de los buenos\.<\/p><p>Restaurado en 2020\.<\/p>/); assert.match(mutaciones[0].descriptionHtml, /Provincia:<\/strong> Madrid/);
+  assert.equal(o.handle, 'land-rover-defender-110-1998'); assert.equal(o.expediente.shopify_id, 'gid://shopify/Product/555'); assert.equal(o.expediente.condiciones.comercial_pct, 30);
+  assert.match((await pag({ estado: 'expediente', id: String(o.id), aviso: 'Creado' })).body, /class="aviso">Creado/);
+  const { contratoIntermediacion: ci } = await import('../lib/expedientes.mjs');
+  assert.match(ci(o, { nombre: 'Sidonia' }), /Pactos particulares[\s\S]*Incluye la baca original/);
   let l = (await pag({ estado: 'sidonia' })).body;
   assert.match(l, /<title>Coches de Sidonia/); assert.match(l, /class="on"><svg[\s\S]*?<\/svg>Anuncios/); assert.match(l, /class="on">De Sidonia/); assert.match(l, /De sus dueños/); assert.match(l, /De alquiler/);
   assert.doesNotMatch(l, /Cobros comunidad/);
   const filas = (h) => h.split('<div class="sd-r"').slice(1);
   assert.ok(filas(l).some((f) => /sd-p solicitud">Solicitud/.test(f) && /LAND ROVER DEFENDER 110 1998/.test(f) && /Crear ficha y contrato/.test(f)), 'las solicitudes de la web, el primer paso');
-  assert.ok(filas(l).some((f) => /sd-p contrato">Contrato/.test(f) && /LAND ROVER DEFENDER 110 1998/.test(f) && /Enviar por WhatsApp/.test(f) && /Íñigo Prueba Martín/.test(f) && /42\.000 €/.test(f)), 'una fila por coche: propietario, precio y lo siguiente');
+  assert.ok(filas(l).some((f) => /LAND ROVER DEFENDER 110 1998/.test(f) && /Enviar contrato/.test(f) && /Contrato sin enviar/.test(f) && /Íñigo Prueba Martín/.test(f) && /42\.000 €/.test(f)), 'una fila por coche: propietario, precio, contrato y anuncio');
   // El anuncio de Sidonia sin ficha: «Añadir su propietario»; el de la comunidad no sale
   assert.match(l, /FERRARI 308 GTS 1980[\s\S]*Añadir su propietario/); assert.doesNotMatch(l, /SEAT 600 1970/);
   // Desde la tarjeta: el contrato por email, y vuelve a la lista con el aviso
   const r = await pag({ estado: 'expediente', id: String(o.id) }, 'POST', { accion: 'contrato-email', volver: 'sidonia' });
   assert.equal(r.status, 303); assert.match(decodeURIComponent(r.headers.Location), /estado=sidonia&aviso=Enviado a inigo@ejemplo\.es/);
   assert.match((await pag({ estado: 'sidonia', aviso: 'Enviado a inigo@ejemplo.es.' })).body, /Contrato enviado el/);
-  // Crear su anuncio en Shopify: borrador, con su precio, ya ligado
-  const c = await pag({ estado: 'expediente', id: String(o.id) }, 'POST', { accion: 'crear-anuncio', volver: 'sidonia' });
-  assert.equal(c.status, 303); assert.match(decodeURIComponent(c.headers.Location), /Creado en Shopify como borrador/);
-  assert.deepEqual([mutaciones[0].status, mutaciones[0].title, mutaciones[0].vendor, mutaciones[1].price], ['DRAFT', 'LAND ROVER DEFENDER 110 1998', 'Sidonia', '42000']);
-  assert.equal(o.handle, 'land-rover-defender-110-1998'); assert.equal(o.expediente.shopify_id, 'gid://shopify/Product/555');
+  assert.ok(filas((await pag({ estado: 'sidonia' })).body).some((f) => /LAND ROVER DEFENDER 110 1998/.test(f) && /Borrador: falta el vídeo/.test(f) && /Subir el vídeo en Shopify/.test(f)));
   assert.match(aviso(await pag({ estado: 'expediente', id: String(o.id) }, 'POST', { accion: 'crear-anuncio' })), /ya tiene su anuncio/);
   let e = (await pag({ estado: 'expediente', id: String(o.id) })).body;
   assert.match(e, /Borrador en Shopify/); assert.match(e, /admin\.shopify\.com\/store\/[^/]*\/products\/555|Abrir en Shopify/);
   // Lo publican en Shopify: pasa solo a «En venta»
   tienda.at(-1).status = 'ACTIVE'; olvidarCatalogo();
   l = (await pag({ estado: 'sidonia', ver: 'venta' })).body;
-  assert.ok(filas(l).some((f) => /sd-p venta">En venta/.test(f) && /LAND ROVER DEFENDER 110 1998/.test(f) && /Editar/.test(f)));
+  assert.ok(filas(l).some((f) => /LAND ROVER DEFENDER 110 1998/.test(f) && /mc ok">En la web/.test(f) && /Editar/.test(f)));
   // Otro coche firmado que suben directamente en Shopify: se liga solo
-  await pag({ estado: 'expediente' }, 'POST', { accion: 'crear', ...EXP, c_marca: 'Porsche', c_modelo: '911 Carrera', c_anio: '1986', c_matricula: '9999 ZZZ' });
-  const p = deps.operaciones.filas.at(-1);
+  const p = { id: 9100, titulo: 'PORSCHE 911 CARRERA 1986', estado: 'captado', modalidad: 'gestion', creado: new Date().toISOString(), expediente: { propietario: { nombre: 'Ana' }, coche: { marca: 'Porsche' } } };
+  deps.operaciones.filas.push(p);
   tienda.push({ handle: 'porsche-911-carrera-1986', title: 'PORSCHE 911 CARRERA 1986', status: 'ACTIVE', tags: [], createdAt: new Date(Date.now() + 1000).toISOString(), featuredImage: { url: 'https://cdn/p.jpg' }, variants: { nodes: [{ availableForSale: true }] } });
   olvidarCatalogo();
   await pag({ estado: 'sidonia' });

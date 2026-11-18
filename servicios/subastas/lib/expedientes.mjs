@@ -26,15 +26,18 @@ export const VERSION_INTERMEDIACION = '2026-11-17';
 export const LIMITE_EFECTIVO = 1000;
 export const FORMAS_PAGO = { transferencia: 'Transferencia', bizum: 'Bizum', tarjeta: 'Tarjeta', efectivo: 'Efectivo' };
 /** Los pasos de cada coche de Sidonia (y «hecho»: cobrado, retirado o una venta de antes) */
-export const PASOS = [['solicitud', 'Solicitud'], ['contrato', 'Contrato'], ['anuncio', 'Anuncio'], ['venta', 'En venta'], ['factura', 'Factura'], ['cobro', 'Cobro'], ['hecho', 'Cerrado']];
+export const PASOS = [['solicitud', 'Solicitudes'], ['venta', 'En cartera'], ['factura', 'Por facturar'], ['cobro', 'Por cobrar'], ['hecho', 'Cerrados']];
 const ORIGENES = { persona: 'En persona', llamada: 'Por teléfono', web: 'Formulario de la web', recomendacion: 'Recomendación', otro: 'Otro' };
 const DIA = /^\d{4}-\d{2}-\d{2}$/;
 const hoyISO = () => new Date().toISOString().slice(0, 10);
 const t = (v, max = 200) => String(v ?? '').replace(/\s+/g, ' ').trim().slice(0, max);
+/** Un texto largo (descripción, pactos): conserva los saltos de línea */
+const largo = (v, max) => String(v ?? '').replace(/\r/g, '').replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim().slice(0, max);
 const num = importe;
 const r2 = (x) => Math.round(n(x) * 100) / 100;
 export const eur = (x) => `${n(x).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2, useGrouping: 'always' })} €`;
 const eur0 = (x) => `${Math.round(n(x)).toLocaleString('es-ES', { useGrouping: 'always' })} €`;
+const fechaCorta = (d) => (d ? new Date(`${String(d).slice(0, 10)}T12:00:00Z`).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', timeZone: 'Europe/Madrid' }) : '');
 const fechaTxt = (d) => (d ? new Date(`${String(d).slice(0, 10)}T12:00:00Z`).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Europe/Madrid' }) : '');
 
 /* ---------------------------------------------------------------------------- Ajustes: el emisor de las facturas */
@@ -69,9 +72,16 @@ export function pasoDe(o, factura = null, prod = undefined, hoy = new Date()) {
     // Las ventas de años anteriores sin expediente ya están cerradas (se facturaron fuera del panel)
     return deAntes && String(o.fecha_venta || '').slice(0, 4) < String(hoy.getFullYear()) ? 'hecho' : 'factura';
   }
-  if (o.handle && (prod === undefined || (prod && prod.status === 'ACTIVE'))) return 'venta';
-  if (deAntes) return o.handle ? 'anuncio' : 'venta';
-  return x.contrato?.firma ? 'anuncio' : 'contrato';
+  // Archivado en Shopify: ya no está en cartera
+  if (prod?.status === 'ARCHIVED') return 'hecho';
+  return 'venta';
+}
+/** Cómo va un coche en cartera: el contrato y el anuncio */
+export function situacionCartera(o, prod) {
+  const ct = o.expediente?.contrato || {}, deAntes = !Object.keys(o.expediente || {}).length;
+  const contrato = ct.firma ? 'firmado' : ct.enviado ? 'enviado' : deAntes ? 'antes' : 'sin_enviar';
+  const anuncio = !o.handle ? 'sin_anuncio' : prod === undefined ? 'en_web' : !prod ? 'sin_anuncio' : prod.status === 'ACTIVE' ? 'en_web' : 'borrador';
+  return { contrato, anuncio };
 }
 export const nombrePaso = (k) => (PASOS.find(([p]) => p === k) || [, k])[1];
 /** El anuncio en Shopify, en el panel de Shopify */
@@ -81,12 +91,18 @@ export const adminShopify = (cfg, o) => {
   return tienda ? `https://admin.shopify.com/store/${tienda}/products${id ? `/${id}` : `?query=${encodeURIComponent(o.handle || o.titulo || '')}`}` : '';
 };
 
+/** La descripción del anuncio (párrafos) con los datos del coche al final */
+export function descripcionAnuncio(c = {}) {
+  const ps = String(c.descripcion || '').split(/\n{2,}/).map((x) => x.trim()).filter(Boolean).map((x) => `<p>${esc(x).replace(/\n/g, '<br>')}</p>`);
+  const datos = [['Marca', c.marca], ['Modelo', c.modelo], ['Año', c.anio], ['Kilómetros', c.km && `${c.km} km`], ['Provincia', c.ubicacion]].filter(([, v]) => v);
+  return `${ps.join('')}${datos.length ? `<ul>${datos.map(([k, v]) => `<li><strong>${esc(k)}:</strong> ${esc(v)}</li>`).join('')}</ul>` : ''}`;
+}
 /** Crea su anuncio en Shopify como borrador (título, precio, Sidonia) ya ligado a la ficha. Devuelve { id, handle } */
 export async function crearBorrador(gql, o) {
   const c = o.expediente?.coche || {}, k = o.expediente?.condiciones || {};
   const titulo = o.titulo || tituloCoche(c);
   const r = await gql(`mutation($product: ProductCreateInput!) { productCreate(product: $product) { product { id handle variants(first: 1) { nodes { id } } } userErrors { field message } } }`,
-    { product: { title: titulo, status: 'DRAFT', vendor: 'Sidonia', productType: 'Coches' } });
+    { product: { title: titulo, status: 'DRAFT', vendor: 'Sidonia', productType: 'Coches', templateSuffix: 'cars', descriptionHtml: descripcionAnuncio(c) } });
   const errs = r.productCreate?.userErrors || [];
   if (errs.length) throw new Error(`Shopify: ${errs.map((e) => e.message).join(' · ')}`);
   const p = r.productCreate.product;
@@ -96,6 +112,11 @@ export async function crearBorrador(gql, o) {
     await gql(`mutation($productId: ID!, $variants: [ProductVariantsBulkInput!]!) { productVariantsBulkUpdate(productId: $productId, variants: $variants) { userErrors { field message } } }`,
       { productId: p.id, variants: [{ id: v.id, price: String(precio), inventoryPolicy: 'CONTINUE' }] }).catch((e) => console.error(e));
   }
+  // Los filtros de la tienda (provincia, marca, año): si la tienda los tiene de otro tipo, se deja
+  try {
+    const mf = [['provincia', c.ubicacion], ['marca', c.marca], ['ano', String(c.anio || '').match(/\d{4}/)?.[0]]].filter(([, v]) => v).map(([key, value]) => ({ ownerId: p.id, namespace: 'custom', key, type: 'single_line_text_field', value: String(value).slice(0, 100) }));
+    if (mf.length) await gql('mutation($m: [MetafieldsSetInput!]!) { metafieldsSet(metafields: $m) { userErrors { field message } } }', { m: mf });
+  } catch (e) { console.error(e); }
   // En la tienda online: así, cuando lo pongáis «Activo» en Shopify, ya se ve en la web
   try {
     const pubs = await gql('{ publications(first: 20) { nodes { id name } } }');
@@ -127,8 +148,8 @@ export const tituloCoche = (c = {}) => [c.marca, c.modelo, c.anio].filter(Boolea
 export function leerExpediente(b, antes = {}) {
   const x = antes.expediente || {};
   const propietario = { nombre: t(b.p_nombre, 120), dni: normDoc(b.p_dni).slice(0, 20), direccion: t(b.p_direccion, 250), email: t(b.p_email, 160).toLowerCase(), telefono: t(b.p_telefono, 40) };
-  const coche = { marca: t(b.c_marca, 40), modelo: t(b.c_modelo, 80), anio: t(b.c_anio, 4), matricula: t(b.c_matricula, 15).toUpperCase().replace(/[\s-]/g, ''), bastidor: t(b.c_bastidor, 20).toUpperCase(), km: t(b.c_km, 20) };
-  const condiciones = { comision_pct: num(b.k_pct), comision_min: num(b.k_min), precio_salida: num(b.k_salida), precio_minimo: num(b.k_minimo), exclusividad_meses: Math.max(1, Math.min(24, Math.round(num(b.k_meses) ?? 3))) };
+  const coche = { marca: t(b.c_marca, 40), modelo: t(b.c_modelo, 80), anio: t(b.c_anio, 4), matricula: t(b.c_matricula, 15).toUpperCase().replace(/[\s-]/g, ''), bastidor: t(b.c_bastidor, 20).toUpperCase(), km: t(b.c_km, 20), ubicacion: t(b.c_ubicacion, 60), descripcion: largo(b.c_descripcion, 6000) };
+  const condiciones = { comision_pct: num(b.k_pct), comision_min: num(b.k_min), precio_salida: num(b.k_salida), precio_minimo: num(b.k_minimo), exclusividad_meses: Math.max(1, Math.min(24, Math.round(num(b.k_meses) ?? 3))), comercial_pct: num(b.k_comercial), especiales: largo(b.k_especiales, 2000) };
   if (!coche.marca || !coche.modelo) return { error: 'Pon la marca y el modelo.' };
   if (!propietario.nombre) return { error: 'Pon el nombre del propietario.' };
   if (propietario.dni && !documentoValido(propietario.dni)) return { error: 'Revisa el DNI, NIE o CIF del propietario.' };
@@ -198,6 +219,7 @@ ${cl('Desistimiento', 'Si el Propietario actúa como consumidor y firma este con
 ${cl('Protección de datos', `Responsable: ${hueco(e.nombre)} (${marca}). Sidonia trata los datos del Propietario y del Vehículo para cumplir este contrato, anunciar el Vehículo (sin datos personales en los anuncios) y cumplir sus obligaciones legales y fiscales (como emitir la factura), con base en el propio contrato y en esas obligaciones. No los cede salvo al comprador, en lo necesario para la compraventa, a la gestoría y a la Administración cuando la ley lo exija. Los conserva mientras dure el contrato y los plazos legales. El Propietario puede ejercer sus derechos de acceso, rectificación, supresión, oposición, limitación y portabilidad escribiendo a ${hueco(e.email)}, y reclamar ante la Agencia Española de Protección de Datos.`)}
 ${cl('Firma electrónica', 'Las partes firman este contrato electrónicamente mediante firma electrónica simple (Reglamento (UE) n.º 910/2014 y Ley 6/2020), con plena validez. Sidonia conserva el texto firmado, su huella digital (SHA-256) y el registro de la fecha, la hora, la dirección IP y el dispositivo de la firma, y envía una copia al Propietario.')}
 ${cl('Comunicaciones y reclamaciones', `Las partes se comunican por email o WhatsApp en los datos de este contrato. Cualquier queja o reclamación puede dirigirse a ${hueco(e.email)}; Sidonia responderá en el plazo más breve posible y, como máximo, en un mes.`)}
+${k.especiales ? cl('Pactos particulares', ...String(k.especiales).split(/\n+/).filter(Boolean).map((q) => esc(q))) : ''}
 ${cl('Ley aplicable', 'Este contrato se rige por la ley española. Si el Propietario es consumidor, son competentes los juzgados de su domicilio; en los demás casos, los que correspondan según la ley.')}
 <section id="firmas"><h2>Firmas</h2><div class="firmas">
   <div class="firma"><b>Sidonia</b><span>${esc(e.nombre || '')}</span><small>Ofrece el contrato a la firma el ${fechaTxt(x.contrato?.enviado || hoyISO())}</small></div>
@@ -289,6 +311,9 @@ export const textoWaFactura = (cfg, o, f) => `Hola ${primerNombre(f.datos?.desti
 
 /* ---------------------------------------------------------------------------- Páginas del panel */
 const CSS = `
+  .fs input, .fs select, .fs textarea { width: 100%; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--linea-2); background: var(--caja); color: var(--texto); font: inherit; font-size: 15px; }
+  .fs input:focus, .fs select:focus, .fs textarea:focus { outline: none; border-color: var(--verde); box-shadow: 0 0 0 3px var(--verde-fondo); }
+  .fs label small { font-weight: 400; color: var(--flojo); }
   .exp-cab { display: grid; grid-template-columns: 1fr auto; gap: 16px; align-items: center; }
   .exp-cab h2 { margin: 0 0 4px; font-size: 22px; } .exp-cab p { margin: 2px 0; color: var(--suave); }
   .pasos { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; margin: 14px 0 16px; counter-reset: p; }
@@ -324,21 +349,24 @@ const CSS = `
 const campo = (etq, nombre, valor, extra = '') => `<label>${etq}<input name="${nombre}" value="${esc(valor ?? '')}"${extra}></label>`;
 function formExpediente(o = {}, emisor = {}, { accion = 'guardar', boton = 'Guardar' } = {}) {
   const x = o.expediente || {}, p = x.propietario || {}, c = x.coche || {}, k = x.condiciones || {}, e = leerEmisor(emisor);
-  return `<form method="post" action="?estado=expediente${o.id ? `&id=${Number(o.id)}` : ''}">
-  <fieldset class="fs"><legend>Propietario</legend><div class="g2">
+  const area = (etq, nombre, valor, filas, extra = '') => `<label class="ancho">${etq}<textarea name="${nombre}" rows="${filas}"${extra}>${esc(valor ?? '')}</textarea></label>`;
+  return `<form method="post" action="?estado=expediente${o.id ? `&id=${Number(o.id)}` : ''}" class="fx">
+  <fieldset class="fs"><legend>El propietario <small>para el contrato y la factura</small></legend><div class="g2">
     ${campo('Nombre y apellidos (o empresa)', 'p_nombre', p.nombre || o.propietario_nombre, ' required')}${campo('DNI / NIE / CIF', 'p_dni', p.dni, ' placeholder="Si no lo tienes, lo pone al firmar"')}
     ${campo('Teléfono', 'p_telefono', p.telefono || o.propietario_telefono, ' inputmode="tel"')}${campo('Email', 'p_email', p.email || o.propietario_email, ' type="email"')}
     <label class="ancho">Domicilio<input name="p_direccion" value="${esc(p.direccion || '')}" placeholder="Calle, n.º, CP y ciudad"></label></div></fieldset>
-  <fieldset class="fs"><legend>Vehículo</legend><div class="g3">
+  <fieldset class="fs"><legend>El coche <small>sale así en el borrador de Shopify</small></legend><div class="g3">
     ${campo('Marca', 'c_marca', c.marca, ' required')}${campo('Modelo', 'c_modelo', c.modelo, ' required')}${campo('Año', 'c_anio', c.anio, ' inputmode="numeric" maxlength="4"')}
-    ${campo('Matrícula', 'c_matricula', c.matricula, ' style="text-transform:uppercase"')}${campo('N.º de bastidor', 'c_bastidor', c.bastidor, ' style="text-transform:uppercase"')}${campo('Kilómetros', 'c_km', c.km)}</div></fieldset>
-  <fieldset class="fs"><legend>Condiciones</legend><div class="g3">
-    ${campo('Comisión (%)', 'k_pct', k.comision_pct ?? e.comision_pct, ' inputmode="decimal" required')}${campo('Comisión mínima (€, opcional)', 'k_min', k.comision_min ?? (e.comision_min || ''), ' inputmode="decimal"')}${campo('Exclusividad (meses)', 'k_meses', k.exclusividad_meses ?? e.exclusividad_meses, ' inputmode="numeric"')}
-    ${campo('Precio de salida (€)', 'k_salida', k.precio_salida ?? o.precio_anunciado, ' inputmode="decimal"')}${campo('Precio mínimo que acepta (€, opcional)', 'k_minimo', k.precio_minimo, ' inputmode="decimal"')}
+    ${campo('Kilómetros', 'c_km', c.km, ' inputmode="numeric"')}${campo('Matrícula', 'c_matricula', c.matricula, ' style="text-transform:uppercase"')}${campo('N.º de bastidor', 'c_bastidor', c.bastidor, ' style="text-transform:uppercase"')}
+    ${campo('Precio de venta (€)', 'k_salida', k.precio_salida ?? o.precio_anunciado, ' inputmode="decimal"')}${campo('Precio mínimo que acepta (€, opcional)', 'k_minimo', k.precio_minimo, ' inputmode="decimal"')}${campo('Provincia', 'c_ubicacion', c.ubicacion, ' placeholder="Madrid"')}</div>
+    <div class="g2" style="margin-top:10px">${area('Descripción del anuncio <small>la historia, el estado, la mecánica, el equipamiento…</small>', 'c_descripcion', c.descripcion, 7)}</div></fieldset>
+  <fieldset class="fs"><legend>Condiciones <small>salen en el contrato</small></legend><div class="g3">
+    ${campo('Comisión de Sidonia (%)', 'k_pct', k.comision_pct ?? e.comision_pct, ' inputmode="decimal" required')}${campo('Comisión mínima (€, opcional)', 'k_min', k.comision_min ?? (e.comision_min || ''), ' inputmode="decimal"')}${campo('Exclusividad (meses)', 'k_meses', k.exclusividad_meses ?? e.exclusividad_meses, ' inputmode="numeric"')}
+    <label>Lo lleva<input name="comercial" value="${esc(o.comercial ?? 'Hugo')}" placeholder="Hugo"></label>${campo('Para el comercial (% del beneficio de Sidonia)', 'k_comercial', k.comercial_pct, ' inputmode="decimal" placeholder="Ej.: 30"')}
     <label>Cómo llegó<select name="origen">${Object.entries(ORIGENES).map(([a, b]) => `<option value="${a}"${(x.origen || 'persona') === a ? ' selected' : ''}>${b}</option>`).join('')}</select></label></div>
-    <div class="g2" style="margin-top:10px"><label>Lo lleva<input name="comercial" value="${esc(o.comercial ?? 'Hugo')}" placeholder="Hugo"></label><label>Notas<input name="notas" value="${esc(x.notas || '')}"></label></div>
+    <div class="g2" style="margin-top:10px">${area('Pactos particulares <small>opcional: salen como una cláusula más del contrato</small>', 'k_especiales', k.especiales, 3)}<label class="ancho">Notas internas <small>(no salen en el contrato)</small><input name="notas" value="${esc(x.notas || '')}"></label></div>
     ${o.handle ? `<input type="hidden" name="handle" value="${esc(o.handle)}">` : ''}</fieldset>
-  <button class="boton" name="accion" value="${accion}">${boton}</button></form>`;
+  <button class="boton grande" name="accion" value="${accion}">${boton}</button></form>`;
 }
 
 /** Un expediente: los 6 pasos, cada uno con lo que se puede hacer */
@@ -350,10 +378,14 @@ export function paginaExpediente(cfg, o, { factura = null, facturas = [], emisor
   o = { ...o, expediente: x };
   const p = x.propietario, c = x.coche, k = x.condiciones, e = leerEmisor(emisor);
   const enWeb = o.handle ? anuncios.find((a) => a.handle === o.handle) || null : null;
-  const PC = PASOS.slice(1, 6);
-  const paso = pasoDe(o, factura, anuncios.length ? enWeb : undefined), i = paso === 'hecho' ? 5 : PC.findIndex(([f]) => f === paso);
-  const pasos = `<ol class="pasos">${PC.map(([, nombre], j) => `<li class="${j < i ? 'ok' : ''}${j === i ? ' on' : ''}">${nombre}</li>`).join('')}</ol>`;
-  const blq = (j, titulo, estado, cuerpo, ancla = '') => `<div class="card bloque${j === i ? ' on' : j < i ? ' hecho' : ''}"${ancla ? ` id="${ancla}"` : ''}><h2>${titulo} ${estado}</h2>${cuerpo}</div>`;
+  const paso = pasoDe(o, factura, anuncios.length ? enWeb : undefined);
+  // Lo hecho de cada coche (el contrato y el anuncio van a la vez: no hay que esperar a uno para el otro)
+  const hechos = [Boolean(x0.contrato?.firma), Boolean(enWeb ? enWeb.status === 'ACTIVE' || enWeb.situacion === 'vendido' : o.handle && !anuncios.length), o.estado === 'vendido', Boolean(factura || x0.cobro), Boolean(factura?.cobrada || x0.cobro)];
+  const PC = [['Contrato firmado'], ['En la web'], ['Vendido'], ['Facturado'], ['Cobrado']];
+  // Lo que toca ahora: el contrato y el anuncio a la vez; luego, la venta, la factura y el cobro, por orden
+  const activo = (j) => !hechos[j] && (j < 2 || (j === 2 ? hechos[1] || o.estado === 'vendido' : hechos.slice(2, j).every(Boolean)));
+  const pasos = `<ol class="pasos">${PC.map(([nombre], j) => `<li class="${hechos[j] ? 'ok' : ''}${activo(j) ? ' on' : ''}">${nombre}</li>`).join('')}</ol>`;
+  const blq = (j, titulo, estado, cuerpo, ancla = '') => `<div class="card bloque${hechos[j] ? ' hecho' : activo(j) ? ' on' : ''}"${ancla ? ` id="${ancla}"` : ''}><h2>${titulo} ${estado}</h2>${cuerpo}</div>`;
   const id = Number(o.id);
   const f = (accion, txt, clase = 'boton claro', extra = '') => `<form method="post" action="?estado=expediente&id=${id}" style="display:inline"><button class="${clase}" name="accion" value="${accion}"${extra}>${txt}</button></form>`;
   const faltanContrato = [!emisorCompleto(e) && 'los datos de Sidonia (Finanzas › Datos de facturación)', !c.matricula && 'la matrícula', !k.comision_pct && k.comision_pct !== 0 && 'la comisión'].filter(Boolean);
@@ -417,7 +449,7 @@ ${aviso ? `<p class="aviso${/^Error/.test(aviso) ? ' mal' : ''}">${esc(aviso)}</
   ${enWeb?.foto ? `<img src="${esc(enWeb.foto)}" alt="">` : '<span class="fc-sin"></span>'}
   <div class="fc-t"><h1>${esc(o.titulo || tituloCoche(c))}</h1>
     <p>${esc([c.matricula, c.anio, c.km && `${c.km} km`, o.comercial && `lo lleva ${o.comercial}`].filter(Boolean).join(' · ')) || '&nbsp;'}</p>
-    <div class="fc-chips"><span class="chip si">${esc(nombrePaso(paso))}</span>${chipC}${enWeb && !borrador ? '<span class="chip si">En la web</span>' : borrador ? '<span class="chip am">Borrador en Shopify</span>' : ''}${chipF}</div></div>
+    <div class="fc-chips"><span class="chip si">${esc({ venta: 'En cartera', factura: 'Por facturar', cobro: 'Por cobrar', hecho: 'Cerrado' }[paso] || nombrePaso(paso))}</span>${chipC}${enWeb && !borrador ? '<span class="chip si">En la web</span>' : borrador ? '<span class="chip am">Borrador en Shopify</span>' : ''}${chipF}</div></div>
   <div class="fc-precio">${o.estado === 'vendido' && o.precio_venta ? `<span>Vendido por</span><b>${eur0(o.precio_venta)}</b>` : `<span>Precio</span><b>${k.precio_salida ? eur0(k.precio_salida) : '—'}</b>`}<small>comisión ${esc(String(k.comision_pct ?? e.comision_pct).replace('.', ','))} %${o.comision ? ` · ${eur(o.comision)}` : ''}</small>
     <div class="acc-row">${o.handle ? `<a class="boton claro" href="${esc(cfg.tienda)}/products/${esc(o.handle)}" target="_blank" rel="noopener">Ver en la web</a><a class="boton claro" href="?estado=ficha&h=${encodeURIComponent(o.handle)}">Editar anuncio</a>` : ''}</div></div>
 </div>
@@ -463,6 +495,7 @@ const CSS_FICHA = `
   .fc-docs li div { flex: 1; min-width: 0; } .fc-docs b { display: block; font-size: 14px; } .fc-docs small { color: var(--suave); font-size: 12px; }
   .doc-i { flex: none; width: 32px; height: 40px; border-radius: 6px; background: var(--caja-3); position: relative; } .doc-i::after { content: ''; position: absolute; left: 7px; right: 7px; top: 10px; height: 2px; background: var(--linea-2); box-shadow: 0 6px 0 var(--linea-2), 0 12px 0 var(--linea-2); }
   .doc-i.ok { background: var(--verde-fondo); } .doc-i.am { background: var(--amarillo-fondo); } .doc-i.no { background: var(--rojo-fondo); }
+  .boton.grande { padding: 14px 22px; font-size: 16px; } .fs legend small { font-weight: 400; color: var(--suave); } .fx textarea { width: 100%; font: inherit; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--linea-2); background: var(--caja); color: var(--texto); }
   .boton.peq { padding: 6px 12px; font-size: 13px; }
   @media (max-width: 1000px) { .fc-grid { grid-template-columns: 1fr; } .fc-cab { grid-template-columns: 96px 1fr; } .fc-cab > img, .fc-sin { width: 96px; height: 72px; } .fc-precio { grid-column: 1 / -1; text-align: left; } .fc-precio .acc-row { justify-content: flex-start; } }`;
 function formVenta(o) {
@@ -497,7 +530,7 @@ const CSS_SD = `
   .sd-cab h1 { margin: 0; font-size: 26px; letter-spacing: -.02em; } .sd-cab p { margin: 2px 0 0; color: var(--suave); font-size: 14px; }
   .sd-cab .boton { padding: 12px 18px; font-size: 15px; }
   .sd-aviso { display: flex; gap: 12px; align-items: center; justify-content: space-between; padding: 12px 16px; border-radius: 14px; margin: 0 0 12px; background: rgba(240,180,0,.1); border: 1px solid rgba(240,180,0,.35); font-size: 14px; }
-  .sd-flujo { display: grid; grid-template-columns: repeat(6, 1fr) auto; gap: 8px; margin: 0 0 12px; }
+  .sd-flujo { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; margin: 0 0 12px; }
   .sd-flujo a { position: relative; display: block; text-decoration: none; color: inherit; padding: 12px 14px; border-radius: 16px; background: var(--caja); border: 1px solid var(--linea); }
   .sd-flujo a:hover { border-color: var(--linea-2); } .sd-flujo a.on { border-color: var(--verde); box-shadow: 0 0 0 1px var(--verde) inset; }
   .sd-flujo small { display: block; font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--suave); }
@@ -521,6 +554,9 @@ const CSS_SD = `
   .sd-a .boton { padding: 7px 12px; font-size: 13px; } .sd-a .boton.wa { background: #25d366; color: #04150c !important; }
   .sd-ir { display: inline-flex; gap: 2px; margin-left: 4px; } .sd-ir .ic { padding: 6px 8px; border-radius: 8px; font-size: 12px; font-weight: 700; color: var(--suave); text-decoration: none; } .sd-ir .ic:hover { background: var(--caja-3); color: var(--texto); }
   .sd-a .ic-b { all: unset; cursor: pointer; padding: 6px 8px; border-radius: 8px; font-size: 12px; font-weight: 700; color: var(--suave); } .sd-a .ic-b:hover { background: var(--caja-3); color: var(--rojo); }
+  .mcs { display: flex; flex-wrap: wrap; gap: 4px; } .mc { padding: 2px 8px; border-radius: 6px; font-size: 11.5px; font-weight: 700; background: var(--caja-3); color: var(--suave); white-space: nowrap; }
+  .mc.ok { background: var(--verde-fondo); color: var(--verde); } .mc.am { background: var(--amarillo-fondo); color: var(--amarillo); } .mc.no { background: var(--rojo-fondo); color: var(--rojo); } .mc.az { background: var(--azul-fondo); color: var(--azul); }
+  .boton.az { background: var(--azul); color: #fff !important; }
   .sd-masivo { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; padding: 12px 16px; margin: 0 0 12px; border-radius: 14px; background: var(--amarillo-fondo); font-size: 14px; }
   .sd-bar .boton.on { border-color: var(--verde); color: var(--verde); }
   @media (max-width: 1250px) { .sd-r { grid-template-columns: 56px minmax(0, 2fr) minmax(0, 1.3fr) minmax(0, 1fr) minmax(0, 1.5fr); } .sd-a { grid-column: 2 / -1; justify-content: flex-start; } .sd-m img, .sd-m span { width: 56px; height: 42px; } }
@@ -529,12 +565,15 @@ const CSS_SD = `
   @media (max-width: 900px) { .sd-flujo { grid-template-columns: repeat(3, 1fr); } .sd-flujo a::after { display: none; } }
   @media (max-width: 520px) { .sd-flujo { grid-template-columns: 1fr 1fr; } .sd-grid { grid-template-columns: 1fr 1fr; gap: 10px; } .sd-a .boton { flex: 1; text-align: center; } }`;
 
-export function paginaSidonia(cfg, items, { ver = 'marcha', aviso = '', gestiones = 0, emisor = {} } = {}) {
-  const filtro = (k) => (x) => (k === 'marcha' ? x.paso !== 'hecho' : k === 'sinficha' ? x.sinFicha && x.paso !== 'hecho' : k === 'efectivo' ? Boolean(x.o?.expediente?.cobro && !x.f) : k === 'cartera' ? x.paso === 'venta' || x.paso === 'anuncio' : k === 'todo' ? true : x.paso === k);
+export function paginaSidonia(cfg, items, { ver = 'todo', aviso = '', gestiones = 0, emisor = {} } = {}) {
+  const filtro = (k) => (x) => (k === 'marcha' ? x.paso !== 'hecho' : k === 'sinficha' ? x.sinFicha && x.paso !== 'hecho' : k === 'efectivo' ? Boolean(x.o?.expediente?.cobro && !x.f)
+    : k === 'sincontrato' ? Boolean(x.o && x.paso === 'venta' && !x.o.expediente?.contrato?.firma) : k === 'borrador' ? Boolean(x.o && x.paso === 'venta' && situacionCartera(x.o, x.prod).anuncio !== 'en_web') : k === 'todo' ? true : x.paso === k);
   const cuenta = (k) => items.filter(filtro(k)).length;
-  const ayuda = { solicitud: 'de la web, por llamar', contrato: 'por enviar o firmar', anuncio: 'por subir a la web', venta: 'a la venta en la web', factura: 'vendidos sin factura', cobro: 'facturas sin cobrar' };
+  const ayuda = { solicitud: 'de la web, por llamar', venta: 'los que vendemos ahora', factura: 'vendidos sin factura', cobro: 'facturas sin cobrar', hecho: 'cobrados, retirados y archivados' };
+  // Del más reciente al más antiguo (por cuándo se anunció o se dio de alta); los cerrados, al final
+  const fecha = (x) => String(x.prod?.creado || x.o?.fecha_alta || x.o?.creado || x.g?.creado || '');
   const lista = items.filter(filtro(ver))
-    .sort((a, b) => PASOS.findIndex(([p]) => p === a.paso) - PASOS.findIndex(([p]) => p === b.paso) || String(b.o?.actualizado || b.o?.creado || b.prod?.creado || '').localeCompare(String(a.o?.actualizado || a.o?.creado || a.prod?.creado || '')));
+    .sort((a, b) => Number(a.paso === 'hecho') - Number(b.paso === 'hecho') || fecha(b).localeCompare(fecha(a)));
   const listoContrato = (o) => emisorCompleto(leerEmisor(emisor)) && o.expediente?.coche?.matricula;
   const tarjeta = ({ o, prod, f, paso, sinFicha, g }) => {
     const x = o?.expediente || {}, p = x.propietario || {}, ct = x.contrato || {};
@@ -556,16 +595,16 @@ export function paginaSidonia(cfg, items, { ver = 'marcha', aviso = '', gestione
     } else if (sinFicha) {
       estado = '<span class="e am">Sin ficha de propietario ni contrato</span>';
       acc = `<a class="boton" href="${enlace}">Añadir su propietario</a>`;
-    } else if (paso === 'contrato') {
-      estado = ct.enviado ? `<span class="e am">Contrato enviado el ${esc(fechaTxt(ct.enviado))}: falta que lo firme</span>` : '<span class="e">Contrato sin enviar</span>';
-      acc = !listoContrato(o) ? `<a class="boton" href="${enlace}#contrato">Completar para el contrato</a>`
-        : `${p.telefono || o.propietario_telefono ? `<a class="boton wa" href="?estado=expediente&id=${Number(o.id)}&wa=contrato" target="_blank" rel="noopener">${ct.enviado ? 'Reenviar' : 'Enviar'} por WhatsApp</a>` : ''}${p.email ? post('contrato-email', ct.enviado ? 'Reenviar email' : 'Por email', p.telefono ? 'boton claro' : 'boton') : ''}`;
-    } else if (paso === 'anuncio') {
-      estado = o.handle ? '<span class="e am">Borrador en Shopify: falta el vídeo, las fotos y publicarlo</span>' : `<span class="e">${ct.firma ? 'Contrato firmado' : 'Sin contrato'} · falta su anuncio</span>`;
-      acc = o.handle ? `<a class="boton" href="${esc(adminShopify(cfg, o))}" target="_blank" rel="noopener">Abrir en Shopify</a>` : post('crear-anuncio', 'Crear su anuncio en Shopify');
     } else if (paso === 'venta') {
-      estado = `<span class="e">${ct.firma ? 'Contrato firmado' : Object.keys(x).length ? 'Sin contrato firmado' : 'Sin contrato en el panel'}</span>`;
-      acc = `<a class="boton" href="${enlace}#venta">Vendido</a>${o.handle ? `<a class="boton claro" href="${esc(cfg.tienda)}/products/${esc(o.handle)}" target="_blank" rel="noopener">Ver</a><a class="boton claro" href="?estado=anuncio&h=${encodeURIComponent(o.handle)}">Números</a>` : ''}`;
+      const sc = situacionCartera(o, prod);
+      const tel = p.telefono || o.propietario_telefono;
+      const chips = { firmado: '<span class="mc ok">Contrato firmado</span>', enviado: `<span class="mc am">Contrato enviado el ${esc(fechaCorta(ct.enviado))}</span>`, sin_enviar: '<span class="mc no">Contrato sin enviar</span>', antes: '<span class="mc">Sin contrato en el panel</span>' }[sc.contrato]
+        + ({ en_web: '<span class="mc ok">En la web</span>', borrador: '<span class="mc az">Borrador: falta el vídeo</span>', sin_anuncio: '<span class="mc no">Sin anuncio</span>' }[sc.anuncio]);
+      estado = `<span class="mcs">${chips}</span>`;
+      const contratoAcc = ['sin_enviar', 'enviado'].includes(sc.contrato)
+        ? (!listoContrato(o) ? `<a class="boton claro" href="${enlace}#contrato">Completar el contrato</a>` : `${tel ? `<a class="boton wa" href="?estado=expediente&id=${Number(o.id)}&wa=contrato" target="_blank" rel="noopener">${sc.contrato === 'enviado' ? 'Reenviar' : 'Enviar'} contrato</a>` : ''}${p.email ? post('contrato-email', sc.contrato === 'enviado' ? 'Reenviar email' : 'Por email', 'boton claro') : ''}`) : '';
+      const anuncioAcc = sc.anuncio === 'sin_anuncio' ? post('crear-anuncio', 'Crear borrador en Shopify', 'boton') : sc.anuncio === 'borrador' ? `<a class="boton az" href="${esc(adminShopify(cfg, o))}" target="_blank" rel="noopener">Subir el vídeo en Shopify</a>` : '';
+      acc = `${contratoAcc}${anuncioAcc}${sc.anuncio === 'en_web' ? `<a class="boton claro" href="${enlace}#venta">Vendido</a>` : ''}`;
     } else if (paso === 'factura') {
       estado = `<span class="e am">${o?.estado === 'vendido' ? 'Vendido: falta la factura' : 'Vendido en la web: pon el precio final'}</span>`;
       acc = `<a class="boton" href="${enlace}#${o?.estado === 'vendido' ? 'factura' : 'venta'}">${o?.estado === 'vendido' ? 'Hacer la factura' : 'Poner el precio'}</a>${o?.estado === 'vendido' ? `<form method="post" action="?estado=expediente&id=${Number(o.id)}"><input type="hidden" name="volver" value="sidonia"><button class="boton claro" name="accion" value="efectivo" onclick="return confirm('¿Apuntar que la comisión ya se cobró en efectivo, sin factura?')">Cobrada en efectivo</button></form>` : ''}`;
@@ -585,26 +624,26 @@ export function paginaSidonia(cfg, items, { ver = 'marcha', aviso = '', gestione
     const importe = g ? (gd.precio ? `${esc(String(gd.precio))} €` : '') : o?.estado === 'vendido' && o.precio_venta ? eur0(o.precio_venta) : n(x.condiciones?.precio_salida ?? o?.precio_anunciado) ? eur0(x.condiciones?.precio_salida ?? o.precio_anunciado) : prod?.precio ? eur0(prod.precio) : '';
     const bajo = g ? 'lo que pide' : o?.estado === 'vendido' ? (o.comision ? `vendido · comisión ${eur0(o.comision)}` : 'vendido') : importe ? 'precio' : '';
     const ir = [o && `<a class="ic" href="?estado=expediente&id=${Number(o.id)}" title="Ficha del coche">Ficha</a>`, (o?.handle || prod?.handle) && `<a class="ic" href="?estado=ficha&h=${encodeURIComponent(o?.handle || prod.handle)}" title="Editar el anuncio">Editar</a>`,
-      (o?.handle || prod?.handle) && paso !== 'anuncio' && `<a class="ic" href="${esc(cfg.tienda)}/products/${esc(o?.handle || prod.handle)}" target="_blank" rel="noopener" title="Ver en la web">Web ↗</a>`].filter(Boolean).join('');
+      (o?.handle || prod?.handle) && (!o || situacionCartera(o, prod).anuncio === 'en_web') && `<a class="ic" href="${esc(cfg.tienda)}/products/${esc(o?.handle || prod.handle)}" target="_blank" rel="noopener" title="Ver en la web">Web ↗</a>`].filter(Boolean).join('');
     return `<div class="sd-r" data-q="${esc(q)}">
     <a class="sd-m" href="${enlace}">${foto ? `<img src="${esc(foto)}" alt="" loading="lazy">` : '<span></span>'}</a>
     <div class="sd-co"><a href="${enlace}"><b>${esc(titulo)}</b></a><small>${esc(detalle) || '&nbsp;'}</small></div>
     <div class="sd-pr">${nombre ? `<b>${esc(nombre)}</b>` : '<span class="sub">Sin propietario</span>'}<small>${telefono ? esc(telefono) : '&nbsp;'}</small></div>
     <div class="sd-pz"><b>${importe || '—'}</b><small>${esc(bajo)}</small></div>
-    <div class="sd-es"><span class="sd-p ${paso}${sinFicha ? ' sinf' : ''}">${esc(sinFicha ? 'Sin propietario' : g ? 'Solicitud' : nombrePaso(paso))}</span>${estado}</div>
+    <div class="sd-es">${paso === 'venta' && o && !sinFicha ? '' : `<span class="sd-p ${paso}${sinFicha ? ' sinf' : ''}">${esc(sinFicha ? 'Sin propietario' : g ? 'Solicitud' : { venta: 'En cartera', factura: 'Por facturar', cobro: 'Por cobrar', hecho: o?.estado === 'retirado' || prod?.status === 'ARCHIVED' ? 'Archivado' : 'Cerrado' }[paso])}</span>`}${estado}</div>
     <div class="sd-a">${acc}<span class="sd-ir">${ir}</span></div></div>`;
   };
-  const flujo = PASOS.slice(0, 6).map(([k, t], j) => `<a href="?estado=sidonia&ver=${k}" class="${ver === k ? 'on' : ''}"><small>${j ? `${j} · ` : ''}${t}</small><b>${fmtN(cuenta(k))}</b><span>${ayuda[k]}</span></a>`).join('');
+  const flujo = PASOS.map(([k, t]) => `<a href="?estado=sidonia&ver=${k}" class="${ver === k ? 'on' : ''}"><small>${t}</small><b>${fmtN(cuenta(k))}</b><span>${ayuda[k]}</span></a>`).join('');
   return marco('Coches de Sidonia', 'sidonia', `
 ${aviso ? `<p class="aviso${/^Error/.test(aviso) ? ' mal' : ''}">${esc(aviso)}</p>` : ''}
 <div class="sd-cab"><div><h1>Coches de Sidonia</h1><p>De la solicitud a la factura: cada coche, en qué paso está y qué toca hacer.</p></div><a class="boton" href="?estado=expediente&nuevo=1">+ Nuevo coche</a></div>
-<div class="sd-flujo">${flujo}<a class="otro${ver === 'marcha' ? ' on' : ''}" href="?estado=sidonia"><small>Todos</small><b>${fmtN(cuenta('marcha'))}</b><span>en marcha</span></a></div>
+<div class="sd-flujo"><a class="otro${ver === 'todo' ? ' on' : ''}" href="?estado=sidonia"><small>Todos</small><b>${fmtN(cuenta('todo'))}</b><span>del más nuevo al más antiguo</span></a>${flujo}</div>
 <div class="sd-bar">
   <input type="search" placeholder="Buscar coche, propietario, matrícula…" oninput="const q=this.value.trim().toLowerCase().normalize('NFD').replace(/[\\u0300-\\u036f]/g,'');document.querySelectorAll('.sd-r[data-q]').forEach((c)=>{c.hidden=q&&!c.dataset.q.includes(q)})">
   ${cuenta('sinficha') ? `<a class="boton claro${ver === 'sinficha' ? ' on' : ''}" href="?estado=sidonia&ver=sinficha">Sin propietario · ${fmtN(cuenta('sinficha'))}</a>` : ''}
-  <a class="boton claro${ver === 'cartera' ? ' on' : ''}" href="?estado=sidonia&ver=cartera">En cartera · ${fmtN(cuenta('cartera'))}</a>
+  ${cuenta('sincontrato') ? `<a class="boton claro${ver === 'sincontrato' ? ' on' : ''}" href="?estado=sidonia&ver=sincontrato">Sin contrato firmado · ${fmtN(cuenta('sincontrato'))}</a>` : ''}
+  ${cuenta('borrador') ? `<a class="boton claro${ver === 'borrador' ? ' on' : ''}" href="?estado=sidonia&ver=borrador">Falta subir a la web · ${fmtN(cuenta('borrador'))}</a>` : ''}
   ${cuenta('efectivo') ? `<a class="boton claro${ver === 'efectivo' ? ' on' : ''}" href="?estado=sidonia&ver=efectivo">Efectivo sin factura · ${fmtN(cuenta('efectivo'))}</a>` : ''}
-  <a class="boton claro${ver === 'hecho' ? ' on' : ''}" href="?estado=sidonia&ver=hecho">Cerrados · ${fmtN(cuenta('hecho'))}</a>
   <a class="boton claro" href="?estado=ofertas">Ofertas</a>
   <a class="boton claro" href="?estado=fichas">Tabla con números</a>
 </div>
@@ -712,10 +751,10 @@ ${cand.map((x) => `<form method="post" action="?estado=ligar&h=${encodeURICompon
     const ligados = new Set(ops.map((o) => o.handle).filter(Boolean));
     for (const p of catalogo?.values() || []) {
       if (p.comunidad || ligados.has(p.handle) || p.status === 'ARCHIVED') continue;
-      items.push({ prod: p, sinFicha: true, paso: p.situacion === 'vendido' ? 'hecho' : p.status === 'ACTIVE' ? 'venta' : 'anuncio' });
+      items.push({ prod: p, sinFicha: true, paso: p.situacion === 'vendido' ? 'hecho' : 'venta' });
     }
     for (const g of solicitudes) items.push({ g, paso: 'solicitud' });
-    const ver = ['marcha', 'todo', 'sinficha', 'efectivo', 'cartera', ...PASOS.map(([k]) => k)].includes(req.query.ver) ? req.query.ver : 'marcha';
+    const ver = ['marcha', 'todo', 'sinficha', 'efectivo', 'sincontrato', 'borrador', ...PASOS.map(([k]) => k)].includes(req.query.ver) ? req.query.ver : 'todo';
     return html(paginaSidonia(cfg, items, { ver, aviso, gestiones, emisor }));
   }
 
@@ -743,8 +782,19 @@ ${cand.map((x) => `<form method="post" action="?estado=ligar&h=${encodeURICompon
       if (error) aviso = `Error: ${error}`;
       else {
         try {
-          const o = await tO.guardar({ ...op, estado: 'captado', origen: 'panel', expediente: conHistorial(op.expediente, `Coche captado (${ORIGENES[op.expediente.origen]})`) }, 'id');
-          return { status: 303, headers: { Location: `?estado=expediente&id=${Number(o.id)}`, 'Cache-Control': 'no-store' }, body: '' };
+          let o = await tO.guardar({ ...op, estado: 'captado', origen: 'panel', expediente: conHistorial(op.expediente, `Coche dado de alta (${ORIGENES[op.expediente.origen]})`) }, 'id');
+          // A la vez, su borrador en Shopify (con título, descripción y precio), ya ligado: solo falta subir el vídeo
+          let nota = '';
+          if (!o.handle && (deps.gql || (cfg.shopifyTienda && cfg.shopifyClientId))) {
+            try {
+              const r = await crearBorrador(deps.gql || shopifyAdmin(cfg, deps.fetch), o);
+              const exp = conHistorial({ ...o.expediente, shopify_id: r.id }, `Borrador creado en Shopify (${r.handle})`);
+              await tO.cambiar(Number(o.id), { handle: r.handle, expediente: exp });
+              try { const { olvidarCatalogo } = await import('./actividad.mjs'); olvidarCatalogo(); } catch (e) { /* nada */ }
+              nota = 'Creado: su borrador ya está en Shopify (solo falta el vídeo) y el contrato, listo para enviar.';
+            } catch (e) { console.error(e); nota = `Error: el coche está creado, pero no se ha podido crear su borrador en Shopify (${e.message}). Prueba con «Crear borrador en Shopify».`; }
+          } else nota = 'Creado. El contrato está listo para enviar.';
+          return { status: 303, headers: { Location: `?estado=expediente&id=${Number(o.id)}&aviso=${encodeURIComponent(nota)}`, 'Cache-Control': 'no-store' }, body: '' };
         } catch (e) { aviso = errorSql(e); }
       }
     }
@@ -756,7 +806,7 @@ ${cand.map((x) => `<form method="post" action="?estado=ligar&h=${encodeURICompon
       if (deLaWeb) base = { handle: deLaWeb.handle, expediente: { coche: cocheDeTitulo(deLaWeb.titulo) } };
     }
     return html(marco('Nuevo coche', 'sidonia', `<p><a href="?estado=sidonia">‹ Coches de Sidonia</a></p>${aviso ? `<p class="aviso mal">${esc(aviso)}</p>` : ''}
-<div class="card"><h2>Nuevo coche: su ficha</h2><p class="sub">${deLaWeb ? `Para el anuncio <b>${esc(deLaWeb.titulo)}</b> de la web: pon los datos de su propietario y se quedan ligados.` : 'Los datos del propietario y del coche. Con ellos se hace el contrato de intermediación y exclusividad, que le envías para que lo firme desde el móvil. Los que llegan por el formulario de la web, ábrelos desde Gestiones de venta.'}</p>${formExpediente(base, emisor, { accion: 'crear', boton: 'Crear la ficha' })}</div>`, CSS));
+<div class="card"><h2>Nuevo coche: su ficha</h2><p class="sub">${deLaWeb ? `Para el anuncio <b>${esc(deLaWeb.titulo)}</b> de la web: pon los datos de su propietario y se quedan ligados.` : 'Rellena el propietario, el coche (como en Shopify: precio y descripción) y las condiciones. Al crearlo se hace a la vez <b>su borrador en Shopify</b> (solo faltará subir el vídeo y activarlo) y <b>el contrato de intermediación y exclusividad</b>, listo para enviar por WhatsApp o email.'}</p>${formExpediente(base, emisor, { accion: 'crear', boton: deLaWeb ? 'Crear su ficha' : 'Crear el coche: borrador en Shopify y contrato' })}</div>`, CSS));
   }
 
   let [o] = await tO.leer(`id=eq.${id}&select=*&limit=1`).catch(() => []);
@@ -770,7 +820,7 @@ ${cand.map((x) => `<form method="post" action="?estado=ligar&h=${encodeURICompon
     o = { ...o, ...cambios, expediente: exp };
   };
   const p = o.expediente.propietario || {};
-  let aviso = '';
+  let aviso = req.method === 'GET' ? String(req.query.aviso || '').slice(0, 400) : '';
 
   // WhatsApp: se apunta como enviado y se abre WhatsApp con el mensaje y el enlace
   if (req.method === 'GET' && (req.query.wa === 'contrato' || req.query.wa === 'factura')) {
@@ -823,8 +873,9 @@ ${cand.map((x) => `<form method="post" action="?estado=ligar&h=${encodeURICompon
         else {
           const k = o.expediente.condiciones || {};
           const comision = r2(Math.max(precio * n(k.comision_pct ?? emisor.comision_pct) / 100, n(k.comision_min)));
+          const pc = n(k.comercial_pct);
           await guardar({ estado: 'vendido', precio_venta: precio, fecha_venta: fecha, comprador_nombre: t(b.comprador_nombre, 120) || null, comprador_telefono: t(b.comprador_telefono, 40) || null, comprador_email: t(b.comprador_email, 160) || null,
-            ...(factura ? {} : { comision }) }, `Vendido por ${eur0(precio)}`);
+            ...(factura ? {} : { comision, ...(pc ? { comision_comercial: r2(comision * pc / 100) } : {}) }) }, `Vendido por ${eur0(precio)}`);
           aviso = factura ? 'Guardado.' : `¡Vendido! Ahora, la factura (comisión prevista: ${eur(comision)} + IVA).`;
         }
       } else if (a === 'factura') {
@@ -838,7 +889,8 @@ ${cand.map((x) => `<form method="post" action="?estado=ligar&h=${encodeURICompon
             nueva.datos = { ...nueva.datos, emisor, destinatario: { ...nueva.datos.destinatario, email: p.email || '' } };
             const g = await tF.guardar(nueva, 'id');
             // La comisión de la venta, la de la factura (por si se ha bajado)
-            await guardar({ comision: nueva.base }, `Factura ${nueva.numero} de ${eur(nueva.total)} a nombre de ${nueva.cliente}`);
+            const pc = n(o.expediente.condiciones?.comercial_pct);
+            await guardar({ comision: nueva.base, ...(pc ? { comision_comercial: r2(nueva.base * pc / 100) } : {}) }, `Factura ${nueva.numero} de ${eur(nueva.total)} a nombre de ${nueva.cliente}`);
             facturas = await leerFacturas(); factura = facturas.find((f) => Number(f.id) === Number(g.id)) || { ...nueva, id: g.id };
             aviso = `Factura ${nueva.numero} creada. Envíasela por email o WhatsApp.`;
           }
