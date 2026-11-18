@@ -54,13 +54,21 @@ export const SECCIONES = [
 /** Anuncios › De sus dueños: la revisión de los anuncios de la comunidad */
 const COMUNIDAD = [['pendiente', 'Por revisar'], ['cambios', 'Cambios'], ['aprobado', 'Aprobados'], ['publicado', 'Publicados'], ['vendido', 'Vendidos'], ['cancelados', 'Cancelados']];
 let contadores = {};
+const svg = (d) => `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
+const ICONO = {
+  finanzas: svg('<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>'),
+  sidonia: svg('<path d="M5 13l1.6-4.4A2 2 0 0 1 8.5 7h7a2 2 0 0 1 1.9 1.6L19 13"/><rect x="3" y="13" width="18" height="5" rx="2"/><path d="M6.5 18v2M17.5 18v2"/>'),
+  clientes: svg('<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M21.5 20a6.5 6.5 0 0 0-4-6"/>'),
+  estadisticas: svg('<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/>'),
+  herramientas: svg('<path d="M14.5 6.5a4 4 0 0 0-5.3 5.3L3.5 17.5l3 3 5.7-5.7a4 4 0 0 0 5.3-5.3l-2.5 2.5-2.5-.5-.5-2.5z"/>')
+};
 export function ponerContadores(c) { contadores = c || {}; }
 
 export function navPanel(on) {
   const seccion = SECCIONES.find(([k, , subs, otros]) => k === on || subs.some(([s]) => s === on) || otros.includes(on)) || SECCIONES[0];
   const num = (x) => (x ? ` <b class="num">${x}</b>` : '');
   const comunidad = (contadores.pendiente || 0) + (contadores.cambios || 0);
-  const arriba = SECCIONES.map(([k, t]) => `<a href="?estado=${k}"${k === seccion[0] ? ' class="on"' : ''}>${t}${k === 'sidonia' ? num(comunidad + (contadores.gestiones || 0) + (contadores.alquileres || 0)) : ''}</a>`).join('');
+  const arriba = SECCIONES.map(([k, t]) => `<a href="?estado=${k}"${k === seccion[0] ? ' class="on"' : ''}>${ICONO[k] || ''}${t}${k === 'sidonia' ? num(comunidad + (contadores.gestiones || 0) + (contadores.alquileres || 0)) : ''}</a>`).join('');
   const subOn = { expedientes: 'sidonia', expediente: 'sidonia', ligar: 'sidonia', fichas: 'sidonia', ficha: 'sidonia', gestiones: 'sidonia', ofertas: 'sidonia',
     cobros: 'comunidad', cobrar: 'comunidad', tarifa: 'comunidad', rechazado: 'comunidad', retirado: 'comunidad', ...Object.fromEntries(COMUNIDAD.map(([k]) => [k, 'comunidad'])),
     operacion: 'ventas', enlazar: 'ventas', importar: 'ventas', cliente: 'clientes', anunciante: 'anunciantes', anuncio: 'estadisticas', chat: 'conversaciones' }[on] || on;

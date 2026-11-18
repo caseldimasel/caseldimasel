@@ -142,11 +142,11 @@ test('panel: la portada es Ventas; añadir, editar, importar (vista previa) y Pr
   const operaciones = tablaFalsa(OPS.map((o) => ({ ...o })));
   const deps = { db: async () => [], operaciones, tabla: tablaFalsa([{ id: 7, estado: 'pendiente', titulo: 'VESPA', vendedor_nombre: 'Ana', telefono: '611', creado: '2026-10-01' }]) };
   const portada = await atenderPanel({ method: 'GET', query: {}, headers: auth }, cfg, deps);
-  assert.match(portada.body, /<title>Finanzas/); assert.match(portada.body, /1 anuncio por revisar ›/);
+  assert.match(portada.body, /<title>Ventas/); assert.match(portada.body, /1 anuncio por revisar/);
   const ventas = await atenderPanel({ method: 'GET', query: { estado: 'ventas' }, headers: auth }, cfg, deps);
   assert.match(ventas.body, /<title>Ventas/);
   assert.match(ventas.body, /1 anuncio por revisar ›/);
-  assert.match(ventas.body, /class="on">Anuncios <b class="num">1<\/b>|Anuncios <b class="num">1<\/b>/);
+  assert.match(ventas.body, /class="on"><svg[\s\S]*?<\/svg>Anuncios <b class="num">1<\/b>|Anuncios <b class="num">1<\/b>/);
   assert.match(ventas.body, /PORSCHE 911 1986/);
   const nueva = await atenderPanel({ method: 'POST', query: { estado: 'operacion' }, body: { accion: 'guardar', titulo: 'VESPA GS 1958', estado: 'en_venta', precio_anunciado: '9000' }, headers: auth }, cfg, deps);
   assert.match(nueva.body, /Guardado: VESPA GS 1958/);

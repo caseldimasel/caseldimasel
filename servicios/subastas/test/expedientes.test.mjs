@@ -100,7 +100,7 @@ test('centro operativo: de la web al contrato firmado, vendido, factura (editabl
   assert.ok(o().expediente.historial.length >= 8);
   // El tablero y el resumen
   assert.match((await pag({ estado: 'expedientes' })).body, /LAND ROVER DEFENDER 110 1998/);
-  assert.match((await pag({ estado: 'finanzas', ano: '2026' })).body, /Resultado 2026/);
+  assert.match((await pag({ estado: 'finanzas', ano: '2026' })).body, /Lo que queda/);
 });
 
 test('centro operativo: coche nuevo en persona y venta de antes sin factura', async () => {
@@ -118,7 +118,7 @@ test('centro operativo: coche nuevo en persona y venta de antes sin factura', as
   const p = facturaPropuesta(deps.operaciones.filas[0], {}, [{ numero: '2026-020' }]);
   assert.deepEqual([p.numero, p.base, p.pct], ['2026-021', 1700, 5.67]);
   const h = (await pag({ estado: 'finanzas', ano: '2026' })).body;
-  assert.match(h, /Hacer la factura: JAGUAR XJRS 1993/); assert.match(h, /Sin factura/); assert.match(h, /Al ritmo de este año/);
+  assert.match(h, /Factura: JAGUAR XJRS 1993/); assert.match(h, /Sin factura/); assert.match(h, /A este ritmo, \d{4} cerraría/);
 });
 
 test('el contrato sin firmar deja huecos y la factura valida su NIF; los números de factura siguen', () => {
@@ -178,8 +178,11 @@ test('Finanzas: el resumen con las ventas del mes y del año, y los impuestos ap
   const { deps, pag } = preparar();
   deps.gastos.filas.push({ id: 1, tipo: 'cuota', concepto: 'Canva Pro', categoria: 'Apps', importe: 12, fecha: '2026-01-01' }, { id: 2, tipo: 'cargo', concepto: 'IRPF (modelo 130)', categoria: 'Impuestos', importe: 300, fecha: '2026-04-20' });
   const h = (await pag({ estado: 'finanzas', ano: '2026' })).body;
-  assert.match(h, /Sidonia en números/); assert.match(h, /Coches vendidos/); assert.match(h, /Registrados en la web/); assert.match(h, /IVA del \d\.º trimestre/);
-  assert.match(h, /Este mes/); assert.match(h, /En el año · 2026/); assert.match(h, /Gastos fijos al mes/); assert.match(h, /Canva Pro/); assert.match(h, /JAGUAR XJRS 1993/);
+  assert.match(h, /Desde el principio/); assert.match(h, /Coches vendidos/); assert.match(h, /Registrados/); assert.match(h, /IVA del \d\.º trimestre/);
+  assert.match(h, /<title>Ventas/); assert.match(h, /Este mes/); assert.match(h, /Análisis mes a mes/); assert.match(h, /enero de 2026/); assert.match(h, /Lo que queda/); assert.match(h, /JAGUAR XJRS 1993/);
+  assert.match(h, /data-ver="comision"/); assert.match(h, /Por marca/); assert.match(h, /Jaguar/);
+  const mes = (await pag({ estado: 'finanzas', p: 'mes' })).body;
+  assert.match(mes, /class="on">Este mes/); assert.match(mes, /frente al mes anterior/);
   assert.doesNotMatch(h, /Nuevo coche/); assert.doesNotMatch(h, /Hacienda:/);
   const i = (await pag({ estado: 'impuestos' })).body;
   assert.match(i, /<title>Impuestos/); assert.match(i, /IRPF \(modelo 130\)/); assert.match(i, /Lo próximo/);
@@ -225,9 +228,9 @@ test('Anuncios › De Sidonia: tarjetas por paso, crear el anuncio en Shopify (b
   await pag({ estado: 'expediente' }, 'POST', { accion: 'crear', ...EXP, comercial: 'Hugo' });
   const o = deps.operaciones.filas.at(-1);
   let l = (await pag({ estado: 'sidonia' })).body;
-  assert.match(l, /<title>Coches de Sidonia/); assert.match(l, /class="on">Anuncios/); assert.match(l, /class="on">De Sidonia/); assert.match(l, /De sus dueños/); assert.match(l, /De alquiler/);
+  assert.match(l, /<title>Coches de Sidonia/); assert.match(l, /class="on"><svg[\s\S]*?<\/svg>Anuncios/); assert.match(l, /class="on">De Sidonia/); assert.match(l, /De sus dueños/); assert.match(l, /De alquiler/);
   assert.doesNotMatch(l, /Cobros comunidad/);
-  assert.match(l, /<b>1<\/b> persona quiere/, 'las gestiones nuevas de la web');
+  assert.match(l, /<span class="sd-p solicitud">Solicitud<\/span>[\s\S]*LAND ROVER DEFENDER 110 1998[\s\S]*Crear ficha y contrato/, 'las solicitudes de la web, el primer paso');
   assert.match(l, /<span class="sd-p contrato">Contrato<\/span>[\s\S]*LAND ROVER DEFENDER 110 1998[\s\S]*Enviar por WhatsApp/);
   // El anuncio de Sidonia sin ficha: «Añadir su propietario»; el de la comunidad no sale
   assert.match(l, /FERRARI 308 GTS 1980[\s\S]*Añadir su propietario/); assert.doesNotMatch(l, /SEAT 600 1970/);

@@ -26,7 +26,7 @@ export const VERSION_INTERMEDIACION = '2026-11-17';
 export const LIMITE_EFECTIVO = 1000;
 export const FORMAS_PAGO = { transferencia: 'Transferencia', bizum: 'Bizum', tarjeta: 'Tarjeta', efectivo: 'Efectivo' };
 /** Los pasos de cada coche de Sidonia (y «hecho»: cobrado, retirado o una venta de antes) */
-export const PASOS = [['contrato', 'Contrato'], ['anuncio', 'Anuncio'], ['venta', 'En venta'], ['factura', 'Factura'], ['cobro', 'Cobro'], ['hecho', 'Cerrado']];
+export const PASOS = [['solicitud', 'Solicitud'], ['contrato', 'Contrato'], ['anuncio', 'Anuncio'], ['venta', 'En venta'], ['factura', 'Factura'], ['cobro', 'Cobro'], ['hecho', 'Cerrado']];
 const ORIGENES = { persona: 'En persona', llamada: 'Por teléfono', web: 'Formulario de la web', recomendacion: 'Recomendación', otro: 'Otro' };
 const DIA = /^\d{4}-\d{2}-\d{2}$/;
 const hoyISO = () => new Date().toISOString().slice(0, 10);
@@ -344,8 +344,9 @@ function formExpediente(o = {}, emisor = {}, { accion = 'guardar', boton = 'Guar
 export function paginaExpediente(cfg, o, { factura = null, facturas = [], emisor = {}, aviso = '', anuncios = [], ligados = new Set() } = {}) {
   const x = o.expediente || {}, p = x.propietario || {}, c = x.coche || {}, k = x.condiciones || {}, e = leerEmisor(emisor);
   const enWeb = o.handle ? anuncios.find((a) => a.handle === o.handle) || null : null;
-  const paso = pasoDe(o, factura, anuncios.length ? enWeb : undefined), i = PASOS.findIndex(([f]) => f === paso);
-  const pasos = `<ol class="pasos">${PASOS.slice(0, 5).map(([, nombre], j) => `<li class="${j < i ? 'ok' : ''}${j === i ? ' on' : ''}">${nombre}</li>`).join('')}</ol>`;
+  const PC = PASOS.slice(1, 6);
+  const paso = pasoDe(o, factura, anuncios.length ? enWeb : undefined), i = paso === 'hecho' ? 5 : PC.findIndex(([f]) => f === paso);
+  const pasos = `<ol class="pasos">${PC.map(([, nombre], j) => `<li class="${j < i ? 'ok' : ''}${j === i ? ' on' : ''}">${nombre}</li>`).join('')}</ol>`;
   const blq = (j, titulo, estado, cuerpo, ancla = '') => `<div class="card bloque${j === i ? ' on' : j < i ? ' hecho' : ''}"${ancla ? ` id="${ancla}"` : ''}><h2>${titulo} ${estado}</h2>${cuerpo}</div>`;
   const id = Number(o.id);
   const f = (accion, txt, clase = 'boton claro', extra = '') => `<form method="post" action="?estado=expediente&id=${id}" style="display:inline"><button class="${clase}" name="accion" value="${accion}"${extra}>${txt}</button></form>`;
@@ -440,7 +441,7 @@ const CSS_SD = `
   .sd-cab h1 { margin: 0; font-size: 26px; letter-spacing: -.02em; } .sd-cab p { margin: 2px 0 0; color: var(--suave); font-size: 14px; }
   .sd-cab .boton { padding: 12px 18px; font-size: 15px; }
   .sd-aviso { display: flex; gap: 12px; align-items: center; justify-content: space-between; padding: 12px 16px; border-radius: 14px; margin: 0 0 12px; background: rgba(240,180,0,.1); border: 1px solid rgba(240,180,0,.35); font-size: 14px; }
-  .sd-flujo { display: grid; grid-template-columns: repeat(5, 1fr) auto; gap: 8px; margin: 0 0 12px; }
+  .sd-flujo { display: grid; grid-template-columns: repeat(6, 1fr) auto; gap: 8px; margin: 0 0 12px; }
   .sd-flujo a { position: relative; display: block; text-decoration: none; color: inherit; padding: 12px 14px; border-radius: 16px; background: var(--caja); border: 1px solid var(--linea); }
   .sd-flujo a:hover { border-color: var(--linea-2); } .sd-flujo a.on { border-color: var(--verde); box-shadow: 0 0 0 1px var(--verde) inset; }
   .sd-flujo small { display: block; font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--suave); }
@@ -456,7 +457,7 @@ const CSS_SD = `
   .sd-f img { width: 100%; height: 100%; object-fit: cover; display: block; }
   .sd-f .vacia { position: absolute; inset: 0; display: grid; place-items: center; color: var(--flojo); font-size: 13px; text-align: center; padding: 10px; }
   .sd-p { position: absolute; left: 10px; top: 10px; padding: 4px 10px; border-radius: 999px; font-size: 12px; font-weight: 800; background: rgba(0,0,0,.65); color: #fff; backdrop-filter: blur(6px); }
-  .sd-p.contrato { background: #f0b400; color: #1d1600; } .sd-p.anuncio { background: #5aa2ff; color: #031226; } .sd-p.venta { background: var(--verde); color: var(--verde-tinta); }
+  .sd-p.solicitud { background: #ff5f8f; color: #2a0412; } .sd-p.contrato { background: #f0b400; color: #1d1600; } .sd-p.anuncio { background: #5aa2ff; color: #031226; } .sd-p.venta { background: var(--verde); color: var(--verde-tinta); }
   .sd-p.factura { background: #ff8a3d; color: #241000; } .sd-p.cobro { background: #c58cff; color: #1b0630; }
   .sd-b { display: flex; flex-direction: column; gap: 3px; padding: 12px 14px 14px; flex: 1; }
   .sd-b > a { color: inherit; text-decoration: none; } .sd-b > a b { font-size: 15px; line-height: 1.25; }
@@ -470,19 +471,28 @@ const CSS_SD = `
 
 export function paginaSidonia(cfg, items, { ver = 'marcha', aviso = '', gestiones = 0, emisor = {} } = {}) {
   const cuenta = (k) => items.filter((x) => (k === 'marcha' ? x.paso !== 'hecho' : k === 'sinficha' ? x.sinFicha && x.paso !== 'hecho' : x.paso === k)).length;
-  const ayuda = { contrato: 'por enviar o firmar', anuncio: 'por subir a la web', venta: 'a la venta en la web', factura: 'vendidos sin factura', cobro: 'facturas sin cobrar' };
+  const ayuda = { solicitud: 'de la web, por llamar', contrato: 'por enviar o firmar', anuncio: 'por subir a la web', venta: 'a la venta en la web', factura: 'vendidos sin factura', cobro: 'facturas sin cobrar' };
   const lista = items.filter((x) => (ver === 'marcha' ? x.paso !== 'hecho' : ver === 'sinficha' ? x.sinFicha && x.paso !== 'hecho' : ver === 'todo' ? true : x.paso === ver))
     .sort((a, b) => PASOS.findIndex(([p]) => p === a.paso) - PASOS.findIndex(([p]) => p === b.paso) || String(b.o?.actualizado || b.o?.creado || b.prod?.creado || '').localeCompare(String(a.o?.actualizado || a.o?.creado || a.prod?.creado || '')));
   const listoContrato = (o) => emisorCompleto(leerEmisor(emisor)) && o.expediente?.coche?.matricula;
-  const tarjeta = ({ o, prod, f, paso, sinFicha }) => {
+  const tarjeta = ({ o, prod, f, paso, sinFicha, g }) => {
     const x = o?.expediente || {}, p = x.propietario || {}, ct = x.contrato || {};
-    const titulo = prod?.titulo || o?.titulo || '';
-    const enlace = o ? `?estado=expediente&id=${Number(o.id)}` : `?estado=ligar&h=${encodeURIComponent(prod.handle)}`;
-    const precio = o?.estado === 'vendido' && o.precio_venta ? `vendido por ${eur0(o.precio_venta)}` : n(x.condiciones?.precio_salida ?? o?.precio_anunciado) ? eur0(x.condiciones?.precio_salida ?? o.precio_anunciado) : '';
-    const quien = [p.nombre || o?.propietario_nombre, precio].filter(Boolean).join(' · ');
+    const gd = g?.datos || {};
+    const titulo = g ? ([gd.marca, gd.modelo, gd.anio].filter(Boolean).join(' ') || 'Vehículo').toUpperCase() : prod?.titulo || o?.titulo || '';
+    const enlace = g ? `?estado=gestiones#g${Number(g.id)}` : o ? `?estado=expediente&id=${Number(o.id)}` : `?estado=ligar&h=${encodeURIComponent(prod.handle)}`;
+    const precio = !o ? '' : o?.estado === 'vendido' && o.precio_venta ? `vendido por ${eur0(o.precio_venta)}` : n(x.condiciones?.precio_salida ?? o?.precio_anunciado) ? eur0(x.condiciones?.precio_salida ?? o.precio_anunciado) : '';
+    const quien = g ? [gd.nombre, gd.precio && `pide ${gd.precio} €`, gd.km && `${gd.km} km`].filter(Boolean).join(' · ') : [p.nombre || o?.propietario_nombre, precio].filter(Boolean).join(' · ');
     const post = (accion, txt, clase = 'boton') => `<form method="post" action="?estado=expediente&id=${Number(o.id)}"><input type="hidden" name="volver" value="sidonia"><button class="${clase}" name="accion" value="${accion}">${txt}</button></form>`;
     let estado = '', acc = '';
-    if (sinFicha) {
+    if (g) {
+      const d = g.datos || {};
+      const tel = String(d.telefono || '').replace(/[^\d]/g, '');
+      const coche = [d.marca, d.modelo, d.anio].filter(Boolean).join(' ') || 'su coche';
+      const wa = tel ? `https://wa.me/${tel.length === 9 ? `34${tel}` : tel}?text=${encodeURIComponent(`Hola ${String(d.nombre || '').split(' ')[0]}, soy Hugo de Sidonia. Hemos visto que quieres vender tu ${coche}. ¿Te viene bien que hablemos un momento y te cuento cómo lo hacemos?`)}` : '';
+      estado = `<span class="e am">${g.creado ? `Llegó el ${esc(fechaTxt(g.creado))}` : 'Nueva'}${g.estado === 'contactado' ? ' · ya contactado' : ''}</span>`;
+      acc = `${wa ? `<a class="boton wa" href="${esc(wa)}" target="_blank" rel="noopener">WhatsApp</a>` : ''}<form method="post" action="?estado=expediente"><input type="hidden" name="gestion" value="${Number(g.id)}"><button class="boton${wa ? ' claro' : ''}" name="accion" value="desde-gestion">Crear ficha y contrato</button></form>
+        <form method="post" action="?estado=sidonia&ver=solicitud"><input type="hidden" name="gestion" value="${Number(g.id)}"><button class="boton claro" name="accion" value="descartar" onclick="return confirm('¿Descartar esta solicitud?')">Descartar</button></form>`;
+    } else if (sinFicha) {
       estado = '<span class="e am">Sin ficha de propietario ni contrato</span>';
       acc = `<a class="boton" href="${enlace}">Añadir su propietario</a>`;
     } else if (paso === 'contrato') {
@@ -505,15 +515,15 @@ export function paginaSidonia(cfg, items, { ver = 'marcha', aviso = '', gestione
       estado = `<span class="e">${o?.estado === 'retirado' ? 'Retirado' : f ? `Cobrado · factura ${esc(f.numero)}` : 'Vendido'}</span>`;
       acc = `<a class="boton claro" href="${enlace}">Ver</a>`;
     }
-    const q = normalTexto(`${titulo} ${p.nombre || o?.propietario_nombre || ''} ${o?.comercial || ''} ${x.coche?.matricula || ''}`);
-    return `<article class="sd-c" data-q="${esc(q)}"><a class="sd-f" href="${enlace}">${prod?.foto ? `<img src="${esc(prod.foto)}" alt="" loading="lazy">` : `<span class="vacia">${o?.handle ? 'Sin fotos aún' : 'Aún sin anuncio'}</span>`}<span class="sd-p ${paso}">${esc(sinFicha ? 'Sin propietario' : nombrePaso(paso))}</span></a>
+    const foto = g ? (gd.fotos || []).map((u) => (/^https?:/.test(u) ? u : `${cfg.supabaseUrl}/storage/v1/object/public/anuncios/${u}`))[0] : prod?.foto;
+    const q = normalTexto(`${titulo} ${gd.nombre || ''} ${p.nombre || o?.propietario_nombre || ''} ${o?.comercial || ''} ${x.coche?.matricula || ''}`);
+    return `<article class="sd-c" data-q="${esc(q)}"><a class="sd-f" href="${enlace}">${foto ? `<img src="${esc(foto)}" alt="" loading="lazy">` : `<span class="vacia">${g ? 'Sin fotos' : o?.handle ? 'Sin fotos aún' : 'Aún sin anuncio'}</span>`}<span class="sd-p ${paso}">${esc(sinFicha ? 'Sin propietario' : nombrePaso(paso))}</span></a>
     <div class="sd-b"><a href="${enlace}"><b>${esc(titulo)}</b></a>${quien ? `<span class="q">${esc(quien)}</span>` : ''}${estado}<div class="sd-a">${acc}</div></div></article>`;
   };
-  const flujo = PASOS.slice(0, 5).map(([k, t], j) => `<a href="?estado=sidonia&ver=${k}" class="${ver === k ? 'on' : ''}"><small>${j + 1} · ${t}</small><b>${fmtN(cuenta(k))}</b><span>${ayuda[k]}</span></a>`).join('');
+  const flujo = PASOS.slice(0, 6).map(([k, t], j) => `<a href="?estado=sidonia&ver=${k}" class="${ver === k ? 'on' : ''}"><small>${j ? `${j} · ` : ''}${t}</small><b>${fmtN(cuenta(k))}</b><span>${ayuda[k]}</span></a>`).join('');
   return marco('Coches de Sidonia', 'sidonia', `
 ${aviso ? `<p class="aviso${/^Error/.test(aviso) ? ' mal' : ''}">${esc(aviso)}</p>` : ''}
-<div class="sd-cab"><div><h1>Coches de Sidonia</h1><p>Del contrato a la factura: cada coche, en qué paso está y qué toca hacer.</p></div><a class="boton" href="?estado=expediente&nuevo=1">+ Nuevo coche</a></div>
-${gestiones ? `<div class="sd-aviso"><span><b>${fmtN(gestiones)}</b> ${gestiones === 1 ? 'persona quiere' : 'personas quieren'} que vendáis su coche (formulario de la web)</span><a class="boton" href="?estado=gestiones">Verlas</a></div>` : ''}
+<div class="sd-cab"><div><h1>Coches de Sidonia</h1><p>De la solicitud a la factura: cada coche, en qué paso está y qué toca hacer.</p></div><a class="boton" href="?estado=expediente&nuevo=1">+ Nuevo coche</a></div>
 <div class="sd-flujo">${flujo}<a class="otro${ver === 'marcha' ? ' on' : ''}" href="?estado=sidonia"><small>Todos</small><b>${fmtN(cuenta('marcha'))}</b><span>en marcha</span></a></div>
 <div class="sd-bar">
   <input type="search" placeholder="Buscar coche, propietario, matrícula…" oninput="const q=this.value.trim().toLowerCase().normalize('NFD').replace(/[\\u0300-\\u036f]/g,'');document.querySelectorAll('.sd-c').forEach((c)=>{c.hidden=q&&!c.dataset.q.includes(q)})">
@@ -523,7 +533,7 @@ ${gestiones ? `<div class="sd-aviso"><span><b>${fmtN(gestiones)}</b> ${gestiones
   <a class="boton claro" href="?estado=fichas">Tabla con números</a>
 </div>
 ${lista.length ? `<div class="sd-grid">${lista.map(tarjeta).join('')}</div>` : `<div class="sd-vacio">${ver === 'marcha' ? 'No hay ningún coche en marcha. Empieza con «+ Nuevo coche».' : 'Nada en este paso.'}</div>`}
-<p class="nota">Así va cada coche: <b>1.</b> Hugo crea su ficha (propietario y coche) y le envía el contrato por WhatsApp o email; lo firma desde el móvil. <b>2.</b> «Crear su anuncio en Shopify» lo deja allí como borrador, ya ligado: subís el vídeo y las fotos y lo publicáis. Si lo subís directamente en Shopify, se liga solo con su ficha. <b>3.</b> Cuando se venda, «Vendido» con el precio final. <b>4.</b> La factura sale hecha y se envía por WhatsApp o email. <b>5.</b> Marcar cobrada.</p>`, CSS + CSS_SD);
+<p class="nota">Así va cada coche: las <b>solicitudes</b> del formulario de la web llegan solas (WhatsApp y «Crear ficha y contrato»), o Hugo mete el coche con «+ Nuevo coche». <b>1.</b> Hugo crea su ficha (propietario y coche) y le envía el contrato por WhatsApp o email; lo firma desde el móvil. <b>2.</b> «Crear su anuncio en Shopify» lo deja allí como borrador, ya ligado: subís el vídeo y las fotos y lo publicáis. Si lo subís directamente en Shopify, se liga solo con su ficha. <b>3.</b> Cuando se venda, «Vendido» con el precio final. <b>4.</b> La factura sale hecha y se envía por WhatsApp o email. <b>5.</b> Marcar cobrada.</p>`, CSS + CSS_SD);
 }
 
 /** Finanzas › Datos de facturación */
@@ -594,7 +604,12 @@ ${cand.map((x) => `<form method="post" action="?estado=ligar&h=${encodeURICompon
     let ops = [], aviso = String(req.query.aviso || '').slice(0, 300), catalogo = null, gestiones = 0;
     try { ops = await tO.leer('select=*&order=id.desc&limit=5000'); } catch (e) { aviso = errorSql(e); }
     try { const { catalogoTienda } = await import('./actividad.mjs'); catalogo = await catalogoTienda(cfg, deps); } catch (e) { catalogo = null; }
-    try { gestiones = (await tG.leer('estado=eq.nueva&select=id&limit=500')).length; } catch (e) { gestiones = 0; }
+    if (req.method === 'POST' && b.accion === 'descartar' && Number(b.gestion)) {
+      try { await tG.cambiar(Number(b.gestion), { estado: 'descartada', actualizado: new Date().toISOString() }); aviso = 'Solicitud descartada.'; } catch (e) { aviso = errorSql(e); }
+    }
+    let solicitudes = [];
+    try { solicitudes = (await tG.leer('select=*&order=id.desc&limit=500')).filter((g) => ['nueva', 'contactado'].includes(g.estado) && !/Expediente n\.º \d+/.test(g.nota || '')); } catch (e) { solicitudes = []; }
+    gestiones = solicitudes.length;
     // Las fichas que ya tienen su anuncio en Shopify (subido allí a mano) se ligan solas
     if (catalogo?.size) {
       for (const l of ligarSolos(ops, catalogo)) {
@@ -610,6 +625,7 @@ ${cand.map((x) => `<form method="post" action="?estado=ligar&h=${encodeURICompon
       if (p.comunidad || ligados.has(p.handle) || p.status === 'ARCHIVED') continue;
       items.push({ prod: p, sinFicha: true, paso: p.situacion === 'vendido' ? 'hecho' : p.status === 'ACTIVE' ? 'venta' : 'anuncio' });
     }
+    for (const g of solicitudes) items.push({ g, paso: 'solicitud' });
     const ver = ['marcha', 'todo', 'sinficha', ...PASOS.map(([k]) => k)].includes(req.query.ver) ? req.query.ver : 'marcha';
     return html(paginaSidonia(cfg, items, { ver, aviso, gestiones, emisor }));
   }

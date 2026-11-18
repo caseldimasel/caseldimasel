@@ -62,7 +62,7 @@ export const FAVICON = `<link rel="icon" type="image/png" sizes="32x32" href="/a
 <meta name="theme-color" content="#0b120f">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Carlito:wght@400;700&family=Inter:wght@400;500;600;700;800&display=swap">
-<script>(() => { let t = 'oscuro'; try { t = localStorage.getItem('sidonia-panel-tema') || 'oscuro'; } catch (e) {} document.documentElement.dataset.tema = t;
+<script>(() => { let t = 'claro'; try { t = localStorage.getItem('sidonia-panel-tema-2') || 'claro'; } catch (e) {} document.documentElement.dataset.tema = t;
   // El favicon: la O de sidonia.es con el punto verde del panel; negra y, con el modo oscuro del dispositivo, blanca
   const m = window.matchMedia ? matchMedia('(prefers-color-scheme: dark)') : null;
   const poner = () => document.querySelectorAll('link[data-favicon]').forEach((l) => { l.href = '/admin?recurso=favicon-' + (m && m.matches ? 'blanco-' : '') + l.dataset.favicon + '&v=i5'; });
@@ -80,7 +80,7 @@ export const CABECERA = `<header class="cabeza">
   <button type="button" class="cabeza__tema cabeza__recargar" aria-label="Recargar" title="Recargar"
     onclick="this.classList.add('gira');location.reload()">${RECARGAR}</button>
   <button type="button" class="cabeza__tema" aria-label="Cambiar entre oscuro y claro" title="Oscuro / claro"
-    onclick="const h=document.documentElement;h.dataset.tema=h.dataset.tema==='claro'?'oscuro':'claro';try{localStorage.setItem('sidonia-panel-tema',h.dataset.tema)}catch(e){}window.sidoniaFavicon&&window.sidoniaFavicon(h.dataset.tema)">
+    onclick="const h=document.documentElement;h.dataset.tema=h.dataset.tema==='claro'?'oscuro':'claro';try{localStorage.setItem('sidonia-panel-tema-2',h.dataset.tema)}catch(e){}window.sidoniaFavicon&&window.sidoniaFavicon(h.dataset.tema)">
     <span class="cabeza__sol">${SOL}</span><span class="cabeza__luna">${LUNA}</span></button>
   </span>
 </header>`;
@@ -106,16 +106,16 @@ export const ESTILO_PANEL = `
   }
   [data-tema="claro"] {
     color-scheme: light;
-    --fondo: #f3f5f4; --fondo-2: #eaeeec; --caja: #ffffff; --caja-2: #f5f7f6; --caja-3: #eceff0;
-    --linea: rgba(10,25,18,.08); --linea-2: rgba(10,25,18,.16);
-    --texto: #0d1511; --suave: rgba(13,21,17,.62); --flojo: rgba(13,21,17,.42);
-    --verde: #0b8f4d; --verde-fondo: rgba(11,143,77,.1); --verde-tinta: #ffffff;
-    --rojo: #d23a2f; --rojo-fondo: rgba(210,58,47,.1);
-    --amarillo: #a86b00; --amarillo-fondo: rgba(240,170,0,.15);
-    --azul: #1f63c6; --azul-fondo: rgba(31,99,198,.1);
-    --lila: #7a43c9; --lila-fondo: rgba(122,67,201,.1);
-    --barra: #0b8f4d; --barra-fondo: rgba(10,25,18,.07);
-    --sombra: 0 1px 2px rgba(10,25,18,.05), 0 8px 24px -18px rgba(10,25,18,.25);
+    --fondo: #f5f6f8; --fondo-2: #eef0f3; --caja: #ffffff; --caja-2: #f7f8fa; --caja-3: #eceef2;
+    --linea: rgba(17,24,39,.08); --linea-2: rgba(17,24,39,.16);
+    --texto: #111827; --suave: rgba(17,24,39,.6); --flojo: rgba(17,24,39,.4);
+    --verde: #0d9b57; --verde-fondo: rgba(13,155,87,.09); --verde-tinta: #ffffff;
+    --rojo: #dc3d33; --rojo-fondo: rgba(220,61,51,.09);
+    --amarillo: #b26f00; --amarillo-fondo: rgba(240,170,0,.14);
+    --azul: #2563eb; --azul-fondo: rgba(37,99,235,.09);
+    --lila: #7c3aed; --lila-fondo: rgba(124,58,237,.09);
+    --barra: #0d9b57; --barra-fondo: rgba(17,24,39,.06);
+    --sombra: 0 1px 2px rgba(17,24,39,.04), 0 6px 20px -12px rgba(17,24,39,.16);
     --logo: none;
   }
   * { box-sizing: border-box; }
@@ -146,6 +146,18 @@ export const ESTILO_PANEL = `
   nav a:hover { color: var(--texto); background: var(--caja-2); }
   nav a.on { color: var(--texto); border-color: var(--linea-2); }
   nav.main a.on { background: var(--verde); border-color: var(--verde); color: var(--verde-tinta); }
+  nav.main a svg { flex: none; opacity: .8; }
+  /* En el ordenador: el menú a la izquierda, fijo */
+  @media (min-width: 1100px) {
+    body { max-width: none; padding: 0 36px 80px 284px; }
+    .cabeza { margin: 0 -36px 8px -284px; padding-left: 24px; padding-right: 36px; }
+    nav.main { position: fixed; z-index: 15; left: 0; top: 0; bottom: 0; width: 248px; margin: 0; padding: 86px 14px 20px; flex-direction: column; gap: 2px; overflow-y: auto; background: var(--caja); border-right: 1px solid var(--linea); }
+    nav.main a { padding: 11px 14px; border: 0; border-radius: 10px; background: transparent; font-size: 15.5px; }
+    nav.main a:hover { background: var(--caja-2); }
+    nav.main a.on { background: var(--verde-fondo); color: var(--verde); }
+    nav.main a .num { margin-left: auto; }
+    nav.sub { margin-top: 18px; }
+  }
   nav.sub { margin: -6px 0 18px; gap: 2px; padding: 3px; width: max-content; max-width: 100%; border-radius: 12px; background: var(--caja); border: 1px solid var(--linea); }
   nav.sub a { padding: 7px 13px; border: 0; border-radius: 9px; background: transparent; font-size: 14px; }
   nav.sub a.on { background: var(--caja-3); }

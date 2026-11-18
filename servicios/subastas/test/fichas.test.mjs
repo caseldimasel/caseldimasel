@@ -61,7 +61,7 @@ test('panel › Anuncios › En la web: lista, editar (y la venta al día) y enl
   const deps = { db: async () => [], gql, operaciones, tabla: tablaFalsa([]) };
   const l = await atenderPanel({ method: 'GET', query: { estado: 'fichas' }, headers: auth }, cfg, deps);
   assert.match(l.body, /<title>Anuncios en la web/);
-  assert.match(l.body, /class="on">Anuncios/);
+  assert.match(l.body, /class="on"><svg[\s\S]*?<\/svg>Anuncios/);
   assert.match(l.body, /\?estado=expediente&id=5">[^<]* ›<\/a><span class="sub">sin contrato<\/span>/);
   assert.match(l.body, /\?estado=ligar&h=land-rover-santana"[^>]*>Ligar con su propietario ›/);
   const e = await atenderPanel({ method: 'GET', query: { estado: 'ficha', h: 'porsche-914-6-1970' }, headers: auth }, cfg, deps);
