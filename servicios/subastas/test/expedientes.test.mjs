@@ -118,7 +118,14 @@ test('centro operativo: coche nuevo en persona y venta de antes sin factura', as
   const p = facturaPropuesta(deps.operaciones.filas[0], {}, [{ numero: '2026-020' }]);
   assert.deepEqual([p.numero, p.base, p.pct], ['2026-021', 1700, 5.67]);
   const h = (await pag({ estado: 'finanzas', ano: '2026' })).body;
-  assert.match(h, /Factura: JAGUAR XJRS 1993/); assert.match(h, /Sin factura/); assert.match(h, /A este ritmo, \d{4} cerraría/);
+  assert.match(h, /comisiones cobradas en efectivo sin factura/, 'las de antes sin factura, en efectivo'); assert.match(h, /Efectivo · sin factura/); assert.match(h, /A este ritmo, \d{4} cerraría/);
+  // En Anuncios se apuntan solas (una vez) como cobradas en efectivo
+  await pag({ estado: 'sidonia' });
+  assert.equal(deps.operaciones.filas[0].expediente.cobro.forma, 'efectivo'); assert.equal(deps.operaciones.filas[0].expediente.cobro.auto, true);
+  // Una venta nueva (después del corte) sí pide su factura
+  deps.operaciones.filas.push({ id: 77, titulo: 'BMW 2002 1973', estado: 'vendido', modalidad: 'gestion', comision: 900, precio_venta: 18000, fecha_venta: '2026-12-02', expediente: { propietario: { nombre: 'X' } } });
+  await pag({ estado: 'sidonia' });
+  assert.equal(deps.operaciones.filas.at(-1).expediente.cobro, undefined);
 });
 
 test('el contrato sin firmar deja huecos y la factura valida su NIF; los números de factura siguen', () => {

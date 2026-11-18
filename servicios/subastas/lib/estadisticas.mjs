@@ -50,7 +50,7 @@ export const SECCIONES = [
   ['duenos', 'Propietarios', [], []],
   ['clientes', 'Clientes', [['clientes', 'Interesados'], ['anunciantes', 'Anunciantes'], ['garajes', 'Garajes'], ['opiniones', 'Opiniones de profesionales'], ['alquiler', 'Alquiler · lista de espera']], ['cliente', 'anunciante']],
   ['estadisticas', 'Web', [['estadisticas', 'Visitas y contactos'], ['conversaciones', 'Conversaciones']], ['anuncio', 'chat']],
-  ['herramientas', 'Herramientas', [['paginas', 'Páginas de la web'], ['ubicaciones', 'Ubicaciones'], ['propietarios', 'Propietario en las fichas'], ['avisos', 'Avisos al móvil'], ['correos', 'Emails']], []]
+  ['herramientas', 'Herramientas', [['basedatos', 'Base de datos'], ['paginas', 'Páginas de la web'], ['ubicaciones', 'Ubicaciones'], ['propietarios', 'Propietario en las fichas'], ['avisos', 'Avisos al móvil'], ['correos', 'Emails']], []]
 ];
 /** Anuncios › De sus dueños: la revisión de los anuncios de la comunidad */
 const COMUNIDAD = [['pendiente', 'Por revisar'], ['cambios', 'Cambios'], ['aprobado', 'Aprobados'], ['publicado', 'Publicados'], ['vendido', 'Vendidos'], ['cancelados', 'Cancelados']];

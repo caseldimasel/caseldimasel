@@ -871,7 +871,8 @@ ${pestañas}
 /** Panel › Herramientas: lo que se usa de vez en cuando */
 function paginaHerramientas() {
   const h = (href, titulo, texto) => `<article class="a"><div class="cuerpo"><h2><a href="${href}" style="color:inherit">${titulo} ›</a></h2><p class="meta">${texto}</p></div></article>`;
-  return h('?estado=paginas', 'Páginas de la web', 'Crea en Shopify las páginas de Sidonia que falten (Eventos, Profesionales, Alquiler…) con su plantilla, y mira si el tema las tiene.')
+  return h('?estado=basedatos', 'Base de datos', 'Comprueba que están todas las tablas del panel y dice qué SQL falta por ejecutar en Supabase.')
+    + h('?estado=paginas', 'Páginas de la web', 'Crea en Shopify las páginas de Sidonia que falten (Eventos, Profesionales, Alquiler…) con su plantilla, y mira si el tema las tiene.')
     + h('?estado=ubicaciones', 'Ubicaciones', 'Pone a cada producto de la tienda su provincia (para la tarjeta y el filtro «Localización»), sacada de la descripción.')
     + h('?estado=propietarios', 'Propietario en las fichas', 'Saca de la historia de cada coche de Sidonia el nombre de su dueño, para enseñarlo en la ficha («Propietario: Carlos»).')
     + h('?estado=correos', 'Emails', 'Cómo se ve cada email que mandamos a los dueños (recibido, mejoras, publicado, pagos…) y mandarte una prueba.')
@@ -1094,6 +1095,15 @@ export async function atenderPanel(req, cfg, deps) {
   // Herramientas › Emails: cómo se ve cada email y mandarse una prueba (plantillas.mjs)
   if (seccion === 'correos') return rutasCorreos(req, cfg, deps, html);
   if (seccion === 'herramientas') return html(paginaPanelHtml(navPanel('herramientas'), '', paginaHerramientas()));
+  // Herramientas › Base de datos: qué tablas y columnas están (y el SQL que falta, con el error de verdad)
+  if (seccion === 'basedatos') {
+    const { comprobarBD } = await import('./motor.mjs');
+    const l = cfg.supabaseUrl ? await comprobarBD(cfg, deps.fetch) : [];
+    const faltan = [...new Set(l.filter((x) => !x.ok).map((x) => x.sql))];
+    const cuerpo = `<div class="card"><h2>Base de datos</h2>${!l.length ? '<p>Sin Supabase configurado.</p>' : faltan.length ? `<p class="aviso mal">Falta ejecutar en Supabase › SQL Editor (cada uno entero; se pueden repetir sin problema, y en este orden): <b>${faltan.map(esc).join(' · ')}</b></p>` : '<p class="aviso">Todo al día.</p>'}
+      <ul style="list-style:none;padding:0;margin:0">${l.map((x) => `<li style="padding:8px 0;border-bottom:1px solid var(--linea)">${x.ok ? '✅' : '❌'} <b>${esc(x.que)}</b> <span class="sub">(${esc(x.tabla)} · ${esc(x.sql)})</span>${x.error ? `<br><small style="color:var(--rojo)">${esc(x.error)}</small>` : ''}</li>`).join('')}</ul></div>`;
+    return html(paginaPanelHtml(navPanel('herramientas'), '', cuerpo));
+  }
   // Clientes (CRM): la lista con lo que hace cada uno, un cliente, o quién está interesado en un anuncio (crm.mjs)
   if (req.query.estado === 'clientes') {
     const dias = [7, 30, 90, 365, 3650].includes(Number(req.query.dias)) ? Number(req.query.dias) : 30;

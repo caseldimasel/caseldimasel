@@ -43,7 +43,29 @@ import { guardarInvitacion, invitarSiToca, leerInvitacion } from './invitaciones
 import { rutasPreventa } from './preventa.mjs';
 import { condicionesSubasta, paginaDocumento } from './contratos.mjs';
 
-export const VERSION = '2026-11-18-propietarios';
+/** Las tablas y columnas que necesita cada parte (si falta alguna, ese SQL no se ha ejecutado) */
+export const COLUMNAS_BD = [
+  ['anuncios', 'id,estado,titulo', 'Anuncios de la comunidad', 'sql/circulo.sql'],
+  ['operaciones', 'id,titulo,handle,estado,comision,comision_comercial,fecha_venta', 'Ventas (coches de Sidonia)', 'sql/operaciones.sql'],
+  ['operaciones', 'id,expediente', 'Ficha de cada coche (contrato, venta, factura y cobro)', 'sql/centro-operativo.sql'],
+  ['gastos', 'id,tipo,concepto,importe,fecha,hasta,variable', 'Gastos de Sidonia', 'sql/centro-operativo.sql'],
+  ['facturas', 'id,numero,fecha,base,iva,total,operacion_id,estado,forma_pago,cobrada,datos', 'Facturas de Sidonia', 'sql/centro-operativo.sql'],
+  ['ajustes', 'clave,valor', 'Datos de facturación', 'sql/centro-operativo.sql'],
+  ['gestiones', 'id,estado,datos,nota', 'Solicitudes de venta (formulario de la web)', 'sql/gestiones.sql'],
+  ['perfiles', 'cliente,alq_legal,stripe_cuenta,cobros_ok', 'Alquiler: datos y cobros del dueño', 'sql/reservas.sql'],
+  ['garaje', 'id,alq,bloqueos,alq_hasta', 'Alquiler: precio y calendario de cada coche', 'sql/reservas.sql'],
+  ['reservas', 'id,datos,contrato,firma_cliente,stripe_pi,tramos,horas,a_cuenta,resto,resto_pi,resto_pagado', 'Alquiler: reservas', 'sql/reservas.sql'],
+  ['chats', 'id', 'Chat de Sidonia', 'sql/chat.sql']
+];
+/** Comprueba cada tabla: [{ ok, que, sql, error }] */
+export async function comprobarBD(cfg, fetchImpl = fetch) {
+  const out = [];
+  for (const [t, cols, que, sql] of COLUMNAS_BD) {
+    try { await tablaAnuncios(cfg, fetchImpl, t).leer(`select=${cols}&limit=1`); out.push({ ok: true, que, sql, tabla: t }); } catch (e) { out.push({ ok: false, que, sql, tabla: t, error: String(e.message || e).slice(0, 300) }); }
+  }
+  return out;
+}
+export const VERSION = '2026-11-18-efectivo-bd';
 
 export function config(env = process.env) {
   return {
@@ -251,16 +273,7 @@ async function paginaConexion(query, cfg, { db, fetch: fetchImpl = fetch }) {
     }
   }
   // Las columnas que necesitan el alquiler y la RD10 (si falta alguna, ese SQL no se ha ejecutado)
-  const COLUMNAS = [
-    ['perfiles', 'cliente,alq_legal,stripe_cuenta,cobros_ok', 'Alquiler: datos y cobros del dueño', 'sql/reservas.sql'],
-    ['garaje', 'id,alq,bloqueos,alq_hasta', 'Alquiler: precio y calendario de cada coche', 'sql/reservas.sql'],
-    ['gestiones', 'id,estado,datos,nota', 'Gestiones de venta en el panel', 'sql/gestiones.sql'],
-    ['reservas', 'id,datos,contrato,firma_cliente,stripe_pi,tramos,horas,a_cuenta,resto,resto_pi,resto_pagado', 'Alquiler: reservas por horas y pago en dos partes', 'sql/reservas.sql'],
-    ['chats', 'id', 'Chat de Sidonia', 'sql/chat.sql'],
-    ['gastos', 'id,tipo,concepto,importe,fecha,hasta,variable', 'Gastos de Sidonia en el panel', 'sql/centro-operativo.sql'],
-    ['facturas', 'id,numero,fecha,base,iva,total,operacion_id,estado,forma_pago,cobrada,datos', 'Facturas de Sidonia en el panel', 'sql/centro-operativo.sql'],
-    ['operaciones', 'id,expediente', 'Coches en gestión (contrato, venta, factura y cobro)', 'sql/centro-operativo.sql']
-  ];
+  const COLUMNAS = COLUMNAS_BD;
   const columnas = [];
   if (firma && cfg.supabaseUrl && cfg.supabaseKey) {
     for (const [t, cols, que, sql] of COLUMNAS) {

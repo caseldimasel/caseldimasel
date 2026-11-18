@@ -24,6 +24,8 @@ import { marco, normal as normalTexto, parecido } from './operaciones.mjs';
 
 export const VERSION_INTERMEDIACION = '2026-11-17';
 export const LIMITE_EFECTIVO = 1000;
+/** Las ventas sin factura hasta este día se cobraron en efectivo (las nuevas, con su factura) */
+export const CORTE_EFECTIVO = '2026-11-18';
 export const FORMAS_PAGO = { transferencia: 'Transferencia', bizum: 'Bizum', tarjeta: 'Tarjeta', efectivo: 'Efectivo' };
 /** Los pasos de cada coche de Sidonia (y «hecho»: cobrado, retirado o una venta de antes) */
 export const PASOS = [['solicitud', 'Solicitudes'], ['venta', 'En cartera'], ['factura', 'Por facturar'], ['cobro', 'Por cobrar'], ['hecho', 'Cerrados']];
@@ -707,7 +709,7 @@ ${aviso ? `<p class="aviso${/^Error/.test(aviso) ? ' mal' : ''}">${esc(aviso)}</
 ${subs}
 ${ver === 'vendido' && sub === 'sinfactura' && sinFact ? `<form method="post" action="?estado=sidonia&ver=vendido&f=sinfactura" class="sd-masivo"><span>¿Las comisiones de estas ventas ya se cobraron en efectivo, sin factura? Apúntalo de una vez (se pueden facturar luego igualmente).</span><button class="boton claro" name="accion" value="efectivo-todas" onclick="return confirm('¿Apuntar como cobradas en efectivo, sin factura, las ${fmtN(sinFact)} ventas sin factura? Recordad: toda venta debe facturarse y en efectivo solo por debajo de 1.000 €. Hablad con la gestoría para regularizarlas.')">Marcar todas como cobradas en efectivo</button></form>` : ''}
 ${lista.length ? `<div class="sd-lista"><div class="sd-r sd-th"><span></span><span>Coche</span><span>Propietario</span><span>Precio</span><span>Estado</span><span></span></div>${lista.map(tarjeta).join('')}</div>` : `<div class="sd-vacio">${{ solicitud: 'No hay solicitudes nuevas.', proximamente: 'Nada pendiente de subir. Da de alta un coche con «+ Nuevo coche».', disponible: 'No hay coches a la venta.', vendido: 'Nada aquí.' }[ver] || 'Nada aquí.'}</div>`}
-<p class="nota"><b>Solicitudes:</b> los del formulario de la web; «Crear ficha y contrato» los pasa a Próximamente. <b>Próximamente:</b> los que Hugo da de alta con «+ Nuevo coche» (se crea su borrador en Shopify y el contrato): cuando subís el vídeo y lo activáis en Shopify, pasa solo a <b>Disponibles</b>. Al venderse, «Vendido» con el precio final, y en <b>Vendidos</b> la factura y el cobro. Los archivados y los borradores que no son de una ficha no salen.</p>`, CSS + CSS_SD);
+<p class="nota"><b>Solicitudes:</b> los del formulario de la web; «Crear ficha y contrato» los pasa a Próximamente. <b>Próximamente:</b> los que Hugo da de alta con «+ Nuevo coche» (se crea su borrador en Shopify y el contrato) o se crean como borrador en Shopify: cuando subís el vídeo y lo activáis en Shopify, pasa solo a <b>Disponibles</b>. Al venderse, «Vendido» con el precio final, y en <b>Vendidos</b> la factura y el cobro. En Próximamente salen todos los borradores de Shopify (los creados aquí y allí); los archivados no salen. Lo que se cambie en Shopify (título, descripción, precio) pasa a la ficha, y al revés.</p>`, CSS + CSS_SD);
 }
 
 /** Finanzas › Datos de facturación */
@@ -738,7 +740,7 @@ export async function rutasExpedientes(req, cfg, deps, html) {
   const tA = deps.ajustes || tablaAnuncios(cfg, deps.fetch, 'ajustes');
   const tG = deps.gestiones || tablaAnuncios(cfg, deps.fetch, 'gestiones');
   const emisor = await leerAjuste(tA);
-  const errorSql = (e) => (/expediente|ajustes|facturas|column|relation|schema/.test(String(e.message || e)) ? 'Error: falta ejecutar sql/centro-operativo.sql en Supabase › SQL Editor (entero; se puede repetir).' : `Error: ${e.message || e}`);
+  const errorSql = (e) => (/expediente|ajustes|facturas|column|relation|schema/.test(String(e.message || e)) ? `Error: a la base de datos le falta algo (${String(e.message || e).slice(0, 200)}). Mira Herramientas › Base de datos: dice qué SQL ejecutar.` : `Error: ${e.message || e}`);
   const leerFacturas = async () => { try { return (await tF.leer('select=*&order=fecha.asc&limit=5000')).map((f) => ({ ...f, fecha: String(f.fecha).slice(0, 10), base: n(f.base), iva: n(f.iva), total: n(f.total), datos: f.datos || {} })); } catch (e) { return []; } };
 
   if (estado === 'facturacion') {
@@ -804,6 +806,12 @@ ${cand.map((x) => `<form method="post" action="?estado=ligar&h=${encodeURICompon
       }
     }
     const facturas = await leerFacturas();
+    // Las ventas de antes sin factura: su comisión se cobró en efectivo (se apunta sola, una vez; se ve en «Efectivo sin factura»)
+    const conFactura = new Set(facturas.filter((f) => f.operacion_id && f.estado !== 'anulada').map((f) => Number(f.operacion_id)));
+    for (const o of ops.filter((x) => x.estado === 'vendido' && !conFactura.has(Number(x.id)) && !x.expediente?.cobro && String(x.fecha_venta || '') <= CORTE_EFECTIVO)) {
+      const exp = conHistorial({ ...(o.expediente || {}), cobro: { fecha: o.fecha_venta ? String(o.fecha_venta).slice(0, 10) : null, forma: 'efectivo', sin_factura: true, auto: true } }, 'Comisión cobrada en efectivo, sin factura (venta de antes)');
+      try { await tO.cambiar(Number(o.id), { expediente: exp }); o.expediente = exp; } catch (e) { console.error(e); break; }
+    }
     const facDe = new Map(facturas.filter((f) => f.operacion_id && f.estado !== 'anulada').map((f) => [Number(f.operacion_id), f]));
     const items = ops.filter((o) => o.modalidad !== 'encargo').map((o) => { const prod = o.handle && catalogo ? catalogo.get(o.handle) || (catalogo.size ? null : undefined) : undefined; const f = facDe.get(Number(o.id)) || null; return { o, prod, f, paso: pasoDe(o, f, prod) }; });
     const ligados = new Set(ops.map((o) => o.handle).filter(Boolean));

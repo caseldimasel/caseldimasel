@@ -9,6 +9,7 @@
 import { esc, tablaAnuncios } from './circulo.mjs';
 import { fmt, n } from './estadisticas.mjs';
 import { marcaDe, marco, resumen } from './operaciones.mjs';
+import { CORTE_EFECTIVO } from './expedientes.mjs';
 import { IRPF_PCT, porMesGastos, trimestreDePago } from './gastos.mjs';
 
 const MES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
@@ -155,6 +156,8 @@ const kpi = (t, v, sub = '', cls = '', extra = '') => `<div class="fz-k ${cls}">
 
 /* ---------------------------------------------------------------------------- Finanzas › Ventas (la portada) */
 const MES_CORTO = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+/** Sin factura y vendida hasta el corte (o apuntada así): comisión cobrada en efectivo */
+const enEfectivo = (o) => Boolean(o.expediente?.cobro) || String(o.fecha_venta || '') <= CORTE_EFECTIVO;
 /** Lo que se vendió: el precio final o, si no se apuntó, el del anuncio */
 export const precioDe = (o) => n(o.precio_venta) || n(o.precio_anunciado);
 const clave = (y, m) => `${y}-${String(m).padStart(2, '0')}`;
@@ -347,8 +350,8 @@ export function paginaFinanzas(datos, { p = 'ano', ano = null, hoy = new Date(),
   const fact = datos.facturas.filter((f) => f.estado !== 'anulada');
   const facDe = new Map(fact.filter((f) => f.operacion_id).map((f) => [Number(f.operacion_id), f]));
   const anoAhora = String(hoy.getFullYear());
-  const sinFactura = datos.ops.filter((o) => o.estado === 'vendido' && o.modalidad !== 'encargo' && String(o.fecha_venta || '').startsWith(anoAhora) && !facDe.has(Number(o.id)) && !o.expediente?.cobro);
-  const efectivo = datos.ops.filter((o) => o.estado === 'vendido' && !facDe.has(Number(o.id)) && o.expediente?.cobro);
+  const sinFactura = datos.ops.filter((o) => o.estado === 'vendido' && o.modalidad !== 'encargo' && String(o.fecha_venta || '').startsWith(anoAhora) && !facDe.has(Number(o.id)) && !enEfectivo(o));
+  const efectivo = datos.ops.filter((o) => o.estado === 'vendido' && !facDe.has(Number(o.id)) && enEfectivo(o));
   const sinCobrar = fact.filter((f) => f.forma_pago && !f.cobrada);
   const pend = [...avisos.map(([t, h]) => ['a', t.replace(/ ›$/, ''), 'En Anuncios', h, 'Ver']), ...sinFactura.map((o) => ['', `Factura: ${o.titulo}`, `Vendido el ${fechaCorta(o.fecha_venta)}${o.comision ? ` · comisión ${eur(o.comision)}` : ''}`, `?estado=expediente&id=${o.id}#factura`, 'Hacer']),
     ...(efectivo.length ? [['a', `${fmt(efectivo.length)} comisiones cobradas en efectivo sin factura`, `${eur(efectivo.reduce((t, o) => t + n(o.comision), 0))} · conviene regularizarlas con la gestoría`, '?estado=sidonia&ver=efectivo', 'Ver']] : []),
@@ -366,7 +369,7 @@ export function paginaFinanzas(datos, { p = 'ano', ano = null, hoy = new Date(),
   const filaT = (t, x) => `<tr class="tot"><td class="izq">${t}</td><td>${fmt(x.coches)}</td><td>${eur(x.vendido)}</td><td class="izq">${eur(x.comision)}</td><td>${x.coches ? eur(x.ticket) : '—'}</td><td>${eur(x.comercial)}</td><td>${eur(x.fijos + x.puntuales)}</td><td>${eur(x.irpf)}</td><td class="${x.resultado < 0 ? 'neg' : ''}">${eur(x.resultado)}</td></tr>`;
   const ventas = A.ventas.slice().sort((a, b) => String(b.fecha_venta).localeCompare(String(a.fecha_venta)));
   const filaV = (o) => { const f = facDe.get(Number(o.id));
-    const chip = f ? (f.cobrada ? '<span class="chip2 ok">Cobrada</span>' : '<span class="chip2 pd">Sin cobrar</span>') : o.expediente?.cobro ? '<span class="chip2 pd">Efectivo · sin factura</span>' : '<span class="chip2 no">Sin factura</span>';
+    const chip = f ? (f.cobrada ? '<span class="chip2 ok">Cobrada</span>' : '<span class="chip2 pd">Sin cobrar</span>') : enEfectivo(o) ? '<span class="chip2 pd">Efectivo · sin factura</span>' : '<span class="chip2 no">Sin factura</span>';
     return `<li><a href="${o.expediente && Object.keys(o.expediente).length ? `?estado=expediente&id=${Number(o.id)}` : `?estado=operacion&id=${Number(o.id)}`}">${fotos[o.handle] ? `<img src="${esc(fotos[o.handle])}" alt="" loading="lazy">` : '<span class="sf"></span>'}
       <div><b>${esc(o.titulo)}</b><small>${esc(fechaCorta(o.fecha_venta))}${o.propietario_nombre ? ` · ${esc(o.propietario_nombre)}` : ''}${o.comercial ? ` · ${esc(o.comercial)}` : ''}</small></div>${chip}
       <div class="pr"><b>${o.precio_venta ? eur(o.precio_venta) : '—'}</b><small>comisión ${o.comision ? eur(o.comision) : '—'}</small></div></a></li>`; };
