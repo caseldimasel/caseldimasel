@@ -76,6 +76,21 @@ export function pasoDe(o, factura = null, prod = undefined, hoy = new Date()) {
   if (prod?.status === 'ARCHIVED') return 'hecho';
   return 'venta';
 }
+/**
+ * En qué lista de Anuncios va: solicitud, próximamente (dado de alta, aún sin publicar), disponible (en la web) o
+ * vendido. Fuera (null): los retirados, los archivados, los borradores de Shopify que no son de una ficha y las ventas
+ * de antes que nunca se ligaron con su anuncio.
+ */
+export function grupoDe({ o, prod, g, sinFicha }) {
+  if (g) return 'solicitud';
+  if (sinFicha) return prod.situacion === 'vendido' ? 'vendido' : prod.status === 'ACTIVE' ? 'disponible' : null;
+  if (o.estado === 'vendido' || prod?.situacion === 'vendido') return 'vendido';
+  if (o.estado === 'retirado' || prod?.status === 'ARCHIVED') return null;
+  const deAntes = !Object.keys(o.expediente || {}).length && o.estado !== 'captado';
+  const sc = situacionCartera(o, prod);
+  if (sc.anuncio === 'en_web') return 'disponible';
+  return deAntes ? null : 'proximamente';
+}
 /** Cómo va un coche en cartera: el contrato y el anuncio */
 export function situacionCartera(o, prod) {
   const ct = o.expediente?.contrato || {}, deAntes = !Object.keys(o.expediente || {}).length;
@@ -557,6 +572,9 @@ const CSS_SD = `
   .mcs { display: flex; flex-wrap: wrap; gap: 4px; } .mc { padding: 2px 8px; border-radius: 6px; font-size: 11.5px; font-weight: 700; background: var(--caja-3); color: var(--suave); white-space: nowrap; }
   .mc.ok { background: var(--verde-fondo); color: var(--verde); } .mc.am { background: var(--amarillo-fondo); color: var(--amarillo); } .mc.no { background: var(--rojo-fondo); color: var(--rojo); } .mc.az { background: var(--azul-fondo); color: var(--azul); }
   .boton.az { background: var(--azul); color: #fff !important; }
+  .sd-flujo { grid-template-columns: repeat(4, 1fr) !important; }
+  .sd-subs { display: flex; flex-wrap: wrap; gap: 6px; margin: -4px 0 12px; } .sd-subs a { padding: 6px 12px; border-radius: 999px; border: 1px solid var(--linea); background: var(--caja); font-size: 13px; font-weight: 700; text-decoration: none; color: var(--suave); }
+  .sd-subs a.on { border-color: var(--verde); color: var(--verde); background: var(--verde-fondo); }
   .sd-masivo { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; padding: 12px 16px; margin: 0 0 12px; border-radius: 14px; background: var(--amarillo-fondo); font-size: 14px; }
   .sd-bar .boton.on { border-color: var(--verde); color: var(--verde); }
   @media (max-width: 1250px) { .sd-r { grid-template-columns: 56px minmax(0, 2fr) minmax(0, 1.3fr) minmax(0, 1fr) minmax(0, 1.5fr); } .sd-a { grid-column: 2 / -1; justify-content: flex-start; } .sd-m img, .sd-m span { width: 56px; height: 42px; } }
@@ -565,15 +583,13 @@ const CSS_SD = `
   @media (max-width: 900px) { .sd-flujo { grid-template-columns: repeat(3, 1fr); } .sd-flujo a::after { display: none; } }
   @media (max-width: 520px) { .sd-flujo { grid-template-columns: 1fr 1fr; } .sd-grid { grid-template-columns: 1fr 1fr; gap: 10px; } .sd-a .boton { flex: 1; text-align: center; } }`;
 
-export function paginaSidonia(cfg, items, { ver = 'todo', aviso = '', gestiones = 0, emisor = {} } = {}) {
-  const filtro = (k) => (x) => (k === 'marcha' ? x.paso !== 'hecho' : k === 'sinficha' ? x.sinFicha && x.paso !== 'hecho' : k === 'efectivo' ? Boolean(x.o?.expediente?.cobro && !x.f)
-    : k === 'sincontrato' ? Boolean(x.o && x.paso === 'venta' && !x.o.expediente?.contrato?.firma) : k === 'borrador' ? Boolean(x.o && x.paso === 'venta' && situacionCartera(x.o, x.prod).anuncio !== 'en_web') : k === 'todo' ? true : x.paso === k);
-  const cuenta = (k) => items.filter(filtro(k)).length;
-  const ayuda = { solicitud: 'de la web, por llamar', venta: 'los que vendemos ahora', factura: 'vendidos sin factura', cobro: 'facturas sin cobrar', hecho: 'cobrados, retirados y archivados' };
-  // Del más reciente al más antiguo (por cuándo se anunció o se dio de alta); los cerrados, al final
-  const fecha = (x) => String(x.prod?.creado || x.o?.fecha_alta || x.o?.creado || x.g?.creado || '');
-  const lista = items.filter(filtro(ver))
-    .sort((a, b) => Number(a.paso === 'hecho') - Number(b.paso === 'hecho') || fecha(b).localeCompare(fecha(a)));
+export function paginaSidonia(cfg, items, { ver = 'disponible', sub = '', aviso = '', gestiones = 0, emisor = {} } = {}) {
+  const subf = { sinfactura: (x) => x.paso === 'factura', sincobrar: (x) => x.paso === 'cobro', efectivo: (x) => Boolean(x.o?.expediente?.cobro && !x.f) };
+  const de = (k) => items.filter((x) => (k === 'todo' ? x.grupo === 'disponible' || x.grupo === 'vendido' : x.grupo === k));
+  const cuenta = (k) => de(k).length;
+  // Del más reciente al más antiguo: por cuándo se anunció (o se dio de alta); los vendidos, por cuándo se vendieron
+  const fecha = (x) => String((x.grupo === 'vendido' && x.o?.fecha_venta) || x.prod?.creado || x.o?.fecha_alta || x.o?.creado || x.g?.creado || '');
+  const lista = de(ver).filter((x) => ver !== 'vendido' || !sub || subf[sub](x)).sort((a, b) => fecha(b).localeCompare(fecha(a)));
   const listoContrato = (o) => emisorCompleto(leerEmisor(emisor)) && o.expediente?.coche?.matricula;
   const tarjeta = ({ o, prod, f, paso, sinFicha, g }) => {
     const x = o?.expediente || {}, p = x.propietario || {}, ct = x.contrato || {};
@@ -633,23 +649,20 @@ export function paginaSidonia(cfg, items, { ver = 'todo', aviso = '', gestiones 
     <div class="sd-es">${paso === 'venta' && o && !sinFicha ? '' : `<span class="sd-p ${paso}${sinFicha ? ' sinf' : ''}">${esc(sinFicha ? 'Sin propietario' : g ? 'Solicitud' : { venta: 'En cartera', factura: 'Por facturar', cobro: 'Por cobrar', hecho: o?.estado === 'retirado' || prod?.status === 'ARCHIVED' ? 'Archivado' : 'Cerrado' }[paso])}</span>`}${estado}</div>
     <div class="sd-a">${acc}<span class="sd-ir">${ir}</span></div></div>`;
   };
-  const flujo = PASOS.map(([k, t]) => `<a href="?estado=sidonia&ver=${k}" class="${ver === k ? 'on' : ''}"><small>${t}</small><b>${fmtN(cuenta(k))}</b><span>${ayuda[k]}</span></a>`).join('');
+  const T = [['solicitud', 'Solicitudes', 'quieren que vendamos su coche'], ['proximamente', 'Próximamente', 'dados de alta, aún sin publicar'], ['disponible', 'Disponibles', 'a la venta en la web'], ['vendido', 'Vendidos', 'desde el principio']];
+  const flujo = T.map(([k, t, ayuda]) => `<a href="?estado=sidonia&ver=${k}" class="${ver === k ? 'on' : ''}"><small>${t}</small><b>${fmtN(cuenta(k))}</b><span>${ayuda}</span></a>`).join('');
+  const nSub = (k) => de('vendido').filter(subf[k]).length;
+  const subs = ver === 'vendido' ? `<div class="sd-subs"><a href="?estado=sidonia&ver=vendido" class="${!sub ? 'on' : ''}">Todos · ${fmtN(cuenta('vendido'))}</a>${[['sinfactura', 'Sin factura'], ['sincobrar', 'Factura sin cobrar'], ['efectivo', 'Efectivo sin factura']].filter(([k]) => nSub(k)).map(([k, t]) => `<a href="?estado=sidonia&ver=vendido&f=${k}" class="${sub === k ? 'on' : ''}">${t} · ${fmtN(nSub(k))}</a>`).join('')}</div>` : '';
+  const sinFact = de('vendido').filter((x) => x.paso === 'factura' && x.o?.estado === 'vendido').length;
   return marco('Coches de Sidonia', 'sidonia', `
 ${aviso ? `<p class="aviso${/^Error/.test(aviso) ? ' mal' : ''}">${esc(aviso)}</p>` : ''}
-<div class="sd-cab"><div><h1>Coches de Sidonia</h1><p>De la solicitud a la factura: cada coche, en qué paso está y qué toca hacer.</p></div><a class="boton" href="?estado=expediente&nuevo=1">+ Nuevo coche</a></div>
-<div class="sd-flujo"><a class="otro${ver === 'todo' ? ' on' : ''}" href="?estado=sidonia"><small>Todos</small><b>${fmtN(cuenta('todo'))}</b><span>del más nuevo al más antiguo</span></a>${flujo}</div>
-<div class="sd-bar">
-  <input type="search" placeholder="Buscar coche, propietario, matrícula…" oninput="const q=this.value.trim().toLowerCase().normalize('NFD').replace(/[\\u0300-\\u036f]/g,'');document.querySelectorAll('.sd-r[data-q]').forEach((c)=>{c.hidden=q&&!c.dataset.q.includes(q)})">
-  ${cuenta('sinficha') ? `<a class="boton claro${ver === 'sinficha' ? ' on' : ''}" href="?estado=sidonia&ver=sinficha">Sin propietario · ${fmtN(cuenta('sinficha'))}</a>` : ''}
-  ${cuenta('sincontrato') ? `<a class="boton claro${ver === 'sincontrato' ? ' on' : ''}" href="?estado=sidonia&ver=sincontrato">Sin contrato firmado · ${fmtN(cuenta('sincontrato'))}</a>` : ''}
-  ${cuenta('borrador') ? `<a class="boton claro${ver === 'borrador' ? ' on' : ''}" href="?estado=sidonia&ver=borrador">Falta subir a la web · ${fmtN(cuenta('borrador'))}</a>` : ''}
-  ${cuenta('efectivo') ? `<a class="boton claro${ver === 'efectivo' ? ' on' : ''}" href="?estado=sidonia&ver=efectivo">Efectivo sin factura · ${fmtN(cuenta('efectivo'))}</a>` : ''}
-  <a class="boton claro" href="?estado=ofertas">Ofertas</a>
-  <a class="boton claro" href="?estado=fichas">Tabla con números</a>
-</div>
-${ver === 'factura' && items.some((x) => x.paso === 'factura' && x.o?.estado === 'vendido') ? `<form method="post" action="?estado=sidonia&ver=factura" class="sd-masivo"><span>¿Las comisiones de estas ventas ya se cobraron en efectivo, sin factura? Apúntalo de una vez (se pueden facturar luego igualmente).</span><button class="boton claro" name="accion" value="efectivo-todas" onclick="return confirm('¿Apuntar como cobradas en efectivo, sin factura, las ${fmtN(items.filter((x) => x.paso === 'factura' && x.o?.estado === 'vendido').length)} ventas sin factura? Recordad: toda venta debe facturarse y en efectivo solo por debajo de 1.000 €. Hablad con la gestoría para regularizarlas.')">Marcar todas como cobradas en efectivo</button></form>` : ''}
-${lista.length ? `<div class="sd-lista"><div class="sd-r sd-th"><span></span><span>Coche</span><span>Propietario</span><span>Precio</span><span>Estado</span><span></span></div>${lista.map(tarjeta).join('')}</div>` : `<div class="sd-vacio">${ver === 'marcha' ? 'No hay ningún coche en marcha. Empieza con «+ Nuevo coche».' : 'Nada en este paso.'}</div>`}
-<p class="nota">Así va cada coche: las <b>solicitudes</b> del formulario de la web llegan solas (WhatsApp y «Crear ficha y contrato»), o Hugo mete el coche con «+ Nuevo coche». <b>1.</b> Hugo crea su ficha (propietario y coche) y le envía el contrato por WhatsApp o email; lo firma desde el móvil. <b>2.</b> «Crear su anuncio en Shopify» lo deja allí como borrador, ya ligado: subís el vídeo y las fotos y lo publicáis. Si lo subís directamente en Shopify, se liga solo con su ficha. <b>3.</b> Cuando se venda, «Vendido» con el precio final. <b>4.</b> La factura sale hecha y se envía por WhatsApp o email. <b>5.</b> Marcar cobrada.</p>`, CSS + CSS_SD);
+<div class="sd-cab"><div><h1>Coches de Sidonia</h1><p>Se han anunciado <b>${fmtN(cuenta('todo'))}</b> coches: <b>${fmtN(cuenta('disponible'))}</b> a la venta y <b>${fmtN(cuenta('vendido'))}</b> vendidos.</p></div><a class="boton" href="?estado=expediente&nuevo=1">+ Nuevo coche</a></div>
+<div class="sd-flujo">${flujo}</div>
+<div class="sd-bar"><input type="search" placeholder="Buscar coche, propietario, matrícula, teléfono…" oninput="const q=this.value.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');document.querySelectorAll('.sd-r[data-q]').forEach((c)=>{c.hidden=q&&!c.dataset.q.includes(q)})"></div>
+${subs}
+${ver === 'vendido' && sub === 'sinfactura' && sinFact ? `<form method="post" action="?estado=sidonia&ver=vendido&f=sinfactura" class="sd-masivo"><span>¿Las comisiones de estas ventas ya se cobraron en efectivo, sin factura? Apúntalo de una vez (se pueden facturar luego igualmente).</span><button class="boton claro" name="accion" value="efectivo-todas" onclick="return confirm('¿Apuntar como cobradas en efectivo, sin factura, las ${fmtN(sinFact)} ventas sin factura? Recordad: toda venta debe facturarse y en efectivo solo por debajo de 1.000 €. Hablad con la gestoría para regularizarlas.')">Marcar todas como cobradas en efectivo</button></form>` : ''}
+${lista.length ? `<div class="sd-lista"><div class="sd-r sd-th"><span></span><span>Coche</span><span>Propietario</span><span>Precio</span><span>Estado</span><span></span></div>${lista.map(tarjeta).join('')}</div>` : `<div class="sd-vacio">${{ solicitud: 'No hay solicitudes nuevas.', proximamente: 'Nada pendiente de subir. Da de alta un coche con «+ Nuevo coche».', disponible: 'No hay coches a la venta.', vendido: 'Nada aquí.' }[ver] || 'Nada aquí.'}</div>`}
+<p class="nota"><b>Solicitudes:</b> los del formulario de la web; «Crear ficha y contrato» los pasa a Próximamente. <b>Próximamente:</b> los que Hugo da de alta con «+ Nuevo coche» (se crea su borrador en Shopify y el contrato): cuando subís el vídeo y lo activáis en Shopify, pasa solo a <b>Disponibles</b>. Al venderse, «Vendido» con el precio final, y en <b>Vendidos</b> la factura y el cobro. Los archivados y los borradores que no son de una ficha no salen.</p>`, CSS + CSS_SD);
 }
 
 /** Finanzas › Datos de facturación */
@@ -754,8 +767,12 @@ ${cand.map((x) => `<form method="post" action="?estado=ligar&h=${encodeURICompon
       items.push({ prod: p, sinFicha: true, paso: p.situacion === 'vendido' ? 'hecho' : 'venta' });
     }
     for (const g of solicitudes) items.push({ g, paso: 'solicitud' });
-    const ver = ['marcha', 'todo', 'sinficha', 'efectivo', 'sincontrato', 'borrador', ...PASOS.map(([k]) => k)].includes(req.query.ver) ? req.query.ver : 'todo';
-    return html(paginaSidonia(cfg, items, { ver, aviso, gestiones, emisor }));
+    for (const x of items) x.grupo = grupoDe(x);
+    // Los enlaces de antes (Finanzas): venta, factura, cobro y efectivo
+    const antes = { venta: ['disponible'], cartera: ['disponible'], factura: ['vendido', 'sinfactura'], cobro: ['vendido', 'sincobrar'], efectivo: ['vendido', 'efectivo'], hecho: ['vendido'] }[req.query.ver];
+    const ver = antes ? antes[0] : ['solicitud', 'proximamente', 'disponible', 'vendido', 'todo'].includes(req.query.ver) ? req.query.ver : 'disponible';
+    const sub = antes?.[1] || (['sinfactura', 'sincobrar', 'efectivo'].includes(req.query.f) ? req.query.f : '');
+    return html(paginaSidonia(cfg, items.filter((x) => x.grupo), { ver, sub, aviso, gestiones, emisor }));
   }
 
   // estado === 'expediente'

@@ -99,7 +99,7 @@ test('centro operativo: de la web al contrato firmado, vendido, factura (editabl
   // El historial lo cuenta todo
   assert.ok(o().expediente.historial.length >= 8);
   // El tablero y el resumen
-  assert.match((await pag({ estado: 'expedientes' })).body, /LAND ROVER DEFENDER 110 1998/);
+  assert.match((await pag({ estado: 'expedientes', ver: 'vendido' })).body, /LAND ROVER DEFENDER 110 1998/);
   assert.match((await pag({ estado: 'finanzas', ano: '2026' })).body, /Lo que queda/);
 });
 
@@ -240,15 +240,18 @@ test('Anuncios › De Sidonia: alta del coche (borrador en Shopify y contrato), 
   assert.match(l, /<title>Coches de Sidonia/); assert.match(l, /class="on"><svg[\s\S]*?<\/svg>Anuncios/); assert.match(l, /class="on">De Sidonia/); assert.match(l, /De sus dueños/); assert.match(l, /De alquiler/);
   assert.doesNotMatch(l, /Cobros comunidad/);
   const filas = (h) => h.split('<div class="sd-r"').slice(1);
-  assert.ok(filas(l).some((f) => /sd-p solicitud">Solicitud/.test(f) && /LAND ROVER DEFENDER 110 1998/.test(f) && /Crear ficha y contrato/.test(f)), 'las solicitudes de la web, el primer paso');
+  assert.match(l, /Se han anunciado <b>\d+<\/b> coches/); assert.match(l, /Próximamente/); assert.match(l, /Disponibles/); assert.match(l, /Vendidos/);
+  assert.ok(filas((await pag({ estado: 'sidonia', ver: 'solicitud' })).body).some((f) => /sd-p solicitud">Solicitud/.test(f) && /LAND ROVER DEFENDER 110 1998/.test(f) && /Crear ficha y contrato/.test(f)), 'las solicitudes de la web, el primer paso');
+  l = (await pag({ estado: 'sidonia', ver: 'proximamente' })).body;
   assert.ok(filas(l).some((f) => /LAND ROVER DEFENDER 110 1998/.test(f) && /Enviar contrato/.test(f) && /Contrato sin enviar/.test(f) && /Íñigo Prueba Martín/.test(f) && /42\.000 €/.test(f)), 'una fila por coche: propietario, precio, contrato y anuncio');
   // El anuncio de Sidonia sin ficha: «Añadir su propietario»; el de la comunidad no sale
-  assert.match(l, /FERRARI 308 GTS 1980[\s\S]*Añadir su propietario/); assert.doesNotMatch(l, /SEAT 600 1970/);
+  const disp = (await pag({ estado: 'sidonia' })).body;
+  assert.match(disp, /FERRARI 308 GTS 1980[\s\S]*Añadir su propietario/); assert.doesNotMatch(disp, /SEAT 600 1970/); assert.doesNotMatch(disp, /LAND ROVER DEFENDER 110 1998/, 'el borrador no está disponible aún');
   // Desde la tarjeta: el contrato por email, y vuelve a la lista con el aviso
   const r = await pag({ estado: 'expediente', id: String(o.id) }, 'POST', { accion: 'contrato-email', volver: 'sidonia' });
   assert.equal(r.status, 303); assert.match(decodeURIComponent(r.headers.Location), /estado=sidonia&aviso=Enviado a inigo@ejemplo\.es/);
-  assert.match((await pag({ estado: 'sidonia', aviso: 'Enviado a inigo@ejemplo.es.' })).body, /Contrato enviado el/);
-  assert.ok(filas((await pag({ estado: 'sidonia' })).body).some((f) => /LAND ROVER DEFENDER 110 1998/.test(f) && /Borrador: falta el vídeo/.test(f) && /Subir el vídeo en Shopify/.test(f)));
+  assert.match((await pag({ estado: 'sidonia', ver: 'proximamente', aviso: 'Enviado a inigo@ejemplo.es.' })).body, /Contrato enviado el/);
+  assert.ok(filas((await pag({ estado: 'sidonia', ver: 'proximamente' })).body).some((f) => /LAND ROVER DEFENDER 110 1998/.test(f) && /Borrador: falta el vídeo/.test(f) && /Subir el vídeo en Shopify/.test(f)));
   assert.match(aviso(await pag({ estado: 'expediente', id: String(o.id) }, 'POST', { accion: 'crear-anuncio' })), /ya tiene su anuncio/);
   let e = (await pag({ estado: 'expediente', id: String(o.id) })).body;
   assert.match(e, /Borrador en Shopify/); assert.match(e, /admin\.shopify\.com\/store\/[^/]*\/products\/555|Abrir en Shopify/);
