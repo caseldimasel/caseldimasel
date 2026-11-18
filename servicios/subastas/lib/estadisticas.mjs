@@ -47,7 +47,8 @@ export const SECCIONES = [
   ['finanzas', 'Finanzas', [['finanzas', 'Resumen'], ['ventas', 'Ventas'], ['gastos', 'Gastos'], ['facturas', 'Facturas'], ['impuestos', 'IVA e IRPF'], ['meses', 'Mes a mes'], ['facturacion', 'Datos de facturación']], ['operacion', 'enlazar', 'importar']],
   ['sidonia', 'Anuncios', [['sidonia', 'De Sidonia'], ['comunidad', 'De sus dueños'], ['alquileres', 'De alquiler']],
     ['expedientes', 'expediente', 'ligar', 'fichas', 'ficha', 'gestiones', 'ofertas', 'cobros', 'cobrar', 'tarifa', 'pendiente', 'cambios', 'aprobado', 'publicado', 'vendido', 'cancelados', 'rechazado', 'retirado']],
-  ['clientes', 'Clientes', [['clientes', 'Interesados'], ['anunciantes', 'Anunciantes'], ['duenos', 'Propietarios'], ['garajes', 'Garajes'], ['opiniones', 'Opiniones de profesionales'], ['alquiler', 'Alquiler · lista de espera']], ['cliente', 'anunciante']],
+  ['duenos', 'Propietarios', [], []],
+  ['clientes', 'Clientes', [['clientes', 'Interesados'], ['anunciantes', 'Anunciantes'], ['garajes', 'Garajes'], ['opiniones', 'Opiniones de profesionales'], ['alquiler', 'Alquiler · lista de espera']], ['cliente', 'anunciante']],
   ['estadisticas', 'Web', [['estadisticas', 'Visitas y contactos'], ['conversaciones', 'Conversaciones']], ['anuncio', 'chat']],
   ['herramientas', 'Herramientas', [['paginas', 'Páginas de la web'], ['ubicaciones', 'Ubicaciones'], ['propietarios', 'Propietario en las fichas'], ['avisos', 'Avisos al móvil'], ['correos', 'Emails']], []]
 ];
@@ -58,6 +59,7 @@ const svg = (d) => `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" 
 const ICONO = {
   finanzas: svg('<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>'),
   sidonia: svg('<path d="M5 13l1.6-4.4A2 2 0 0 1 8.5 7h7a2 2 0 0 1 1.9 1.6L19 13"/><rect x="3" y="13" width="18" height="5" rx="2"/><path d="M6.5 18v2M17.5 18v2"/>'),
+  duenos: svg('<path d="M15 7a3 3 0 1 1-6 0 3 3 0 0 1 6 0z"/><path d="M5 21v-1a6 6 0 0 1 6-6h2a6 6 0 0 1 6 6v1"/><path d="M17.5 3.5l1.5 1.5 3-3"/>'),
   clientes: svg('<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M21.5 20a6.5 6.5 0 0 0-4-6"/>'),
   estadisticas: svg('<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/>'),
   herramientas: svg('<path d="M14.5 6.5a4 4 0 0 0-5.3 5.3L3.5 17.5l3 3 5.7-5.7a4 4 0 0 0 5.3-5.3l-2.5 2.5-2.5-.5-.5-2.5z"/>')

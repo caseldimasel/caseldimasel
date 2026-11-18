@@ -231,7 +231,7 @@ test('Anuncios › De Sidonia: alta del coche (borrador en Shopify y contrato), 
   const o = deps.operaciones.filas.at(-1);
   assert.equal(alta.status, 303); assert.match(decodeURIComponent(alta.headers.Location), /aviso=Creado: su borrador ya está en Shopify/);
   assert.deepEqual([mutaciones[0].status, mutaciones[0].title, mutaciones[0].vendor, mutaciones[0].templateSuffix, mutaciones[1].price], ['DRAFT', 'LAND ROVER DEFENDER 110 1998', 'Sidonia', 'cars', '42000']);
-  assert.match(mutaciones[0].descriptionHtml, /<p>Un Defender de los buenos\.<\/p><p>Restaurado en 2020\.<\/p>/); assert.match(mutaciones[0].descriptionHtml, /Provincia:<\/strong> Madrid/);
+  assert.match(mutaciones[0].descriptionHtml, /<p>Un Defender de los buenos\.<\/p><p>Restaurado en 2020\.<\/p>/);
   assert.equal(o.handle, 'land-rover-defender-110-1998'); assert.equal(o.expediente.shopify_id, 'gid://shopify/Product/555'); assert.equal(o.expediente.condiciones.comercial_pct, 30);
   assert.match((await pag({ estado: 'expediente', id: String(o.id), aviso: 'Creado' })).body, /class="aviso">Creado/);
   const { contratoIntermediacion: ci } = await import('../lib/expedientes.mjs');
@@ -296,4 +296,35 @@ test('ventas sin factura: cobrada en efectivo (una o todas), y Ventas cuadra con
   assert.match((await pag({ estado: 'finanzas' })).body, /comisiones cobradas en efectivo sin factura/);
   await pag({ estado: 'expediente', id: '1' }, 'POST', { accion: 'efectivo-deshacer' });
   assert.equal(deps.operaciones.filas[0].expediente.cobro, undefined);
+});
+
+test('Propietarios: los de Sidonia, los que anuncian y los de alquiler, en un sitio', async () => {
+  const { deps, pag } = preparar();
+  deps.operaciones.filas.push({ id: 5, titulo: 'SEAT 600 1970', estado: 'en_venta', modalidad: 'gestion', expediente: { propietario: { nombre: 'Lucía Prueba', telefono: '611000111', dni: '12345678Z' } } });
+  deps.tabla = { leer: async () => [{ id: 3, titulo: 'VESPA 1962', estado: 'publicado', vendedor_nombre: 'Lucía P.', telefono: '611 000 111', email: '', creado: '2026-10-01' }] };
+  deps.garaje = { leer: async () => [{ id: 8, cliente: 'c1', marca: 'Ford', modelo: 'Mustang', anio: '1966', alquiler: true, alq: { estado: 'publicado' }, creado: '2026-09-01' }] };
+  deps.perfiles = { leer: async () => [{ cliente: 'c1', alq_legal: { nombre: 'Pedro Alquila', telefono: '622000222' } }] };
+  const h = (await pag({ estado: 'duenos' })).body;
+  assert.match(h, /class="on"><svg[\s\S]*?<\/svg>Propietarios/);
+  const filas = h.split('<div class="pp-r"').slice(1);
+  const lucia = filas.find((f) => /Lucía Prueba/.test(f));
+  assert.ok(lucia && /SEAT 600 1970/.test(lucia) && /VESPA 1962/.test(lucia) && /Gestión de Sidonia/.test(lucia) && /Anuncia en la web/.test(lucia), 'la misma persona, junta');
+  assert.ok(filas.some((f) => /Pedro Alquila/.test(f) && /FORD|Ford Mustang 1966/.test(f) && /pp-t a">Alquiler/.test(f)));
+  assert.match((await pag({ estado: 'duenos', ver: 'Alquiler' })).body, /Pedro Alquila/);
+});
+
+test('Shopify ↔ panel: lo cambiado en Shopify pasa a la ficha, y lo cambiado en la ficha va a Shopify', async () => {
+  const { textoDeHtml, cambiosDeShopify, llevarAShopify } = await import('../lib/expedientes.mjs');
+  assert.equal(textoDeHtml('<p>Hola &amp; adiós</p><p>Línea<br>dos</p>'), 'Hola & adiós\n\nLínea\ndos');
+  const o = { id: 1, titulo: 'SEAT 600 1970', handle: 'seat-600', precio_anunciado: 9000, expediente: { coche: { descripcion: 'Viejo texto' }, condiciones: { precio_salida: 9000 } } };
+  const r = cambiosDeShopify(o, { id: 'gid://shopify/Product/7', title: 'SEAT 600 D 1970', descriptionHtml: '<p>Nuevo texto</p>', variants: { nodes: [{ price: '9500.00' }] } });
+  assert.deepEqual(r.qué, ['título', 'descripción', 'precio']);
+  assert.equal(r.cambios.titulo, 'SEAT 600 D 1970'); assert.equal(r.cambios.expediente.coche.descripcion, 'Nuevo texto'); assert.equal(r.cambios.expediente.condiciones.precio_salida, 9500);
+  assert.equal(cambiosDeShopify({ ...o, titulo: 'SEAT 600 D 1970', precio_anunciado: 9500, expediente: { ...r.cambios.expediente } }, { id: 'gid://shopify/Product/7', title: 'SEAT 600 D 1970', descriptionHtml: '<p>Nuevo texto</p>', variants: { nodes: [{ price: '9500.00' }] } }), null, 'sin cambios, nada');
+  const llamadas = [];
+  const gql = async (q, v) => { llamadas.push([q.match(/(productUpdate|productVariantsBulkUpdate|metafieldsSet|products)/)?.[1], v]); return /products\(/.test(q) ? { products: { nodes: [{ id: 'gid://shopify/Product/7', handle: 'seat-600', variants: { nodes: [{ id: 'v1', price: '9000' }] } }] } } : { productUpdate: { userErrors: [] }, productVariantsBulkUpdate: { userErrors: [] }, metafieldsSet: { userErrors: [] } }; };
+  await llevarAShopify(gql, { ...o, titulo: 'SEAT 600 E 1971', expediente: { coche: { descripcion: 'Uno\n\nDos', marca: 'Seat' }, condiciones: { precio_salida: 9900 } } }, { titulo: true, descripcion: true, precio: true });
+  const up = llamadas.find((x) => x[0] === 'productUpdate')[1].product;
+  assert.deepEqual([up.title, up.descriptionHtml], ['SEAT 600 E 1971', '<p>Uno</p><p>Dos</p>']);
+  assert.equal(llamadas.find((x) => x[0] === 'productVariantsBulkUpdate')[1].variants[0].price, '9900');
 });

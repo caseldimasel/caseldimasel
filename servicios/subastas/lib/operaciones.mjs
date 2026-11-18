@@ -552,50 +552,78 @@ const digitos = (t) => String(t || '').replace(/\D/g, '').replace(/^34(?=\d{9}$)
 const ESTADO_ANUNCIO = { pendiente: 'Por revisar', aprobado: 'Aprobado', publicado: 'Publicado', vendido: 'Vendido', rechazado: 'Rechazado', retirado: 'Retirado' };
 
 /** Junta a los propietarios de las ventas y de los anuncios gratis (por email, teléfono o nombre) */
-export function propietarios(ops, anuncios) {
+export function propietarios(ops, anuncios, alquiler = []) {
   const grupos = new Map();
-  const clave = (email, tel, nombre) => (email ? `e:${String(email).toLowerCase()}` : digitos(tel) ? `t:${digitos(tel)}` : nombre ? `n:${normal(nombre)}` : '');
+  // La misma persona, por cualquiera de sus datos: su email, su teléfono o su nombre
+  const alias = new Map();
+  // (el nombre solo si no hay ni email ni teléfono: dos personas pueden llamarse igual)
+  const claves = (email, tel, nombre) => { const l = [email && `e:${String(email).toLowerCase().trim()}`, digitos(tel) && `t:${digitos(tel)}`].filter(Boolean); return l.length ? l : nombre ? [`n:${normal(nombre)}`] : []; };
+  const clave = (email, tel, nombre) => claves(email, tel, nombre).join('|');
   const meter = (k, dato, cosa) => {
     if (!k) return;
-    const g = grupos.get(k) || { nombre: '', email: '', telefono: '', tipo: new Set(), cosas: [], vendidos: 0, facturado: 0, ultima: '' };
-    g.nombre ||= dato.nombre || ''; g.email ||= dato.email || ''; g.telefono ||= dato.telefono || '';
+    const ks = k.split('|');
+    const id = ks.map((x) => alias.get(x)).find(Boolean) || ks[0];
+    const g = grupos.get(id) || { nombre: '', email: '', telefono: '', dni: '', direccion: '', tipo: new Set(), cosas: [], vendidos: 0, facturado: 0, ultima: '' };
+    for (const x of ks) if (!alias.has(x)) alias.set(x, id);
+    g.nombre ||= dato.nombre || ''; g.email ||= dato.email || ''; g.telefono ||= dato.telefono || ''; g.dni ||= dato.dni || ''; g.direccion ||= dato.direccion || '';
     g.tipo.add(cosa.origen); g.cosas.push(cosa);
     if (cosa.vendido) { g.vendidos += 1; g.facturado += n(cosa.precio); }
     if (String(cosa.fecha || '') > g.ultima) g.ultima = String(cosa.fecha || '');
-    grupos.set(k, g);
+    grupos.set(id, g);
   };
   for (const o of ops) {
-    meter(clave(o.propietario_email, o.propietario_telefono, o.propietario_nombre), { nombre: o.propietario_nombre, email: o.propietario_email, telefono: o.propietario_telefono },
-      { origen: 'Venta gestionada', titulo: o.titulo, estado: ESTADOS_OP[o.estado] || o.estado, clase: o.estado, enlace: `?estado=operacion&id=${o.id}`, vendido: o.estado === 'vendido', precio: o.precio_venta ?? o.precio_anunciado, fecha: o.fecha_venta || o.fecha_alta || o.creado });
+    const xp = o.expediente?.propietario || {};
+    const d = { nombre: xp.nombre || o.propietario_nombre, email: xp.email || o.propietario_email, telefono: xp.telefono || o.propietario_telefono, dni: xp.dni || '', direccion: xp.direccion || '' };
+    if (!d.nombre && !d.email && !d.telefono) continue;
+    meter(clave(d.email, d.telefono, d.nombre), d,
+      { origen: 'Gestión de Sidonia', ficha: `?estado=expediente&id=${o.id}`, titulo: o.titulo, estado: ESTADOS_OP[o.estado] || o.estado, clase: o.estado, enlace: `?estado=operacion&id=${o.id}`, vendido: o.estado === 'vendido', precio: o.precio_venta ?? o.precio_anunciado, fecha: o.fecha_venta || o.fecha_alta || o.creado });
   }
   for (const a of anuncios) {
     meter(clave(a.email, a.telefono, a.vendedor_nombre), { nombre: a.vendedor_nombre, email: a.email, telefono: a.telefono },
-      { origen: a.vendedor_tipo === 'profesional' ? 'Anuncio (profesional)' : 'Anuncio gratis', titulo: a.titulo, estado: ESTADO_ANUNCIO[a.estado] || a.estado, clase: a.estado === 'publicado' ? 'en_venta' : a.estado === 'vendido' ? 'vendido' : a.estado === 'pendiente' ? 'pendiente' : 'retirado', enlace: `?estado=${a.estado === 'rechazado' || a.estado === 'retirado' ? 'cancelados' : a.estado}#a${a.id}`, vendido: a.estado === 'vendido', precio: a.precio, fecha: a.creado });
+      { origen: 'Anuncia en la web', titulo: a.titulo, estado: ESTADO_ANUNCIO[a.estado] || a.estado, clase: a.estado === 'publicado' ? 'en_venta' : a.estado === 'vendido' ? 'vendido' : a.estado === 'pendiente' ? 'pendiente' : 'retirado', enlace: `?estado=${a.estado === 'rechazado' || a.estado === 'retirado' ? 'cancelados' : a.estado}#a${a.id}`, vendido: a.estado === 'vendido', precio: a.precio, fecha: a.creado });
+  }
+  // Los de alquiler: el coche del garaje y los datos de su dueño (los del contrato de alquiler)
+  for (const { coche: c, perfil: pf } of alquiler) {
+    const l = pf?.alq_legal || {};
+    const d = { nombre: l.nombre || pf?.nombre || '', email: l.email || c.alq?.contacto || pf?.email || '', telefono: l.telefono || pf?.telefono || '', dni: l.dni || '', direccion: l.domicilio || '' };
+    meter(clave(d.email, d.telefono, d.nombre) || `c:${c.cliente}`, d, { origen: 'Alquiler', titulo: [c.marca, c.modelo, c.anio].filter(Boolean).join(' ') || 'Coche de alquiler', estado: c.visible === false ? 'Oculto' : (c.alq?.estado === 'publicado' || c.alq?.estado === 'antiguo') ? 'Publicado' : 'Por revisar', clase: c.alq?.estado === 'publicado' || c.alq?.estado === 'antiguo' ? 'en_venta' : 'pendiente', enlace: `?estado=alquileres#a${c.id}`, vendido: false, precio: null, fecha: c.creado });
   }
   return [...grupos.values()].map((g) => ({ ...g, tipo: [...g.tipo] })).sort((a, b) => b.ultima.localeCompare(a.ultima));
 }
 
-export function paginaPropietarios(lista, { error = '' } = {}) {
+export function paginaPropietarios(lista, { error = '', ver = 'todos' } = {}) {
   const wa = (t) => (digitos(t) ? `https://wa.me/34${digitos(t)}` : '');
-  const filas = lista.map((p) => `<tr data-q="${esc(normal(`${p.nombre} ${p.email} ${p.telefono} ${p.cosas.map((c) => c.titulo).join(' ')}`))}">
-    <td class="izq"><b>${esc(p.nombre || '—')}</b>${p.email ? `<a class="sub" href="mailto:${esc(p.email)}">${esc(p.email)}</a>` : ''}${p.telefono ? `<a class="sub" href="${esc(wa(p.telefono))}" target="_blank" rel="noopener">${esc(p.telefono)} · WhatsApp</a>` : ''}</td>
-    <td class="izq">${p.tipo.map((t) => `<span class="sub">${esc(t)}</span>`).join('')}</td>
-    <td class="izq">${p.cosas.map((c) => `<div style="margin:0 0 4px"><a href="${c.enlace}">${esc(c.titulo)}</a> <span class="pill ${esc(c.clase)}">${esc(c.estado)}</span></div>`).join('')}</td>
-    <td>${fmt(p.vendidos)}</td><td>${p.facturado ? euros(p.facturado) : '—'}</td></tr>`).join('');
-  return marco('Propietarios · gestión de venta', 'duenos', `
+  const TIPOS = [['todos', 'Todos'], ['Gestión de Sidonia', 'Gestión de Sidonia'], ['Anuncia en la web', 'Anuncian en la web'], ['Alquiler', 'Alquiler']];
+  const cuantos = (k) => (k === 'todos' ? lista.length : lista.filter((p) => p.tipo.includes(k)).length);
+  const vista = ver === 'todos' ? lista : lista.filter((p) => p.tipo.includes(ver));
+  const color = { 'Gestión de Sidonia': 'g', 'Anuncia en la web': 'w', Alquiler: 'a' };
+  const ini = (n) => String(n || '?').trim().split(/\s+/).slice(0, 2).map((x) => x[0] || '').join('').toUpperCase();
+  const filas = vista.map((p) => `<div class="pp-r" data-q="${esc(normal(`${p.nombre} ${p.email} ${p.telefono} ${p.dni} ${p.cosas.map((c) => c.titulo).join(' ')}`))}">
+    <div class="pp-who"><span class="pp-av">${esc(ini(p.nombre))}</span><div><b>${esc(p.nombre || 'Sin nombre')}</b><small>${[p.telefono && `<a href="${esc(wa(p.telefono))}" target="_blank" rel="noopener">${esc(p.telefono)}</a>`, p.email && `<a href="mailto:${esc(p.email)}">${esc(p.email)}</a>`, p.dni && esc(p.dni)].filter(Boolean).join(' · ') || '&nbsp;'}</small></div></div>
+    <div class="pp-tipos">${p.tipo.map((t) => `<span class="pp-t ${color[t] || ''}">${esc(t)}</span>`).join('')}</div>
+    <div class="pp-cosas">${p.cosas.map((c) => `<a href="${c.ficha || c.enlace}"><span>${esc(c.titulo)}</span><i class="pill ${esc(c.clase)}">${esc(c.estado)}</i></a>`).join('')}</div>
+    <div class="pp-n"><b>${fmt(p.cosas.length)}</b><small>${p.vendidos ? `${fmt(p.vendidos)} ${p.vendidos === 1 ? 'vendido' : 'vendidos'}` : 'coches'}</small></div></div>`).join('');
+  return marco('Propietarios', 'duenos', `
 ${error ? `<p class="aviso mal">${esc(error)}</p>` : ''}
-<div class="kpis">
-  <div class="kpi"><b>${fmt(lista.length)}</b><span>Propietarios</span><small>de ventas gestionadas</small></div>
-  <div class="kpi"><b>${fmt(lista.filter((p) => p.cosas.some((c) => !c.vendido)).length)}</b><span>Con algo en venta</span></div>
-  <div class="kpi"><b>${euros(lista.reduce((s, p) => s + n(p.facturado), 0))}</b><span>Vendido por ellos</span></div>
-  <div class="kpi"><b>${fmt(lista.filter((p) => p.cosas.length > 1).length)}</b><span>Repiten</span><small>más de un vehículo</small></div>
-</div>
-<div class="barra"><input type="search" placeholder="Buscar propietario, teléfono o coche…" oninput="const q=this.value.trim().toLowerCase().normalize('NFD').replace(/[\\u0300-\\u036f]/g,'');document.querySelectorAll('tr[data-q]').forEach((tr)=>{tr.hidden=q&&!tr.dataset.q.includes(q)})"></div>
-<div class="card"><div class="tabla"><table>
-  <thead><tr><th class="izq">Propietario</th><th class="izq">Cómo vende</th><th class="izq">Sus vehículos</th><th>Vendidos</th><th>Vendido por</th></tr></thead>
-  <tbody>${filas || '<tr><td colspan="5" class="vacio">Aún no hay propietarios: ponlos en cada venta (Ventas › la venta › Propietario).</td></tr>'}</tbody>
-</table></div></div>
-<p class="nota">Los dueños de lo que vende Sidonia con gestión de venta (comisión). Junta a la misma persona por su email, su teléfono o su nombre; se ponen en Ventas (cada venta tiene su propietario). Los que anuncian por su cuenta están en Clientes › Anunciantes.</p>`);
+<div class="vt-cab" style="display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap;margin:6px 0 16px"><div><h1 style="margin:0;font-size:28px">Propietarios</h1><p style="margin:4px 0 0;color:var(--suave)">Los dueños de todos los coches: los que vende Sidonia, los que anuncian en la web y los de alquiler.</p></div><a class="boton" href="?estado=expediente&nuevo=1">+ Nuevo coche</a></div>
+<div class="pp-k">${TIPOS.map(([k, t]) => `<a href="?estado=duenos&ver=${encodeURIComponent(k)}" class="${ver === k ? 'on' : ''}"><small>${t}</small><b>${fmt(cuantos(k))}</b></a>`).join('')}</div>
+<div class="barra"><input type="search" placeholder="Buscar nombre, teléfono, email, DNI o coche…" style="flex:1" oninput="const q=this.value.trim().toLowerCase().normalize('NFD').replace(/[\\u0300-\\u036f]/g,'');document.querySelectorAll('.pp-r[data-q]').forEach((r)=>{r.hidden=q&&!r.dataset.q.includes(q)})"></div>
+<div class="pp-l">${filas || '<p class="vacio" style="padding:30px">Aún no hay propietarios aquí.</p>'}</div>
+<p class="nota">Junta a la misma persona por su email, su teléfono o su nombre (si tiene un coche en gestión y otro en alquiler, sale una vez con los dos). Pulsa en un coche para ir a su ficha.</p>`, `
+  .pp-k { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 0 0 12px; }
+  .pp-k a { padding: 12px 16px; border-radius: 14px; background: var(--caja); border: 1px solid var(--linea); text-decoration: none; box-shadow: var(--sombra); } .pp-k a.on { border-color: var(--verde); box-shadow: 0 0 0 1px var(--verde) inset; }
+  .pp-k small { display: block; font-size: 12px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--suave); } .pp-k b { font-size: 26px; }
+  .pp-l { background: var(--caja); border: 1px solid var(--linea); border-radius: 16px; box-shadow: var(--sombra); overflow: hidden; }
+  .pp-r { display: grid; grid-template-columns: minmax(0, 2.2fr) minmax(0, 1.2fr) minmax(0, 3fr) 80px; gap: 16px; align-items: center; padding: 12px 18px; border-bottom: 1px solid var(--linea); }
+  .pp-r:last-child { border-bottom: 0; } .pp-r:hover { background: var(--caja-2); }
+  .pp-who { display: flex; gap: 12px; align-items: center; min-width: 0; } .pp-who div { min-width: 0; } .pp-who b { display: block; } .pp-who small { display: block; font-size: 12px; color: var(--suave); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .pp-av { flex: none; width: 38px; height: 38px; border-radius: 50%; display: grid; place-items: center; background: var(--verde-fondo); color: var(--verde); font-weight: 800; font-size: 13px; }
+  .pp-tipos { display: flex; flex-wrap: wrap; gap: 4px; } .pp-t { padding: 3px 9px; border-radius: 999px; font-size: 11.5px; font-weight: 800; background: var(--caja-3); color: var(--suave); }
+  .pp-t.g { background: var(--verde-fondo); color: var(--verde); } .pp-t.w { background: var(--azul-fondo); color: var(--azul); } .pp-t.a { background: var(--lila-fondo); color: var(--lila); }
+  .pp-cosas { display: flex; flex-direction: column; gap: 4px; } .pp-cosas a { display: flex; gap: 8px; align-items: center; justify-content: space-between; text-decoration: none; font-size: 13.5px; padding: 3px 0; }
+  .pp-cosas a span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .pp-cosas a:hover span { color: var(--verde); } .pp-cosas .pill { font-style: normal; flex: none; }
+  .pp-n { text-align: right; } .pp-n b { font-size: 20px; display: block; } .pp-n small { color: var(--suave); font-size: 12px; }
+  @media (max-width: 900px) { .pp-k { grid-template-columns: 1fr 1fr; } .pp-r { grid-template-columns: 1fr auto; } .pp-tipos, .pp-cosas { grid-column: 1 / -1; } .pp-n { grid-row: 1; grid-column: 2; } }`);
 }
 
 /* ---------------------------------------------------------------------------- Rutas del panel */
@@ -740,9 +768,17 @@ export async function rutasOperaciones(req, cfg, deps, html) {
 
   // Propietarios de las ventas gestionadas (con comisión); los de la comunidad están en Clientes › Anunciantes
   if (estado === 'duenos') {
-    let ops = [], error = '';
+    let ops = [], anuncios = [], alquiler = [], error = '';
     try { ops = await t.leer('select=*&limit=5000'); } catch (e) { error = 'Las ventas aún no están: ejecuta sql/operaciones.sql en Supabase › SQL Editor.'; }
-    return html(paginaPropietarios(propietarios(ops, []), { error }));
+    try { anuncios = await (deps.tabla || tablaAnuncios(cfg, deps.fetch)).leer('select=id,titulo,estado,precio,creado,vendedor_nombre,vendedor_tipo,email,telefono&order=id.desc&limit=5000'); } catch (e) { anuncios = []; }
+    try {
+      const coches = await (deps.garaje || tablaAnuncios(cfg, deps.fetch, 'garaje')).leer('alquiler=eq.true&select=*&limit=2000');
+      const ids = [...new Set(coches.map((c) => String(c.cliente)))];
+      const perfiles = ids.length ? await (deps.perfiles || tablaAnuncios(cfg, deps.fetch, 'perfiles')).leer(`cliente=in.(${ids.map((x) => `"${x.replace(/"/g, '')}"`).join(',')})&select=*`) : [];
+      alquiler = coches.map((c) => ({ coche: c, perfil: perfiles.find((p) => String(p.cliente) === String(c.cliente)) }));
+    } catch (e) { alquiler = []; }
+    const ver = ['todos', 'Gestión de Sidonia', 'Anuncia en la web', 'Alquiler'].includes(req.query.ver) ? req.query.ver : 'todos';
+    return html(paginaPropietarios(propietarios(ops, (anuncios || []).filter((a) => a && a.vendedor_nombre !== undefined), alquiler), { error, ver }));
   }
 
   // Ofertas de la web: las de Sidonia y las de la comunidad (ofertas.mjs)

@@ -107,7 +107,7 @@ test('CSV para Excel, sin fórmulas', () => {
 test('propietarios: junta a la misma persona de ventas y anuncios', () => {
   const l = propietarios(OPS, [{ id: 7, titulo: 'VESPA 1962', estado: 'publicado', vendedor_nombre: 'Carlos R.', telefono: '600 111 222', email: '', creado: '2026-10-01' }]);
   const carlos = l.find((p) => p.nombre === 'Carlos');
-  assert.deepEqual([carlos.cosas.length, carlos.vendidos, carlos.facturado, carlos.tipo.sort()], [3, 1, 76000, ['Anuncio gratis', 'Venta gestionada']]);
+  assert.deepEqual([carlos.cosas.length, carlos.vendidos, carlos.facturado, carlos.tipo.sort()], [3, 1, 76000, ['Anuncia en la web', 'Gestión de Sidonia']]);
   assert.ok(l.find((p) => p.nombre === 'Arturo'));
 });
 
@@ -161,7 +161,7 @@ test('panel: la portada es Ventas; añadir, editar, importar (vista previa) y Pr
   assert.ok(!operaciones.filas.some((o) => o.estado === 'captacion'));
   const duenos = await atenderPanel({ method: 'GET', query: { estado: 'duenos' }, headers: auth }, cfg, deps);
   assert.match(duenos.body, /Carlos/);
-  assert.doesNotMatch(duenos.body, /Ana/, 'los de la comunidad van en Anunciantes');
+  assert.match(duenos.body, /<title>Propietarios/); assert.match(duenos.body, /Gestión de Sidonia/); assert.match(duenos.body, /Alquiler/);
   const malo = await atenderPanel({ method: 'POST', query: { estado: 'importar' }, body: { accion: 'ver', archivo: Buffer.from('hola').toString('base64') }, headers: auth }, cfg, deps);
   assert.match(malo.body, /no se ha podido leer el Excel/);
 });

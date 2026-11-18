@@ -83,7 +83,7 @@ export function pasoDe(o, factura = null, prod = undefined, hoy = new Date()) {
  */
 export function grupoDe({ o, prod, g, sinFicha }) {
   if (g) return 'solicitud';
-  if (sinFicha) return prod.situacion === 'vendido' ? 'vendido' : prod.status === 'ACTIVE' ? 'disponible' : null;
+  if (sinFicha) return prod.situacion === 'vendido' ? 'vendido' : prod.status === 'ACTIVE' ? 'disponible' : prod.status === 'DRAFT' ? 'proximamente' : null;
   if (o.estado === 'vendido' || prod?.situacion === 'vendido') return 'vendido';
   if (o.estado === 'retirado' || prod?.status === 'ARCHIVED') return null;
   const deAntes = !Object.keys(o.expediente || {}).length && o.estado !== 'captado';
@@ -109,8 +109,52 @@ export const adminShopify = (cfg, o) => {
 /** La descripción del anuncio (párrafos) con los datos del coche al final */
 export function descripcionAnuncio(c = {}) {
   const ps = String(c.descripcion || '').split(/\n{2,}/).map((x) => x.trim()).filter(Boolean).map((x) => `<p>${esc(x).replace(/\n/g, '<br>')}</p>`);
-  const datos = [['Marca', c.marca], ['Modelo', c.modelo], ['Año', c.anio], ['Kilómetros', c.km && `${c.km} km`], ['Provincia', c.ubicacion]].filter(([, v]) => v);
-  return `${ps.join('')}${datos.length ? `<ul>${datos.map(([k, v]) => `<li><strong>${esc(k)}:</strong> ${esc(v)}</li>`).join('')}</ul>` : ''}`;
+  return ps.join('');
+}
+/** El texto de una descripción de Shopify (HTML → párrafos) */
+export const textoDeHtml = (h) => String(h || '').replace(/<\/p>\s*<p[^>]*>/gi, '\n\n').replace(/<br\s*\/?>/gi, '\n').replace(/<\/(li|h\d|div|ul|ol)>/gi, '\n').replace(/<[^>]+>/g, '')
+  .replace(/&nbsp;/g, ' ').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, '&').replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
+const Q_PRODUCTO = 'query($q: String!) { products(first: 1, query: $q) { nodes { id handle title status descriptionHtml variants(first: 1) { nodes { id price } } } } }';
+/** El producto de Shopify de un coche (por su handle), o null */
+export async function productoDe(gql, handle) {
+  const d = await gql(Q_PRODUCTO, { q: `handle:${handle}` });
+  return ((d?.data?.products || d?.products)?.nodes || []).find((x) => x.handle === handle) || null;
+}
+/** Lo que han cambiado en Shopify (título, descripción, precio): los cambios para la ficha, o null */
+export function cambiosDeShopify(o, p) {
+  if (!p) return null;
+  const x = o.expediente || {}, c = x.coche || {}, k = x.condiciones || {};
+  const desc = textoDeHtml(p.descriptionHtml), precio = Number(p.variants?.nodes?.[0]?.price) || null;
+  const qué = [];
+  const exp = { ...x };
+  const cambios = {};
+  if (p.title && p.title !== o.titulo) { cambios.titulo = p.title; qué.push('título'); }
+  if (p.descriptionHtml != null && desc !== String(c.descripcion || '').trim() && (desc || c.descripcion)) { exp.coche = { ...c, descripcion: desc }; qué.push('descripción'); }
+  if (precio && precio !== n(k.precio_salida ?? o.precio_anunciado)) { exp.condiciones = { ...k, precio_salida: precio }; cambios.precio_anunciado = precio; qué.push('precio'); }
+  if (p.id && x.shopify_id !== p.id) exp.shopify_id = p.id;
+  if (!qué.length && exp.shopify_id === x.shopify_id) return null;
+  return { cambios: { ...cambios, expediente: exp }, qué };
+}
+/** Lleva a Shopify lo cambiado en la ficha (título, descripción, precio, filtros) */
+export async function llevarAShopify(gql, o, { titulo = false, descripcion = false, precio = false } = {}) {
+  const p = await productoDe(gql, o.handle);
+  if (!p) return false;
+  const c = o.expediente?.coche || {}, k = o.expediente?.condiciones || {};
+  const product = { id: p.id, ...(titulo ? { title: o.titulo } : {}), ...(descripcion ? { descriptionHtml: descripcionAnuncio(c) } : {}) };
+  if (Object.keys(product).length > 1) {
+    const r = await gql('mutation($product: ProductUpdateInput!) { productUpdate(product: $product) { userErrors { field message } } }', { product });
+    const errs = r.productUpdate?.userErrors || [];
+    if (errs.length) throw new Error(`Shopify: ${errs.map((e) => e.message).join(' · ')}`);
+  }
+  const v = p.variants?.nodes?.[0];
+  if (precio && v && n(k.precio_salida)) {
+    await gql('mutation($productId: ID!, $variants: [ProductVariantsBulkInput!]!) { productVariantsBulkUpdate(productId: $productId, variants: $variants) { userErrors { field message } } }', { productId: p.id, variants: [{ id: v.id, price: String(n(k.precio_salida)) }] });
+  }
+  try {
+    const mf = [['provincia', c.ubicacion], ['marca', c.marca], ['ano', String(c.anio || '').match(/\d{4}/)?.[0]]].filter(([, val]) => val).map(([key, value]) => ({ ownerId: p.id, namespace: 'custom', key, type: 'single_line_text_field', value: String(value).slice(0, 100) }));
+    if (mf.length) await gql('mutation($m: [MetafieldsSetInput!]!) { metafieldsSet(metafields: $m) { userErrors { field message } } }', { m: mf });
+  } catch (e) { console.error(e); }
+  return true;
 }
 /** Crea su anuncio en Shopify como borrador (título, precio, Sidonia) ya ligado a la ficha. Devuelve { id, handle } */
 export async function crearBorrador(gql, o) {
@@ -173,7 +217,7 @@ export function leerExpediente(b, antes = {}) {
   const exp = { ...x, origen: ORIGENES[b.origen] ? b.origen : x.origen || 'persona', propietario, coche, condiciones, notas: t(b.notas, 1000) };
   // Si cambian los datos del contrato después de enviarlo (y antes de firmarlo), hay que volver a enviarlo
   if (x.contrato?.enviado && !x.contrato?.firma && JSON.stringify([x.propietario, x.coche, x.condiciones]) !== JSON.stringify([propietario, coche, condiciones])) exp.contrato = { ...x.contrato, cambiado: true };
-  return { op: { titulo: tituloCoche(coche), tipo: antes.tipo || 'coche', modalidad: 'gestion', comercial: t(b.comercial, 60) || null,
+  return { op: { titulo: t(b.c_titulo, 150).toUpperCase() || tituloCoche(coche), tipo: antes.tipo || 'coche', modalidad: 'gestion', comercial: t(b.comercial, 60) || null,
     ...(!antes.id && b.handle ? { handle: String(b.handle).replace(/[^a-z0-9-]/g, '').slice(0, 160) || null } : {}), propietario_nombre: propietario.nombre, propietario_email: propietario.email || null, propietario_telefono: propietario.telefono || null,
     precio_anunciado: condiciones.precio_salida, expediente: exp } };
 }
@@ -371,6 +415,7 @@ function formExpediente(o = {}, emisor = {}, { accion = 'guardar', boton = 'Guar
     ${campo('Teléfono', 'p_telefono', p.telefono || o.propietario_telefono, ' inputmode="tel"')}${campo('Email', 'p_email', p.email || o.propietario_email, ' type="email"')}
     <label class="ancho">Domicilio<input name="p_direccion" value="${esc(p.direccion || '')}" placeholder="Calle, n.º, CP y ciudad"></label></div></fieldset>
   <fieldset class="fs"><legend>El coche <small>sale así en el borrador de Shopify</small></legend><div class="g3">
+    <label class="ancho" style="grid-column:1/-1">Título del anuncio <small>si lo dejas vacío: marca, modelo y año</small><input name="c_titulo" value="${esc(o.id ? o.titulo || '' : '')}" placeholder="PORSCHE 911 CARRERA 3.2 1986" style="text-transform:uppercase"></label>
     ${campo('Marca', 'c_marca', c.marca, ' required')}${campo('Modelo', 'c_modelo', c.modelo, ' required')}${campo('Año', 'c_anio', c.anio, ' inputmode="numeric" maxlength="4"')}
     ${campo('Kilómetros', 'c_km', c.km, ' inputmode="numeric"')}${campo('Matrícula', 'c_matricula', c.matricula, ' style="text-transform:uppercase"')}${campo('N.º de bastidor', 'c_bastidor', c.bastidor, ' style="text-transform:uppercase"')}
     ${campo('Precio de venta (€)', 'k_salida', k.precio_salida ?? o.precio_anunciado, ' inputmode="decimal"')}${campo('Precio mínimo que acepta (€, opcional)', 'k_minimo', k.precio_minimo, ' inputmode="decimal"')}${campo('Provincia', 'c_ubicacion', c.ubicacion, ' placeholder="Madrid"')}</div>
@@ -637,7 +682,7 @@ export function paginaSidonia(cfg, items, { ver = 'disponible', sub = '', aviso 
     const nombre = g ? gd.nombre : p.nombre || o?.propietario_nombre;
     const telefono = g ? gd.telefono : p.telefono || o?.propietario_telefono;
     const detalle = g ? [gd.km && `${gd.km} km`, gd.ubicacion].filter(Boolean).join(' · ') : [c.matricula, o?.comercial && `lleva ${o.comercial}`].filter(Boolean).join(' · ');
-    const importe = g ? (gd.precio ? `${esc(String(gd.precio))} €` : '') : o?.estado === 'vendido' && o.precio_venta ? eur0(o.precio_venta) : n(x.condiciones?.precio_salida ?? o?.precio_anunciado) ? eur0(x.condiciones?.precio_salida ?? o.precio_anunciado) : prod?.precio ? eur0(prod.precio) : '';
+    const importe = g ? (gd.precio ? `${esc(String(gd.precio))} €` : '') : o?.estado === 'vendido' && o.precio_venta ? eur0(o.precio_venta) : prod?.precio ? eur0(prod.precio) : n(x.condiciones?.precio_salida ?? o?.precio_anunciado) ? eur0(x.condiciones?.precio_salida ?? o.precio_anunciado) : prod?.precio ? eur0(prod.precio) : '';
     const bajo = g ? 'lo que pide' : o?.estado === 'vendido' ? (o.comision ? `vendido · comisión ${eur0(o.comision)}` : 'vendido') : importe ? 'precio' : '';
     const ir = [o && `<a class="ic" href="?estado=expediente&id=${Number(o.id)}" title="Ficha del coche">Ficha</a>`, (o?.handle || prod?.handle) && `<a class="ic" href="?estado=ficha&h=${encodeURIComponent(o?.handle || prod.handle)}" title="Editar el anuncio">Editar</a>`,
       (o?.handle || prod?.handle) && (!o || situacionCartera(o, prod).anuncio === 'en_web') && `<a class="ic" href="${esc(cfg.tienda)}/products/${esc(o?.handle || prod.handle)}" target="_blank" rel="noopener" title="Ver en la web">Web ↗</a>`].filter(Boolean).join('');
@@ -858,7 +903,18 @@ ${cand.map((x) => `<form method="post" action="?estado=ligar&h=${encodeURICompon
       const a = b.accion;
       if (a === 'guardar') {
         const { op, error } = leerExpediente(b, o);
-        if (error) aviso = `Error: ${error}`; else { await guardar(op, 'Datos cambiados'); aviso = 'Guardado.'; }
+        if (error) aviso = `Error: ${error}`;
+        else {
+          const antes = { titulo: o.titulo, descripcion: String(o.expediente.coche?.descripcion || ''), precio: n(o.expediente.condiciones?.precio_salida ?? o.precio_anunciado) };
+          await guardar(op, 'Datos cambiados'); aviso = 'Guardado.';
+          // Y en su anuncio de Shopify: lo que ha cambiado (título, descripción, precio)
+          const cambia = { titulo: op.titulo !== antes.titulo, descripcion: String(op.expediente.coche?.descripcion || '') !== antes.descripcion, precio: n(op.expediente.condiciones?.precio_salida) !== antes.precio };
+          if (o.handle && (cambia.titulo || cambia.descripcion || cambia.precio) && (deps.gql || (cfg.shopifyTienda && cfg.shopifyClientId))) {
+            try {
+              if (await llevarAShopify(deps.gql || shopifyAdmin(cfg, deps.fetch), o, cambia)) { aviso = 'Guardado, también en Shopify.'; try { const { olvidarCatalogo } = await import('./actividad.mjs'); olvidarCatalogo(); } catch (e) { /* nada */ } }
+            } catch (e) { console.error(e); aviso = `Guardado aquí, pero no en Shopify (${e.message}).`; }
+          }
+        }
       } else if (a === 'contrato-email') {
         if (!p.email) aviso = 'Error: el propietario no tiene email.';
         else {
@@ -941,6 +997,13 @@ ${cand.map((x) => `<form method="post" action="?estado=ligar&h=${encodeURICompon
     } catch (e) { aviso = /Shopify|gql|GraphQL/i.test(String(e.message)) ? `Error: ${e.message}` : errorSql(e); }
     // Desde la lista de coches: se vuelve a la lista con el aviso
     if (b.volver === 'sidonia') return { status: 303, headers: { Location: `?estado=sidonia&aviso=${encodeURIComponent(aviso)}`, 'Cache-Control': 'no-store' }, body: '' };
+  }
+  // Lo cambiado en Shopify (título, descripción, precio) pasa a la ficha
+  if (req.method === 'GET' && o.handle && (deps.gql || (cfg.shopifyTienda && cfg.shopifyClientId))) {
+    try {
+      const r = cambiosDeShopify(o, await productoDe(deps.gql || shopifyAdmin(cfg, deps.fetch), o.handle));
+      if (r) await guardar(r.cambios, r.qué.length ? `Cambiado en Shopify: ${r.qué.join(', ')}` : '');
+    } catch (e) { console.error(e); }
   }
   let anuncios = [];
   try { const { catalogoTienda } = await import('./actividad.mjs'); anuncios = [...(await catalogoTienda(cfg, deps)).values()]; } catch (e) { anuncios = []; }
