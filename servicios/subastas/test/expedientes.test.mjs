@@ -57,7 +57,7 @@ test('centro operativo: de la web al contrato firmado, vendido, factura (editabl
   assert.match((await pub('intermediacion', enlace.replace(/f=\w+/, 'f=mal'))).body, /Enlace no válido/);
   // El propietario lo lee (con sus datos y las condiciones) y lo firma
   const ver = (await pub('intermediacion', enlace)).body;
-  assert.match(ver, /LAND ROVER|Land Rover Defender 110 1998/); assert.match(ver, /<b>6 %<\/b>/); assert.match(ver, /1\.500 €/); assert.match(ver, /<b>3 meses<\/b>/); assert.match(ver, /Titular de Prueba/); assert.match(ver, /desistir/);
+  assert.match(ver, /LAND ROVER|Land Rover Defender 110 1998/); assert.match(ver, /<b>6 %<\/b>/); assert.match(ver, /1\.500 €/); assert.match(ver, /<b>60 días<\/b>/); assert.match(ver, /Titular de Prueba/); assert.match(ver, /desistir/);
   assert.match((await pub('intermediacion', enlace, 'POST', { nombre: 'Íñigo Prueba Martín', dni: '12345678Z', direccion: 'Calle del Prado 3, Madrid' })).body, /Marca la casilla/);
   assert.match((await pub('intermediacion', enlace, 'POST', { nombre: 'Íñigo Prueba Martín', dni: '1234', direccion: 'Calle del Prado 3, Madrid', acepto: '1' })).body, /Revisa tu DNI/);
   const firmado = (await pub('intermediacion', enlace, 'POST', { nombre: 'Íñigo Prueba Martín', dni: '12345678z', direccion: 'Calle del Prado 3, 28014 Madrid', acepto: '1' })).body;
@@ -253,7 +253,7 @@ test('Anuncios › De Sidonia: alta del coche (borrador en Shopify y contrato), 
   assert.ok(filas(l).some((f) => /LAND ROVER DEFENDER 110 1998/.test(f) && /Enviar contrato/.test(f) && /Contrato sin enviar/.test(f) && /Íñigo Prueba Martín/.test(f) && /42\.000 €/.test(f)), 'una fila por coche: propietario, precio, contrato y anuncio');
   // El anuncio de Sidonia sin ficha: «Añadir su propietario»; el de la comunidad no sale
   const disp = (await pag({ estado: 'sidonia' })).body;
-  assert.match(disp, /FERRARI 308 GTS 1980[\s\S]*Añadir su propietario/); assert.doesNotMatch(disp, /SEAT 600 1970/); assert.doesNotMatch(disp, /LAND ROVER DEFENDER 110 1998/, 'el borrador no está disponible aún');
+  assert.match(disp, /FERRARI 308 GTS 1980[\s\S]*Editar ficha/); assert.doesNotMatch(disp, /SEAT 600 1970/); assert.doesNotMatch(disp, /LAND ROVER DEFENDER 110 1998/, 'el borrador no está disponible aún');
   // Desde la tarjeta: el contrato por email, y vuelve a la lista con el aviso
   const r = await pag({ estado: 'expediente', id: String(o.id) }, 'POST', { accion: 'contrato-email', volver: 'sidonia' });
   assert.equal(r.status, 303); assert.match(decodeURIComponent(r.headers.Location), /estado=sidonia&aviso=Enviado a inigo@ejemplo\.es/);
@@ -334,4 +334,35 @@ test('Shopify ↔ panel: lo cambiado en Shopify pasa a la ficha, y lo cambiado e
   const up = llamadas.find((x) => x[0] === 'productUpdate')[1].product;
   assert.deepEqual([up.title, up.descriptionHtml], ['SEAT 600 E 1971', '<p>Uno</p><p>Dos</p>']);
   assert.equal(llamadas.find((x) => x[0] === 'productVariantsBulkUpdate')[1].variants[0].price, '9900');
+});
+
+test('Anuncios: la ventana para editar la ficha y enviar el contrato, y la de vendido con su factura', async () => {
+  const { olvidarCatalogo } = await import('../lib/actividad.mjs');
+  const { deps, pag, correos } = preparar();
+  olvidarCatalogo();
+  await pag({ estado: 'facturacion' }, 'POST', { nombre: 'Titular de Prueba', nif: '12345678Z', direccion: 'Calle Falsa 1, 28001 Madrid', iban: 'ES00 1111', comision_pct: '5', exclusividad_dias: '30', iva_pct: '21' });
+  assert.equal(deps.ajustes.filas[0].valor.exclusividad_dias, 60, 'la exclusividad, 60 días como mínimo');
+  deps.gql = async (q) => (/products\(first: 1/.test(q) ? { products: { nodes: [{ id: 'gid://shopify/Product/9', handle: 'jaguar-e-type-1965', title: 'JAGUAR E-TYPE 1965', descriptionHtml: '<p>Un clásico.</p>', variants: { nodes: [{ id: 'v', price: '120000' }] } }] } }
+    : { products: { nodes: [{ handle: 'jaguar-e-type-1965', title: 'JAGUAR E-TYPE 1965', status: 'DRAFT', tags: [], createdAt: new Date().toISOString(), featuredImage: null, variants: { nodes: [{ availableForSale: true, price: '120000' }] } }], pageInfo: { hasNextPage: false } } });
+  // El borrador de Shopify sin ficha: «Editar ficha» abre la ventana, ya rellena con lo de Shopify
+  const l = (await pag({ estado: 'sidonia', ver: 'proximamente' })).body;
+  assert.match(l, /data-modal="\?estado=expediente&nuevo=1&h=jaguar-e-type-1965&parcial=1">Editar ficha/); assert.match(l, /<dialog class="md"/);
+  const v = (await pag({ estado: 'expediente', nuevo: '1', h: 'jaguar-e-type-1965', parcial: '1' })).body;
+  assert.doesNotMatch(v, /<html/); assert.match(v, /value="JAGUAR E-TYPE 1965"/); assert.match(v, /value="Jaguar"/); assert.match(v, /value="120000"/); assert.match(v, />Un clásico\.<\/textarea>/); assert.match(v, /value="60"/);
+  assert.match(v, /Crear y enviar el contrato por WhatsApp/);
+  // Guardar y enviar el contrato por WhatsApp: crea la ficha ligada al borrador y abre WhatsApp
+  const r = await pag({ estado: 'expediente' }, 'POST', { accion: 'crear', enviar: 'wa', volver: 'sidonia', handle: 'jaguar-e-type-1965', c_titulo: 'JAGUAR E-TYPE 1965', p_nombre: 'Rosa Prueba', p_telefono: '600999888', p_email: 'rosa@ejemplo.es', c_marca: 'Jaguar', c_modelo: 'E-Type', c_anio: '1965', c_matricula: '1111AAA', k_pct: '6', k_dias: '90', k_salida: '120000' });
+  const o = deps.operaciones.filas.at(-1);
+  assert.equal(r.status, 302); assert.match(r.headers.Location, /^https:\/\/wa\.me\/34600999888/);
+  assert.deepEqual([o.handle, o.expediente.condiciones.exclusividad_dias, o.expediente.contrato.via], ['jaguar-e-type-1965', 90, 'WhatsApp']);
+  // La ventana de editar una ficha que ya existe, y guardar y enviar por email
+  assert.match((await pag({ estado: 'expediente', id: String(o.id), parcial: 'editar' })).body, /value="Rosa Prueba"/);
+  const g = await pag({ estado: 'expediente', id: String(o.id) }, 'POST', { accion: 'guardar', enviar: 'email', volver: 'sidonia', c_titulo: 'JAGUAR E-TYPE 1965', p_nombre: 'Rosa Prueba', p_telefono: '600999888', p_email: 'rosa@ejemplo.es', c_marca: 'Jaguar', c_modelo: 'E-Type', c_anio: '1965', c_matricula: '1111AAA', k_pct: '6', k_dias: '90', k_salida: '120000' });
+  assert.equal(g.status, 303); assert.match(decodeURIComponent(g.headers.Location), /contrato enviado a rosa@ejemplo\.es/); assert.ok(correos.some((c) => c.to.includes('rosa@ejemplo.es')));
+  // Vendido y su factura, de una vez, y enviada por email
+  assert.match((await pag({ estado: 'expediente', id: String(o.id), parcial: 'vender' })).body, /Vendido y crear la factura/);
+  const vf = await pag({ estado: 'expediente', id: String(o.id) }, 'POST', { accion: 'vender', facturar: 'email', volver: 'sidonia', precio_venta: '110.000', fecha_venta: '2026-12-01', d_nombre: 'Rosa Prueba', d_nif: '', d_direccion: 'Calle 1', pct: '6', base: '', iva_pct: '21', forma_pago: 'transferencia', numero: '2026-030', fecha: '2026-12-01', concepto: 'Gestión de Venta Jaguar E-Type' });
+  assert.equal(vf.status, 303); assert.match(decodeURIComponent(vf.headers.Location), /¡Vendido! Factura 2026-030 creada\. Enviada a rosa@ejemplo\.es/);
+  const f = deps.facturas.filas.at(-1);
+  assert.deepEqual([o.estado, o.precio_venta, f.base, f.total, f.operacion_id], ['vendido', 110000, 6600, 7986, o.id]);
 });

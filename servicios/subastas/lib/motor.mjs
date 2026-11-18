@@ -65,7 +65,7 @@ export async function comprobarBD(cfg, fetchImpl = fetch) {
   }
   return out;
 }
-export const VERSION = '2026-11-18-efectivo-bd';
+export const VERSION = '2026-11-18-ventana';
 
 export function config(env = process.env) {
   return {

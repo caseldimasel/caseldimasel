@@ -24,6 +24,11 @@ import { marco, normal as normalTexto, parecido } from './operaciones.mjs';
 
 export const VERSION_INTERMEDIACION = '2026-11-17';
 export const LIMITE_EFECTIVO = 1000;
+/** La exclusividad: 60 días como mínimo (editable hacia arriba) */
+export const EXCLUSIVA_MIN = 60;
+/** Los días de exclusiva de una ficha (las de antes iban en meses) */
+export const diasExclusiva = (k = {}) => n(k.exclusividad_dias) || (n(k.exclusividad_meses) ? n(k.exclusividad_meses) * 30 : null);
+const leerDias = (v) => Math.max(EXCLUSIVA_MIN, Math.min(730, Math.round(num(v) ?? EXCLUSIVA_MIN)));
 /** Las ventas sin factura hasta este día se cobraron en efectivo (las nuevas, con su factura) */
 export const CORTE_EFECTIVO = '2026-11-18';
 export const FORMAS_PAGO = { transferencia: 'Transferencia', bizum: 'Bizum', tarjeta: 'Tarjeta', efectivo: 'Efectivo' };
@@ -43,12 +48,12 @@ const fechaCorta = (d) => (d ? new Date(`${String(d).slice(0, 10)}T12:00:00Z`).t
 const fechaTxt = (d) => (d ? new Date(`${String(d).slice(0, 10)}T12:00:00Z`).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Europe/Madrid' }) : '');
 
 /* ---------------------------------------------------------------------------- Ajustes: el emisor de las facturas */
-export const EMISOR_VACIO = { nombre: '', nif: '', direccion: '', email: '', telefono: '', iban: '', marca: 'Sidonia', comision_pct: 5, comision_min: 0, exclusividad_meses: 3, iva_pct: 21 };
+export const EMISOR_VACIO = { nombre: '', nif: '', direccion: '', email: '', telefono: '', iban: '', marca: 'Sidonia', comision_pct: 5, comision_min: 0, exclusividad_dias: EXCLUSIVA_MIN, iva_pct: 21 };
 export const leerEmisor = (v) => ({ ...EMISOR_VACIO, ...(v || {}) });
 export const emisorCompleto = (e) => Boolean(e.nombre && e.nif && e.direccion);
 export function leerAjustesForm(b) {
   const e = { nombre: t(b.nombre, 120), nif: normDoc(b.nif).slice(0, 20), direccion: t(b.direccion, 250), email: t(b.email, 160), telefono: t(b.telefono, 40), iban: t(b.iban, 40).toUpperCase(), marca: t(b.marca, 60) || 'Sidonia',
-    comision_pct: num(b.comision_pct) ?? 5, comision_min: num(b.comision_min) ?? 0, exclusividad_meses: Math.max(1, Math.min(24, Math.round(num(b.exclusividad_meses) ?? 3))), iva_pct: num(b.iva_pct) ?? 21 };
+    comision_pct: num(b.comision_pct) ?? 5, comision_min: num(b.comision_min) ?? 0, exclusividad_dias: leerDias(b.exclusividad_dias), iva_pct: num(b.iva_pct) ?? 21 };
   if (!(e.comision_pct >= 0 && e.comision_pct <= 50)) return { error: 'La comisión por defecto no es válida.' };
   return { emisor: e };
 }
@@ -210,7 +215,7 @@ export function leerExpediente(b, antes = {}) {
   const x = antes.expediente || {};
   const propietario = { nombre: t(b.p_nombre, 120), dni: normDoc(b.p_dni).slice(0, 20), direccion: t(b.p_direccion, 250), email: t(b.p_email, 160).toLowerCase(), telefono: t(b.p_telefono, 40) };
   const coche = { marca: t(b.c_marca, 40), modelo: t(b.c_modelo, 80), anio: t(b.c_anio, 4), matricula: t(b.c_matricula, 15).toUpperCase().replace(/[\s-]/g, ''), bastidor: t(b.c_bastidor, 20).toUpperCase(), km: t(b.c_km, 20), ubicacion: t(b.c_ubicacion, 60), descripcion: largo(b.c_descripcion, 6000) };
-  const condiciones = { comision_pct: num(b.k_pct), comision_min: num(b.k_min), precio_salida: num(b.k_salida), precio_minimo: num(b.k_minimo), exclusividad_meses: Math.max(1, Math.min(24, Math.round(num(b.k_meses) ?? 3))), comercial_pct: num(b.k_comercial), especiales: largo(b.k_especiales, 2000) };
+  const condiciones = { comision_pct: num(b.k_pct), comision_min: num(b.k_min), precio_salida: num(b.k_salida), precio_minimo: num(b.k_minimo), exclusividad_dias: leerDias(b.k_dias), comercial_pct: num(b.k_comercial), especiales: largo(b.k_especiales, 2000) };
   if (!coche.marca || !coche.modelo) return { error: 'Pon la marca y el modelo.' };
   if (!propietario.nombre) return { error: 'Pon el nombre del propietario.' };
   if (propietario.dni && !documentoValido(propietario.dni)) return { error: 'Revisa el DNI, NIE o CIF del propietario.' };
@@ -256,7 +261,7 @@ export function contratoIntermediacion(o, emisor, { firmado = null } = {}) {
 <div class="nota"><b>Lo importante, en claro</b> (resumen informativo; lo que vale es el texto de las cláusulas):
 <ul style="margin:8px 0 0">
 <li><b>Qué hace ${marca}:</b> anuncia y vende tu ${hueco(veh)} por ti (fotos y vídeo, web y redes, interesados, visitas, negociación y papeles). No compra el coche: lo vendes tú al comprador y tú decides si aceptas cada oferta.</li>
-<li><b>Exclusiva ${hueco(k.exclusividad_meses, '__')} meses:</b> durante ese tiempo solo lo vende ${marca}; no lo anuncias ni lo vendes por otro lado.</li>
+<li><b>Exclusiva ${hueco(diasExclusiva(k), '__')} días:</b> durante ese tiempo solo lo vende ${marca}; no lo anuncias ni lo vendes por otro lado.</li>
 <li><b>Cuánto cuesta:</b> el ${hueco(k.comision_pct, '__')} % del precio final de venta${k.comision_min ? ` (mínimo ${eur0(k.comision_min)})` : ''} + IVA, y solo si se vende. Si no se vende, no pagas nada. ${ejemplo}</li>
 <li><b>Puedes echarte atrás:</b> tienes 14 días desde que firmas para desistir sin dar explicaciones y sin coste (tienes el formulario al final).</li>
 <li><b>Firma:</b> firmas desde el móvil; te llega una copia por email y queda registrada con fecha, hora y huella digital.</li></ul></div>
@@ -270,7 +275,7 @@ export function contratoIntermediacion(o, emisor, { firmado = null } = {}) {
 <h2>Cláusulas</h2>
 ${cl('Objeto y naturaleza', 'El Propietario encarga a Sidonia, que acepta, la intermediación para la venta del Vehículo: hacer fotos y vídeo, anunciarlo en sidonia.es y en sus redes y canales, atender a los interesados, enseñar el Vehículo, transmitir y negociar las ofertas y acompañar a las partes hasta la firma de la compraventa y el cambio de titularidad.', 'Es un contrato de mediación o corretaje (artículo 1255 del Código Civil): Sidonia no compra el Vehículo, no lo vende en su nombre ni es parte de la compraventa, que se celebra directamente entre el Propietario y el comprador. El Propietario decide siempre si acepta o no cada oferta. Sidonia pone los medios para venderlo, pero no garantiza que se venda ni en qué plazo.')}
 ${cl('Precio', `El precio de salida es de <b>${k.precio_salida ? eur0(k.precio_salida) : hueco('', '________ €')}</b>${k.precio_minimo ? ` y el Propietario acepta vender a partir de <b>${eur0(k.precio_minimo)}</b>` : ''}. Sidonia consultará al Propietario cualquier oferta por debajo de ese precio y no cerrará ninguna venta sin su conformidad. Las partes pueden cambiar el precio de común acuerdo por escrito (por email o WhatsApp).`)}
-${cl('Exclusividad y duración', `Este encargo se hace <b>en exclusiva</b> durante <b>${hueco(k.exclusividad_meses, '__')} meses</b> desde su firma. Durante ese plazo, el Propietario no venderá el Vehículo por sí mismo ni a través de otros intermediarios, ni lo anunciará en otros medios (portales, redes, concesionarios), salvo que Sidonia lo autorice por escrito.`, 'Al terminar el plazo, el encargo seguirá sin exclusividad mientras ninguna de las partes lo dé por terminado por escrito, con un preaviso de 7 días. Las partes pueden prorrogar la exclusividad de común acuerdo por escrito.')}
+${cl('Exclusividad y duración', `Este encargo se hace <b>en exclusiva</b> durante <b>${hueco(diasExclusiva(k), '__')} días</b> desde su firma. Durante ese plazo, el Propietario no venderá el Vehículo por sí mismo ni a través de otros intermediarios, ni lo anunciará en otros medios (portales, redes, concesionarios), salvo que Sidonia lo autorice por escrito.`, 'Al terminar el plazo, el encargo seguirá sin exclusividad mientras ninguna de las partes lo dé por terminado por escrito, con un preaviso de 7 días. Las partes pueden prorrogar la exclusividad de común acuerdo por escrito.')}
 ${cl('Honorarios de Sidonia', `Por su intermediación, Sidonia cobrará el <b>${hueco(k.comision_pct, '__')} %</b> del precio final de venta${k.comision_min ? `, con un mínimo de <b>${eur0(k.comision_min)}</b>` : ''}, más el IVA correspondiente (hoy, el ${ivaPct} %). ${ejemplo}`, 'Los honorarios se ganan cuando se firma la compraventa del Vehículo con un comprador presentado o atendido por Sidonia, y se pagan cuando el Propietario cobra el precio, contra la factura de Sidonia, por transferencia, Bizum o tarjeta (o en efectivo si el total es inferior a 1.000 €, como exige la Ley 7/2012). La factura puede ir a nombre de otra persona o empresa si el Propietario lo pide.', 'También se deben si, durante la exclusividad, el Propietario vende el Vehículo por su cuenta o por otro medio, o si en los 6 meses siguientes al fin del encargo lo vende a un comprador que conoció a través de Sidonia.', '<b>Si el Vehículo no se vende, el Propietario no paga nada a Sidonia</b>, salvo los gastos extraordinarios que hubiera autorizado antes por escrito.')}
 ${cl('Gastos', 'Los gastos de anuncio, fotografía, vídeo y gestión ordinaria de la venta corren a cargo de Sidonia. Los del cambio de titularidad, la ITV, las reparaciones, la limpieza a fondo, el transporte y cualquier otro gasto del Vehículo corren a cargo del Propietario, salvo que se acuerde otra cosa por escrito.')}
 ${cl('Fotos, vídeo y anuncio', 'El Propietario autoriza a Sidonia a hacer fotos y vídeos del Vehículo y a publicarlos en su web, sus redes y otros canales mientras dure el encargo. Las fotos y los vídeos son de Sidonia, que podrá seguir usándolos después para dar a conocer su trabajo (por ejemplo, «vendido por Sidonia»), sin mostrar la matrícula ni datos personales del Propietario.')}
@@ -408,27 +413,30 @@ const CSS = `
   @media (max-width: 800px) { .pasos { grid-template-columns: repeat(3, 1fr); } .g2, .g3 { grid-template-columns: 1fr; } .exp-cab { grid-template-columns: 1fr; } .resumen-f { grid-template-columns: auto auto; } }`;
 
 const campo = (etq, nombre, valor, extra = '') => `<label>${etq}<input name="${nombre}" value="${esc(valor ?? '')}"${extra}></label>`;
-function formExpediente(o = {}, emisor = {}, { accion = 'guardar', boton = 'Guardar' } = {}) {
+function formExpediente(o = {}, emisor = {}, { accion = 'guardar', boton = 'Guardar', volver = '' } = {}) {
   const x = o.expediente || {}, p = x.propietario || {}, c = x.coche || {}, k = x.condiciones || {}, e = leerEmisor(emisor);
   const area = (etq, nombre, valor, filas, extra = '') => `<label class="ancho">${etq}<textarea name="${nombre}" rows="${filas}"${extra}>${esc(valor ?? '')}</textarea></label>`;
-  return `<form method="post" action="?estado=expediente${o.id ? `&id=${Number(o.id)}` : ''}" class="fx">
+  const firmado = Boolean(x.contrato?.firma);
+  return `<form method="post" action="?estado=expediente${o.id ? `&id=${Number(o.id)}` : ''}" class="fx"><input type="hidden" name="accion" value="${accion}">${volver ? `<input type="hidden" name="volver" value="${esc(volver)}">` : ''}
   <fieldset class="fs"><legend>El propietario <small>para el contrato y la factura</small></legend><div class="g2">
     ${campo('Nombre y apellidos (o empresa)', 'p_nombre', p.nombre || o.propietario_nombre, ' required')}${campo('DNI / NIE / CIF', 'p_dni', p.dni, ' placeholder="Si no lo tienes, lo pone al firmar"')}
     ${campo('Teléfono', 'p_telefono', p.telefono || o.propietario_telefono, ' inputmode="tel"')}${campo('Email', 'p_email', p.email || o.propietario_email, ' type="email"')}
     <label class="ancho">Domicilio<input name="p_direccion" value="${esc(p.direccion || '')}" placeholder="Calle, n.º, CP y ciudad"></label></div></fieldset>
   <fieldset class="fs"><legend>El coche <small>sale así en el borrador de Shopify</small></legend><div class="g3">
-    <label class="ancho" style="grid-column:1/-1">Título del anuncio <small>si lo dejas vacío: marca, modelo y año</small><input name="c_titulo" value="${esc(o.id ? o.titulo || '' : '')}" placeholder="PORSCHE 911 CARRERA 3.2 1986" style="text-transform:uppercase"></label>
+    <label class="ancho" style="grid-column:1/-1">Título del anuncio <small>si lo dejas vacío: marca, modelo y año</small><input name="c_titulo" value="${esc(o.titulo || '')}" placeholder="PORSCHE 911 CARRERA 3.2 1986" style="text-transform:uppercase"></label>
     ${campo('Marca', 'c_marca', c.marca, ' required')}${campo('Modelo', 'c_modelo', c.modelo, ' required')}${campo('Año', 'c_anio', c.anio, ' inputmode="numeric" maxlength="4"')}
     ${campo('Kilómetros', 'c_km', c.km, ' inputmode="numeric"')}${campo('Matrícula', 'c_matricula', c.matricula, ' style="text-transform:uppercase"')}${campo('N.º de bastidor', 'c_bastidor', c.bastidor, ' style="text-transform:uppercase"')}
     ${campo('Precio de venta (€)', 'k_salida', k.precio_salida ?? o.precio_anunciado, ' inputmode="decimal"')}${campo('Precio mínimo que acepta (€, opcional)', 'k_minimo', k.precio_minimo, ' inputmode="decimal"')}${campo('Provincia', 'c_ubicacion', c.ubicacion, ' placeholder="Madrid"')}</div>
     <div class="g2" style="margin-top:10px">${area('Descripción del anuncio <small>la historia, el estado, la mecánica, el equipamiento…</small>', 'c_descripcion', c.descripcion, 7)}</div></fieldset>
   <fieldset class="fs"><legend>Condiciones <small>salen en el contrato</small></legend><div class="g3">
-    ${campo('Comisión de Sidonia (%)', 'k_pct', k.comision_pct ?? e.comision_pct, ' inputmode="decimal" required')}${campo('Comisión mínima (€, opcional)', 'k_min', k.comision_min ?? (e.comision_min || ''), ' inputmode="decimal"')}${campo('Exclusividad (meses)', 'k_meses', k.exclusividad_meses ?? e.exclusividad_meses, ' inputmode="numeric"')}
+    ${campo('Comisión de Sidonia (%)', 'k_pct', k.comision_pct ?? e.comision_pct, ' inputmode="decimal" required')}${campo('Comisión mínima (€, opcional)', 'k_min', k.comision_min ?? (e.comision_min || ''), ' inputmode="decimal"')}${campo(`Exclusividad (días, mínimo ${EXCLUSIVA_MIN})`, 'k_dias', diasExclusiva(k) || diasExclusiva(e) || EXCLUSIVA_MIN, ` type="number" min="${EXCLUSIVA_MIN}" step="1"`)}
     <label>Lo lleva<input name="comercial" value="${esc(o.comercial ?? 'Hugo')}" placeholder="Hugo"></label>${campo('Para el comercial (% del beneficio de Sidonia)', 'k_comercial', k.comercial_pct, ' inputmode="decimal" placeholder="Ej.: 30"')}
     <label>Cómo llegó<select name="origen">${Object.entries(ORIGENES).map(([a, b]) => `<option value="${a}"${(x.origen || 'persona') === a ? ' selected' : ''}>${b}</option>`).join('')}</select></label></div>
     <div class="g2" style="margin-top:10px">${area('Pactos particulares <small>opcional: salen como una cláusula más del contrato</small>', 'k_especiales', k.especiales, 3)}<label class="ancho">Notas internas <small>(no salen en el contrato)</small><input name="notas" value="${esc(x.notas || '')}"></label></div>
     ${o.handle ? `<input type="hidden" name="handle" value="${esc(o.handle)}">` : ''}</fieldset>
-  <button class="boton grande" name="accion" value="${accion}">${boton}</button></form>`;
+  <div class="fx-bts"><button class="boton grande" name="enviar" value="">${boton}</button>
+    ${firmado ? '<span class="sub">Contrato ya firmado.</span>' : `<button class="boton grande wa" name="enviar" value="wa" formtarget="_blank" data-recargar>${o.id ? 'Guardar' : 'Crear'} y enviar el contrato por WhatsApp</button><button class="boton grande claro" name="enviar" value="email">${o.id ? 'Guardar' : 'Crear'} y enviarlo por email</button>`}</div>
+  <p class="sub" style="margin:8px 0 0">El contrato de intermediación y exclusividad sale con estos datos: si algo está mal, cámbialo aquí antes de enviarlo.</p></form>`;
 }
 
 /** Un expediente: los 6 pasos, cada uno con lo que se puede hacer */
@@ -522,7 +530,7 @@ ${pasos}
       <dl class="fc-dl">${dato('Nombre', esc(p.nombre))}${dato('DNI / NIE / CIF', esc(p.dni))}${dato('Teléfono', tel ? `<a href="tel:${esc(tel)}">${esc(tel)}</a>` : '')}${dato('Email', p.email ? `<a href="mailto:${esc(p.email)}">${esc(p.email)}</a>` : '')}<div class="ancho"><dt>Domicilio</dt><dd>${esc(p.direccion) || '<span class="sub">—</span>'}</dd></div></dl></div>
     <div class="card"><h2>Coche y condiciones</h2>
       <dl class="fc-dl">${dato('Marca', esc(c.marca))}${dato('Modelo', esc(c.modelo))}${dato('Año', esc(c.anio))}${dato('Kilómetros', esc(c.km))}${dato('Matrícula', esc(c.matricula))}${dato('Bastidor', esc(c.bastidor))}
-        ${dato('Precio de salida', k.precio_salida ? eur0(k.precio_salida) : '')}${dato('Precio mínimo', k.precio_minimo ? eur0(k.precio_minimo) : '')}${dato('Comisión', k.comision_pct != null ? `${esc(String(k.comision_pct).replace('.', ','))} %${k.comision_min ? ` (mín. ${eur0(k.comision_min)})` : ''}` : '')}${dato('Exclusividad', k.exclusividad_meses ? `${k.exclusividad_meses} meses` : '')}${dato('Cómo llegó', esc(ORIGENES[x0.origen] || (Object.keys(x0).length ? '' : 'Antes del panel')))}${dato('Lo lleva', esc(o.comercial))}</dl>
+        ${dato('Precio de salida', k.precio_salida ? eur0(k.precio_salida) : '')}${dato('Precio mínimo', k.precio_minimo ? eur0(k.precio_minimo) : '')}${dato('Comisión', k.comision_pct != null ? `${esc(String(k.comision_pct).replace('.', ','))} %${k.comision_min ? ` (mín. ${eur0(k.comision_min)})` : ''}` : '')}${dato('Exclusividad', diasExclusiva(k) ? `${diasExclusiva(k)} días` : '')}${dato('Cómo llegó', esc(ORIGENES[x0.origen] || (Object.keys(x0).length ? '' : 'Antes del panel')))}${dato('Lo lleva', esc(o.comercial))}</dl>
       ${x.notas ? `<p class="sub">${esc(x.notas)}</p>` : ''}</div>
     <div class="card"><details${p.nombre && c.matricula ? '' : ' open'} class="fc-ed"><summary>Editar la ficha (propietario, coche y condiciones)</summary>${formExpediente(o, e)}</details></div>
     <div class="card"><h2>Documentos</h2><ul class="fc-docs">${docs.map(([t, sub, url, cl]) => `<li><span class="doc-i ${cl}"></span><div><b>${esc(t)}</b><small>${esc(sub)}</small></div><a class="boton claro peq" href="${esc(url)}" target="_blank" rel="noopener">Ver / PDF</a></li>`).join('')}</ul>
@@ -560,6 +568,29 @@ const CSS_FICHA = `
   .boton.grande { padding: 14px 22px; font-size: 16px; } .fs legend small { font-weight: 400; color: var(--suave); } .fx textarea { width: 100%; font: inherit; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--linea-2); background: var(--caja); color: var(--texto); }
   .boton.peq { padding: 6px 12px; font-size: 13px; }
   @media (max-width: 1000px) { .fc-grid { grid-template-columns: 1fr; } .fc-cab { grid-template-columns: 96px 1fr; } .fc-cab > img, .fc-sin { width: 96px; height: 72px; } .fc-precio { grid-column: 1 / -1; text-align: left; } .fc-precio .acc-row { justify-content: flex-start; } }`;
+/** Vendido y su factura, de una vez (para la ventana de Anuncios) */
+function formVender(o, pr, e) {
+  const id = Number(o.id), fid = `fv${id}`;
+  return `<form method="post" action="?estado=expediente&id=${id}" class="fx" id="${fid}"><input type="hidden" name="accion" value="vender"><input type="hidden" name="volver" value="sidonia">
+  <fieldset class="fs"><legend>La venta</legend><div class="g3">
+    ${campo('Precio final de venta (€)', 'precio_venta', o.precio_venta || o.expediente?.condiciones?.precio_salida || o.precio_anunciado || '', ' inputmode="decimal" required data-pv')}<label>Fecha de venta<input type="date" name="fecha_venta" value="${esc(String(o.fecha_venta || hoyISO()).slice(0, 10))}" required></label>${campo('Comprador', 'comprador_nombre', o.comprador_nombre)}
+    ${campo('Teléfono del comprador', 'comprador_telefono', o.comprador_telefono)}${campo('Email del comprador', 'comprador_email', o.comprador_email)}</div></fieldset>
+  <fieldset class="fs"><legend>La factura de nuestra comisión <small>a nombre del propietario; cámbialo si la quiere a nombre de otro</small></legend><div class="g3">
+    ${campo('A nombre de', 'd_nombre', pr.destinatario.nombre)}${campo('NIF / CIF', 'd_nif', pr.destinatario.nif)}${campo('Domicilio', 'd_direccion', pr.destinatario.direccion)}
+    ${campo('Nuestra comisión (%)', 'pct', pr.pct, ' inputmode="decimal" data-pct')}${campo('Base: comisión sin IVA (€)', 'base', pr.base || '', ' inputmode="decimal" data-base')}${campo('IVA (%)', 'iva_pct', pr.iva_pct, ' inputmode="decimal" data-iva')}
+    <label>Total con IVA<input data-total readonly></label><label>Forma de pago<select name="forma_pago" data-forma>${Object.entries(FORMAS_PAGO).map(([a, b]) => `<option value="${a}">${b}</option>`).join('')}</select></label>${campo('N.º de factura', 'numero', pr.numero)}
+    <label>Fecha de la factura<input type="date" name="fecha" value="${esc(pr.fecha)}"></label><label class="ancho" style="grid-column:span 2">Concepto<input name="concepto" value="${esc(pr.concepto)}"></label></div>
+    <p class="aviso-ef" data-ef hidden>En efectivo solo si el total es menor de ${eur0(LIMITE_EFECTIVO)} (Ley 7/2012).</p>
+    ${!emisorCompleto(e) ? '<p class="aviso mal">Faltan los datos de Sidonia para la factura: Finanzas › Datos de facturación.</p>' : ''}</fieldset>
+  <div class="fx-bts"><button class="boton grande" name="facturar" value="1">Vendido y crear la factura</button>
+    <button class="boton grande wa" name="facturar" value="wa" formtarget="_blank" data-recargar>… y enviarla por WhatsApp</button><button class="boton grande claro" name="facturar" value="email">… y enviarla por email</button>
+    <button class="boton claro" name="facturar" value="">Solo marcar vendido</button></div></form>
+  <script>(() => { const f = document.getElementById('${fid}'); if (!f) return; const q = (s) => f.querySelector(s); const nn = (v) => { const s = String(v || '').replace(/\s|€|%/g, ''); return Number(/,\d{1,2}$/.test(s) ? s.replace(/\./g, '').replace(',', '.') : /^\d{1,3}(\.\d{3})+$/.test(s) ? s.replace(/\./g, '') : s.replace(/,/g, '')) || 0; };
+    const fmt = (x) => x.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
+    const tot = () => { const t = nn(q('[data-base]').value) * (1 + nn(q('[data-iva]').value) / 100); q('[data-total]').value = fmt(t); q('[data-ef]').hidden = !(q('[data-forma]').value === 'efectivo' && t >= ${LIMITE_EFECTIVO}); };
+    const base = () => { const b = Math.max(Math.round(nn(q('[data-pv]').value) * nn(q('[data-pct]').value)) / 100, ${n(o.expediente?.condiciones?.comision_min)}); if (b) q('[data-base]').value = String(b).replace('.', ','); tot(); };
+    q('[data-pv]').addEventListener('input', base); q('[data-pct]').addEventListener('input', base); ['[data-base]', '[data-iva]', '[data-forma]'].forEach((s) => q(s).addEventListener('input', tot)); base(); })();</script>`;
+}
 function formVenta(o) {
   return `<form method="post" action="?estado=expediente&id=${Number(o.id)}"><div class="g3">
     ${campo('Precio final de venta (€)', 'precio_venta', o.precio_venta, ' inputmode="decimal" required')}<label>Fecha de venta<input type="date" name="fecha_venta" value="${esc(String(o.fecha_venta || hoyISO()).slice(0, 10))}" required></label>${campo('Comprador', 'comprador_nombre', o.comprador_nombre)}
@@ -622,6 +653,13 @@ const CSS_SD = `
   .sd-flujo { grid-template-columns: repeat(4, 1fr) !important; }
   .sd-subs { display: flex; flex-wrap: wrap; gap: 6px; margin: -4px 0 12px; } .sd-subs a { padding: 6px 12px; border-radius: 999px; border: 1px solid var(--linea); background: var(--caja); font-size: 13px; font-weight: 700; text-decoration: none; color: var(--suave); }
   .sd-subs a.on { border-color: var(--verde); color: var(--verde); background: var(--verde-fondo); }
+  .md { width: min(920px, 94vw); max-height: 92vh; padding: 0; border: 0; border-radius: 20px; background: var(--fondo); color: var(--texto); box-shadow: 0 30px 80px -20px rgba(0,0,0,.5); }
+  .md::backdrop { background: rgba(10,15,20,.55); backdrop-filter: blur(3px); }
+  .md-c { padding: 22px 24px 24px; overflow-y: auto; max-height: 92vh; }
+  .md-x { all: unset; position: absolute; right: 14px; top: 10px; font-size: 28px; line-height: 1; cursor: pointer; color: var(--suave) !important; z-index: 2; } .md-x:hover { color: var(--texto) !important; }
+  .md-h { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin: 0 30px 14px 0; } .md-h h2 { margin: 0; font-size: 20px; letter-spacing: 0; text-transform: none; color: var(--texto); }
+  .boton.grande { padding: 13px 20px; font-size: 15px; } .fs legend small { font-weight: 400; color: var(--suave); }
+  .fx-bts { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 4px; } .fx-bts .boton.wa { background: #25d366; color: #04150c !important; }
   .sd-masivo { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; padding: 12px 16px; margin: 0 0 12px; border-radius: 14px; background: var(--amarillo-fondo); font-size: 14px; }
   .sd-bar .boton.on { border-color: var(--verde); color: var(--verde); }
   @media (max-width: 1250px) { .sd-r { grid-template-columns: 56px minmax(0, 2fr) minmax(0, 1.3fr) minmax(0, 1fr) minmax(0, 1.5fr); } .sd-a { grid-column: 2 / -1; justify-content: flex-start; } .sd-m img, .sd-m span { width: 56px; height: 42px; } }
@@ -657,7 +695,8 @@ export function paginaSidonia(cfg, items, { ver = 'disponible', sub = '', aviso 
         <form method="post" action="?estado=sidonia&ver=solicitud"><input type="hidden" name="gestion" value="${Number(g.id)}"><button class="ic-b" name="accion" value="descartar" onclick="return confirm('¿Descartar esta solicitud?')">Descartar</button></form>`;
     } else if (sinFicha) {
       estado = '<span class="e am">Sin ficha de propietario ni contrato</span>';
-      acc = `<a class="boton" href="${enlace}">Añadir su propietario</a>`;
+      const nuevo = `?estado=expediente&nuevo=1&h=${encodeURIComponent(prod.handle)}`;
+      acc = `<a class="boton" href="${nuevo}" data-modal="${nuevo}&parcial=1">Editar ficha</a>`;
     } else if (paso === 'venta') {
       const sc = situacionCartera(o, prod);
       const tel = p.telefono || o.propietario_telefono;
@@ -667,10 +706,10 @@ export function paginaSidonia(cfg, items, { ver = 'disponible', sub = '', aviso 
       const contratoAcc = ['sin_enviar', 'enviado'].includes(sc.contrato)
         ? (!listoContrato(o) ? `<a class="boton claro" href="${enlace}#contrato">Completar el contrato</a>` : `${tel ? `<a class="boton wa" href="?estado=expediente&id=${Number(o.id)}&wa=contrato" target="_blank" rel="noopener">${sc.contrato === 'enviado' ? 'Reenviar' : 'Enviar'} contrato</a>` : ''}${p.email ? post('contrato-email', sc.contrato === 'enviado' ? 'Reenviar email' : 'Por email', 'boton claro') : ''}`) : '';
       const anuncioAcc = sc.anuncio === 'sin_anuncio' ? post('crear-anuncio', 'Crear borrador en Shopify', 'boton') : sc.anuncio === 'borrador' ? `<a class="boton az" href="${esc(adminShopify(cfg, o))}" target="_blank" rel="noopener">Subir el vídeo en Shopify</a>` : '';
-      acc = `${contratoAcc}${anuncioAcc}${sc.anuncio === 'en_web' ? `<a class="boton claro" href="${enlace}#venta">Vendido</a>` : ''}`;
+      acc = `<a class="boton claro" href="${enlace}" data-modal="${enlace}&parcial=editar">Editar ficha</a>${contratoAcc}${anuncioAcc}${sc.anuncio === 'en_web' ? `<a class="boton" href="${enlace}#venta" data-modal="${enlace}&parcial=vender">Vendido</a>` : ''}`;
     } else if (paso === 'factura') {
       estado = `<span class="e am">${o?.estado === 'vendido' ? 'Vendido: falta la factura' : 'Vendido en la web: pon el precio final'}</span>`;
-      acc = `<a class="boton" href="${enlace}#${o?.estado === 'vendido' ? 'factura' : 'venta'}">${o?.estado === 'vendido' ? 'Hacer la factura' : 'Poner el precio'}</a>${o?.estado === 'vendido' ? `<form method="post" action="?estado=expediente&id=${Number(o.id)}"><input type="hidden" name="volver" value="sidonia"><button class="boton claro" name="accion" value="efectivo" onclick="return confirm('¿Apuntar que la comisión ya se cobró en efectivo, sin factura?')">Cobrada en efectivo</button></form>` : ''}`;
+      acc = `<a class="boton" href="${enlace}#${o?.estado === 'vendido' ? 'factura' : 'venta'}" data-modal="${enlace}&parcial=vender">${o?.estado === 'vendido' ? 'Hacer la factura' : 'Vendido y factura'}</a>${o?.estado === 'vendido' ? `<form method="post" action="?estado=expediente&id=${Number(o.id)}"><input type="hidden" name="volver" value="sidonia"><button class="boton claro" name="accion" value="efectivo" onclick="return confirm('¿Apuntar que la comisión ya se cobró en efectivo, sin factura?')">Cobrada en efectivo</button></form>` : ''}`;
     } else if (paso === 'cobro') {
       estado = `<span class="e am">Factura ${esc(f.numero)} · ${eur(f.total)} sin cobrar</span>`;
       acc = `<a class="boton" href="${enlace}#cobro">Marcar cobrada</a>${p.telefono || o.propietario_telefono ? `<a class="boton claro" href="?estado=expediente&id=${Number(o.id)}&wa=factura" target="_blank" rel="noopener">Reenviar</a>` : ''}`;
@@ -709,6 +748,24 @@ ${aviso ? `<p class="aviso${/^Error/.test(aviso) ? ' mal' : ''}">${esc(aviso)}</
 ${subs}
 ${ver === 'vendido' && sub === 'sinfactura' && sinFact ? `<form method="post" action="?estado=sidonia&ver=vendido&f=sinfactura" class="sd-masivo"><span>¿Las comisiones de estas ventas ya se cobraron en efectivo, sin factura? Apúntalo de una vez (se pueden facturar luego igualmente).</span><button class="boton claro" name="accion" value="efectivo-todas" onclick="return confirm('¿Apuntar como cobradas en efectivo, sin factura, las ${fmtN(sinFact)} ventas sin factura? Recordad: toda venta debe facturarse y en efectivo solo por debajo de 1.000 €. Hablad con la gestoría para regularizarlas.')">Marcar todas como cobradas en efectivo</button></form>` : ''}
 ${lista.length ? `<div class="sd-lista"><div class="sd-r sd-th"><span></span><span>Coche</span><span>Propietario</span><span>Precio</span><span>Estado</span><span></span></div>${lista.map(tarjeta).join('')}</div>` : `<div class="sd-vacio">${{ solicitud: 'No hay solicitudes nuevas.', proximamente: 'Nada pendiente de subir. Da de alta un coche con «+ Nuevo coche».', disponible: 'No hay coches a la venta.', vendido: 'Nada aquí.' }[ver] || 'Nada aquí.'}</div>`}
+<dialog class="md" id="md"><button type="button" class="md-x" aria-label="Cerrar" onclick="this.closest('dialog').close()">×</button><div class="md-c"></div></dialog>
+<script>(() => {
+  const dlg = document.getElementById('md'), caja = dlg.querySelector('.md-c');
+  document.addEventListener('click', async (e) => {
+    const a = e.target.closest('[data-modal]'); if (!a || e.metaKey || e.ctrlKey) return;
+    e.preventDefault();
+    caja.innerHTML = '<p class="sub" style="padding:30px">Cargando…</p>'; dlg.showModal();
+    try {
+      const r = await fetch(a.dataset.modal, { credentials: 'same-origin' });
+      caja.innerHTML = await r.text();
+      caja.querySelectorAll('script').forEach((s0) => { const s1 = document.createElement('script'); s1.textContent = s0.textContent; s0.replaceWith(s1); });
+      const f = caja.querySelector('input:not([type=hidden]), textarea'); if (f) f.focus();
+    } catch (err) { location.href = a.href; }
+  });
+  // WhatsApp se abre en otra pestaña: aquí se recarga la lista
+  document.addEventListener('submit', (e) => { const b = e.submitter; if (b && b.hasAttribute('data-recargar')) setTimeout(() => location.reload(), 1200); });
+  dlg.addEventListener('click', (e) => { if (e.target === dlg) dlg.close(); });
+})();</script>
 <p class="nota"><b>Solicitudes:</b> los del formulario de la web; «Crear ficha y contrato» los pasa a Próximamente. <b>Próximamente:</b> los que Hugo da de alta con «+ Nuevo coche» (se crea su borrador en Shopify y el contrato) o se crean como borrador en Shopify: cuando subís el vídeo y lo activáis en Shopify, pasa solo a <b>Disponibles</b>. Al venderse, «Vendido» con el precio final, y en <b>Vendidos</b> la factura y el cobro. En Próximamente salen todos los borradores de Shopify (los creados aquí y allí); los archivados no salen. Lo que se cambie en Shopify (título, descripción, precio) pasa a la ficha, y al revés.</p>`, CSS + CSS_SD);
 }
 
@@ -724,7 +781,7 @@ ${aviso ? `<p class="aviso${/^Error/.test(aviso) ? ' mal' : ''}">${esc(aviso)}</
   ${campo('Email', 'email', e.email)}${campo('Teléfono', 'telefono', e.telefono)}
   ${campo('IBAN (para cobrar por transferencia)', 'iban', e.iban)}${campo('Marca comercial', 'marca', e.marca)}</div>
   <h3 style="margin:18px 0 8px">Condiciones por defecto de los coches nuevos</h3><div class="g3">
-  ${campo('Comisión (%)', 'comision_pct', e.comision_pct, ' inputmode="decimal"')}${campo('Comisión mínima (€)', 'comision_min', e.comision_min || '', ' inputmode="decimal"')}${campo('Exclusividad (meses)', 'exclusividad_meses', e.exclusividad_meses, ' inputmode="numeric"')}
+  ${campo('Comisión (%)', 'comision_pct', e.comision_pct, ' inputmode="decimal"')}${campo('Comisión mínima (€)', 'comision_min', e.comision_min || '', ' inputmode="decimal"')}${campo(`Exclusividad (días, mínimo ${EXCLUSIVA_MIN})`, 'exclusividad_dias', diasExclusiva(e) || EXCLUSIVA_MIN, ` inputmode="numeric" min="${EXCLUSIVA_MIN}"`)}
   ${campo('IVA (%)', 'iva_pct', e.iva_pct, ' inputmode="decimal"')}</div>
   <div class="acc-row"><button class="boton" name="accion" value="guardar">Guardar</button></div></form></div>`, CSS);
 }
@@ -742,6 +799,28 @@ export async function rutasExpedientes(req, cfg, deps, html) {
   const emisor = await leerAjuste(tA);
   const errorSql = (e) => (/expediente|ajustes|facturas|column|relation|schema/.test(String(e.message || e)) ? `Error: a la base de datos le falta algo (${String(e.message || e).slice(0, 200)}). Mira Herramientas › Base de datos: dice qué SQL ejecutar.` : `Error: ${e.message || e}`);
   const leerFacturas = async () => { try { return (await tF.leer('select=*&order=fecha.asc&limit=5000')).map((f) => ({ ...f, fecha: String(f.fecha).slice(0, 10), base: n(f.base), iva: n(f.iva), total: n(f.total), datos: f.datos || {} })); } catch (e) { return []; } };
+
+  // Enviar el contrato (por WhatsApp: devuelve el enlace de WhatsApp; por email: lo manda)
+  const enviarContrato = async (o, via) => {
+    const x = o.expediente || {}, p = x.propietario || {};
+    if (x.contrato?.firma) return { aviso: 'El contrato ya está firmado.' };
+    if (!emisorCompleto(emisor)) return { aviso: 'Error: guardado, pero para enviar el contrato faltan los datos de Sidonia (Finanzas › Datos de facturación).' };
+    const marcar = (via2, texto) => tO.cambiar(Number(o.id), { expediente: conHistorial({ ...x, contrato: { ...(x.contrato || {}), enviado: new Date().toISOString(), via: via2, cambiado: false } }, texto), actualizado: new Date().toISOString() });
+    if (via === 'wa') {
+      const url = enlaceWa(p.telefono || o.propietario_telefono, textoWaContrato(cfg, o));
+      if (!url) return { aviso: 'Error: guardado, pero el propietario no tiene teléfono.' };
+      await marcar('WhatsApp', 'Contrato enviado por WhatsApp');
+      return { aviso: 'Guardado y contrato enviado por WhatsApp.', location: url };
+    }
+    if (!p.email) return { aviso: 'Error: guardado, pero el propietario no tiene email.' };
+    const cuerpo = P(`Hola ${esc(primerNombre(p.nombre))},`) + P(`Aquí tienes el <b>contrato de intermediación y exclusividad</b> para la venta de tu <b>${esc(o.titulo)}</b> con Sidonia. Léelo, completa tus datos y fírmalo desde el móvil: es un minuto.`) + P('Cualquier duda, responde a este email o escríbenos por WhatsApp.');
+    const ok = await enviarCorreo(cfg, p.email, `Tu contrato con Sidonia: ${o.titulo}`, plantilla(cfg, null, { titulo: 'Tu contrato con Sidonia', previa: `Firma el contrato para vender tu ${o.titulo}.`, cuerpo, boton: 'Leer y firmar el contrato', enlace: urlIntermediacion(cfg, o.id), sinDudas: true }), deps.fetch).catch((e) => { console.error(e); return false; });
+    if (!ok) return { aviso: 'Error: guardado, pero no se ha podido enviar el email.' };
+    await marcar('email', `Contrato enviado por email a ${p.email}`);
+    return { aviso: `Guardado y contrato enviado a ${p.email}.` };
+  };
+  const vuelta = (b2, o, aviso, location) => (location ? { status: 302, headers: { Location: location, 'Cache-Control': 'no-store' }, body: '' }
+    : { status: 303, headers: { Location: b2.volver === 'sidonia' ? `?estado=sidonia${b2.ver ? `&ver=${encodeURIComponent(String(b2.ver))}` : ''}&aviso=${encodeURIComponent(aviso)}` : `?estado=expediente&id=${Number(o.id)}&aviso=${encodeURIComponent(aviso)}`, 'Cache-Control': 'no-store' }, body: '' });
 
   if (estado === 'facturacion') {
     let aviso = '';
@@ -839,7 +918,7 @@ ${cand.map((x) => `<form method="post" action="?estado=ligar&h=${encodeURICompon
         const d = g.datos || {};
         const exp = conHistorial({ origen: 'web', gestion_id: Number(g.id), propietario: { nombre: t(d.nombre, 120), email: t(d.email, 160).toLowerCase(), telefono: t(d.telefono, 40), dni: '', direccion: '' },
           coche: { marca: t(d.marca, 40), modelo: t(d.modelo, 80), anio: t(d.anio, 4), km: t(d.km, 20), matricula: '', bastidor: '' },
-          condiciones: { comision_pct: emisor.comision_pct, comision_min: emisor.comision_min || null, exclusividad_meses: emisor.exclusividad_meses, precio_salida: num(d.precio), precio_minimo: null } }, 'Expediente abierto desde el formulario de la web');
+          condiciones: { comision_pct: emisor.comision_pct, comision_min: emisor.comision_min || null, exclusividad_dias: diasExclusiva(emisor) || EXCLUSIVA_MIN, precio_salida: num(d.precio), precio_minimo: null } }, 'Expediente abierto desde el formulario de la web');
         const o = await tO.guardar({ titulo: tituloCoche(exp.coche) || 'VEHÍCULO', tipo: 'coche', estado: 'captado', modalidad: 'gestion', propietario_nombre: exp.propietario.nombre, propietario_email: exp.propietario.email || null,
           propietario_telefono: exp.propietario.telefono || null, precio_anunciado: exp.condiciones.precio_salida, origen: 'panel', expediente: exp }, 'id');
         await tG.cambiar(Number(g.id), { estado: g.estado === 'nueva' || g.estado === 'contactado' ? 'en_gestion' : g.estado, nota: `${g.nota ? `${g.nota} · ` : ''}Expediente n.º ${o.id}`, actualizado: new Date().toISOString() }).catch(() => null);
@@ -852,7 +931,7 @@ ${cand.map((x) => `<form method="post" action="?estado=ligar&h=${encodeURICompon
       if (error) aviso = `Error: ${error}`;
       else {
         try {
-          let o = await tO.guardar({ ...op, estado: 'captado', origen: 'panel', expediente: conHistorial(op.expediente, `Coche dado de alta (${ORIGENES[op.expediente.origen]})`) }, 'id');
+          let o = await tO.guardar({ ...op, estado: op.handle ? 'en_venta' : 'captado', origen: 'panel', expediente: conHistorial(op.expediente, `Coche dado de alta (${ORIGENES[op.expediente.origen]})`) }, 'id');
           // A la vez, su borrador en Shopify (con título, descripción y precio), ya ligado: solo falta subir el vídeo
           let nota = '';
           if (!o.handle && (deps.gql || (cfg.shopifyTienda && cfg.shopifyClientId))) {
@@ -864,7 +943,12 @@ ${cand.map((x) => `<form method="post" action="?estado=ligar&h=${encodeURICompon
               nota = 'Creado: su borrador ya está en Shopify (solo falta el vídeo) y el contrato, listo para enviar.';
             } catch (e) { console.error(e); nota = `Error: el coche está creado, pero no se ha podido crear su borrador en Shopify (${e.message}). Prueba con «Crear borrador en Shopify».`; }
           } else nota = 'Creado. El contrato está listo para enviar.';
-          return { status: 303, headers: { Location: `?estado=expediente&id=${Number(o.id)}&aviso=${encodeURIComponent(nota)}`, 'Cache-Control': 'no-store' }, body: '' };
+          if (b.enviar === 'wa' || b.enviar === 'email') {
+            const [o2] = await tO.leer(`id=eq.${Number(o.id)}&select=*&limit=1`).catch(() => [o]);
+            const r = await enviarContrato(o2 || o, b.enviar);
+            return vuelta(b, o, `${/^Error/.test(nota) ? `${nota} ` : ''}${r.aviso}`, r.location);
+          }
+          return vuelta(b, o, nota);
         } catch (e) { aviso = errorSql(e); }
       }
     }
@@ -873,8 +957,13 @@ ${cand.map((x) => `<form method="post" action="?estado=ligar&h=${encodeURICompon
     let deLaWeb = null;
     if (!aviso && req.query.h) {
       try { const { catalogoTienda } = await import('./actividad.mjs'); deLaWeb = (await catalogoTienda(cfg, deps)).get(String(req.query.h)) || null; } catch (e) { deLaWeb = null; }
-      if (deLaWeb) base = { handle: deLaWeb.handle, expediente: { coche: cocheDeTitulo(deLaWeb.titulo) } };
+      if (deLaWeb) {
+        let descripcion = '';
+        try { descripcion = textoDeHtml((await productoDe(deps.gql || shopifyAdmin(cfg, deps.fetch), deLaWeb.handle))?.descriptionHtml); } catch (e) { descripcion = ''; }
+        base = { handle: deLaWeb.handle, titulo: deLaWeb.titulo, precio_anunciado: deLaWeb.precio || null, expediente: { coche: { ...cocheDeTitulo(deLaWeb.titulo), descripcion }, condiciones: { precio_salida: deLaWeb.precio || null } } };
+      }
     }
+    if (req.query.parcial) return html(`<div class="md-h"><h2>${esc(deLaWeb?.titulo || 'Nuevo coche')}</h2><span class="sub">Su propietario, el coche y las condiciones: con esto sale el contrato</span></div>${formExpediente(base, emisor, { accion: 'crear', boton: 'Guardar', volver: 'sidonia' })}`);
     return html(marco('Nuevo coche', 'sidonia', `<p><a href="?estado=sidonia">‹ Coches de Sidonia</a></p>${aviso ? `<p class="aviso mal">${esc(aviso)}</p>` : ''}
 <div class="card"><h2>Nuevo coche: su ficha</h2><p class="sub">${deLaWeb ? `Para el anuncio <b>${esc(deLaWeb.titulo)}</b> de la web: pon los datos de su propietario y se quedan ligados.` : 'Rellena el propietario, el coche (como en Shopify: precio y descripción) y las condiciones. Al crearlo se hace a la vez <b>su borrador en Shopify</b> (solo faltará subir el vídeo y activarlo) y <b>el contrato de intermediación y exclusividad</b>, listo para enviar por WhatsApp o email.'}</p>${formExpediente(base, emisor, { accion: 'crear', boton: deLaWeb ? 'Crear su ficha' : 'Crear el coche: borrador en Shopify y contrato' })}</div>`, CSS));
   }
@@ -890,7 +979,7 @@ ${cand.map((x) => `<form method="post" action="?estado=ligar&h=${encodeURICompon
     o = { ...o, ...cambios, expediente: exp };
   };
   const p = o.expediente.propietario || {};
-  let aviso = req.method === 'GET' ? String(req.query.aviso || '').slice(0, 400) : '';
+  let aviso = req.method === 'GET' ? String(req.query.aviso || '').slice(0, 400) : '', irA = '';
 
   // WhatsApp: se apunta como enviado y se abre WhatsApp con el mensaje y el enlace
   if (req.method === 'GET' && (req.query.wa === 'contrato' || req.query.wa === 'factura')) {
@@ -922,6 +1011,7 @@ ${cand.map((x) => `<form method="post" action="?estado=ligar&h=${encodeURICompon
               if (await llevarAShopify(deps.gql || shopifyAdmin(cfg, deps.fetch), o, cambia)) { aviso = 'Guardado, también en Shopify.'; try { const { olvidarCatalogo } = await import('./actividad.mjs'); olvidarCatalogo(); } catch (e) { /* nada */ } }
             } catch (e) { console.error(e); aviso = `Guardado aquí, pero no en Shopify (${e.message}).`; }
           }
+          if (b.enviar === 'wa' || b.enviar === 'email') { const r = await enviarContrato(o, b.enviar); aviso = r.aviso; if (r.location) irA = r.location; }
         }
       } else if (a === 'contrato-email') {
         if (!p.email) aviso = 'Error: el propietario no tiene email.';
@@ -993,6 +1083,48 @@ ${cand.map((x) => `<form method="post" action="?estado=ligar&h=${encodeURICompon
           await tF.cambiar(factura.id, { cobrada: fecha, forma_pago: forma }); factura = { ...factura, cobrada: fecha, forma_pago: forma };
           await guardar({}, `Cobrada la factura ${factura.numero} (${FORMAS_PAGO[forma]})`); aviso = '¡Cobrada!';
         }
+      } else if (a === 'vender') {
+        // Vendido y, si se pide, su factura (y enviarla), todo de una vez desde Anuncios
+        const precio = num(b.precio_venta), fecha = String(b.fecha_venta || '');
+        if (!(precio > 0)) aviso = 'Error: pon el precio final de venta.';
+        else if (!DIA.test(fecha)) aviso = 'Error: pon la fecha de venta.';
+        else {
+          const k = o.expediente.condiciones || {};
+          const comision = r2(Math.max(precio * n(b.pct ?? k.comision_pct ?? emisor.comision_pct) / 100, n(k.comision_min)));
+          const pc = n(k.comercial_pct);
+          await guardar({ estado: 'vendido', precio_venta: precio, fecha_venta: fecha, comprador_nombre: t(b.comprador_nombre, 120) || null, comprador_telefono: t(b.comprador_telefono, 40) || null, comprador_email: t(b.comprador_email, 160) || null,
+            ...(factura ? {} : { comision, ...(pc ? { comision_comercial: r2(comision * pc / 100) } : {}) }) }, `Vendido por ${eur0(precio)}`);
+          aviso = '¡Vendido!';
+          if (b.facturar && !factura) {
+            if (!emisorCompleto(emisor)) aviso = '¡Vendido! Error: para la factura faltan los datos de Sidonia (Finanzas › Datos de facturación).';
+            else {
+              const { factura: nueva, error } = leerFacturaForm({ ...b, base: b.base || String(comision), fecha: b.fecha || fecha }, o);
+              if (error) aviso = `¡Vendido! Error en la factura: ${error}`;
+              else if (facturas.some((f) => f.numero === nueva.numero)) aviso = `¡Vendido! Error: ya hay una factura ${nueva.numero}.`;
+              else {
+                const p2 = o.expediente.propietario || {};
+                nueva.datos = { ...nueva.datos, emisor, destinatario: { ...nueva.datos.destinatario, email: p2.email || '' } };
+                const g = await tF.guardar(nueva, 'id');
+                await guardar({ comision: nueva.base, ...(pc ? { comision_comercial: r2(nueva.base * pc / 100) } : {}) }, `Factura ${nueva.numero} de ${eur(nueva.total)} a nombre de ${nueva.cliente}`);
+                facturas = await leerFacturas(); factura = facturas.find((f) => Number(f.id) === Number(g.id)) || { ...nueva, id: g.id };
+                aviso = `¡Vendido! Factura ${nueva.numero} creada.`;
+                const tel = p2.telefono || o.propietario_telefono;
+                if (b.facturar === 'wa') {
+                  const url = enlaceWa(tel, textoWaFactura(cfg, o, factura));
+                  if (url) { await tF.cambiar(factura.id, { datos: { ...factura.datos, enviada: { fecha: new Date().toISOString(), via: 'WhatsApp' } } }).catch(() => null); await guardar({}, `Factura ${factura.numero} enviada por WhatsApp`); irA = url; aviso += ' Enviada por WhatsApp.'; } else aviso += ' (Sin teléfono para WhatsApp.)';
+                } else if (b.facturar === 'email') {
+                  const para = p2.email;
+                  if (!para) aviso += ' (Sin email para enviarla.)';
+                  else {
+                    const cuerpo = P(`Hola ${esc(primerNombre(factura.datos?.destinatario?.nombre || p2.nombre))},`) + P(`¡Enhorabuena por la venta de tu <b>${esc(o.titulo)}</b>! Te enviamos nuestra factura <b>${esc(factura.numero)}</b> por <b>${eur(factura.total)}</b>.`) + P(factura.forma_pago === 'transferencia' && emisor.iban ? `Puedes pagarla por transferencia a la cuenta ${esc(emisor.iban)}.` : `Forma de pago: ${esc(FORMAS_PAGO[factura.forma_pago] || '')}.`) + P('Gracias por confiar en Sidonia.');
+                    const ok = await enviarCorreo(cfg, para, `Factura ${factura.numero} · Sidonia`, plantilla(cfg, null, { titulo: `Factura ${factura.numero}`, previa: `${eur(factura.total)} · venta de tu ${o.titulo}`, cuerpo, boton: 'Ver la factura (PDF)', enlace: urlFactura(cfg, factura.id), sinDudas: true }), deps.fetch).catch((e) => { console.error(e); return false; });
+                    if (ok) { await tF.cambiar(factura.id, { datos: { ...factura.datos, enviada: { fecha: new Date().toISOString(), via: `email (${para})` } } }); await guardar({}, `Factura ${factura.numero} enviada por email a ${para}`); aviso += ` Enviada a ${para}.`; } else aviso += ' (No se ha podido enviar el email.)';
+                  }
+                }
+              }
+            }
+          }
+        }
       } else if (a === 'efectivo') {
         if (factura) aviso = 'Error: ya tiene factura: márcala como cobrada.';
         else if (o.estado !== 'vendido') aviso = 'Error: primero, márcalo como vendido.';
@@ -1004,7 +1136,8 @@ ${cand.map((x) => `<form method="post" action="?estado=ligar&h=${encodeURICompon
       }
     } catch (e) { aviso = /Shopify|gql|GraphQL/i.test(String(e.message)) ? `Error: ${e.message}` : errorSql(e); }
     // Desde la lista de coches: se vuelve a la lista con el aviso
-    if (b.volver === 'sidonia') return { status: 303, headers: { Location: `?estado=sidonia&aviso=${encodeURIComponent(aviso)}`, 'Cache-Control': 'no-store' }, body: '' };
+    if (irA) return vuelta(b, o, aviso, irA);
+    if (b.volver === 'sidonia') return vuelta(b, o, aviso);
   }
   // Lo cambiado en Shopify (título, descripción, precio) pasa a la ficha
   if (req.method === 'GET' && o.handle && (deps.gql || (cfg.shopifyTienda && cfg.shopifyClientId))) {
@@ -1012,6 +1145,12 @@ ${cand.map((x) => `<form method="post" action="?estado=ligar&h=${encodeURICompon
       const r = cambiosDeShopify(o, await productoDe(deps.gql || shopifyAdmin(cfg, deps.fetch), o.handle));
       if (r) await guardar(r.cambios, r.qué.length ? `Cambiado en Shopify: ${r.qué.join(', ')}` : '');
     } catch (e) { console.error(e); }
+  }
+  // La ventana de Anuncios: editar la ficha, o vendido y su factura
+  if (req.method === 'GET' && req.query.parcial) {
+    const vista = { ...o, expediente: { ...o.expediente, coche: o.expediente.coche && Object.keys(o.expediente.coche).length ? o.expediente.coche : cocheDeTitulo(o.titulo), propietario: { nombre: o.propietario_nombre || '', telefono: o.propietario_telefono || '', email: o.propietario_email || '', ...(o.expediente.propietario || {}) }, condiciones: { precio_salida: o.precio_anunciado ?? null, ...(o.expediente.condiciones || {}) } } };
+    if (req.query.parcial === 'vender') return html(`<div class="md-h"><h2>${esc(o.titulo)}</h2><span class="sub">Vendido y factura</span></div>${formVender(vista, facturaPropuesta({ ...vista, precio_venta: o.precio_venta || vista.expediente.condiciones.precio_salida }, emisor, facturas), emisor)}`);
+    return html(`<div class="md-h"><h2>${esc(o.titulo)}</h2><a class="sub" href="?estado=expediente&id=${id}">Abrir la ficha entera ›</a></div>${formExpediente(vista, emisor, { volver: 'sidonia' })}`);
   }
   let anuncios = [];
   try { const { catalogoTienda } = await import('./actividad.mjs'); anuncios = [...(await catalogoTienda(cfg, deps)).values()]; } catch (e) { anuncios = []; }
