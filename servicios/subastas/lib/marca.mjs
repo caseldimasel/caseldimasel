@@ -147,16 +147,22 @@ export const ESTILO_PANEL = `
   nav a.on { color: var(--texto); border-color: var(--linea-2); }
   nav.main a.on { background: var(--verde); border-color: var(--verde); color: var(--verde-tinta); }
   nav.main a svg { flex: none; opacity: .8; }
-  /* En el ordenador: el menú a la izquierda, fijo */
+  /* En el ordenador: una app, con el logo, el menú y los botones en la columna de la izquierda */
   @media (min-width: 1100px) {
-    body { max-width: none; padding: 0 36px 80px 284px; }
-    .cabeza { margin: 0 -36px 8px -284px; padding-left: 24px; padding-right: 36px; }
-    nav.main { position: fixed; z-index: 15; left: 0; top: 0; bottom: 0; width: 248px; margin: 0; padding: 86px 14px 20px; flex-direction: column; gap: 2px; overflow-y: auto; background: var(--caja); border-right: 1px solid var(--linea); }
-    nav.main a { padding: 11px 14px; border: 0; border-radius: 10px; background: transparent; font-size: 15.5px; }
-    nav.main a:hover { background: var(--caja-2); }
+    body { max-width: none; padding: 26px 40px 80px 296px; }
+    .cabeza { position: fixed; z-index: 14; left: 0; top: 0; bottom: 0; width: 264px; margin: 0; padding: 24px 20px 20px; flex-direction: column; align-items: stretch; justify-content: space-between;
+      background: var(--caja); border-right: 1px solid var(--linea); border-bottom: 0; -webkit-backdrop-filter: none; backdrop-filter: none; }
+    .cabeza__marca { flex-direction: column; align-items: flex-start; gap: 10px; padding: 0 6px; }
+    .cabeza__logo { height: 26px; }
+    .cabeza__marca span { font-size: 10.5px; padding: 3px 8px; }
+    .cabeza__botones { padding: 14px 6px 0; border-top: 1px solid var(--linea); }
+    nav.main { position: fixed; z-index: 15; left: 0; top: 112px; bottom: 84px; width: 264px; margin: 0; padding: 6px 14px; flex-direction: column; gap: 3px; overflow-y: auto; background: transparent; border: 0; }
+    nav.main a { padding: 11px 14px; border: 0; border-radius: 12px; background: transparent; font-size: 15.5px; color: var(--suave); }
+    nav.main a:hover { background: var(--caja-2); color: var(--texto); }
     nav.main a.on { background: var(--verde-fondo); color: var(--verde); }
+    nav.main a.on svg { opacity: 1; }
     nav.main a .num { margin-left: auto; }
-    nav.sub { margin-top: 18px; }
+    nav.sub { margin: 0 0 22px; }
   }
   nav.sub { margin: -6px 0 18px; gap: 2px; padding: 3px; width: max-content; max-width: 100%; border-radius: 12px; background: var(--caja); border: 1px solid var(--linea); }
   nav.sub a { padding: 7px 13px; border: 0; border-radius: 9px; background: transparent; font-size: 14px; }

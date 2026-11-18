@@ -64,6 +64,7 @@ export function pasoDe(o, factura = null, prod = undefined, hoy = new Date()) {
   const deAntes = !Object.keys(x).length && o.estado !== 'captado';
   if (o.estado === 'retirado') return 'hecho';
   if (factura && factura.estado !== 'anulada') return factura.cobrada ? 'hecho' : 'cobro';
+  if (x.cobro && (o.estado === 'vendido' || prod?.situacion === 'vendido')) return 'hecho';
   if (o.estado === 'vendido' || prod?.situacion === 'vendido') {
     // Las ventas de años anteriores sin expediente ya están cerradas (se facturaron fuera del panel)
     return deAntes && String(o.fecha_venta || '').slice(0, 4) < String(hoy.getFullYear()) ? 'hecho' : 'factura';
@@ -342,7 +343,12 @@ function formExpediente(o = {}, emisor = {}, { accion = 'guardar', boton = 'Guar
 
 /** Un expediente: los 6 pasos, cada uno con lo que se puede hacer */
 export function paginaExpediente(cfg, o, { factura = null, facturas = [], emisor = {}, aviso = '', anuncios = [], ligados = new Set() } = {}) {
-  const x = o.expediente || {}, p = x.propietario || {}, c = x.coche || {}, k = x.condiciones || {}, e = leerEmisor(emisor);
+  const x0 = o.expediente || {};
+  // Los coches de antes (sin ficha aún): el coche sale del título y el propietario de la venta
+  const x = { ...x0, coche: x0.coche && Object.keys(x0.coche).length ? x0.coche : cocheDeTitulo(o.titulo), propietario: { nombre: o.propietario_nombre || '', telefono: o.propietario_telefono || '', email: o.propietario_email || '', ...(x0.propietario || {}) },
+    condiciones: { precio_salida: o.precio_anunciado ?? null, ...(x0.condiciones || {}) } };
+  o = { ...o, expediente: x };
+  const p = x.propietario, c = x.coche, k = x.condiciones, e = leerEmisor(emisor);
   const enWeb = o.handle ? anuncios.find((a) => a.handle === o.handle) || null : null;
   const PC = PASOS.slice(1, 6);
   const paso = pasoDe(o, factura, anuncios.length ? enWeb : undefined), i = paso === 'hecho' ? 5 : PC.findIndex(([f]) => f === paso);
@@ -387,28 +393,78 @@ export function paginaExpediente(cfg, o, { factura = null, facturas = [], emisor
         ${(factura.datos?.destinatario?.email || p.email) ? f('factura-email', 'Enviar por email', 'boton') : ''}
         ${p.telefono ? `<a class="boton wa" href="?estado=expediente&id=${id}&wa=factura" target="_blank" rel="noopener">Enviar por WhatsApp</a>` : ''}
         ${f('factura-anular', 'Anular', 'boton claro', ' onclick="return confirm(\'¿Anular la factura? Queda como anulada (no se borra) y puedes hacer otra.\')"')}</div>`
-    : o.estado !== 'vendido' ? '<p class="sub">Cuando lo marques como vendido, aquí harás la factura.</p>' : formFactura(prop, e, id);
+    : o.estado !== 'vendido' ? '<p class="sub">Cuando lo marques como vendido, aquí harás la factura.</p>'
+    : x.cobro ? `<p class="aviso">Comisión cobrada en <b>efectivo</b> el ${esc(fechaTxt(x.cobro.fecha))}, <b>sin factura</b>.</p><p class="sub">Toda venta tiene que llevar su factura, y en efectivo solo se puede cobrar por debajo de ${eur0(LIMITE_EFECTIVO)}. Hablad con la gestoría para regularizarla; la factura se puede hacer igualmente aquí:</p>
+      <details><summary>Hacer la factura</summary>${formFactura(prop, e, id)}</details><div class="acc-row">${f('efectivo-deshacer', 'Deshacer «cobrada en efectivo»')}</div>`
+    : `${formFactura(prop, e, id)}<div class="acc-row" style="margin-top:14px;padding-top:12px;border-top:1px solid var(--linea)"><span class="sub">¿Ya os pagó la comisión en efectivo sin factura?</span>${f('efectivo', 'Apuntar: cobrada en efectivo', 'boton claro', ' onclick="return confirm(\'¿Apuntar que la comisión ya se cobró en efectivo, sin factura? Recuerda: toda venta debe facturarse y en efectivo solo por debajo de 1.000 €.\')"')}</div>`;
   const cobro = factura
     ? factura.cobrada ? `<p>Cobrada el <b>${esc(fechaTxt(factura.cobrada))}</b> por ${esc(FORMAS_PAGO[factura.forma_pago] || '—')}.</p>${f('cobro-deshacer', 'Deshacer el cobro')}`
       : `<form method="post" action="?estado=expediente&id=${id}" class="acc-row"><label>Fecha<input type="date" name="cobrada" value="${hoyISO()}"></label><label>Cómo<select name="forma_pago">${Object.entries(FORMAS_PAGO).map(([a, b]) => `<option value="${a}"${factura.forma_pago === a ? ' selected' : ''}>${b}</option>`).join('')}</select></label><button class="boton" name="accion" value="cobrada">Marcar como cobrada</button></form>
         ${n(factura.total) >= LIMITE_EFECTIVO ? `<p class="aviso-ef">Esta factura es de ${eur0(LIMITE_EFECTIVO)} o más: no se puede cobrar en efectivo (Ley 7/2012).</p>` : ''}`
-    : '<p class="sub">Primero, la factura.</p>';
+    : x.cobro && o.estado === 'vendido' ? `<p>Cobrada en efectivo el <b>${esc(fechaTxt(x.cobro.fecha))}</b> (sin factura).</p>` : '<p class="sub">Primero, la factura.</p>';
   const hist = (x.historial || []).slice().reverse().map((h) => `<li><time>${esc(new Date(h.fecha).toLocaleString('es-ES', { timeZone: 'Europe/Madrid', day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' }))}</time>${esc(h.texto)}</li>`).join('');
-  return marco(o.titulo || 'Expediente', 'sidonia', `
-<p><a href="?estado=sidonia">‹ Coches de Sidonia</a></p>
+  const tel = p.telefono || '', wa = telWa(tel);
+  const dato = (t, v) => `<div><dt>${t}</dt><dd>${v || '<span class="sub">—</span>'}</dd></div>`;
+  const docs = [
+    ct.firma ? ['Contrato de intermediación y exclusividad', `Firmado ${ct.firma.papel ? 'en papel' : 'electrónicamente'} el ${fechaTxt(ct.firma.fecha)}${ct.hash ? ` · huella ${ct.hash.slice(0, 10)}…` : ''}`, urlIntermediacion(cfg, id), 'ok']
+      : ['Contrato de intermediación y exclusividad', ct.enviado ? `Enviado el ${fechaTxt(ct.enviado)}: sin firmar` : 'Borrador: aún sin enviar', urlIntermediacion(cfg, id), ct.enviado ? 'am' : ''],
+    ...facturas.filter((fa) => Number(fa.operacion_id) === id).map((fa) => [`Factura ${fa.numero}`, `${eur(fa.total)} · ${fa.estado === 'anulada' ? 'anulada' : fa.cobrada ? `cobrada el ${fechaTxt(fa.cobrada)}` : 'sin cobrar'}`, urlFactura(cfg, fa.id), fa.estado === 'anulada' ? 'no' : fa.cobrada ? 'ok' : 'am'])];
+  const chipF = factura ? (factura.cobrada ? '<span class="chip si">Cobrada</span>' : '<span class="chip am">Emitida</span>') : x.cobro ? '<span class="chip no">Efectivo · sin factura</span>' : '';
+  return marco(o.titulo || 'Coche', 'sidonia', `
+<p class="migas"><a href="?estado=sidonia">‹ Coches de Sidonia</a></p>
 ${aviso ? `<p class="aviso${/^Error/.test(aviso) ? ' mal' : ''}">${esc(aviso)}</p>` : ''}
-<div class="card exp-cab"><div><h2>${esc(o.titulo || tituloCoche(c))}</h2><p>${esc([c.matricula, c.km && `${c.km} km`, ORIGENES[x.origen], o.comercial && `lo lleva ${o.comercial}`].filter(Boolean).join(' · '))}</p>
-  <p>Propietario: <b>${esc(p.nombre || o.propietario_nombre || '—')}</b>${p.telefono ? ` · <a href="tel:${esc(p.telefono)}">${esc(p.telefono)}</a>` : ''}${p.email ? ` · <a href="mailto:${esc(p.email)}">${esc(p.email)}</a>` : ''}</p></div>
-  <div style="text-align:right"><span class="chip si">${esc(nombrePaso(paso))}</span><p>Comisión ${esc(String(k.comision_pct ?? '—').replace('.', ','))} %${k.precio_salida ? ` · sale a ${eur0(k.precio_salida)}` : ''}</p><p><a href="?estado=operacion&id=${id}">Todos los datos de la venta ›</a></p></div></div>
+<div class="card fc-cab">
+  ${enWeb?.foto ? `<img src="${esc(enWeb.foto)}" alt="">` : '<span class="fc-sin"></span>'}
+  <div class="fc-t"><h1>${esc(o.titulo || tituloCoche(c))}</h1>
+    <p>${esc([c.matricula, c.anio, c.km && `${c.km} km`, o.comercial && `lo lleva ${o.comercial}`].filter(Boolean).join(' · ')) || '&nbsp;'}</p>
+    <div class="fc-chips"><span class="chip si">${esc(nombrePaso(paso))}</span>${chipC}${enWeb && !borrador ? '<span class="chip si">En la web</span>' : borrador ? '<span class="chip am">Borrador en Shopify</span>' : ''}${chipF}</div></div>
+  <div class="fc-precio">${o.estado === 'vendido' && o.precio_venta ? `<span>Vendido por</span><b>${eur0(o.precio_venta)}</b>` : `<span>Precio</span><b>${k.precio_salida ? eur0(k.precio_salida) : '—'}</b>`}<small>comisión ${esc(String(k.comision_pct ?? e.comision_pct).replace('.', ','))} %${o.comision ? ` · ${eur(o.comision)}` : ''}</small>
+    <div class="acc-row">${o.handle ? `<a class="boton claro" href="${esc(cfg.tienda)}/products/${esc(o.handle)}" target="_blank" rel="noopener">Ver en la web</a><a class="boton claro" href="?estado=ficha&h=${encodeURIComponent(o.handle)}">Editar anuncio</a>` : ''}</div></div>
+</div>
 ${pasos}
-<div class="card bloque"><h2>Propietario y coche</h2><details${p.nombre && c.matricula ? '' : ' open'}><summary>Ver y cambiar sus datos</summary>${formExpediente(o, e)}</details></div>
+<div class="fc-grid">
+  <div class="fc-izq">
+    <div class="card"><div class="fc-h"><h2>Propietario</h2>${wa ? `<a class="boton wa peq" href="https://wa.me/${wa}" target="_blank" rel="noopener">WhatsApp</a>` : ''}</div>
+      <dl class="fc-dl">${dato('Nombre', esc(p.nombre))}${dato('DNI / NIE / CIF', esc(p.dni))}${dato('Teléfono', tel ? `<a href="tel:${esc(tel)}">${esc(tel)}</a>` : '')}${dato('Email', p.email ? `<a href="mailto:${esc(p.email)}">${esc(p.email)}</a>` : '')}<div class="ancho"><dt>Domicilio</dt><dd>${esc(p.direccion) || '<span class="sub">—</span>'}</dd></div></dl></div>
+    <div class="card"><h2>Coche y condiciones</h2>
+      <dl class="fc-dl">${dato('Marca', esc(c.marca))}${dato('Modelo', esc(c.modelo))}${dato('Año', esc(c.anio))}${dato('Kilómetros', esc(c.km))}${dato('Matrícula', esc(c.matricula))}${dato('Bastidor', esc(c.bastidor))}
+        ${dato('Precio de salida', k.precio_salida ? eur0(k.precio_salida) : '')}${dato('Precio mínimo', k.precio_minimo ? eur0(k.precio_minimo) : '')}${dato('Comisión', k.comision_pct != null ? `${esc(String(k.comision_pct).replace('.', ','))} %${k.comision_min ? ` (mín. ${eur0(k.comision_min)})` : ''}` : '')}${dato('Exclusividad', k.exclusividad_meses ? `${k.exclusividad_meses} meses` : '')}${dato('Cómo llegó', esc(ORIGENES[x0.origen] || (Object.keys(x0).length ? '' : 'Antes del panel')))}${dato('Lo lleva', esc(o.comercial))}</dl>
+      ${x.notas ? `<p class="sub">${esc(x.notas)}</p>` : ''}</div>
+    <div class="card"><details${p.nombre && c.matricula ? '' : ' open'} class="fc-ed"><summary>Editar la ficha (propietario, coche y condiciones)</summary>${formExpediente(o, e)}</details></div>
+    <div class="card"><h2>Documentos</h2><ul class="fc-docs">${docs.map(([t, sub, url, cl]) => `<li><span class="doc-i ${cl}"></span><div><b>${esc(t)}</b><small>${esc(sub)}</small></div><a class="boton claro peq" href="${esc(url)}" target="_blank" rel="noopener">Ver / PDF</a></li>`).join('')}</ul>
+      <p class="sub">El contrato firmado se guarda en esta ficha tal cual se firmó (con la fecha, la IP y su huella); «Ver / PDF» lo abre para imprimirlo o guardarlo en PDF.</p></div>
+    ${hist ? `<div class="card"><h2>Historial</h2><ul class="hist">${hist}</ul></div>` : ''}
+  </div>
+  <div class="fc-der">
 ${blq(0, '1. Contrato de intermediación y exclusividad', chipC, contrato, 'contrato')}
 ${blq(1, '2. Su anuncio en la web', enWeb && !borrador ? '<span class="chip si">En la web</span>' : borrador ? '<span class="chip am">Borrador en Shopify</span>' : '', anuncio, 'anuncio')}
 ${blq(2, '3. Vendido', o.estado === 'vendido' ? '<span class="chip si">Vendido</span>' : '', venta, 'venta')}
-${blq(3, '4. Factura', factura ? '<span class="chip si">Emitida</span>' : '', fact, 'factura')}
-${blq(4, '5. Cobro', factura?.cobrada ? '<span class="chip si">Cobrada</span>' : factura ? '<span class="chip am">Pendiente</span>' : '', cobro, 'cobro')}
-${hist ? `<div class="card"><h2>Historial</h2><ul class="hist">${hist}</ul></div>` : ''}`, CSS);
+${blq(3, '4. Factura', chipF, fact, 'factura')}
+${blq(4, '5. Cobro', factura?.cobrada || x.cobro ? '<span class="chip si">Cobrada</span>' : factura ? '<span class="chip am">Pendiente</span>' : '', cobro, 'cobro')}
+  </div>
+</div>`, CSS + CSS_FICHA);
 }
+const CSS_FICHA = `
+  .migas { margin: 4px 0 10px; font-size: 14px; } .migas a { color: var(--suave); text-decoration: none; } .migas a:hover { color: var(--texto); }
+  .fc-cab { display: grid; grid-template-columns: 132px 1fr auto; gap: 20px; align-items: center; }
+  .fc-cab > img, .fc-sin { width: 132px; height: 99px; border-radius: 14px; object-fit: cover; background: var(--caja-3); display: block; }
+  .fc-t h1 { margin: 0; font-size: 24px; letter-spacing: -.01em; } .fc-t p { margin: 4px 0 10px; color: var(--suave); }
+  .fc-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .fc-precio { text-align: right; } .fc-precio span { display: block; font-size: 12px; color: var(--suave); } .fc-precio b { display: block; font-size: 28px; letter-spacing: -.02em; } .fc-precio small { color: var(--suave); }
+  .fc-precio .acc-row { justify-content: flex-end; }
+  .fc-grid { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 16px; align-items: start; }
+  .fc-izq .card, .fc-der .card { margin: 0 0 14px; }
+  .fc-h { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 14px; } .fc-h h2 { margin: 0; } .fc-h .boton { flex: none; white-space: nowrap; }
+  .fc-der .g3, .fc-der .g2 { grid-template-columns: 1fr 1fr; } .fc-grid input, .fc-grid select { width: 100%; min-width: 0; } .fc-der .acc-row input, .fc-der .acc-row select { width: auto; }
+  .fc-dl { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 16px; margin: 0; } .fc-dl dt { font-size: 12px; color: var(--suave); } .fc-dl dd { margin: 2px 0 0; font-weight: 600; word-break: break-word; } .fc-dl .ancho { grid-column: 1 / -1; }
+  .fc-ed summary { cursor: pointer; font-weight: 700; } .fc-ed[open] summary { margin-bottom: 12px; }
+  .fc-ed .g3 { grid-template-columns: 1fr 1fr; }
+  .fc-docs { list-style: none; margin: 0 0 10px; padding: 0; } .fc-docs li { display: flex; gap: 12px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--linea); }
+  .fc-docs li div { flex: 1; min-width: 0; } .fc-docs b { display: block; font-size: 14px; } .fc-docs small { color: var(--suave); font-size: 12px; }
+  .doc-i { flex: none; width: 32px; height: 40px; border-radius: 6px; background: var(--caja-3); position: relative; } .doc-i::after { content: ''; position: absolute; left: 7px; right: 7px; top: 10px; height: 2px; background: var(--linea-2); box-shadow: 0 6px 0 var(--linea-2), 0 12px 0 var(--linea-2); }
+  .doc-i.ok { background: var(--verde-fondo); } .doc-i.am { background: var(--amarillo-fondo); } .doc-i.no { background: var(--rojo-fondo); }
+  .boton.peq { padding: 6px 12px; font-size: 13px; }
+  @media (max-width: 1000px) { .fc-grid { grid-template-columns: 1fr; } .fc-cab { grid-template-columns: 96px 1fr; } .fc-cab > img, .fc-sin { width: 96px; height: 72px; } .fc-precio { grid-column: 1 / -1; text-align: left; } .fc-precio .acc-row { justify-content: flex-start; } }`;
 function formVenta(o) {
   return `<form method="post" action="?estado=expediente&id=${Number(o.id)}"><div class="g3">
     ${campo('Precio final de venta (€)', 'precio_venta', o.precio_venta, ' inputmode="decimal" required')}<label>Fecha de venta<input type="date" name="fecha_venta" value="${esc(String(o.fecha_venta || hoyISO()).slice(0, 10))}" required></label>${campo('Comprador', 'comprador_nombre', o.comprador_nombre)}
@@ -450,29 +506,34 @@ const CSS_SD = `
   .sd-flujo a.otro { display: flex; flex-direction: column; justify-content: center; }
   .sd-bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 0 0 14px; }
   .sd-bar input[type=search] { flex: 1; min-width: 220px; }
-  .sd-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 14px; }
-  .sd-c { display: flex; flex-direction: column; border-radius: 18px; overflow: hidden; background: var(--caja); border: 1px solid var(--linea); transition: border-color .15s, transform .15s; }
-  .sd-c:hover { border-color: var(--linea-2); transform: translateY(-1px); }
-  .sd-f { position: relative; display: block; aspect-ratio: 4 / 3; background: var(--caja-3); }
-  .sd-f img { width: 100%; height: 100%; object-fit: cover; display: block; }
-  .sd-f .vacia { position: absolute; inset: 0; display: grid; place-items: center; color: var(--flojo); font-size: 13px; text-align: center; padding: 10px; }
-  .sd-p { position: absolute; left: 10px; top: 10px; padding: 4px 10px; border-radius: 999px; font-size: 12px; font-weight: 800; background: rgba(0,0,0,.65); color: #fff; backdrop-filter: blur(6px); }
-  .sd-p.solicitud { background: #ff5f8f; color: #2a0412; } .sd-p.contrato { background: #f0b400; color: #1d1600; } .sd-p.anuncio { background: #5aa2ff; color: #031226; } .sd-p.venta { background: var(--verde); color: var(--verde-tinta); }
-  .sd-p.factura { background: #ff8a3d; color: #241000; } .sd-p.cobro { background: #c58cff; color: #1b0630; }
-  .sd-b { display: flex; flex-direction: column; gap: 3px; padding: 12px 14px 14px; flex: 1; }
-  .sd-b > a { color: inherit; text-decoration: none; } .sd-b > a b { font-size: 15px; line-height: 1.25; }
-  .sd-b .q { font-size: 13px; color: var(--suave); } .sd-b .e { font-size: 12px; color: var(--flojo); }
-  .sd-b .e.am { color: #f0b400; }
-  .sd-a { display: flex; flex-wrap: wrap; gap: 6px; margin-top: auto; padding-top: 10px; }
-  .sd-a form { display: contents; } .sd-a .boton { padding: 8px 12px; font-size: 13px; } .sd-a .boton.wa { background: #25d366; color: #04150c !important; }
+  .sd-lista { background: var(--caja); border: 1px solid var(--linea); border-radius: 16px; box-shadow: var(--sombra); overflow: hidden; }
+  .sd-r { display: grid; grid-template-columns: 64px minmax(0, 2.2fr) minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 1.6fr) minmax(0, 2.4fr); gap: 14px; align-items: center; padding: 10px 16px; border-bottom: 1px solid var(--linea); }
+  .sd-r:last-child { border-bottom: 0; } .sd-r:not(.sd-th):hover { background: var(--caja-2); }
+  .sd-th { padding: 10px 16px; font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--flojo); background: var(--caja-2); }
+  .sd-m img, .sd-m span { display: block; width: 64px; height: 48px; border-radius: 10px; object-fit: cover; background: var(--caja-3); }
+  .sd-r b { display: block; font-size: 14px; line-height: 1.3; overflow: hidden; text-overflow: ellipsis; } .sd-co a { text-decoration: none; color: inherit; } .sd-co a:hover b { color: var(--verde); }
+  .sd-r small { display: block; font-size: 12px; color: var(--suave); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .sd-es { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; } .sd-es .e { font-size: 12px; color: var(--suave); line-height: 1.3; } .sd-es .e.am { color: var(--amarillo); } .sd-es .e.no { color: var(--rojo); }
+  .sd-p { padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 800; background: var(--caja-3); color: var(--suave); white-space: nowrap; }
+  .sd-p.solicitud { background: rgba(236,72,153,.12); color: #db2777; } .sd-p.contrato { background: var(--amarillo-fondo); color: var(--amarillo); } .sd-p.anuncio { background: var(--azul-fondo); color: var(--azul); }
+  .sd-p.venta { background: var(--verde-fondo); color: var(--verde); } .sd-p.factura { background: rgba(249,115,22,.12); color: #ea580c; } .sd-p.cobro { background: var(--lila-fondo); color: var(--lila); } .sd-p.sinf { background: var(--rojo-fondo); color: var(--rojo); }
+  .sd-a { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; justify-content: flex-end; } .sd-a form { display: contents; }
+  .sd-a .boton { padding: 7px 12px; font-size: 13px; } .sd-a .boton.wa { background: #25d366; color: #04150c !important; }
+  .sd-ir { display: inline-flex; gap: 2px; margin-left: 4px; } .sd-ir .ic { padding: 6px 8px; border-radius: 8px; font-size: 12px; font-weight: 700; color: var(--suave); text-decoration: none; } .sd-ir .ic:hover { background: var(--caja-3); color: var(--texto); }
+  .sd-a .ic-b { all: unset; cursor: pointer; padding: 6px 8px; border-radius: 8px; font-size: 12px; font-weight: 700; color: var(--suave); } .sd-a .ic-b:hover { background: var(--caja-3); color: var(--rojo); }
+  .sd-masivo { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; padding: 12px 16px; margin: 0 0 12px; border-radius: 14px; background: var(--amarillo-fondo); font-size: 14px; }
+  .sd-bar .boton.on { border-color: var(--verde); color: var(--verde); }
+  @media (max-width: 1250px) { .sd-r { grid-template-columns: 56px minmax(0, 2fr) minmax(0, 1.3fr) minmax(0, 1fr) minmax(0, 1.5fr); } .sd-a { grid-column: 2 / -1; justify-content: flex-start; } .sd-m img, .sd-m span { width: 56px; height: 42px; } }
+  @media (max-width: 760px) { .sd-th { display: none; } .sd-r { grid-template-columns: 56px 1fr auto; } .sd-pr, .sd-es { grid-column: 2 / -1; } .sd-pz { grid-column: 3; grid-row: 1; text-align: right; } .sd-a { grid-column: 1 / -1; } }
   .sd-vacio { padding: 40px 20px; text-align: center; color: var(--suave); border: 1px dashed var(--linea-2); border-radius: 18px; }
   @media (max-width: 900px) { .sd-flujo { grid-template-columns: repeat(3, 1fr); } .sd-flujo a::after { display: none; } }
   @media (max-width: 520px) { .sd-flujo { grid-template-columns: 1fr 1fr; } .sd-grid { grid-template-columns: 1fr 1fr; gap: 10px; } .sd-a .boton { flex: 1; text-align: center; } }`;
 
 export function paginaSidonia(cfg, items, { ver = 'marcha', aviso = '', gestiones = 0, emisor = {} } = {}) {
-  const cuenta = (k) => items.filter((x) => (k === 'marcha' ? x.paso !== 'hecho' : k === 'sinficha' ? x.sinFicha && x.paso !== 'hecho' : x.paso === k)).length;
+  const filtro = (k) => (x) => (k === 'marcha' ? x.paso !== 'hecho' : k === 'sinficha' ? x.sinFicha && x.paso !== 'hecho' : k === 'efectivo' ? Boolean(x.o?.expediente?.cobro && !x.f) : k === 'cartera' ? x.paso === 'venta' || x.paso === 'anuncio' : k === 'todo' ? true : x.paso === k);
+  const cuenta = (k) => items.filter(filtro(k)).length;
   const ayuda = { solicitud: 'de la web, por llamar', contrato: 'por enviar o firmar', anuncio: 'por subir a la web', venta: 'a la venta en la web', factura: 'vendidos sin factura', cobro: 'facturas sin cobrar' };
-  const lista = items.filter((x) => (ver === 'marcha' ? x.paso !== 'hecho' : ver === 'sinficha' ? x.sinFicha && x.paso !== 'hecho' : ver === 'todo' ? true : x.paso === ver))
+  const lista = items.filter(filtro(ver))
     .sort((a, b) => PASOS.findIndex(([p]) => p === a.paso) - PASOS.findIndex(([p]) => p === b.paso) || String(b.o?.actualizado || b.o?.creado || b.prod?.creado || '').localeCompare(String(a.o?.actualizado || a.o?.creado || a.prod?.creado || '')));
   const listoContrato = (o) => emisorCompleto(leerEmisor(emisor)) && o.expediente?.coche?.matricula;
   const tarjeta = ({ o, prod, f, paso, sinFicha, g }) => {
@@ -491,7 +552,7 @@ export function paginaSidonia(cfg, items, { ver = 'marcha', aviso = '', gestione
       const wa = tel ? `https://wa.me/${tel.length === 9 ? `34${tel}` : tel}?text=${encodeURIComponent(`Hola ${String(d.nombre || '').split(' ')[0]}, soy Hugo de Sidonia. Hemos visto que quieres vender tu ${coche}. ¿Te viene bien que hablemos un momento y te cuento cómo lo hacemos?`)}` : '';
       estado = `<span class="e am">${g.creado ? `Llegó el ${esc(fechaTxt(g.creado))}` : 'Nueva'}${g.estado === 'contactado' ? ' · ya contactado' : ''}</span>`;
       acc = `${wa ? `<a class="boton wa" href="${esc(wa)}" target="_blank" rel="noopener">WhatsApp</a>` : ''}<form method="post" action="?estado=expediente"><input type="hidden" name="gestion" value="${Number(g.id)}"><button class="boton${wa ? ' claro' : ''}" name="accion" value="desde-gestion">Crear ficha y contrato</button></form>
-        <form method="post" action="?estado=sidonia&ver=solicitud"><input type="hidden" name="gestion" value="${Number(g.id)}"><button class="boton claro" name="accion" value="descartar" onclick="return confirm('¿Descartar esta solicitud?')">Descartar</button></form>`;
+        <form method="post" action="?estado=sidonia&ver=solicitud"><input type="hidden" name="gestion" value="${Number(g.id)}"><button class="ic-b" name="accion" value="descartar" onclick="return confirm('¿Descartar esta solicitud?')">Descartar</button></form>`;
     } else if (sinFicha) {
       estado = '<span class="e am">Sin ficha de propietario ni contrato</span>';
       acc = `<a class="boton" href="${enlace}">Añadir su propietario</a>`;
@@ -507,18 +568,31 @@ export function paginaSidonia(cfg, items, { ver = 'marcha', aviso = '', gestione
       acc = `<a class="boton" href="${enlace}#venta">Vendido</a>${o.handle ? `<a class="boton claro" href="${esc(cfg.tienda)}/products/${esc(o.handle)}" target="_blank" rel="noopener">Ver</a><a class="boton claro" href="?estado=anuncio&h=${encodeURIComponent(o.handle)}">Números</a>` : ''}`;
     } else if (paso === 'factura') {
       estado = `<span class="e am">${o?.estado === 'vendido' ? 'Vendido: falta la factura' : 'Vendido en la web: pon el precio final'}</span>`;
-      acc = `<a class="boton" href="${enlace}#${o?.estado === 'vendido' ? 'factura' : 'venta'}">${o?.estado === 'vendido' ? 'Hacer la factura' : 'Poner el precio'}</a>`;
+      acc = `<a class="boton" href="${enlace}#${o?.estado === 'vendido' ? 'factura' : 'venta'}">${o?.estado === 'vendido' ? 'Hacer la factura' : 'Poner el precio'}</a>${o?.estado === 'vendido' ? `<form method="post" action="?estado=expediente&id=${Number(o.id)}"><input type="hidden" name="volver" value="sidonia"><button class="boton claro" name="accion" value="efectivo" onclick="return confirm('¿Apuntar que la comisión ya se cobró en efectivo, sin factura?')">Cobrada en efectivo</button></form>` : ''}`;
     } else if (paso === 'cobro') {
       estado = `<span class="e am">Factura ${esc(f.numero)} · ${eur(f.total)} sin cobrar</span>`;
       acc = `<a class="boton" href="${enlace}#cobro">Marcar cobrada</a>${p.telefono || o.propietario_telefono ? `<a class="boton claro" href="?estado=expediente&id=${Number(o.id)}&wa=factura" target="_blank" rel="noopener">Reenviar</a>` : ''}`;
     } else {
-      estado = `<span class="e">${o?.estado === 'retirado' ? 'Retirado' : f ? `Cobrado · factura ${esc(f.numero)}` : 'Vendido'}</span>`;
+      estado = x.cobro && !f ? '<span class="e no">Cobrada en efectivo · sin factura</span>' : `<span class="e">${o?.estado === 'retirado' ? 'Retirado' : f ? `Cobrado · factura ${esc(f.numero)}` : 'Vendido'}</span>`;
       acc = `<a class="boton claro" href="${enlace}">Ver</a>`;
     }
     const foto = g ? (gd.fotos || []).map((u) => (/^https?:/.test(u) ? u : `${cfg.supabaseUrl}/storage/v1/object/public/anuncios/${u}`))[0] : prod?.foto;
-    const q = normalTexto(`${titulo} ${gd.nombre || ''} ${p.nombre || o?.propietario_nombre || ''} ${o?.comercial || ''} ${x.coche?.matricula || ''}`);
-    return `<article class="sd-c" data-q="${esc(q)}"><a class="sd-f" href="${enlace}">${foto ? `<img src="${esc(foto)}" alt="" loading="lazy">` : `<span class="vacia">${g ? 'Sin fotos' : o?.handle ? 'Sin fotos aún' : 'Aún sin anuncio'}</span>`}<span class="sd-p ${paso}">${esc(sinFicha ? 'Sin propietario' : nombrePaso(paso))}</span></a>
-    <div class="sd-b"><a href="${enlace}"><b>${esc(titulo)}</b></a>${quien ? `<span class="q">${esc(quien)}</span>` : ''}${estado}<div class="sd-a">${acc}</div></div></article>`;
+    const c = x.coche || {};
+    const q = normalTexto(`${titulo} ${gd.nombre || ''} ${p.nombre || o?.propietario_nombre || ''} ${o?.comercial || ''} ${c.matricula || ''} ${p.telefono || o?.propietario_telefono || gd.telefono || ''}`);
+    const nombre = g ? gd.nombre : p.nombre || o?.propietario_nombre;
+    const telefono = g ? gd.telefono : p.telefono || o?.propietario_telefono;
+    const detalle = g ? [gd.km && `${gd.km} km`, gd.ubicacion].filter(Boolean).join(' · ') : [c.matricula, o?.comercial && `lleva ${o.comercial}`].filter(Boolean).join(' · ');
+    const importe = g ? (gd.precio ? `${esc(String(gd.precio))} €` : '') : o?.estado === 'vendido' && o.precio_venta ? eur0(o.precio_venta) : n(x.condiciones?.precio_salida ?? o?.precio_anunciado) ? eur0(x.condiciones?.precio_salida ?? o.precio_anunciado) : prod?.precio ? eur0(prod.precio) : '';
+    const bajo = g ? 'lo que pide' : o?.estado === 'vendido' ? (o.comision ? `vendido · comisión ${eur0(o.comision)}` : 'vendido') : importe ? 'precio' : '';
+    const ir = [o && `<a class="ic" href="?estado=expediente&id=${Number(o.id)}" title="Ficha del coche">Ficha</a>`, (o?.handle || prod?.handle) && `<a class="ic" href="?estado=ficha&h=${encodeURIComponent(o?.handle || prod.handle)}" title="Editar el anuncio">Editar</a>`,
+      (o?.handle || prod?.handle) && paso !== 'anuncio' && `<a class="ic" href="${esc(cfg.tienda)}/products/${esc(o?.handle || prod.handle)}" target="_blank" rel="noopener" title="Ver en la web">Web ↗</a>`].filter(Boolean).join('');
+    return `<div class="sd-r" data-q="${esc(q)}">
+    <a class="sd-m" href="${enlace}">${foto ? `<img src="${esc(foto)}" alt="" loading="lazy">` : '<span></span>'}</a>
+    <div class="sd-co"><a href="${enlace}"><b>${esc(titulo)}</b></a><small>${esc(detalle) || '&nbsp;'}</small></div>
+    <div class="sd-pr">${nombre ? `<b>${esc(nombre)}</b>` : '<span class="sub">Sin propietario</span>'}<small>${telefono ? esc(telefono) : '&nbsp;'}</small></div>
+    <div class="sd-pz"><b>${importe || '—'}</b><small>${esc(bajo)}</small></div>
+    <div class="sd-es"><span class="sd-p ${paso}${sinFicha ? ' sinf' : ''}">${esc(sinFicha ? 'Sin propietario' : g ? 'Solicitud' : nombrePaso(paso))}</span>${estado}</div>
+    <div class="sd-a">${acc}<span class="sd-ir">${ir}</span></div></div>`;
   };
   const flujo = PASOS.slice(0, 6).map(([k, t], j) => `<a href="?estado=sidonia&ver=${k}" class="${ver === k ? 'on' : ''}"><small>${j ? `${j} · ` : ''}${t}</small><b>${fmtN(cuenta(k))}</b><span>${ayuda[k]}</span></a>`).join('');
   return marco('Coches de Sidonia', 'sidonia', `
@@ -526,13 +600,16 @@ ${aviso ? `<p class="aviso${/^Error/.test(aviso) ? ' mal' : ''}">${esc(aviso)}</
 <div class="sd-cab"><div><h1>Coches de Sidonia</h1><p>De la solicitud a la factura: cada coche, en qué paso está y qué toca hacer.</p></div><a class="boton" href="?estado=expediente&nuevo=1">+ Nuevo coche</a></div>
 <div class="sd-flujo">${flujo}<a class="otro${ver === 'marcha' ? ' on' : ''}" href="?estado=sidonia"><small>Todos</small><b>${fmtN(cuenta('marcha'))}</b><span>en marcha</span></a></div>
 <div class="sd-bar">
-  <input type="search" placeholder="Buscar coche, propietario, matrícula…" oninput="const q=this.value.trim().toLowerCase().normalize('NFD').replace(/[\\u0300-\\u036f]/g,'');document.querySelectorAll('.sd-c').forEach((c)=>{c.hidden=q&&!c.dataset.q.includes(q)})">
+  <input type="search" placeholder="Buscar coche, propietario, matrícula…" oninput="const q=this.value.trim().toLowerCase().normalize('NFD').replace(/[\\u0300-\\u036f]/g,'');document.querySelectorAll('.sd-r[data-q]').forEach((c)=>{c.hidden=q&&!c.dataset.q.includes(q)})">
   ${cuenta('sinficha') ? `<a class="boton claro${ver === 'sinficha' ? ' on' : ''}" href="?estado=sidonia&ver=sinficha">Sin propietario · ${fmtN(cuenta('sinficha'))}</a>` : ''}
-  <a class="boton claro" href="?estado=sidonia&ver=hecho">Cerrados · ${fmtN(cuenta('hecho'))}</a>
+  <a class="boton claro${ver === 'cartera' ? ' on' : ''}" href="?estado=sidonia&ver=cartera">En cartera · ${fmtN(cuenta('cartera'))}</a>
+  ${cuenta('efectivo') ? `<a class="boton claro${ver === 'efectivo' ? ' on' : ''}" href="?estado=sidonia&ver=efectivo">Efectivo sin factura · ${fmtN(cuenta('efectivo'))}</a>` : ''}
+  <a class="boton claro${ver === 'hecho' ? ' on' : ''}" href="?estado=sidonia&ver=hecho">Cerrados · ${fmtN(cuenta('hecho'))}</a>
   <a class="boton claro" href="?estado=ofertas">Ofertas</a>
   <a class="boton claro" href="?estado=fichas">Tabla con números</a>
 </div>
-${lista.length ? `<div class="sd-grid">${lista.map(tarjeta).join('')}</div>` : `<div class="sd-vacio">${ver === 'marcha' ? 'No hay ningún coche en marcha. Empieza con «+ Nuevo coche».' : 'Nada en este paso.'}</div>`}
+${ver === 'factura' && items.some((x) => x.paso === 'factura' && x.o?.estado === 'vendido') ? `<form method="post" action="?estado=sidonia&ver=factura" class="sd-masivo"><span>¿Las comisiones de estas ventas ya se cobraron en efectivo, sin factura? Apúntalo de una vez (se pueden facturar luego igualmente).</span><button class="boton claro" name="accion" value="efectivo-todas" onclick="return confirm('¿Apuntar como cobradas en efectivo, sin factura, las ${fmtN(items.filter((x) => x.paso === 'factura' && x.o?.estado === 'vendido').length)} ventas sin factura? Recordad: toda venta debe facturarse y en efectivo solo por debajo de 1.000 €. Hablad con la gestoría para regularizarlas.')">Marcar todas como cobradas en efectivo</button></form>` : ''}
+${lista.length ? `<div class="sd-lista"><div class="sd-r sd-th"><span></span><span>Coche</span><span>Propietario</span><span>Precio</span><span>Estado</span><span></span></div>${lista.map(tarjeta).join('')}</div>` : `<div class="sd-vacio">${ver === 'marcha' ? 'No hay ningún coche en marcha. Empieza con «+ Nuevo coche».' : 'Nada en este paso.'}</div>`}
 <p class="nota">Así va cada coche: las <b>solicitudes</b> del formulario de la web llegan solas (WhatsApp y «Crear ficha y contrato»), o Hugo mete el coche con «+ Nuevo coche». <b>1.</b> Hugo crea su ficha (propietario y coche) y le envía el contrato por WhatsApp o email; lo firma desde el móvil. <b>2.</b> «Crear su anuncio en Shopify» lo deja allí como borrador, ya ligado: subís el vídeo y las fotos y lo publicáis. Si lo subís directamente en Shopify, se liga solo con su ficha. <b>3.</b> Cuando se venda, «Vendido» con el precio final. <b>4.</b> La factura sale hecha y se envía por WhatsApp o email. <b>5.</b> Marcar cobrada.</p>`, CSS + CSS_SD);
 }
 
@@ -604,6 +681,18 @@ ${cand.map((x) => `<form method="post" action="?estado=ligar&h=${encodeURICompon
     let ops = [], aviso = String(req.query.aviso || '').slice(0, 300), catalogo = null, gestiones = 0;
     try { ops = await tO.leer('select=*&order=id.desc&limit=5000'); } catch (e) { aviso = errorSql(e); }
     try { const { catalogoTienda } = await import('./actividad.mjs'); catalogo = await catalogoTienda(cfg, deps); } catch (e) { catalogo = null; }
+    if (req.method === 'POST' && b.accion === 'efectivo-todas') {
+      let hechas = 0;
+      try {
+        const todas = await tO.leer('select=*&order=id.desc&limit=5000');
+        const conFactura = new Set((await leerFacturas()).filter((f) => f.operacion_id && f.estado !== 'anulada').map((f) => Number(f.operacion_id)));
+        for (const o of todas.filter((x) => x.estado === 'vendido' && !conFactura.has(Number(x.id)) && !x.expediente?.cobro)) {
+          await tO.cambiar(Number(o.id), { expediente: conHistorial({ ...(o.expediente || {}), cobro: { fecha: String(o.fecha_venta || new Date().toISOString()).slice(0, 10), forma: 'efectivo', sin_factura: true } }, 'Comisión cobrada en efectivo, sin factura'), actualizado: new Date().toISOString() });
+          hechas += 1;
+        }
+        aviso = `Apuntadas ${hechas} ventas como cobradas en efectivo, sin factura. Están en «Efectivo sin factura»: hablad con la gestoría para regularizarlas.`;
+      } catch (e) { aviso = errorSql(e); }
+    }
     if (req.method === 'POST' && b.accion === 'descartar' && Number(b.gestion)) {
       try { await tG.cambiar(Number(b.gestion), { estado: 'descartada', actualizado: new Date().toISOString() }); aviso = 'Solicitud descartada.'; } catch (e) { aviso = errorSql(e); }
     }
@@ -626,7 +715,7 @@ ${cand.map((x) => `<form method="post" action="?estado=ligar&h=${encodeURICompon
       items.push({ prod: p, sinFicha: true, paso: p.situacion === 'vendido' ? 'hecho' : p.status === 'ACTIVE' ? 'venta' : 'anuncio' });
     }
     for (const g of solicitudes) items.push({ g, paso: 'solicitud' });
-    const ver = ['marcha', 'todo', 'sinficha', ...PASOS.map(([k]) => k)].includes(req.query.ver) ? req.query.ver : 'marcha';
+    const ver = ['marcha', 'todo', 'sinficha', 'efectivo', 'cartera', ...PASOS.map(([k]) => k)].includes(req.query.ver) ? req.query.ver : 'marcha';
     return html(paginaSidonia(cfg, items, { ver, aviso, gestiones, emisor }));
   }
 
@@ -771,6 +860,12 @@ ${cand.map((x) => `<form method="post" action="?estado=ligar&h=${encodeURICompon
           await tF.cambiar(factura.id, { cobrada: fecha, forma_pago: forma }); factura = { ...factura, cobrada: fecha, forma_pago: forma };
           await guardar({}, `Cobrada la factura ${factura.numero} (${FORMAS_PAGO[forma]})`); aviso = '¡Cobrada!';
         }
+      } else if (a === 'efectivo') {
+        if (factura) aviso = 'Error: ya tiene factura: márcala como cobrada.';
+        else if (o.estado !== 'vendido') aviso = 'Error: primero, márcalo como vendido.';
+        else { await guardar({ expediente: { ...o.expediente, cobro: { fecha: String(o.fecha_venta || hoyISO()).slice(0, 10), forma: 'efectivo', sin_factura: true } } }, 'Comisión cobrada en efectivo, sin factura'); aviso = 'Apuntado: comisión cobrada en efectivo, sin factura.'; }
+      } else if (a === 'efectivo-deshacer') {
+        const { cobro, ...resto } = o.expediente; await guardar({ expediente: resto }, 'Deshecho «cobrada en efectivo»'); aviso = 'Deshecho.';
       } else if (a === 'cobro-deshacer' && factura) {
         await tF.cambiar(factura.id, { cobrada: null }); factura = { ...factura, cobrada: null }; await guardar({}, `Deshecho el cobro de la factura ${factura.numero}`); aviso = 'Deshecho.';
       }

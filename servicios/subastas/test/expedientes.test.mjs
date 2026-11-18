@@ -230,8 +230,9 @@ test('Anuncios › De Sidonia: tarjetas por paso, crear el anuncio en Shopify (b
   let l = (await pag({ estado: 'sidonia' })).body;
   assert.match(l, /<title>Coches de Sidonia/); assert.match(l, /class="on"><svg[\s\S]*?<\/svg>Anuncios/); assert.match(l, /class="on">De Sidonia/); assert.match(l, /De sus dueños/); assert.match(l, /De alquiler/);
   assert.doesNotMatch(l, /Cobros comunidad/);
-  assert.match(l, /<span class="sd-p solicitud">Solicitud<\/span>[\s\S]*LAND ROVER DEFENDER 110 1998[\s\S]*Crear ficha y contrato/, 'las solicitudes de la web, el primer paso');
-  assert.match(l, /<span class="sd-p contrato">Contrato<\/span>[\s\S]*LAND ROVER DEFENDER 110 1998[\s\S]*Enviar por WhatsApp/);
+  const filas = (h) => h.split('<div class="sd-r"').slice(1);
+  assert.ok(filas(l).some((f) => /sd-p solicitud">Solicitud/.test(f) && /LAND ROVER DEFENDER 110 1998/.test(f) && /Crear ficha y contrato/.test(f)), 'las solicitudes de la web, el primer paso');
+  assert.ok(filas(l).some((f) => /sd-p contrato">Contrato/.test(f) && /LAND ROVER DEFENDER 110 1998/.test(f) && /Enviar por WhatsApp/.test(f) && /Íñigo Prueba Martín/.test(f) && /42\.000 €/.test(f)), 'una fila por coche: propietario, precio y lo siguiente');
   // El anuncio de Sidonia sin ficha: «Añadir su propietario»; el de la comunidad no sale
   assert.match(l, /FERRARI 308 GTS 1980[\s\S]*Añadir su propietario/); assert.doesNotMatch(l, /SEAT 600 1970/);
   // Desde la tarjeta: el contrato por email, y vuelve a la lista con el aviso
@@ -249,7 +250,7 @@ test('Anuncios › De Sidonia: tarjetas por paso, crear el anuncio en Shopify (b
   // Lo publican en Shopify: pasa solo a «En venta»
   tienda.at(-1).status = 'ACTIVE'; olvidarCatalogo();
   l = (await pag({ estado: 'sidonia', ver: 'venta' })).body;
-  assert.match(l, /<span class="sd-p venta">En venta<\/span>[\s\S]*LAND ROVER DEFENDER 110 1998/);
+  assert.ok(filas(l).some((f) => /sd-p venta">En venta/.test(f) && /LAND ROVER DEFENDER 110 1998/.test(f) && /Editar/.test(f)));
   // Otro coche firmado que suben directamente en Shopify: se liga solo
   await pag({ estado: 'expediente' }, 'POST', { accion: 'crear', ...EXP, c_marca: 'Porsche', c_modelo: '911 Carrera', c_anio: '1986', c_matricula: '9999 ZZZ' });
   const p = deps.operaciones.filas.at(-1);
@@ -265,4 +266,26 @@ test('Anuncios › De Sidonia: tarjetas por paso, crear el anuncio en Shopify (b
   const com = await pag({ estado: 'comunidad' });
   assert.match(com.body, /class="on">De sus dueños/); assert.match(com.body, /chips-c/);
   assert.equal(typeof crearBorrador, 'function');
+});
+
+test('ventas sin factura: cobrada en efectivo (una o todas), y Ventas cuadra con «desde el principio»', async () => {
+  const { deps, pag, aviso } = preparar();
+  deps.operaciones.filas.push({ id: 2, titulo: 'SEAT 600 1970', estado: 'vendido', modalidad: 'gestion', precio_anunciado: 9000, comision: 500 }, { id: 3, titulo: 'FIAT 500 1968', estado: 'vendido', modalidad: 'encargo', precio_venta: 12000, comision: 800, fecha_venta: '2026-03-02' });
+  // Ventas: «Todo» y «desde el principio» dicen lo mismo (con la venta sin fecha y el encargo)
+  const h = (await pag({ estado: 'finanzas', p: 'todo' })).body;
+  assert.match(h, /Sin fecha de venta/); assert.match(h, /<span>Vendido en total<\/span><b>51 k€/); assert.match(h, /data-ver="vendido"><span>Vendido<\/span><b>51\.000 €/);
+  assert.match(h, /Comisión del comercial/); assert.match(h, /Gastos fijos/);
+  // Una: desde su ficha
+  assert.match(aviso(await pag({ estado: 'expediente', id: '1' }, 'POST', { accion: 'efectivo' })), /cobrada en efectivo/);
+  assert.equal(deps.operaciones.filas[0].expediente.cobro.forma, 'efectivo');
+  assert.equal(pasoDe(deps.operaciones.filas[0]), 'hecho');
+  assert.match((await pag({ estado: 'expediente', id: '1' })).body, /Efectivo · sin factura/);
+  // Todas las demás de golpe
+  const r = await pag({ estado: 'sidonia', ver: 'factura' }, 'POST', { accion: 'efectivo-todas' });
+  assert.match(r.body, /Apuntadas 2 ventas como cobradas en efectivo/);
+  assert.ok(deps.operaciones.filas.every((o) => o.expediente?.cobro));
+  assert.match((await pag({ estado: 'sidonia', ver: 'efectivo' })).body, /Cobrada en efectivo · sin factura/);
+  assert.match((await pag({ estado: 'finanzas' })).body, /comisiones cobradas en efectivo sin factura/);
+  await pag({ estado: 'expediente', id: '1' }, 'POST', { accion: 'efectivo-deshacer' });
+  assert.equal(deps.operaciones.filas[0].expediente.cobro, undefined);
 });

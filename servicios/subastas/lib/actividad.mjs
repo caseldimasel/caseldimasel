@@ -32,7 +32,7 @@ const VIDA = 2 * 60e3;
 export const normalizar = (t) => String(t || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 // (una función: circulo.mjs y este archivo se importan entre sí)
 const CONSULTA_CATALOGO = () => `query($tras: String) { products(first: 250, after: $tras, sortKey: CREATED_AT, reverse: true) { nodes { handle title status tags vendor productType createdAt
-  ${FOTO_GQL_MINI} variants(first: 1) { nodes { availableForSale } } anuncio: metafield(namespace: "custom", key: "anuncio_id") { value } } pageInfo { hasNextPage endCursor } } }`;
+  ${FOTO_GQL_MINI} variants(first: 1) { nodes { availableForSale price } } anuncio: metafield(namespace: "custom", key: "anuncio_id") { value } } pageInfo { hasNextPage endCursor } } }`;
 
 /** Map handle → { handle, titulo, foto, status, tags, comunidad, creado } de toda la tienda */
 export async function catalogoTienda(cfg, deps, { fresco = false } = {}) {
@@ -50,7 +50,7 @@ export async function catalogoTienda(cfg, deps, { fresco = false } = {}) {
       const d = await gql(CONSULTA_CATALOGO(), { tras });
       const p = d?.data?.products || d?.products;
       for (const x of p?.nodes || []) {
-        mapa.set(x.handle, { handle: x.handle, titulo: x.title, foto: fotoProducto(x), status: x.status || 'ACTIVE', tags: x.tags || [], tipo: x.productType || '', creado: x.createdAt || '', situacion: situacionTienda(x),
+        mapa.set(x.handle, { handle: x.handle, titulo: x.title, foto: fotoProducto(x), precio: Number(x.variants?.nodes?.[0]?.price) || 0, status: x.status || 'ACTIVE', tags: x.tags || [], tipo: x.productType || '', creado: x.createdAt || '', situacion: situacionTienda(x),
           comunidad: (x.tags || []).some((t) => String(t).toLowerCase() === 'dueno') || Boolean(x.anuncio?.value) });
       }
       if (!p?.pageInfo?.hasNextPage) break;

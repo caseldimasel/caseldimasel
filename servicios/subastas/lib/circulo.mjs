@@ -437,7 +437,7 @@ export function productoShopify(cfg, a) {
 /** La portada de un producto de Shopify para el panel: su foto o, si solo tiene vídeo (los coches de Sidonia), la imagen
  *  del vídeo. En las consultas: ${FOTO_GQL} (o FOTO_GQL_MINI, pequeña) */
 export const FOTO_GQL = 'featuredImage { url } featuredMedia { preview { image { url } } }';
-export const FOTO_GQL_MINI = 'featuredImage { url(transform: { maxWidth: 200, maxHeight: 200 }) } featuredMedia { preview { image { url(transform: { maxWidth: 200, maxHeight: 200 }) } } }';
+export const FOTO_GQL_MINI = 'featuredImage { url(transform: { maxWidth: 480, maxHeight: 480 }) } featuredMedia { preview { image { url(transform: { maxWidth: 480, maxHeight: 480 }) } } }';
 export const fotoProducto = (p) => p?.featuredImage?.url || p?.featuredMedia?.preview?.image?.url || '';
 /** Sin unidades a la venta en Shopify (así marca Sidonia los que vende: la web los enseña como vendidos) */
 export const agotado = (p) => (p?.variants?.nodes || []).length > 0 && p.variants.nodes.every((v) => v.availableForSale === false);

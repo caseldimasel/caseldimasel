@@ -155,6 +155,8 @@ const kpi = (t, v, sub = '', cls = '', extra = '') => `<div class="fz-k ${cls}">
 
 /* ---------------------------------------------------------------------------- Finanzas › Ventas (la portada) */
 const MES_CORTO = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+/** Lo que se vendió: el precio final o, si no se apuntó, el del anuncio */
+export const precioDe = (o) => n(o.precio_venta) || n(o.precio_anunciado);
 const clave = (y, m) => `${y}-${String(m).padStart(2, '0')}`;
 const sumaMes = (k, d) => { const [y, m] = k.split('-').map(Number); const t = y * 12 + (m - 1) + d; return clave(Math.floor(t / 12), (t % 12) + 1); };
 const entre = (a, b) => { const l = []; for (let k = a; k <= b; k = sumaMes(k, 1)) l.push(k); return l; };
@@ -178,23 +180,28 @@ export function periodo(p, hoy = new Date(), primero = null) {
 
 /** Cada mes desde la primera venta: coches, vendido, comisión, días hasta vender, otros ingresos, gastos, IRPF y resultado */
 export function serieMeses(datos, hoy = new Date()) {
-  const vendidas = datos.ops.filter((o) => o.estado === 'vendido' && o.fecha_venta && o.modalidad !== 'encargo');
+  // Todas las vendidas (también los encargos): las que tienen fecha, en su mes; las que no, aparte («sin fecha»)
+  const vendidas = datos.ops.filter((o) => o.estado === 'vendido' && o.fecha_venta);
+  const sinFechaL = datos.ops.filter((o) => o.estado === 'vendido' && !o.fecha_venta);
   const ahora = clave(hoy.getFullYear(), hoy.getMonth() + 1);
   const primero = [...vendidas.map((o) => String(o.fecha_venta).slice(0, 7)), ...datos.facturas.map((f) => String(f.fecha).slice(0, 7))].filter((k) => /^\d{4}-\d{2}$/.test(k) && k <= ahora).sort()[0] || ahora;
   const meses = entre(primero, ahora);
   const anos = [...new Set(meses.map((k) => Number(k.slice(0, 4))))];
   const N = Object.fromEntries(anos.map((a) => [a, numerosFinanzas(datos, a, hoy)]));
   const serie = Object.fromEntries(meses.map((k) => { const m = N[Number(k.slice(0, 4))].mes[k] || {};
-    return [k, { k, coches: 0, vendido: 0, comision: 0, dias: [], ventas: [], otros: n(m.servicios) + n(m.comunidad), gastos: n(m.gastos), irpf: n(m.irpf) }]; }));
-  for (const o of vendidas) {
-    const s = serie[String(o.fecha_venta).slice(0, 7)];
+    return [k, { k, coches: 0, vendido: 0, comision: 0, dias: [], ventas: [], otros: n(m.servicios) + n(m.comunidad), fijos: n(m.fijos), puntuales: n(m.puntuales), comercial: n(m.comercial), gastos: n(m.gastos), irpf: n(m.irpf) }]; }));
+  const sinFecha = { k: 'sin-fecha', coches: 0, vendido: 0, comision: 0, dias: [], ventas: [], otros: 0, fijos: 0, puntuales: 0, comercial: 0, gastos: 0, irpf: 0 };
+  for (const o of [...vendidas, ...sinFechaL]) {
+    const s = o.fecha_venta ? serie[String(o.fecha_venta).slice(0, 7)] : sinFecha;
     if (!s) continue;
-    s.coches += 1; s.vendido += n(o.precio_venta); s.comision += n(o.comision); s.ventas.push(o);
+    s.coches += 1; s.vendido += precioDe(o); s.comision += n(o.comision); s.ventas.push(o);
+    if (!o.fecha_venta) { s.comercial += n(o.comision_comercial); s.gastos += n(o.comision_comercial); }
     const d = o.fecha_alta ? Math.round((new Date(o.fecha_venta) - new Date(o.fecha_alta)) / 864e5) : null;
     if (d != null && d >= 0) s.dias.push(d);
   }
-  for (const s of Object.values(serie)) { s.ingresos = s.comision + s.otros; s.resultado = s.ingresos - s.gastos - s.irpf; }
-  return { serie, meses, primero, N };
+  for (const s of [...Object.values(serie), sinFecha]) { s.ingresos = s.comision + s.otros; s.resultado = s.ingresos - s.gastos - s.irpf; }
+  serie['sin-fecha'] = sinFecha;
+  return { serie, meses, primero, N, sinFecha };
 }
 
 /** Los números de un tramo de meses */
@@ -202,7 +209,7 @@ function tramo(serie, meses) {
   const l = meses.map((k) => serie[k]).filter(Boolean);
   const s = (c) => l.reduce((t, x) => t + n(x[c]), 0);
   const dias = l.flatMap((x) => x.dias);
-  const r = { coches: s('coches'), vendido: s('vendido'), comision: s('comision'), otros: s('otros'), gastos: s('gastos'), irpf: s('irpf'), ingresos: s('ingresos'), resultado: s('resultado'), ventas: l.flatMap((x) => x.ventas) };
+  const r = { coches: s('coches'), vendido: s('vendido'), comision: s('comision'), otros: s('otros'), fijos: s('fijos'), puntuales: s('puntuales'), comercial: s('comercial'), gastos: s('gastos'), irpf: s('irpf'), ingresos: s('ingresos'), resultado: s('resultado'), ventas: l.flatMap((x) => x.ventas) };
   r.ticket = r.coches ? r.vendido / r.coches : 0;
   r.pct = r.vendido ? (r.comision / r.vendido) * 100 : 0;
   r.dias = dias.length ? Math.round(dias.reduce((a, b) => a + b, 0) / dias.length) : null;
@@ -319,10 +326,11 @@ const SCRIPT_V = `<script>(() => {
 
 /** Finanzas › Ventas: lo que ha vendido Sidonia, en el periodo que elijas y desde el principio, con su análisis mes a mes */
 export function paginaFinanzas(datos, { p = 'ano', ano = null, hoy = new Date(), error = '', fotos = {}, web = null, avisos = [] } = {}) {
-  const { serie, meses: todos, primero, N } = serieMeses(datos, hoy);
+  const { serie, meses: todos, primero, N, sinFecha } = serieMeses(datos, hoy);
   const P = periodo(ano && /^\d{4}$/.test(String(ano)) ? String(ano) : p, hoy, primero);
-  const A = tramo(serie, P.meses), B = tramo(serie, entre(P.antes[0], P.antes[1]));
-  const R = resumen(datos.ops), siempre = tramo(serie, todos);
+  const conSinFecha = (l) => (sinFecha.coches ? [...l, 'sin-fecha'] : l);
+  const A = tramo(serie, P.p === 'todo' ? conSinFecha(P.meses) : P.meses), B = tramo(serie, entre(P.antes[0], P.antes[1]));
+  const R = resumen(datos.ops), siempre = tramo(serie, conSinFecha(todos));
   const NA = N[hoy.getFullYear()] || numerosFinanzas(datos, hoy.getFullYear(), hoy);
   const e0 = (x) => eur(x);
   const corto = (v) => (v >= 1e6 ? `${(v / 1e6).toLocaleString('es-ES', { maximumFractionDigits: 1 })} M€` : v >= 1e4 ? `${Math.round(v / 1000).toLocaleString('es-ES')} k€` : eur(v));
@@ -339,9 +347,11 @@ export function paginaFinanzas(datos, { p = 'ano', ano = null, hoy = new Date(),
   const fact = datos.facturas.filter((f) => f.estado !== 'anulada');
   const facDe = new Map(fact.filter((f) => f.operacion_id).map((f) => [Number(f.operacion_id), f]));
   const anoAhora = String(hoy.getFullYear());
-  const sinFactura = datos.ops.filter((o) => o.estado === 'vendido' && o.modalidad !== 'encargo' && String(o.fecha_venta || '').startsWith(anoAhora) && !facDe.has(Number(o.id)));
+  const sinFactura = datos.ops.filter((o) => o.estado === 'vendido' && o.modalidad !== 'encargo' && String(o.fecha_venta || '').startsWith(anoAhora) && !facDe.has(Number(o.id)) && !o.expediente?.cobro);
+  const efectivo = datos.ops.filter((o) => o.estado === 'vendido' && !facDe.has(Number(o.id)) && o.expediente?.cobro);
   const sinCobrar = fact.filter((f) => f.forma_pago && !f.cobrada);
   const pend = [...avisos.map(([t, h]) => ['a', t.replace(/ ›$/, ''), 'En Anuncios', h, 'Ver']), ...sinFactura.map((o) => ['', `Factura: ${o.titulo}`, `Vendido el ${fechaCorta(o.fecha_venta)}${o.comision ? ` · comisión ${eur(o.comision)}` : ''}`, `?estado=expediente&id=${o.id}#factura`, 'Hacer']),
+    ...(efectivo.length ? [['a', `${fmt(efectivo.length)} comisiones cobradas en efectivo sin factura`, `${eur(efectivo.reduce((t, o) => t + n(o.comision), 0))} · conviene regularizarlas con la gestoría`, '?estado=sidonia&ver=efectivo', 'Ver']] : []),
     ...sinCobrar.map((f) => ['c', `Cobrar la factura ${f.numero}`, `${f.cliente} · ${eur(f.total)}`, f.operacion_id ? `?estado=expediente&id=${f.operacion_id}#cobro` : '?estado=facturas', 'Cobrar'])];
   // El ritmo del año
   const mesesAno = P.meses.filter((k) => k.startsWith(anoAhora));
@@ -350,13 +360,13 @@ export function paginaFinanzas(datos, { p = 'ano', ano = null, hoy = new Date(),
   const anual = (v) => (transcurrido ? (v / transcurrido) * 12 : 0);
   // Mes a mes: todos los meses desde el principio (los del periodo, resaltados)
   const maxC = Math.max(1, ...todos.map((k) => serie[k].comision));
-  const filasMM = todos.slice().reverse().map((k) => { const s = serie[k];
-    return `<tr class="${P.meses.includes(k) ? '' : 'fuera'}"><td class="izq"><b>${esc(nombreMes(k, true))}</b></td><td>${fmt(s.coches)}</td><td>${s.vendido ? eur(s.vendido) : '—'}</td><td class="izq"><span class="bm"><i style="width:${((s.comision / maxC) * 100).toFixed(1)}%"></i></span>${s.comision ? eur(s.comision) : '—'}</td>
-      <td>${s.coches ? eur(s.vendido / s.coches) : '—'}</td><td>${s.dias.length ? `${Math.round(s.dias.reduce((a, b) => a + b, 0) / s.dias.length)} días` : '—'}</td><td>${eur(s.gastos + s.irpf)}</td><td class="${s.resultado < 0 ? 'neg' : ''}"><b>${eur(s.resultado)}</b></td></tr>`; }).join('');
-  const filaT = (t, x) => `<tr class="tot"><td class="izq">${t}</td><td>${fmt(x.coches)}</td><td>${eur(x.vendido)}</td><td class="izq">${eur(x.comision)}</td><td>${x.coches ? eur(x.ticket) : '—'}</td><td>${x.dias != null ? `${x.dias} días` : '—'}</td><td>${eur(x.gastos + x.irpf)}</td><td class="${x.resultado < 0 ? 'neg' : ''}">${eur(x.resultado)}</td></tr>`;
+  const filasMM = [...(sinFecha.coches ? ['sin-fecha'] : []), ...todos.slice().reverse()].map((k) => { const s = serie[k];
+    return `<tr class="${P.meses.includes(k) || (k === 'sin-fecha' && P.p === 'todo') ? '' : 'fuera'}"><td class="izq"><b>${k === 'sin-fecha' ? '<a href="?estado=ventas&ver=vendido">Sin fecha de venta ›</a>' : esc(nombreMes(k, true))}</b></td><td>${fmt(s.coches)}</td><td>${s.vendido ? eur(s.vendido) : '—'}</td><td class="izq"><span class="bm"><i style="width:${((s.comision / maxC) * 100).toFixed(1)}%"></i></span>${s.comision ? eur(s.comision) : '—'}</td>
+      <td>${s.coches ? eur(s.vendido / s.coches) : '—'}</td><td>${s.comercial ? eur(s.comercial) : '—'}</td><td>${eur(s.fijos + s.puntuales)}</td><td>${s.irpf ? eur(s.irpf) : '—'}</td><td class="${s.resultado < 0 ? 'neg' : ''}"><b>${eur(s.resultado)}</b></td></tr>`; }).join('');
+  const filaT = (t, x) => `<tr class="tot"><td class="izq">${t}</td><td>${fmt(x.coches)}</td><td>${eur(x.vendido)}</td><td class="izq">${eur(x.comision)}</td><td>${x.coches ? eur(x.ticket) : '—'}</td><td>${eur(x.comercial)}</td><td>${eur(x.fijos + x.puntuales)}</td><td>${eur(x.irpf)}</td><td class="${x.resultado < 0 ? 'neg' : ''}">${eur(x.resultado)}</td></tr>`;
   const ventas = A.ventas.slice().sort((a, b) => String(b.fecha_venta).localeCompare(String(a.fecha_venta)));
   const filaV = (o) => { const f = facDe.get(Number(o.id));
-    const chip = f ? (f.cobrada ? '<span class="chip2 ok">Cobrada</span>' : '<span class="chip2 pd">Sin cobrar</span>') : '<span class="chip2 no">Sin factura</span>';
+    const chip = f ? (f.cobrada ? '<span class="chip2 ok">Cobrada</span>' : '<span class="chip2 pd">Sin cobrar</span>') : o.expediente?.cobro ? '<span class="chip2 pd">Efectivo · sin factura</span>' : '<span class="chip2 no">Sin factura</span>';
     return `<li><a href="${o.expediente && Object.keys(o.expediente).length ? `?estado=expediente&id=${Number(o.id)}` : `?estado=operacion&id=${Number(o.id)}`}">${fotos[o.handle] ? `<img src="${esc(fotos[o.handle])}" alt="" loading="lazy">` : '<span class="sf"></span>'}
       <div><b>${esc(o.titulo)}</b><small>${esc(fechaCorta(o.fecha_venta))}${o.propietario_nombre ? ` · ${esc(o.propietario_nombre)}` : ''}${o.comercial ? ` · ${esc(o.comercial)}` : ''}</small></div>${chip}
       <div class="pr"><b>${o.precio_venta ? eur(o.precio_venta) : '—'}</b><small>comisión ${o.comision ? eur(o.comision) : '—'}</small></div></a></li>`; };
@@ -368,9 +378,9 @@ ${error ? `<p class="aviso mal">${esc(error)}</p>` : ''}
 
 <p class="vt-et">Desde el principio</p>
 <div class="vt-siempre">
-  <a href="?estado=ventas&ver=vendido"><span>Coches vendidos</span><b>${fmt(R.vendidos)}</b><small>desde ${esc(nombreMes(primero))}</small></a>
-  <a href="?estado=ventas&ver=vendido"><span>Vendido en total</span><b>${corto(R.facturado)}</b><small>ticket medio ${eur(R.ticket)}</small></a>
-  <a href="?estado=ventas"><span>Comisión de Sidonia</span><b>${corto(R.comision)}</b><small>${R.pct.toLocaleString('es-ES', { maximumFractionDigits: 1 })} % de media</small></a>
+  <a href="?estado=ventas&ver=vendido"><span>Coches vendidos</span><b>${fmt(siempre.coches)}</b><small>desde ${esc(nombreMes(primero))}</small></a>
+  <a href="?estado=ventas&ver=vendido"><span>Vendido en total</span><b>${corto(siempre.vendido)}</b><small>ticket medio ${eur(siempre.ticket)}</small></a>
+  <a href="?estado=ventas"><span>Comisión de Sidonia</span><b>${corto(siempre.comision)}</b><small>${siempre.pct.toLocaleString('es-ES', { maximumFractionDigits: 1 })} % de lo vendido</small></a>
   <a href="?estado=sidonia&ver=venta"><span>En venta ahora</span><b>${fmt(R.enVenta)}</b><small>${R.comisionPrevista ? `${corto(R.comisionPrevista)} de comisión prevista` : `${corto(R.valorEnVenta)} en coches`}</small></a>
   <a href="?estado=estadisticas"><span>Contactos de la web</span><b>${web ? fmt(web.contactos) : '—'}</b><small>${web ? `+${fmt(web.contactos30)} en 30 días` : 'WhatsApp, llamadas y emails'}</small></a>
   <a href="?estado=clientes"><span>Registrados</span><b>${web ? fmt(web.registros) : '—'}</b><small>${web ? `+${fmt(web.registros30)} en 30 días` : 'personas con cuenta'}</small></a>
@@ -389,7 +399,8 @@ ${error ? `<p class="aviso mal">${esc(error)}</p>` : ''}
 <div class="vt-2">
   <div class="card"><p class="vt-et">Resultado · ${esc(P.titulo.toLowerCase())}</p>
     <ul class="cuenta"><li class="mas"><span>Comisión de las ventas</span><b>+ ${eur(A.comision)}</b></li><li class="mas"><span>Otros ingresos (servicios facturados, comunidad)</span><b>+ ${eur(A.otros)}</b></li>
-    <li class="menos"><span>Gastos (fijos, puntuales y comercial)</span><b>− ${eur(A.gastos)}</b></li><li class="menos"><span>IRPF (pagado o reservado)</span><b>− ${eur(A.irpf)}</b></li>
+    <li class="menos"><span>Gastos fijos (suscripciones, autónomo, gestoría…)</span><b>− ${eur(A.fijos)}</b></li><li class="menos"><span>Gastos puntuales (abogado, viajes…)</span><b>− ${eur(A.puntuales)}</b></li>
+    <li class="menos"><span>Comisión del comercial</span><b>− ${eur(A.comercial)}</b></li><li class="menos"><span>IRPF (pagado o reservado)</span><b>− ${eur(A.irpf)}</b></li>
     <li class="total${A.resultado < 0 ? ' neg' : ''}"><span>Lo que queda</span><b>${eur(A.resultado)}</b></li></ul>
     ${mesesAno.length ? `<p class="ritmo2">A este ritmo, ${anoAhora} cerraría con <b>${fmt(Math.round(anual(delAno.coches)))} coches</b>, <b>${eur(anual(delAno.vendido))}</b> vendidos y <b>${eur(anual(delAno.comision))}</b> de comisión.</p>` : ''}
     <div class="vt-links"><a href="?estado=gastos">Gastos ›</a><a href="?estado=facturas">Facturas ›</a><a href="?estado=impuestos">IVA del ${NA.hacienda.t.slice(6)}.º trimestre: ${eur(NA.hacienda.iva)} ›</a><a href="?estado=meses">Mes a mes con gastos ›</a></div></div>
@@ -408,9 +419,9 @@ ${error ? `<p class="aviso mal">${esc(error)}</p>` : ''}
   ${ventas.length ? `<ul class="vl">${ventas.slice(0, 30).map(filaV).join('')}</ul>` : '<p class="vacio">Aún no hay ventas en este periodo.</p>'}</div>
 
 <div class="card" style="margin-top:14px"><div class="barra" style="margin:0 0 10px"><p class="vt-et" style="margin:0">Análisis mes a mes</p><a class="boton claro" href="?estado=ventas&csv=1">Descargar CSV</a></div>
-  <div class="tabla mm"><table><thead><tr><th class="izq">Mes</th><th>Coches</th><th>Vendido</th><th class="izq">Comisión</th><th>Ticket medio</th><th>Días en venderse</th><th>Gastos e IRPF</th><th>Resultado</th></tr></thead>
+  <div class="tabla mm"><table><thead><tr><th class="izq">Mes</th><th>Coches</th><th>Vendido</th><th class="izq">Comisión</th><th>Ticket medio</th><th>Comercial</th><th>Gastos</th><th>IRPF</th><th>Resultado</th></tr></thead>
   <tbody>${filasMM}${filaT(esc(P.titulo), A)}${P.p !== 'todo' ? filaT('Desde el principio', siempre) : ''}</tbody></table></div>
-  <p class="nota">Una venta cuenta en el mes en que se vendió. «Días en venderse»: desde que se anunció hasta la venta. Los gastos e IRPF salen de Gastos; el IVA no es un gasto.</p></div>
+  <p class="nota">Una venta cuenta en el mes en que se vendió; si no tiene fecha de venta, va en «Sin fecha de venta» (cuenta en «Todo» y en «Desde el principio», no en los meses): ponedle la fecha en Ventas para que vaya a su mes. Si no tiene precio final, cuenta el del anuncio. Gastos: fijos y puntuales, de Gastos; la comisión del comercial y el IRPF, aparte. El IVA no es un gasto.</p></div>
 ${SCRIPT_V}`, CSS + CSS2 + CSS_V);
 }
 const fechaCorta = (f) => (f ? new Date(`${String(f).slice(0, 10)}T12:00:00Z`).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' }) : '');
