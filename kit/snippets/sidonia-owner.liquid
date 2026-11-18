@@ -1,0 +1,34 @@
+{%- comment -%}
+  Presentación pública del propietario. Es un dato EDITORIAL y autorizado, separado de sus datos
+  privados de contacto (que nunca están en el catálogo: viajan por el formulario de venta).
+
+    sidonia.owner_name       Nombre público autorizado (p. ej. nombre de pila o profesional)
+    sidonia.owner_show_name  Verdadero solo si el propietario ha autorizado mostrarlo
+    sidonia.owner_label      Descripción real alternativa («Propietario particular»)
+    sidonia.owner_story      Breve historia pública del propietario (opcional)
+
+  Regla: nombre si está autorizado y existe; si no, la descripción; si no, nada.
+  Parámetros: product, out = display (por defecto) | story | kind (name | label | vacío)
+{%- endcomment -%}
+{%- liquid
+  assign o_name = product.metafields.sidonia.owner_name.value | strip
+  assign o_show = product.metafields.sidonia.owner_show_name.value
+  assign o_label = product.metafields.sidonia.owner_label.value | strip
+  assign o_kind = ''
+  assign o_display = ''
+  if o_show == true and o_name != blank
+    assign o_kind = 'name'
+    assign o_display = o_name
+  elsif o_label != blank
+    assign o_kind = 'label'
+    assign o_display = o_label
+  endif
+  case out
+    when 'story'
+      echo product.metafields.sidonia.owner_story.value | strip | escape | newline_to_br
+    when 'kind'
+      echo o_kind
+    else
+      echo o_display | escape
+  endcase
+-%}

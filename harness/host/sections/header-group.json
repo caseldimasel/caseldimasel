@@ -1,0 +1,8 @@
+{
+  "type": "header",
+  "name": "Cabecera (anfitrión de pruebas)",
+  "sections": {
+    "header": { "type": "harness-header", "settings": { "menu": "main-menu" } }
+  },
+  "order": ["header"]
+}

@@ -1,0 +1,17 @@
+{%- comment -%}
+  SIDONIA · se renderiza UNA vez en layout/theme.liquid, justo antes de </body>
+  (lo inserta integration/apply-kit.mjs entre marcas <!-- sidonia:body -->).
+  Región de avisos para lectores de pantalla y modal de vídeo compartido (dialog nativo:
+  gestiona el foco, se cierra con Escape y devuelve el foco al botón que lo abrió).
+{%- endcomment -%}
+<div id="sidonia-live" class="sidonia-live" aria-live="polite" aria-atomic="true"></div>
+<dialog class="sidonia-scope sidonia-modal sidonia-video-modal" id="sidonia-video-modal" aria-labelledby="sidonia-video-modal-title">
+  <div class="sidonia-modal__bar">
+    <h2 class="sidonia-modal__title" id="sidonia-video-modal-title">{{ 'sidonia.video.modal_title' | t }}</h2>
+    <button type="button" class="sidonia-icon-btn" data-sidonia-close aria-label="{{ 'sidonia.video.close' | t }}">
+      {%- render 'sidonia-icon', name: 'close', size: 22 -%}
+    </button>
+  </div>
+  <div class="sidonia-modal__body" data-sidonia-video-slot></div>
+</dialog>
+<script src="{{ 'sidonia-video.js' | asset_url }}" defer></script>

@@ -1,0 +1,92 @@
+{%- comment -%}
+  SIDONIA · Selección de piezas (4 a 8), desde una colección o una lista manual de productos.
+  - Las vendidas no se mezclan: se omiten salvo que se active «Incluir vendidas» (y llevan su etiqueta).
+  - Sin piezas reales, la sección no se muestra fuera del editor (nunca hay productos de demostración).
+  - En móvil, fila desplazable con la mano; en escritorio, rejilla.
+{%- endcomment -%}
+{%- liquid
+  assign s = section.settings
+  assign source = s.products
+  assign src_collection = s.collection
+  if source == blank or source.size == 0
+    if src_collection == blank
+      assign src_collection = collections[s.fallback_handle]
+    endif
+    assign source = src_collection.products
+  endif
+  assign limit = s.limit | default: 8
+  assign shown = 0
+  assign view_url = s.link_url
+  if view_url == blank and src_collection != blank
+    assign view_url = src_collection.url
+  endif
+  capture cards
+    for p in source
+      if shown >= limit
+        break
+      endif
+      capture st
+        render 'sidonia-status', product: p
+      endcapture
+      assign st = st | strip
+      if st == 'sold' and s.include_sold == false
+        continue
+      endif
+      assign shown = shown | plus: 1
+      echo '<li class="sidonia-row__item">'
+      render 'sidonia-card', product: p
+      echo '</li>'
+    endfor
+  endcapture
+-%}
+{%- if shown > 0 or request.design_mode -%}
+<section class="sidonia-scope sidonia-section sidonia-listings{% if s.background == 'surface' %} sidonia-section--surface{% endif %}" data-section-id="{{ section.id }}">
+  <div class="sidonia-container">
+    <div class="sidonia-head">
+      <div class="sidonia-head__text">
+        {%- if s.eyebrow != blank -%}<p class="sidonia-eyebrow">{{ s.eyebrow | escape }}</p>{%- endif -%}
+        {%- if s.heading != blank -%}<h2 class="sidonia-h2">{{ s.heading | escape }}</h2>{%- endif -%}
+        {%- if s.text != blank -%}<p class="sidonia-lede">{{ s.text | escape }}</p>{%- endif -%}
+      </div>
+      {%- if view_url != blank and s.link_label != blank and shown > 0 -%}
+        <a class="sidonia-link" href="{{ view_url }}">{{ s.link_label | escape }}{%- render 'sidonia-icon', name: 'arrow-right', size: 18 -%}</a>
+      {%- endif -%}
+    </div>
+    {%- if shown > 0 -%}
+      <ul class="sidonia-row{% if s.layout == 'grid' %} sidonia-row--grid{% endif %}" role="list" aria-label="{{ s.heading | escape }}">
+        {{ cards }}
+      </ul>
+    {%- else -%}
+      <p class="sidonia-editor-hint">{{ 'sidonia.editor.listings_empty' | t }}</p>
+    {%- endif -%}
+  </div>
+</section>
+{%- endif -%}
+
+{% schema %}
+{
+  "name": "Sidonia · Selección",
+  "tag": "div",
+  "settings": [
+    { "type": "text", "id": "eyebrow", "label": "Antetítulo" },
+    { "type": "text", "id": "heading", "label": "Título", "default": "Selección disponible" },
+    { "type": "textarea", "id": "text", "label": "Texto" },
+    { "type": "collection", "id": "collection", "label": "Colección", "info": "Recomendado: colección automática «Destacadas» (sidonia.featured = verdadero)." },
+    { "type": "text", "id": "fallback_handle", "label": "Handle de reserva", "default": "destacadas", "info": "Se usa si no eliges colección ni productos." },
+    { "type": "product_list", "id": "products", "label": "…o elige las piezas a mano", "limit": 8 },
+    { "type": "range", "id": "limit", "label": "Número de piezas", "min": 4, "max": 8, "step": 1, "default": 8 },
+    { "type": "checkbox", "id": "include_sold", "label": "Incluir vendidas (con su etiqueta)", "default": false },
+    { "type": "select", "id": "layout", "label": "Disposición en escritorio", "options": [
+      { "value": "grid", "label": "Rejilla" },
+      { "value": "row", "label": "Fila desplazable" }
+    ], "default": "grid" },
+    { "type": "select", "id": "background", "label": "Fondo", "options": [
+      { "value": "bg", "label": "Piedra" },
+      { "value": "surface", "label": "Piedra clara" }
+    ], "default": "bg" },
+    { "type": "text", "id": "link_label", "label": "Texto del enlace «ver todo»", "default": "Ver todas las piezas" },
+    { "type": "url", "id": "link_url", "label": "Enlace «ver todo»", "info": "Vacío: la colección elegida." }
+  ],
+  "presets": [{ "name": "Sidonia · Selección" }]
+}
+{% endschema %}

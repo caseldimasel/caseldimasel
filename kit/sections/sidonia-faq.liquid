@@ -1,0 +1,126 @@
+{%- comment -%}
+  SIDONIA · Preguntas frecuentes (generales y por categoría).
+  Las respuestas por defecto solo describen lo que el briefing confirma. Tarifas, exclusividad
+  y plazos NO tienen respuesta por defecto: se añaden cuando Sidonia los decida.
+  Cada pregunta puede ser general o de una categoría; en «Automático», una ficha o colección
+  muestra las generales y las de su categoría.
+{%- endcomment -%}
+{%- liquid
+  assign s = section.settings
+  assign scope = s.scope
+  if scope == 'auto'
+    assign scope = 'all'
+    if product != blank
+      capture scope
+        render 'sidonia-category', product: product
+      endcapture
+    elsif collection != blank
+      capture keys_csv
+        render 'sidonia-division-keys'
+      endcapture
+      assign div_keys = keys_csv | strip | split: ','
+      for k in div_keys
+        assign key_i = k | strip
+        capture d_handle
+          render 'sidonia-division', key: key_i, out: 'handle'
+        endcapture
+        if d_handle != blank and collection.handle == d_handle
+          assign scope = key_i
+        endif
+      endfor
+    endif
+    assign scope = scope | strip | default: 'all'
+  endif
+  assign count = 0
+  for block in section.blocks
+    if block.settings.question != blank and block.settings.answer != blank
+      if scope == 'all' or block.settings.category == 'all' or block.settings.category == scope
+        assign count = count | plus: 1
+      endif
+    endif
+  endfor
+-%}
+{%- if count > 0 or request.design_mode -%}
+<section class="sidonia-scope sidonia-section sidonia-faq{% if s.background == 'surface' %} sidonia-section--surface{% elsif s.background == 'alt' %} sidonia-section--alt{% endif %}" data-section-id="{{ section.id }}">
+  <div class="sidonia-container sidonia-faq__grid">
+    <div class="sidonia-faq__intro">
+      {%- if s.eyebrow != blank -%}<p class="sidonia-eyebrow">{{ s.eyebrow | escape }}</p>{%- endif -%}
+      {%- if s.heading != blank -%}<h2 class="sidonia-h2">{{ s.heading | escape }}</h2>{%- endif -%}
+      {%- if s.text != blank -%}<p class="sidonia-lede">{{ s.text | escape }}</p>{%- endif -%}
+    </div>
+    <div class="sidonia-faq__list">
+      {%- for block in section.blocks -%}
+        {%- assign b = block.settings -%}
+        {%- if b.question != blank and b.answer != blank -%}
+          {%- if scope == 'all' or b.category == 'all' or b.category == scope -%}
+            <details class="sidonia-faq__item" {{ block.shopify_attributes }}>
+              <summary class="sidonia-faq__q">
+                <span>{{ b.question | escape }}</span>
+                {%- if b.category != 'all' and scope == 'all' -%}{%- render 'sidonia-cat-label', key: b.category, class: 'sidonia-faq__cat' -%}{%- endif -%}
+                <span class="sidonia-faq__icon" aria-hidden="true">{%- render 'sidonia-icon', name: 'plus', size: 18 -%}</span>
+              </summary>
+              <div class="sidonia-faq__a sidonia-rte">{{ b.answer }}</div>
+            </details>
+          {%- endif -%}
+        {%- endif -%}
+      {%- endfor -%}
+      {%- if request.design_mode -%}
+        <p class="sidonia-editor-hint">{{ 'sidonia.editor.faq_pending' | t }}</p>
+      {%- endif -%}
+    </div>
+  </div>
+</section>
+{%- endif -%}
+
+{% schema %}
+{
+  "name": "Sidonia · Preguntas",
+  "tag": "div",
+  "settings": [
+    { "type": "text", "id": "eyebrow", "label": "Antetítulo", "default": "Preguntas frecuentes" },
+    { "type": "text", "id": "heading", "label": "Título", "default": "Lo que suelen preguntarnos" },
+    { "type": "textarea", "id": "text", "label": "Texto" },
+    { "type": "select", "id": "scope", "label": "Preguntas que se muestran", "options": [
+      { "value": "auto", "label": "Automático (generales y las de la categoría de la página)" },
+      { "value": "all", "label": "Todas" },
+      { "value": "garage", "label": "Generales + Coches" },
+      { "value": "harbor", "label": "Generales + Barcos" },
+      { "value": "estate", "label": "Generales + Casas" }
+    ], "default": "auto" },
+    { "type": "select", "id": "background", "label": "Fondo", "options": [
+      { "value": "bg", "label": "Piedra" },
+      { "value": "surface", "label": "Piedra clara" },
+      { "value": "alt", "label": "Piedra alternativa" }
+    ], "default": "bg" }
+  ],
+  "blocks": [
+    {
+      "type": "question",
+      "name": "Pregunta",
+      "settings": [
+        { "type": "text", "id": "question", "label": "Pregunta" },
+        { "type": "richtext", "id": "answer", "label": "Respuesta" },
+        { "type": "select", "id": "category", "label": "Categoría", "options": [
+          { "value": "all", "label": "General" },
+          { "value": "garage", "label": "Coches" },
+          { "value": "harbor", "label": "Barcos" },
+          { "value": "estate", "label": "Casas" }
+        ], "default": "all" }
+      ]
+    }
+  ],
+  "max_blocks": 24,
+  "presets": [
+    {
+      "name": "Sidonia · Preguntas",
+      "blocks": [
+        { "type": "question", "settings": { "question": "¿Qué tipo de piezas seleccionáis?", "answer": "<p>Coches, barcos y casas con historia, carácter, diseño, cuidado o una procedencia interesante. No depende del precio ni de la antigüedad: valoramos qué hace especial a cada pieza y si podemos contarla bien.</p>", "category": "all" } },
+        { "type": "question", "settings": { "question": "¿Qué información necesitáis para estudiar mi pieza?", "answer": "<p>Para empezar basta con lo esencial: qué es, dónde está, qué la hace especial y cómo contactar contigo. Si tienes fotos, vídeos o un anuncio publicado, puedes pegar el enlace. En esta fase no pedimos documentación personal.</p>", "category": "all" } },
+        { "type": "question", "settings": { "question": "¿Cómo es la grabación?", "answer": "<p>Si la pieza encaja, acordamos contigo cómo y cuándo grabarla y escuchar su historia. Los detalles concretos se hablan contigo antes.</p>", "category": "all" } },
+        { "type": "question", "settings": { "question": "¿Cómo pido información sobre una pieza?", "answer": "<p>Desde cada ficha puedes escribirnos por WhatsApp, por correo o con el formulario. El mensaje incluye la referencia de la pieza para que sepamos de cuál hablas.</p>", "category": "all" } },
+        { "type": "question", "settings": { "question": "¿Qué ocurre después de contactar?", "answer": "<p>El equipo de Sidonia revisa tu mensaje y te contesta por el canal que prefieras. Si eres propietario, enviar la solicitud inicia una valoración de encaje: no implica aceptación ni compromiso de venta.</p>", "category": "all" } }
+      ]
+    }
+  ]
+}
+{% endschema %}

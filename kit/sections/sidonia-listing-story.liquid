@@ -1,0 +1,105 @@
+{%- comment -%}
+  SIDONIA · La historia de la pieza, qué la hace especial, el propietario (si lo autoriza)
+  y la transcripción del vídeo como vía adicional de acceso (no sustituye al vídeo).
+  Solo hechos aportados por el propietario o el equipo; nada se deduce.
+{%- endcomment -%}
+{%- liquid
+  assign s = section.settings
+  assign mf = product.metafields.sidonia
+  assign story = mf.story | metafield_tag
+  assign has_story = false
+  if mf.story != blank
+    assign has_story = true
+  endif
+  assign why = mf.why_special.value | strip
+  assign highlights = mf.highlights.value
+  assign provenance = mf.provenance.value | strip
+  assign transcript = mf.transcript.value | strip
+  capture owner
+    render 'sidonia-owner', product: product
+  endcapture
+  assign owner = owner | strip
+  capture owner_kind
+    render 'sidonia-owner', product: product, out: 'kind'
+  endcapture
+  assign owner_kind = owner_kind | strip
+  capture owner_story
+    render 'sidonia-owner', product: product, out: 'story'
+  endcapture
+  assign owner_story = owner_story | strip
+  assign desc = product.description | strip
+  capture v_lang
+    render 'sidonia-video-attrs', product: product, out: 'lang'
+  endcapture
+  assign v_lang = v_lang | strip
+  assign any = false
+  if has_story or why != blank or highlights != blank or transcript != blank or owner_story != blank or desc != blank
+    assign any = true
+  endif
+-%}
+{%- if any -%}
+<section class="sidonia-scope sidonia-section sidonia-listing-story" data-section-id="{{ section.id }}">
+  <div class="sidonia-container sidonia-listing-story__grid">
+    <div class="sidonia-listing-story__main">
+      {%- if desc != blank and s.show_description -%}
+        <div class="sidonia-listing-story__summary sidonia-rte">{{ product.description }}</div>
+      {%- endif -%}
+      {%- if has_story -%}
+        <h2 class="sidonia-h2">{{ s.heading | escape }}</h2>
+        <div class="sidonia-rte sidonia-listing-story__text">{{ story }}</div>
+      {%- endif -%}
+      {%- if provenance != blank -%}
+        <h3 class="sidonia-h4 sidonia-listing-story__sub">{{ 'sidonia.listing.provenance' | t }}</h3>
+        <p>{{ provenance | escape | newline_to_br }}</p>
+      {%- endif -%}
+      {%- if transcript != blank -%}
+        <details class="sidonia-transcript" id="sidonia-transcripcion">
+          <summary>
+            <span>{{ 'sidonia.video.transcript' | t }}</span>
+            {%- if v_lang != blank -%}<span class="sidonia-note">{{ 'sidonia.video.language_value' | t: lang: v_lang }}</span>{%- endif -%}
+            {%- render 'sidonia-icon', name: 'chevron-down', size: 18 -%}
+          </summary>
+          <div class="sidonia-transcript__text">{{ transcript | escape | newline_to_br }}</div>
+        </details>
+      {%- endif -%}
+    </div>
+    {%- if why != blank or highlights != blank or owner_story != blank -%}
+      <aside class="sidonia-listing-story__aside">
+        {%- if why != blank or highlights != blank -%}
+          <div class="sidonia-panel">
+            <h2 class="sidonia-h4">{{ s.special_heading | escape }}</h2>
+            {%- if why != blank -%}<p>{{ why | escape | newline_to_br }}</p>{%- endif -%}
+            {%- if highlights != blank -%}
+              <ul class="sidonia-checklist" role="list">
+                {%- for h in highlights -%}
+                  <li>{%- render 'sidonia-icon', name: 'check', size: 18 -%}<span>{{ h | escape }}</span></li>
+                {%- endfor -%}
+              </ul>
+            {%- endif -%}
+            <p class="sidonia-note">{{ 'sidonia.listing.facts_source' | t }}</p>
+          </div>
+        {%- endif -%}
+        {%- if owner_story != blank -%}
+          <div class="sidonia-panel sidonia-owner-panel">
+            <h2 class="sidonia-h4">{% if owner_kind == 'name' %}{{ 'sidonia.listing.owner_story_named' | t: name: owner }}{% else %}{{ 'sidonia.listing.owner_story' | t }}{% endif %}</h2>
+            <p>{{ owner_story }}</p>
+          </div>
+        {%- endif -%}
+      </aside>
+    {%- endif -%}
+  </div>
+</section>
+{%- endif -%}
+
+{% schema %}
+{
+  "name": "Sidonia · Su historia",
+  "tag": "div",
+  "enabled_on": { "templates": ["product"] },
+  "settings": [
+    { "type": "checkbox", "id": "show_description", "label": "Mostrar la descripción breve del producto", "default": true },
+    { "type": "text", "id": "heading", "label": "Título de la historia", "default": "Su historia" },
+    { "type": "text", "id": "special_heading", "label": "Título de «qué la hace especial»", "default": "Qué la hace especial" }
+  ]
+}
+{% endschema %}

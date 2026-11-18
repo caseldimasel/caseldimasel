@@ -1,0 +1,89 @@
+{%- comment -%}
+  Reproductor de la ficha (y de «Una historia concreta»). Muestra la portada y un botón claro;
+  el <video> se crea SOLO al pulsar, con sonido y controles. Nunca hay audio automático.
+
+  - Vídeo de Shopify (metacampo de archivo o media del producto): se usa el filtro video_tag dentro de
+    un <template> (fuentes HLS + MP4 de Shopify); no se descarga nada hasta pulsar.
+  - YouTube / Vimeo: el iframe se carga al pulsar (youtube-nocookie) y, si el ajuste lo pide,
+    tras aceptar un aviso de privacidad.
+  - Vertical 9:16 se conserva entero (contain); el horizontal ocupa el ancho disponible.
+  - Si falta o falla: mensaje útil; los datos y el contacto de la ficha siguen ahí.
+
+  Parámetros: product, priority (bool), sizes, class, max_h (CSS, p. ej. '78vh')
+{%- endcomment -%}
+{%- liquid
+  assign vfile = product.metafields.sidonia.video.value
+  assign v = nil
+  if vfile != blank and vfile.sources != blank
+    assign v = vfile
+  else
+    for m in product.media
+      if m.media_type == 'video'
+        assign v = m
+        break
+      endif
+    endfor
+  endif
+  capture kind
+    render 'sidonia-video-attrs', product: product, out: 'kind'
+  endcapture
+  assign kind = kind | strip
+  capture ratio
+    render 'sidonia-video-attrs', product: product, out: 'ratio'
+  endcapture
+  assign ratio = ratio | strip | plus: 0
+  capture attrs
+    render 'sidonia-video-attrs', product: product
+  endcapture
+  capture dur_text
+    render 'sidonia-duration', seconds: product.metafields.sidonia.video_duration.value
+  endcapture
+  assign dur_text = dur_text | strip
+  assign cover = product.featured_image
+  if cover == blank and v != blank
+    assign cover = v.preview_image
+  endif
+  assign orientation = 'landscape'
+  if ratio < 1
+    assign orientation = 'portrait'
+  endif
+  assign ratio_css = ratio
+  if ratio_css == 0
+    assign ratio_css = 0.5625
+  endif
+-%}
+{%- if kind != '' -%}
+  <sidonia-player
+    class="sidonia-player sidonia-player--{{ orientation }}{% if class != blank %} {{ class }}{% endif %}"
+    style="--sidonia-video-ratio: {{ ratio_css }};{% if max_h != blank %} --sidonia-player-max-h: {{ max_h }};{% endif %}"
+    {{ attrs | strip }}
+  >
+    {%- if cover != blank -%}
+      {%- render 'sidonia-image', image: cover, widths: '540,720,900,1080,1440', sizes: sizes, priority: priority, class: 'sidonia-player__poster', decorative: true -%}
+    {%- endif -%}
+    <span class="sidonia-player__shade" aria-hidden="true"></span>
+    <button type="button" class="sidonia-play sidonia-player__start" data-sidonia-player-start aria-label="{{ 'sidonia.video.play_aria' | t: title: product.title | escape }}">
+      <span class="sidonia-play__icon">{%- render 'sidonia-icon', name: 'play', size: 16 -%}</span>
+      <span>{{ 'sidonia.video.watch_long' | t }}</span>
+      {%- if dur_text != blank -%}<span class="sidonia-play__time">{{ dur_text }}</span>{%- endif -%}
+    </button>
+    {%- if kind == 'file' and v != blank -%}
+      <template data-sidonia-video-template>
+        {{ v | video_tag: controls: true, preload: 'metadata', playsinline: true, image_size: '1080x', class: 'sidonia-player__video' }}
+      </template>
+    {%- endif -%}
+    <noscript>
+      {%- if kind == 'file' and v != blank -%}
+        {{ v | video_tag: controls: true, preload: 'none', playsinline: true, image_size: '1080x' }}
+      {%- endif -%}
+    </noscript>
+  </sidonia-player>
+{%- else -%}
+  <div class="sidonia-player sidonia-player--empty sidonia-player--{{ orientation }}{% if class != blank %} {{ class }}{% endif %}" style="--sidonia-video-ratio: {% if cover != blank %}{{ cover.aspect_ratio }}{% else %}1.3333{% endif %};">
+    {%- if cover != blank -%}
+      {%- render 'sidonia-image', image: cover, widths: '540,720,900,1080,1440', sizes: sizes, priority: priority, class: 'sidonia-player__poster' -%}
+    {%- else -%}
+      <p>{{ 'sidonia.video.unavailable' | t }}</p>
+    {%- endif -%}
+  </div>
+{%- endif -%}

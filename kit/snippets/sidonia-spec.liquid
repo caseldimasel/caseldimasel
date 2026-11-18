@@ -1,0 +1,119 @@
+{%- comment -%}
+  Un dato técnico de una pieza, ya formateado. Si el dato no consta, no devuelve nada
+  (nunca convierte un desconocido en cero ni deduce valores).
+
+  Parámetros: product, id, part = value (por defecto) | label | short (valor para tarjetas)
+  Ids: brand model version year mileage fuel gearbox power color
+       builder boat_type length beam engine hours tax_regime
+       property_type area plot bedrooms bathrooms built_period energy_rating
+{%- endcomment -%}
+{%- liquid
+  assign mf = product.metafields.sidonia
+  assign v = blank
+  assign txt = ''
+  case id
+    when 'brand'
+      assign v = mf.brand.value
+    when 'model'
+      assign v = mf.model.value
+    when 'version'
+      assign v = mf.version.value
+    when 'year'
+      assign v = mf.year.value
+    when 'mileage'
+      assign v = mf.mileage_km.value
+    when 'fuel'
+      assign v = mf.fuel.value
+    when 'gearbox'
+      assign v = mf.gearbox.value
+    when 'power'
+      assign v = mf.power_hp.value
+    when 'color'
+      assign v = mf.color.value
+    when 'builder'
+      assign v = mf.builder.value
+    when 'boat_type'
+      assign v = mf.boat_type.value
+    when 'length'
+      assign v = mf.length_m.value
+    when 'beam'
+      assign v = mf.beam_m.value
+    when 'engine'
+      assign v = mf.engine.value
+    when 'hours'
+      assign v = mf.engine_hours.value
+    when 'tax_regime'
+      assign v = mf.tax_regime.value
+    when 'property_type'
+      assign v = mf.property_type.value
+    when 'area'
+      assign v = mf.area_value.value
+    when 'plot'
+      assign v = mf.plot_area.value
+    when 'bedrooms'
+      assign v = mf.bedrooms.value
+    when 'bathrooms'
+      assign v = mf.bathrooms.value
+    when 'built_period'
+      assign v = mf.built_period.value
+    when 'energy_rating'
+      assign v = mf.energy_rating.value
+  endcase
+
+  if v != blank
+    case id
+      when 'mileage'
+        capture n_txt
+          render 'sidonia-number', n: v
+        endcapture
+        assign txt = 'sidonia.units.km' | t: value: n_txt
+      when 'power'
+        capture n_txt
+          render 'sidonia-number', n: v
+        endcapture
+        assign txt = 'sidonia.units.hp' | t: value: n_txt
+      when 'length', 'beam'
+        capture n_txt
+          render 'sidonia-number', n: v, decimals: 2
+        endcapture
+        assign txt = 'sidonia.units.m' | t: value: n_txt
+      when 'hours'
+        capture n_txt
+          render 'sidonia-number', n: v
+        endcapture
+        assign txt = 'sidonia.units.hours' | t: value: n_txt
+      when 'area'
+        capture n_txt
+          render 'sidonia-number', n: v, decimals: 2
+        endcapture
+        assign unit = mf.area_unit.value | strip | default: 'm²'
+        assign txt = n_txt | strip | append: ' ' | append: unit
+      when 'plot'
+        capture n_txt
+          render 'sidonia-number', n: v, decimals: 2
+        endcapture
+        assign txt = 'sidonia.units.m2' | t: value: n_txt
+      when 'bedrooms'
+        if part == 'short'
+          assign txt = 'sidonia.units.bedrooms' | t: count: v
+        else
+          assign txt = v
+        endif
+      when 'bathrooms'
+        if part == 'short'
+          assign txt = 'sidonia.units.bathrooms' | t: count: v
+        else
+          assign txt = v
+        endif
+      else
+        assign txt = v | escape
+    endcase
+  endif
+
+  if part == 'label'
+    assign label_key = 'sidonia.specs.' | append: id
+    echo label_key | t
+  else
+    echo txt | strip
+  endif
+-%}

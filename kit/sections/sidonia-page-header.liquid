@@ -1,0 +1,77 @@
+{%- comment -%}
+  SIDONIA · Cabecera de página (Cómo vendemos, Sobre Sidonia, Vender, Contacto, Favoritos…).
+  Con imagen y como primera sección puede llevar la cabecera transparente encima (mismo contrato
+  que el hero); sin imagen es una cabecera piedra con migas y título.
+{%- endcomment -%}
+{%- liquid
+  assign s = section.settings
+  assign img = s.image
+  assign has_media = false
+  if img != blank
+    assign has_media = true
+  endif
+  assign overlay_on = false
+  if has_media and s.transparent_header and section.index == 1
+    assign overlay_on = true
+  endif
+  assign title = s.heading
+  if title == blank
+    if page != blank
+      assign title = page.title
+    elsif collection != blank
+      assign title = collection.title
+    endif
+  endif
+  assign overlay = s.overlay | default: 40 | divided_by: 100.0
+-%}
+{%- if overlay_on -%}
+  {%- comment -%}
+    Contrato de cabecera transparente del tema anfitrión. En Impact (verificado en 7.2.0): la sección
+    declara «allow-transparent-header» y sube bajo la cabecera con este margen; el JavaScript de Impact
+    pone la cabecera sólida al bajar o al abrir un panel. Sin esas variables, el margen es 0.
+  {%- endcomment -%}
+  <style>
+    #shopify-section-{{ section.id }} {
+      margin-block-start: calc(-1 * var(--header-height, 0px) * var(--section-is-first, 0));
+    }
+  </style>
+{%- endif -%}
+<section
+  class="sidonia-scope sidonia-page-header{% if has_media %} sidonia-page-header--media{% endif %}"
+  {% if overlay_on %}data-sidonia-header-overlay="true" allow-transparent-header{% endif %}
+  data-section-id="{{ section.id }}"
+  style="--sidonia-hero-shade: {{ overlay }};"
+>
+  {%- if has_media -%}
+    <div class="sidonia-page-header__media">
+      {%- render 'sidonia-image', image: img, widths: '750,1100,1500,1920,2400', sizes: '100vw', priority: true, class: 'sidonia-page-header__img', alt: s.image_alt -%}
+      <span class="sidonia-hero__shade" aria-hidden="true"></span>
+    </div>
+  {%- endif -%}
+  <div class="sidonia-container sidonia-page-header__inner">
+    {%- if s.breadcrumbs and has_media == false -%}{%- render 'sidonia-breadcrumbs', schema: false -%}{%- endif -%}
+    {%- if s.eyebrow != blank -%}<p class="sidonia-eyebrow sidonia-page-header__eyebrow">{{ s.eyebrow | escape }}</p>{%- endif -%}
+    <h1 class="sidonia-h1 sidonia-page-header__title">{{ title | escape }}</h1>
+    {%- if s.text != blank -%}<p class="sidonia-lede sidonia-page-header__text">{{ s.text | escape }}</p>{%- endif -%}
+    {%- if s.show_page_content and page.content != blank -%}<div class="sidonia-rte sidonia-page-header__content">{{ page.content }}</div>{%- endif -%}
+  </div>
+</section>
+
+{% schema %}
+{
+  "name": "Sidonia · Encabezado",
+  "tag": "div",
+  "settings": [
+    { "type": "text", "id": "eyebrow", "label": "Antetítulo" },
+    { "type": "text", "id": "heading", "label": "Título", "info": "Vacío: el título de la página." },
+    { "type": "textarea", "id": "text", "label": "Entradilla" },
+    { "type": "checkbox", "id": "show_page_content", "label": "Mostrar el contenido de la página de Shopify", "default": false },
+    { "type": "checkbox", "id": "breadcrumbs", "label": "Migas de pan (sin imagen)", "default": true },
+    { "type": "image_picker", "id": "image", "label": "Imagen (opcional)" },
+    { "type": "text", "id": "image_alt", "label": "Texto alternativo" },
+    { "type": "checkbox", "id": "transparent_header", "label": "Cabecera transparente sobre la imagen", "info": "Solo si es la primera sección y hay imagen.", "default": true },
+    { "type": "range", "id": "overlay", "label": "Oscurecido para contraste", "min": 20, "max": 80, "step": 5, "unit": "%", "default": 40 }
+  ],
+  "presets": [{ "name": "Sidonia · Encabezado" }]
+}
+{% endschema %}

@@ -1,0 +1,147 @@
+[
+  {
+    "name": "Sidonia · Marca y tipografía",
+    "settings": [
+      { "type": "paragraph", "content": "El logo, su versión para la cabecera transparente y el favicon se configuran en los ajustes de cabecera y de marca de Impact (no se duplican aquí). Estos ajustes solo afectan a los componentes Sidonia." },
+      { "type": "text", "id": "sidonia_brand_name", "label": "Nombre de marca en texto", "default": "SIDONIA", "info": "Se usa cuando no hay logo o imagen (portadas vacías, pie)." },
+      { "type": "image_picker", "id": "sidonia_isotype", "label": "Isotipo (opcional)", "info": "Aparece, discreto, en piezas sin portada. PNG o WebP con fondo transparente. Para SVG, ver docs/05-guia-de-edicion.md §2." },
+      { "type": "select", "id": "sidonia_font_mode", "label": "Tipografía de los componentes Sidonia", "options": [
+        { "value": "inherit", "label": "La del tema (Impact)" },
+        { "value": "system", "label": "Sistema del dispositivo (sin descargas)" },
+        { "value": "shopify", "label": "Biblioteca de fuentes de Shopify" }
+      ], "default": "inherit", "info": "Recomendado: la del tema, para no cargar una segunda familia." },
+      { "type": "font_picker", "id": "sidonia_font_heading", "label": "Títulos (solo con «Biblioteca de Shopify»)", "default": "assistant_n4" },
+      { "type": "font_picker", "id": "sidonia_font_body", "label": "Texto (solo con «Biblioteca de Shopify»)", "default": "assistant_n4" },
+      { "type": "range", "id": "sidonia_heading_scale", "label": "Escala de títulos", "min": 85, "max": 120, "step": 5, "unit": "%", "default": 100 }
+    ]
+  },
+  {
+    "name": "Sidonia · Colores",
+    "settings": [
+      { "type": "paragraph", "content": "Familia piedra. Contrastes comprobados en docs/03-sistema-de-diseno.md. Si cambias un color, comprueba que el texto sigue siendo legible (4,5:1)." },
+      { "type": "color", "id": "sidonia_color_bg", "label": "Fondo base", "default": "#F5F3EE" },
+      { "type": "color", "id": "sidonia_color_surface", "label": "Superficie elevada", "default": "#FAF8F4" },
+      { "type": "color", "id": "sidonia_color_alt", "label": "Superficie alternativa", "default": "#EAE6DE" },
+      { "type": "color", "id": "sidonia_color_text", "label": "Texto principal", "default": "#252723" },
+      { "type": "color", "id": "sidonia_color_muted", "label": "Texto secundario", "default": "#62635C" },
+      { "type": "color", "id": "sidonia_color_line", "label": "Separadores", "default": "#D7D2C8", "info": "Decorativo: no se usa para bordes de campos." },
+      { "type": "color", "id": "sidonia_color_control", "label": "Borde de campos y filtros", "default": "#8A857B", "info": "Debe contrastar al menos 3:1 con el fondo." },
+      { "type": "color", "id": "sidonia_color_button", "label": "Botón principal", "default": "#252723" },
+      { "type": "color", "id": "sidonia_color_button_text", "label": "Texto del botón principal", "default": "#FAF8F4" },
+      { "type": "checkbox", "id": "sidonia_skin_body", "label": "Aplicar el fondo piedra a todo el tema", "default": false, "info": "Puente mientras se ajustan los colores propios de Impact. Lo recomendable es fijar el fondo piedra en los esquemas de color de Impact." }
+    ]
+  },
+  {
+    "name": "Sidonia · Categorías",
+    "settings": [
+      { "type": "paragraph", "content": "Nombres públicos en español. Las claves internas (garage, harbor, estate) no se muestran nunca. El punto de color es decorativo: el nombre aporta el significado." },
+      { "type": "header", "content": "Coches" },
+      { "type": "text", "id": "sidonia_garage_name", "label": "Nombre público", "default": "Coches" },
+      { "type": "text", "id": "sidonia_garage_community", "label": "Comunidad (secundario)", "default": "SIDONIA GARAGE" },
+      { "type": "color", "id": "sidonia_garage_color", "label": "Punto", "default": "#B63F38" },
+      { "type": "collection", "id": "sidonia_garage_collection", "label": "Colección", "info": "Vacío: la colección con handle «coches»." },
+      { "type": "text", "id": "sidonia_garage_tagline", "label": "Frase", "default": "Coches con historia, cuidados por quien los ha vivido." },
+      { "type": "image_picker", "id": "sidonia_garage_image", "label": "Portada" },
+      { "type": "text", "id": "sidonia_garage_email", "label": "Correo específico (opcional)" },
+      { "type": "text", "id": "sidonia_garage_whatsapp", "label": "WhatsApp específico (opcional)", "info": "Formato internacional, por ejemplo +34 600 000 000." },
+      { "type": "header", "content": "Barcos" },
+      { "type": "text", "id": "sidonia_harbor_name", "label": "Nombre público", "default": "Barcos" },
+      { "type": "text", "id": "sidonia_harbor_community", "label": "Comunidad (secundario)", "default": "SIDONIA HARBOR" },
+      { "type": "color", "id": "sidonia_harbor_color", "label": "Punto", "default": "#28638E" },
+      { "type": "collection", "id": "sidonia_harbor_collection", "label": "Colección", "info": "Vacío: la colección con handle «barcos»." },
+      { "type": "text", "id": "sidonia_harbor_tagline", "label": "Frase", "default": "Barcos con millas, oficio y carácter." },
+      { "type": "image_picker", "id": "sidonia_harbor_image", "label": "Portada" },
+      { "type": "text", "id": "sidonia_harbor_email", "label": "Correo específico (opcional)" },
+      { "type": "text", "id": "sidonia_harbor_whatsapp", "label": "WhatsApp específico (opcional)" },
+      { "type": "header", "content": "Casas" },
+      { "type": "text", "id": "sidonia_estate_name", "label": "Nombre público", "default": "Casas" },
+      { "type": "text", "id": "sidonia_estate_community", "label": "Comunidad (secundario)", "default": "SIDONIA ESTATE" },
+      { "type": "color", "id": "sidonia_estate_color", "label": "Punto", "default": "#347455" },
+      { "type": "collection", "id": "sidonia_estate_collection", "label": "Colección", "info": "Vacío: la colección con handle «casas»." },
+      { "type": "text", "id": "sidonia_estate_tagline", "label": "Frase", "default": "Casas con memoria y personalidad." },
+      { "type": "image_picker", "id": "sidonia_estate_image", "label": "Portada" },
+      { "type": "text", "id": "sidonia_estate_email", "label": "Correo específico (opcional)" },
+      { "type": "text", "id": "sidonia_estate_whatsapp", "label": "WhatsApp específico (opcional)" }
+    ]
+  },
+  {
+    "name": "Sidonia · Contacto",
+    "settings": [
+      { "type": "paragraph", "content": "Si un canal está vacío, no se muestra: nunca hay números ni correos de ejemplo. El correo abre la aplicación del visitante; no es un envío desde la web." },
+      { "type": "text", "id": "sidonia_email", "label": "Correo general" },
+      { "type": "text", "id": "sidonia_whatsapp", "label": "WhatsApp general", "info": "Formato internacional: +34 600 000 000." },
+      { "type": "text", "id": "sidonia_phone", "label": "Teléfono (opcional)" },
+      { "type": "text", "id": "sidonia_hours", "label": "Horario (opcional)", "info": "Solo si existe un horario real." },
+      { "type": "text", "id": "sidonia_response_note", "label": "Nota sobre el plazo de respuesta (opcional)", "info": "Déjalo vacío salvo que Sidonia confirme un plazo." },
+      { "type": "text", "id": "sidonia_sell_label", "label": "Texto del botón de venta", "default": "Vender con Sidonia" },
+      { "type": "header", "content": "Mensajes prellenados" },
+      { "type": "paragraph", "content": "Marcadores: [nombre], [referencia], [url]. Se codifican automáticamente." },
+      { "type": "textarea", "id": "sidonia_msg_whatsapp", "label": "WhatsApp desde una ficha", "default": "Hola, me interesa [nombre], referencia [referencia]. La he visto aquí: [url]. ¿Podéis darme más información?" },
+      { "type": "textarea", "id": "sidonia_msg_whatsapp_sold", "label": "WhatsApp desde una pieza vendida", "default": "Hola, he visto [nombre] (referencia [referencia]), que ya está vendida: [url]. Busco algo parecido." },
+      { "type": "textarea", "id": "sidonia_msg_whatsapp_general", "label": "WhatsApp general", "default": "Hola, os escribo desde la web de Sidonia." },
+      { "type": "text", "id": "sidonia_msg_email_subject", "label": "Asunto del correo", "default": "Consulta sobre [nombre] · Ref. [referencia]" },
+      { "type": "text", "id": "sidonia_msg_email_subject_sold", "label": "Asunto si está vendida", "default": "Busco algo parecido a [nombre] · Ref. [referencia]" },
+      { "type": "textarea", "id": "sidonia_msg_email_body", "label": "Cuerpo del correo", "default": "Hola:\n\nMe interesa [nombre] (referencia [referencia]).\nLa he visto aquí: [url]\n\n¿Podéis darme más información?\n\nGracias." }
+    ]
+  },
+  {
+    "name": "Sidonia · Páginas",
+    "settings": [
+      { "type": "paragraph", "content": "Páginas y colecciones clave. Vacío: se buscan los handles recomendados (vender-con-sidonia, como-vendemos, sobre-sidonia, favoritos, contacto, busco, explorar, vendidas)." },
+      { "type": "page", "id": "sidonia_page_sell", "label": "Vender con Sidonia" },
+      { "type": "page", "id": "sidonia_page_how", "label": "Cómo vendemos" },
+      { "type": "page", "id": "sidonia_page_about", "label": "Sobre Sidonia" },
+      { "type": "page", "id": "sidonia_page_favorites", "label": "Favoritos" },
+      { "type": "page", "id": "sidonia_page_contact", "label": "Contacto" },
+      { "type": "page", "id": "sidonia_page_wanted", "label": "Cuéntanos qué buscas" },
+      { "type": "page", "id": "sidonia_privacy_page", "label": "Aviso de privacidad (opcional)", "info": "Vacío: la política de privacidad de Ajustes > Políticas." },
+      { "type": "collection", "id": "sidonia_collection_explore", "label": "Explorar (todas las piezas)" },
+      { "type": "collection", "id": "sidonia_collection_archive", "label": "Archivo de vendidas" }
+    ]
+  },
+  {
+    "name": "Sidonia · Catálogo",
+    "settings": [
+      { "type": "select", "id": "sidonia_card_ratio", "label": "Formato de las portadas", "options": [
+        { "value": "4 / 3", "label": "4:3 horizontal" },
+        { "value": "3 / 2", "label": "3:2 horizontal" },
+        { "value": "4 / 5", "label": "4:5 vertical" },
+        { "value": "1 / 1", "label": "1:1 cuadrado" }
+      ], "default": "4 / 3", "info": "La portada se recorta con el punto focal de cada imagen. El vídeo de la ficha nunca se recorta." },
+      { "type": "select", "id": "sidonia_grid_desktop", "label": "Columnas en escritorio ancho", "options": [
+        { "value": "3", "label": "3" },
+        { "value": "4", "label": "4" }
+      ], "default": "4" },
+      { "type": "select", "id": "sidonia_grid_mobile", "label": "Columnas en móvil", "options": [
+        { "value": "1", "label": "1 (recomendado)" },
+        { "value": "2", "label": "2" }
+      ], "default": "1" },
+      { "type": "checkbox", "id": "sidonia_card_hook", "label": "Mostrar la línea de historia en las tarjetas", "default": true },
+      { "type": "range", "id": "sidonia_card_specs", "label": "Datos técnicos por tarjeta", "min": 0, "max": 3, "step": 1, "default": 3 },
+      { "type": "range", "id": "sidonia_per_page", "label": "Piezas por página", "min": 12, "max": 48, "step": 4, "default": 24 },
+      { "type": "checkbox", "id": "sidonia_load_more", "label": "Botón «Cargar más» (la paginación real se mantiene)", "default": true },
+      { "type": "range", "id": "sidonia_radius", "label": "Radio de esquinas", "min": 0, "max": 20, "step": 2, "unit": "px", "default": 12 },
+      { "type": "range", "id": "sidonia_page_width", "label": "Ancho máximo del contenido", "min": 1200, "max": 1680, "step": 40, "unit": "px", "default": 1440 },
+      { "type": "header", "content": "Precio" },
+      { "type": "checkbox", "id": "sidonia_variant_prices", "label": "Las variantes reflejan el precio publicado", "default": false, "info": "Actívalo solo si el precio de la variante de cada pieza «Publicado» coincide con su precio editorial. Habilita ordenar por precio y el filtro de precio nativo. Ver docs/10-precios-y-compra.md." },
+      { "type": "checkbox", "id": "sidonia_schema_offers", "label": "Publicar el precio como oferta en datos estructurados", "default": true, "info": "Solo piezas «Disponible» con precio publicado. Nunca con «a consultar», «no publicado», reservada o vendida." }
+    ]
+  },
+  {
+    "name": "Sidonia · Vídeo",
+    "settings": [
+      { "type": "text", "id": "sidonia_video_language", "label": "Idioma por defecto de los vídeos", "default": "Español" },
+      { "type": "checkbox", "id": "sidonia_page_preview", "label": "Clip silencioso en la ficha (escritorio)", "default": false, "info": "Desactivado por defecto: la ficha abre con la foto de portada y no descarga vídeo. Si lo activas usa el clip breve de cada pieza; nunca con «reducir movimiento» ni ahorro de datos y nunca suena." },
+      { "type": "checkbox", "id": "sidonia_card_hover_preview", "label": "Clip silencioso al pasar el ratón por una tarjeta", "default": false, "info": "Solo escritorio con ratón. Se descarga al pasar por encima, nunca al cargar el listado." },
+      { "type": "checkbox", "id": "sidonia_external_consent", "label": "Pedir permiso antes de cargar YouTube o Vimeo", "default": true }
+    ]
+  },
+  {
+    "name": "Sidonia · Analítica",
+    "settings": [
+      { "type": "paragraph", "content": "Adaptador opcional: publica eventos sin datos personales (nunca mensajes, correos, teléfonos ni texto buscado) en Shopify.analytics y window.dataLayer. Un clic en WhatsApp o correo no es un lead recibido." },
+      { "type": "checkbox", "id": "sidonia_analytics", "label": "Activar eventos de Sidonia", "default": false },
+      { "type": "checkbox", "id": "sidonia_analytics_consent", "label": "Esperar al consentimiento de analítica de Shopify", "default": true }
+    ]
+  }
+]

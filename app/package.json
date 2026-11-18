@@ -1,0 +1,26 @@
+{
+  "name": "sidonia-app",
+  "version": "1.0.0",
+  "private": true,
+  "description": "App de Sidonia para iPhone y Android (Capacitor): la web de sidonia.es con avisos al móvil, cámara, compartir y pantalla sin conexión.",
+  "scripts": {
+    "nativo": "node scripts/nativo.mjs",
+    "test": "node --test scripts/*.test.mjs"
+  },
+  "dependencies": {
+    "@capacitor-firebase/messaging": "^7.0.0",
+    "@capacitor/android": "^7.0.0",
+    "@capacitor/app": "^7.0.0",
+    "@capacitor/core": "^7.0.0",
+    "@capacitor/ios": "^7.0.0",
+    "@capacitor/share": "^7.0.0",
+    "@capacitor/splash-screen": "^7.0.0",
+    "@capacitor/status-bar": "^7.0.0",
+    "firebase": "^11.0.0"
+  },
+  "devDependencies": {
+    "@capacitor/assets": "^3.0.5",
+    "@capacitor/cli": "^7.0.0"
+  },
+  "engines": { "node": ">=20" }
+}

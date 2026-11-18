@@ -1,0 +1,26 @@
+<!doctype html>
+{%- comment -%}
+  ANFITRIÓN DEL ARNÉS DE PRUEBAS (no es Impact).
+  Tema mínimo que hace de base para comprobar el kit Sidonia y el script integration/apply-kit.mjs.
+  apply-kit inserta el render de sidonia-head y sidonia-body-end antes de </head> y </body>,
+  exactamente como hará en layout/theme.liquid de Impact.
+{%- endcomment -%}
+<html lang="{{ request.locale.iso_code }}">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{{ page_title }}{% unless page_title contains shop.name %} · {{ shop.name }}{% endunless %}</title>
+    {%- if page_description != blank -%}<meta name="description" content="{{ page_description | escape }}">{%- endif -%}
+    <link rel="canonical" href="{{ canonical_url }}">
+    {{ content_for_header }}
+    {{ 'harness.css' | asset_url | stylesheet_tag }}
+  </head>
+  <body class="harness-body">
+    <a class="harness-skip" href="#MainContent">Saltar al contenido</a>
+    {% sections 'header-group' %}
+    <main id="MainContent" class="harness-main" role="main" tabindex="-1">
+      {{ content_for_layout }}
+    </main>
+    {% sections 'footer-group' %}
+  </body>
+</html>

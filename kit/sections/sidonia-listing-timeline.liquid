@@ -1,0 +1,34 @@
+{%- comment -%}
+  SIDONIA · Cronología breve basada en fechas reales (metaobjeto sidonia_timeline_event,
+  referenciado desde el metacampo sidonia.timeline). Sin hitos, no se muestra.
+{%- endcomment -%}
+{%- assign events = product.metafields.sidonia.timeline.value -%}
+{%- if events != blank and events.size > 0 -%}
+<section class="sidonia-scope sidonia-section sidonia-timeline" data-section-id="{{ section.id }}">
+  <div class="sidonia-container sidonia-container--narrow">
+    <h2 class="sidonia-h2">{{ section.settings.heading | escape }}</h2>
+    <ol class="sidonia-timeline__list" role="list">
+      {%- for e in events -%}
+        <li class="sidonia-timeline__item">
+          <p class="sidonia-timeline__period">{{ e.period.value | escape }}</p>
+          <div>
+            <h3 class="sidonia-timeline__title">{{ e.title.value | escape }}</h3>
+            {%- if e.description.value != blank -%}<p class="sidonia-timeline__text">{{ e.description.value | escape | newline_to_br }}</p>{%- endif -%}
+          </div>
+        </li>
+      {%- endfor -%}
+    </ol>
+  </div>
+</section>
+{%- endif -%}
+
+{% schema %}
+{
+  "name": "Sidonia · Cronología",
+  "tag": "div",
+  "enabled_on": { "templates": ["product"] },
+  "settings": [
+    { "type": "text", "id": "heading", "label": "Título", "default": "Cronología" }
+  ]
+}
+{% endschema %}

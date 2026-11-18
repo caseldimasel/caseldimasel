@@ -1,0 +1,197 @@
+{%- comment -%}
+  SIDONIA · Ficha de pieza (sección principal). Estructura compartida por Coches, Barcos y Casas;
+  los datos técnicos cambian según la categoría.
+
+  Orden (móvil): migas → categoría, nombre, ubicación, propietario, estado → vídeo → precio y datos
+  esenciales → contacto y Guardar. En escritorio, el vídeo va a un lado y el resumen al otro
+  (fijo al desplazar). Un vídeo vertical conserva 9:16; uno horizontal ocupa un bloque más ancho.
+
+  No hay carrito, cantidad, compra rápida ni botones de pago: es una ficha de consulta.
+  Todo se renderiza en servidor (indexable) salvo la reproducción del vídeo y Guardar.
+{%- endcomment -%}
+{%- liquid
+  assign s = section.settings
+  assign mf = product.metafields.sidonia
+  capture cat
+    render 'sidonia-category', product: product
+  endcapture
+  assign cat = cat | strip
+  capture st
+    render 'sidonia-status', product: product
+  endcapture
+  assign st = st | strip
+  capture price_kind
+    render 'sidonia-price', product: product, out: 'kind'
+  endcapture
+  assign price_kind = price_kind | strip
+  capture price_text
+    render 'sidonia-price', product: product
+  endcapture
+  assign price_text = price_text | strip
+  capture place
+    render 'sidonia-location', product: product
+  endcapture
+  assign place = place | strip
+  capture owner
+    render 'sidonia-owner', product: product
+  endcapture
+  assign owner = owner | strip
+  capture owner_kind
+    render 'sidonia-owner', product: product, out: 'kind'
+  endcapture
+  assign owner_kind = owner_kind | strip
+  capture facts
+    render 'sidonia-specs', product: product, key: cat, mode: 'summary', limit: 6
+  endcapture
+  assign facts = facts | strip
+  capture v_kind
+    render 'sidonia-video-attrs', product: product, out: 'kind'
+  endcapture
+  assign v_kind = v_kind | strip
+  capture v_ratio
+    render 'sidonia-video-attrs', product: product, out: 'ratio'
+  endcapture
+  assign v_ratio = v_ratio | strip | plus: 0
+  capture v_lang
+    render 'sidonia-video-attrs', product: product, out: 'lang'
+  endcapture
+  assign v_lang = v_lang | strip
+  capture v_subs
+    render 'sidonia-video-attrs', product: product, out: 'subs'
+  endcapture
+  assign v_subs = v_subs | strip
+  capture dur_text
+    render 'sidonia-duration', seconds: mf.video_duration.value
+  endcapture
+  assign dur_text = dur_text | strip
+  assign ref = mf.reference.value | strip
+  assign hook = mf.hook.value | strip
+  assign social = mf.social_url.value | strip
+  assign orientation = 'landscape'
+  if v_ratio > 0 and v_ratio < 1
+    assign orientation = 'portrait'
+  endif
+  if v_kind == '' and product.featured_image != blank and product.featured_image.aspect_ratio < 1
+    assign orientation = 'portrait'
+  endif
+  if cat != blank
+    capture cat_name
+      render 'sidonia-division', key: cat, out: 'name'
+    endcapture
+    assign cat_name = cat_name | strip
+  endif
+-%}
+<section
+  class="sidonia-scope sidonia-listing sidonia-listing--{{ orientation }}{% if st != blank %} sidonia-listing--{{ st }}{% endif %}"
+  data-section-id="{{ section.id }}"
+  data-sidonia-listing
+  data-product-id="{{ product.id }}"
+  {% if cat != blank %}data-category="{{ cat }}"{% endif %}
+  {% if ref != blank %}data-ref="{{ ref | escape }}"{% endif %}
+>
+  <div class="sidonia-container">
+    {%- render 'sidonia-breadcrumbs', category: cat -%}
+
+    <div class="sidonia-listing__grid">
+      <header class="sidonia-listing__head">
+        <p class="sidonia-listing__kicker">
+          {%- if cat != blank -%}{%- render 'sidonia-cat-label', key: cat, name: cat_name -%}{%- endif -%}
+          {%- if st != blank -%}{%- render 'sidonia-status', product: product, out: 'chip' -%}{%- endif -%}
+        </p>
+        <h1 class="sidonia-listing__title">{{ product.title | escape }}</h1>
+        {%- if hook != blank -%}<p class="sidonia-listing__hook">{{ hook | escape }}</p>{%- endif -%}
+        <dl class="sidonia-listing__meta">
+          {%- if place != blank -%}
+            <div><dt>{%- render 'sidonia-icon', name: 'pin', size: 16 -%}<span class="sidonia-sr">{{ 'sidonia.listing.location' | t }}</span></dt><dd>{{ place | escape }}</dd></div>
+          {%- endif -%}
+          {%- if owner != blank -%}
+            <div><dt>{% if owner_kind == 'name' %}{{ 'sidonia.listing.owner' | t }}{% else %}<span class="sidonia-sr">{{ 'sidonia.listing.owner' | t }}</span>{% endif %}</dt><dd>{{ owner }}</dd></div>
+          {%- endif -%}
+          {%- if ref != blank -%}
+            <div><dt>{{ 'sidonia.listing.reference' | t }}</dt><dd>{{ ref | escape }}</dd></div>
+          {%- endif -%}
+        </dl>
+      </header>
+
+      <div class="sidonia-listing__media">
+        {%- render 'sidonia-player', product: product, priority: true, sizes: '(min-width: 1024px) 50vw, 100vw', max_h: '78vh' -%}
+        {%- if v_kind != '' -%}
+          <ul class="sidonia-listing__videometa" role="list">
+            {%- if dur_text != blank -%}<li>{%- render 'sidonia-icon', name: 'play', size: 12 -%}{{ 'sidonia.video.duration' | t: time: dur_text }}</li>{%- endif -%}
+            {%- if v_lang != blank -%}<li>{{ 'sidonia.video.language_value' | t: lang: v_lang }}</li>{%- endif -%}
+            {%- if v_subs != blank -%}<li>{%- render 'sidonia-icon', name: 'subtitles', size: 14 -%}{{ 'sidonia.video.subtitles_available' | t }}</li>{%- endif -%}
+            {%- if mf.transcript.value != blank -%}<li><a href="#sidonia-transcripcion">{{ 'sidonia.video.read_transcript' | t }}</a></li>{%- endif -%}
+            {%- if social != blank -%}<li><a href="{{ social | escape }}" target="_blank" rel="noopener">{{ 'sidonia.video.original_post' | t }}<span class="sidonia-sr"> {{ 'sidonia.general.new_window' | t }}</span></a></li>{%- endif -%}
+          </ul>
+        {%- endif -%}
+      </div>
+
+      <aside class="sidonia-listing__summary" aria-label="{{ 'sidonia.listing.summary' | t }}">
+        <div class="sidonia-listing__card">
+          <div class="sidonia-listing__price">
+            {%- if price_kind == 'sold' -%}
+              <p class="sidonia-price sidonia-price--sold">{{ 'sidonia.status.sold_long' | t }}</p>
+              <p class="sidonia-note">{{ 'sidonia.listing.sold_note' | t }}</p>
+            {%- else -%}
+              <p class="sidonia-price sidonia-price--{{ price_kind }}">{{ price_text }}</p>
+              {%- if price_kind == 'published' and s.price_note != blank -%}<p class="sidonia-note">{{ s.price_note | escape }}</p>{%- endif -%}
+              {%- if st == 'reserved' -%}<p class="sidonia-note">{{ 'sidonia.listing.reserved_note' | t }}</p>{%- endif -%}
+            {%- endif -%}
+          </div>
+          {%- if facts != blank -%}
+            <dl class="sidonia-facts">{{ facts }}</dl>
+          {%- endif -%}
+          {%- render 'sidonia-contact-actions', product: product, category: cat, status: st, form_anchor: 'sidonia-consulta' -%}
+          <div class="sidonia-listing__tools">
+            {%- render 'sidonia-save', product: product, variant: 'inline' -%}
+            <sidonia-share class="sidonia-share" data-url="{{ canonical_url | split: '?' | first }}" data-title="{{ product.title | escape }}">
+              <button type="button" class="sidonia-btn sidonia-btn--quiet sidonia-share__btn">
+                {%- render 'sidonia-icon', name: 'share', size: 18 -%}<span data-sidonia-share-label>{{ 'sidonia.share.share' | t }}</span>
+              </button>
+            </sidonia-share>
+          </div>
+          {%- if st == 'available' -%}
+            <p class="sidonia-note sidonia-listing__available">{{ 'sidonia.listing.available_note' | t }}</p>
+          {%- endif -%}
+        </div>
+      </aside>
+    </div>
+  </div>
+
+  {%- comment -%} Barra de contacto fija en móvil: WhatsApp (si existe) y consulta. Se oculta con el formulario, el teclado o un vídeo a la vista. {%- endcomment -%}
+  {%- if s.mobile_bar -%}
+    {%- assign canon = canonical_url | split: '?' | first -%}
+    {%- capture wa_bar -%}{%- render 'sidonia-contact-link', kind: 'whatsapp', product: product, category: cat, sold: false, url: canon -%}{%- endcapture -%}
+    {%- assign wa_bar = wa_bar | strip -%}
+    <sidonia-contact-bar class="sidonia-contact-bar" hidden>
+      <span class="sidonia-contact-bar__price{% if price_kind != 'published' %} sidonia-contact-bar__price--text{% endif %}">
+        {%- if price_kind == 'sold' -%}{{ 'sidonia.status.sold_long' | t }}{%- else -%}{{ price_text }}{%- endif -%}
+      </span>
+      <span class="sidonia-contact-bar__actions">
+        {%- if wa_bar != blank and st != 'sold' -%}
+          <a class="sidonia-btn sidonia-btn--sm" href="{{ wa_bar }}" target="_blank" rel="noopener" data-sidonia-track="contact_whatsapp" data-sidonia-track-category="{{ cat }}">
+            {%- render 'sidonia-icon', name: 'whatsapp', size: 18 -%}<span>{{ 'sidonia.contact.whatsapp_short' | t }}</span><span class="sidonia-sr"> {{ 'sidonia.general.new_window' | t }}</span>
+          </a>
+        {%- endif -%}
+        <a class="sidonia-btn sidonia-btn--sm {% if wa_bar != blank and st != 'sold' %}sidonia-btn--secondary{% endif %}" href="#sidonia-consulta">{% if st == 'sold' %}{{ 'sidonia.contact.form_similar_short' | t }}{% else %}{{ 'sidonia.contact.form_short' | t }}{% endif %}</a>
+      </span>
+    </sidonia-contact-bar>
+  {%- endif -%}
+
+  {%- render 'sidonia-structured-data', product: product, category: cat, status: st -%}
+</section>
+<script src="{{ 'sidonia-product.js' | asset_url }}" defer></script>
+
+{% schema %}
+{
+  "name": "Sidonia · Ficha",
+  "tag": "div",
+  "class": "sidonia-section-listing",
+  "enabled_on": { "templates": ["product"] },
+  "settings": [
+    { "type": "paragraph", "content": "Los datos salen de los metacampos sidonia.* de la pieza (docs/04-modelo-de-datos.md). Si falta un dato, se oculta." },
+    { "type": "text", "id": "price_note", "label": "Nota bajo el precio publicado (opcional)", "info": "Por ejemplo, qué incluye o no el precio. Solo condiciones confirmadas." },
+    { "type": "checkbox", "id": "mobile_bar", "label": "Barra de contacto fija en móvil", "default": true }
+  ]
+}
+{% endschema %}

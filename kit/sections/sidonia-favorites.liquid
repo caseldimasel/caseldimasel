@@ -1,0 +1,71 @@
+{%- comment -%}
+  SIDONIA · Favoritos (guardados en este navegador, sin cuenta).
+  La página NO confía en lo guardado: consulta el estado actual de cada pieza con la vista
+  alternativa de producto /products/<handle>?view=sidonia-card (plantilla product.sidonia-card.liquid),
+  una vía documentada de Shopify. Piezas retiradas o vendidas se indican sin romper la página.
+{%- endcomment -%}
+{%- liquid
+  assign s = section.settings
+  capture explore_url
+    render 'sidonia-url', key: 'explore'
+  endcapture
+  capture keys_csv
+    render 'sidonia-division-keys'
+  endcapture
+  assign div_keys = keys_csv | strip | split: ','
+-%}
+<section class="sidonia-scope sidonia-section sidonia-favorites" data-section-id="{{ section.id }}">
+  <div class="sidonia-container">
+    <header class="sidonia-favorites__head">
+      <div>
+        <h1 class="sidonia-h1">{{ s.heading | escape }}</h1>
+        <p class="sidonia-note sidonia-favorites__where">{%- render 'sidonia-icon', name: 'info', size: 16 -%}{{ 'sidonia.favorites.local_only' | t }}</p>
+      </div>
+      <sidonia-favorites-tools class="sidonia-favorites__tools" hidden>
+        <button type="button" class="sidonia-btn sidonia-btn--quiet sidonia-btn--sm" data-sidonia-fav-clear>{{ 'sidonia.favorites.clear' | t }}</button>
+      </sidonia-favorites-tools>
+    </header>
+
+    <sidonia-favorites-page class="sidonia-favorites__app" data-view="sidonia-card" data-root="{{ routes.root_url }}">
+      <p class="sidonia-alert" data-sidonia-fav-warning hidden></p>
+      <p class="sidonia-note" data-sidonia-fav-status role="status"></p>
+      <ul class="sidonia-grid" role="list" data-sidonia-fav-grid></ul>
+      <div class="sidonia-empty" data-sidonia-fav-empty hidden>
+        <h2 class="sidonia-h3">{{ 'sidonia.favorites.empty_title' | t }}</h2>
+        <p>{{ 'sidonia.favorites.empty_text' | t }}</p>
+        <div class="sidonia-empty__actions">
+          <a class="sidonia-btn" href="{{ explore_url | strip }}">{{ 'sidonia.catalog.explore_all' | t }}</a>
+          {%- for k in div_keys -%}
+            {%- assign key_i = k | strip -%}
+            {%- capture d_url -%}{%- render 'sidonia-division', key: key_i, out: 'url' -%}{%- endcapture -%}
+            <a class="sidonia-btn sidonia-btn--quiet" href="{{ d_url | strip }}">{%- render 'sidonia-cat-label', key: key_i -%}</a>
+          {%- endfor -%}
+        </div>
+      </div>
+      <noscript><p class="sidonia-alert">{{ 'sidonia.favorites.no_js' | t }}</p></noscript>
+    </sidonia-favorites-page>
+
+    <dialog class="sidonia-modal" data-sidonia-fav-confirm aria-labelledby="{{ section.id }}-confirm">
+      <div class="sidonia-modal__body">
+        <h2 class="sidonia-h4" id="{{ section.id }}-confirm">{{ 'sidonia.favorites.confirm_title' | t }}</h2>
+        <p>{{ 'sidonia.favorites.confirm_text' | t }}</p>
+        <div class="sidonia-modal__actions">
+          <button type="button" class="sidonia-btn sidonia-btn--quiet" data-sidonia-cancel>{{ 'sidonia.general.cancel' | t }}</button>
+          <button type="button" class="sidonia-btn" data-sidonia-confirm>{{ 'sidonia.favorites.clear_confirm' | t }}</button>
+        </div>
+      </div>
+    </dialog>
+  </div>
+</section>
+
+{% schema %}
+{
+  "name": "Sidonia · Favoritos",
+  "tag": "div",
+  "enabled_on": { "templates": ["page"] },
+  "settings": [
+    { "type": "text", "id": "heading", "label": "Título", "default": "Tus piezas guardadas" }
+  ],
+  "presets": [{ "name": "Sidonia · Favoritos" }]
+}
+{% endschema %}

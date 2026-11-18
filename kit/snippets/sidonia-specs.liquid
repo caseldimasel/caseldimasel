@@ -1,0 +1,68 @@
+{%- comment -%}
+  Datos esenciales de una pieza según su categoría. Solo se muestran los que constan.
+
+  Parámetros:
+    product
+    key     categoría (garage | harbor | estate…); si falta, se calcula
+    mode    card (por defecto: <li> con valores cortos) | summary (pares etiqueta/valor <div><dt><dd>)
+    limit   máximo de datos (card: 3 por defecto; summary: 6)
+
+  Para una categoría nueva, añade aquí su lista de datos (el resto del kit no cambia).
+{%- endcomment -%}
+{%- liquid
+  assign k = key
+  if k == blank
+    capture k
+      render 'sidonia-category', product: product
+    endcapture
+    assign k = k | strip
+  endif
+  assign m = mode | default: 'card'
+  if m == 'summary'
+    assign lim = limit | default: 6
+    case k
+      when 'garage'
+        assign ids = 'year,mileage,gearbox,fuel,power,color'
+      when 'harbor'
+        assign ids = 'year,length,boat_type,builder,engine,hours'
+      when 'estate'
+        assign ids = 'property_type,area,bedrooms,bathrooms,plot,built_period'
+      else
+        assign ids = ''
+    endcase
+  else
+    assign lim = limit | default: 3
+    case k
+      when 'garage'
+        assign ids = 'year,mileage,gearbox,fuel'
+      when 'harbor'
+        assign ids = 'year,length,boat_type,builder'
+      when 'estate'
+        assign ids = 'bedrooms,area,property_type,bathrooms'
+      else
+        assign ids = ''
+    endcase
+  endif
+  assign id_list = ids | split: ','
+  assign shown = 0
+  assign part_mode = 'short'
+  if m == 'summary'
+    assign part_mode = 'value'
+  endif
+-%}
+{%- for sid in id_list -%}
+  {%- if shown >= lim -%}{%- break -%}{%- endif -%}
+  {%- capture val -%}{%- render 'sidonia-spec', product: product, id: sid, part: part_mode -%}{%- endcapture -%}
+  {%- assign val = val | strip -%}
+  {%- if val != blank -%}
+    {%- assign shown = shown | plus: 1 -%}
+    {%- if m == 'summary' -%}
+      <div class="sidonia-fact sidonia-fact--{{ sid }}">
+        <dt>{%- render 'sidonia-spec', product: product, id: sid, part: 'label' -%}</dt>
+        <dd>{{ val }}</dd>
+      </div>
+    {%- else -%}
+      <li>{{ val }}</li>
+    {%- endif -%}
+  {%- endif -%}
+{%- endfor -%}

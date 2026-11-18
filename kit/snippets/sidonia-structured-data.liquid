@@ -1,0 +1,145 @@
+{%- comment -%}
+  Datos estructurados (JSON-LD) de una pieza. Se renderizan en servidor con los mismos datos de la ficha.
+  Reglas:
+  - Nunca hay oferta con precio 0, «a consultar», «no publicado», reservada o vendida.
+  - La oferta solo aparece con precio publicado, estado «Disponible» y el ajuste
+    «Publicar precio como oferta en datos estructurados» activo.
+  - No se inventan valoraciones, reseñas ni disponibilidad.
+  - VideoObject solo con vídeo públicamente accesible (archivo de Shopify o YouTube), portada,
+    descripción y fecha. Vimeo y vídeos privados no se declaran.
+  - Casas: dirección solo hasta la precisión autorizada (nunca calle ni número).
+
+  IMPORTANTE (integración con Impact): si Impact emite su propio JSON-LD de producto con el precio de la
+  variante, debe desactivarse para estas plantillas. La auditoría (integration/audit-impact.mjs) lo detecta.
+
+  Parámetros: product, category, status
+{%- endcomment -%}
+{%- liquid
+  assign mf = product.metafields.sidonia
+  capture price_kind
+    render 'sidonia-price', product: product, out: 'kind'
+  endcapture
+  assign price_kind = price_kind | strip
+  capture price_amount
+    render 'sidonia-price', product: product, out: 'amount'
+  endcapture
+  assign price_amount = price_amount | strip
+  capture price_cur
+    render 'sidonia-price', product: product, out: 'currency'
+  endcapture
+  assign price_cur = price_cur | strip
+  assign desc = mf.why_special.value | default: mf.hook.value | default: product.description
+  assign desc = desc | strip_html | strip | truncate: 500
+  assign ref = mf.reference.value | strip
+  assign cover = product.featured_image
+  assign prec = mf.location_precision.value | downcase | strip
+  assign pub_date = product.published_at | date: '%Y-%m-%d'
+  assign canon = canonical_url | split: '?' | first
+  assign with_offer = false
+  if settings.sidonia_schema_offers and price_kind == 'published' and status == 'available'
+    assign with_offer = true
+  endif
+-%}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  {%- if category == 'garage' -%}
+  "@type": "Car",
+  {%- else -%}
+  "@type": "Product",
+  {%- endif -%}
+  "name": {{ product.title | json }},
+  "url": {{ canon | json }}
+  {%- if desc != blank -%}, "description": {{ desc | json }}{%- endif -%}
+  {%- if cover != blank -%}, "image": {{ cover | image_url: width: 1200 | prepend: 'https:' | replace: 'https:https:', 'https:' | json }}{%- endif -%}
+  {%- if ref != blank -%}, "sku": {{ ref | json }}{%- endif -%}
+  {%- if category == 'garage' -%}
+    {%- if mf.brand.value != blank -%}, "brand": { "@type": "Brand", "name": {{ mf.brand.value | json }} }{%- endif -%}
+    {%- if mf.model.value != blank -%}, "model": {{ mf.model.value | json }}{%- endif -%}
+    {%- if mf.year.value != blank -%}, "vehicleModelDate": {{ mf.year.value | append: '' | json }}{%- endif -%}
+    {%- if mf.mileage_km.value != blank -%}, "mileageFromOdometer": { "@type": "QuantitativeValue", "value": {{ mf.mileage_km.value | json }}, "unitCode": "KMT" }{%- endif -%}
+    {%- if mf.fuel.value != blank -%}, "fuelType": {{ mf.fuel.value | json }}{%- endif -%}
+    {%- if mf.gearbox.value != blank -%}, "vehicleTransmission": {{ mf.gearbox.value | json }}{%- endif -%}
+    {%- if mf.color.value != blank -%}, "color": {{ mf.color.value | json }}{%- endif -%}
+  {%- elsif category == 'harbor' -%}
+    , "category": "Boat"
+    {%- if mf.builder.value != blank -%}, "brand": { "@type": "Brand", "name": {{ mf.builder.value | json }} }{%- endif -%}
+    {%- if mf.model.value != blank -%}, "model": {{ mf.model.value | json }}{%- endif -%}
+    {%- if mf.length_m.value != blank -%}, "additionalProperty": [{ "@type": "PropertyValue", "name": "Eslora", "value": {{ mf.length_m.value | json }}, "unitCode": "MTR" }]{%- endif -%}
+  {%- elsif category == 'estate' -%}
+    , "category": "RealEstate"
+    {%- assign has_addr = false -%}
+    {%- if mf.region.value != blank or mf.country.value != blank -%}{%- assign has_addr = true -%}{%- endif -%}
+    {%- if has_addr -%}
+    , "additionalProperty": [
+      { "@type": "PropertyValue", "name": "Ubicación", "value": {% capture loc %}{% render 'sidonia-location', product: product %}{% endcapture %}{{ loc | strip | json }} }
+      {%- if mf.bedrooms.value != blank -%}, { "@type": "PropertyValue", "name": "Dormitorios", "value": {{ mf.bedrooms.value | json }} }{%- endif -%}
+      {%- if mf.area_value.value != blank -%}, { "@type": "PropertyValue", "name": "Superficie", "value": {{ mf.area_value.value | json }}, "unitCode": "MTK" }{%- endif -%}
+    ]
+    {%- endif -%}
+  {%- endif -%}
+  {%- if with_offer -%}
+    , "offers": {
+      "@type": "Offer",
+      "price": {{ price_amount | json }},
+      "priceCurrency": {{ price_cur | json }},
+      "availability": "https://schema.org/InStock",
+      "url": {{ canon | json }},
+      "seller": { "@type": "Organization", "name": {{ shop.name | json }} }
+    }
+  {%- endif -%}
+}
+</script>
+{%- capture v_kind -%}{%- render 'sidonia-video-attrs', product: product, out: 'kind' -%}{%- endcapture -%}
+{%- assign v_kind = v_kind | strip -%}
+{%- if v_kind == 'file' or v_kind == 'youtube' -%}
+  {%- liquid
+    assign v_src = ''
+    assign v_id = ''
+    assign vfile = mf.video.value
+    if vfile == blank or vfile.sources == blank
+      for m in product.media
+        if m.media_type == 'video'
+          assign vfile = m
+          break
+        endif
+      endfor
+    endif
+    if v_kind == 'file' and vfile != blank
+      for s in vfile.sources
+        if s.format == 'mp4'
+          assign v_src = s.url
+        endif
+      endfor
+    endif
+    if v_kind == 'youtube'
+      capture attrs
+        render 'sidonia-video-attrs', product: product
+      endcapture
+      assign v_id = attrs | split: 'data-video-id="' | last | split: '"' | first
+    endif
+    assign v_dur = mf.video_duration.value
+  -%}
+  {%- if cover != blank and desc != blank -%}
+    {%- if v_src != blank or v_id != blank -%}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "VideoObject",
+  "name": {{ product.title | json }},
+  "description": {{ desc | json }},
+  "thumbnailUrl": [{{ cover | image_url: width: 1200 | prepend: 'https:' | replace: 'https:https:', 'https:' | json }}],
+  "uploadDate": {{ pub_date | json }}
+  {%- if v_src != blank -%}, "contentUrl": {{ v_src | prepend: 'https:' | replace: 'https:https:', 'https:' | json }}{%- endif -%}
+  {%- if v_id != blank -%}, "embedUrl": {{ v_id | prepend: 'https://www.youtube-nocookie.com/embed/' | json }}{%- endif -%}
+  {%- if v_dur != blank -%}
+    {%- assign d_total = v_dur | plus: 0 -%}
+    {%- assign d_min = d_total | divided_by: 60 -%}
+    {%- assign d_sec = d_total | modulo: 60 -%}
+    , "duration": "PT{{ d_min }}M{{ d_sec }}S"
+  {%- endif -%}
+}
+</script>
+    {%- endif -%}
+  {%- endif -%}
+{%- endif -%}

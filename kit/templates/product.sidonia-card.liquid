@@ -1,0 +1,7 @@
+{%- comment -%}
+  Vista alternativa de producto para la página de Favoritos: /products/<handle>?view=sidonia-card
+  Devuelve solo la tarjeta con los datos ACTUALES de la pieza (precio, estado, ubicación).
+  Sin layout: no es una página navegable y no se indexa.
+{%- endcomment -%}
+{%- layout none -%}
+{%- render 'sidonia-card', product: product, show_hook: false -%}

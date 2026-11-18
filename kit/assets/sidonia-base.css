@@ -1,0 +1,1450 @@
+/* ==========================================================================
+   SIDONIA · base del kit para Impact
+   Tokens, primitivas y componentes compartidos.
+
+   Reglas de convivencia con Impact y con las apps:
+   - Ningún selector de elemento suelto (body, h1, a, button...) fuera de un
+     contenedor .sidonia-*: el kit no restablece ni redefine estilos globales.
+   - Todas las variables llevan el prefijo --sidonia-. Los valores de :root son
+     los de diseño por defecto; snippets/sidonia-head.liquid los sustituye por
+     los de Ajustes del tema.
+   - La única regla que toca <body> es opcional (.sidonia-skin, ajuste
+     «Aplicar fondo piedra al tema»), pensada como puente mientras se ajustan
+     los colores propios de Impact.
+   ========================================================================== */
+
+:root {
+  /* Color: familia piedra (contrastes verificados en docs/03-sistema-de-diseno.md) */
+  --sidonia-bg: #f5f3ee;
+  --sidonia-surface: #faf8f4;
+  --sidonia-alt: #eae6de;
+  --sidonia-text: #252723;
+  --sidonia-muted: #62635c;
+  --sidonia-line: #d7d2c8;
+  --sidonia-control: #8a857b;
+  --sidonia-button: #252723;
+  --sidonia-button-text: #faf8f4;
+  --sidonia-media: #1e1f1c;
+  --sidonia-on-media: #faf8f4;
+  --sidonia-focus: #252723;
+  --sidonia-error: #9b2c22;
+  --sidonia-success: #2f6a4c;
+
+  /* Puntos de categoría (decorativos: el nombre aporta el significado) */
+  --sidonia-garage: #b63f38;
+  --sidonia-harbor: #28638e;
+  --sidonia-estate: #347455;
+  --sidonia-dot-size: 8px;
+  --sidonia-dot-gap: 8px;
+
+  /* Tipografía: por defecto se hereda la del tema anfitrión (Impact) */
+  --sidonia-font-body: inherit;
+  --sidonia-font-heading: inherit;
+  --sidonia-heading-weight: 600;
+  --sidonia-heading-tracking: -0.022em;
+  --sidonia-scale: 1;
+  --sidonia-fs-xs: 0.75rem;
+  --sidonia-fs-sm: 0.875rem;
+  --sidonia-fs-base: 1rem;
+  --sidonia-fs-md: 1.0625rem;
+  --sidonia-fs-lg: 1.25rem;
+  --sidonia-fs-xl: calc(clamp(1.375rem, 1rem + 1.2vw, 1.75rem) * var(--sidonia-scale));
+  --sidonia-fs-h2: calc(clamp(1.75rem, 1.1rem + 2.4vw, 2.75rem) * var(--sidonia-scale));
+  --sidonia-fs-h1: calc(clamp(2.25rem, 1.2rem + 4vw, 4.25rem) * var(--sidonia-scale));
+  --sidonia-fs-display: calc(clamp(2.5rem, 1.1rem + 5.6vw, 5.75rem) * var(--sidonia-scale));
+  --sidonia-lh: 1.55;
+
+  /* Espacio (base 4 px) */
+  --sidonia-s1: 0.25rem;
+  --sidonia-s2: 0.5rem;
+  --sidonia-s3: 0.75rem;
+  --sidonia-s4: 1rem;
+  --sidonia-s5: 1.25rem;
+  --sidonia-s6: 1.5rem;
+  --sidonia-s8: 2rem;
+  --sidonia-s10: 2.5rem;
+  --sidonia-s12: 3rem;
+  --sidonia-s16: 4rem;
+  --sidonia-s20: 5rem;
+  --sidonia-gutter: clamp(1rem, 0.4rem + 2.6vw, 3rem);
+  --sidonia-section-y: clamp(3rem, 1.6rem + 5vw, 6rem);
+  --sidonia-page-width: 1440px;
+  --sidonia-narrow: 46rem;
+
+  /* Forma */
+  --sidonia-radius: 12px;
+  --sidonia-radius-s: 6px;
+  --sidonia-radius-control: 10px;
+  --sidonia-radius-pill: 999px;
+  --sidonia-border: 1px;
+  --sidonia-shadow-1: 0 1px 2px rgb(37 39 35 / 0.06);
+  --sidonia-shadow-2: 0 18px 40px -24px rgb(37 39 35 / 0.38), 0 2px 6px rgb(37 39 35 / 0.06);
+  --sidonia-control-h: 2.75rem;
+
+  /* Capas */
+  --sidonia-z-raised: 2;
+  --sidonia-z-sticky: 20;
+  --sidonia-z-header: 30;
+  --sidonia-z-overlay: 40;
+  --sidonia-z-modal: 50;
+  --sidonia-z-toast: 60;
+
+  /* Movimiento: breve y coherente; se anula con prefers-reduced-motion */
+  --sidonia-ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --sidonia-d1: 150ms;
+  --sidonia-d2: 220ms;
+  --sidonia-d3: 300ms;
+
+  /* Tarjetas */
+  --sidonia-card-ratio: 4 / 3;
+  --sidonia-cols-mobile: 1;
+  --sidonia-cols-desktop: 4;
+
+  /* Cabecera (lo usa el kit para despejar el contenido; Impact define el suyo) */
+  --sidonia-header-h: 4rem;
+  --sidonia-safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --sidonia-d1: 1ms;
+    --sidonia-d2: 1ms;
+    --sidonia-d3: 1ms;
+  }
+}
+
+/* Puente opcional: fondo piedra para todo el tema (ajuste «Aplicar fondo piedra al tema») */
+body.sidonia-skin {
+  background-color: var(--sidonia-bg);
+  color: var(--sidonia-text);
+}
+
+/* ---------------------------------------------------------------- ámbito */
+
+.sidonia-scope {
+  color: var(--sidonia-text);
+  font-family: var(--sidonia-font-body);
+  line-height: var(--sidonia-lh);
+  -webkit-font-smoothing: antialiased;
+}
+
+.sidonia-scope *,
+.sidonia-scope *::before,
+.sidonia-scope *::after {
+  box-sizing: border-box;
+}
+
+.sidonia-scope :where(img, video, svg, picture) {
+  display: block;
+  max-width: 100%;
+}
+
+.sidonia-scope :where(h1, h2, h3, h4) {
+  margin: 0;
+  font-family: var(--sidonia-font-heading);
+  font-weight: var(--sidonia-heading-weight);
+  letter-spacing: var(--sidonia-heading-tracking);
+  line-height: 1.1;
+  text-wrap: balance;
+  text-transform: none;
+  color: inherit;
+}
+
+.sidonia-scope :where(p) {
+  margin: 0;
+  text-wrap: pretty;
+}
+
+.sidonia-scope :where(ul, ol) {
+  margin: 0;
+  padding: 0;
+}
+
+.sidonia-scope :where(ul[role='list'], ol[role='list']) {
+  list-style: none;
+}
+
+.sidonia-scope :where(a) {
+  color: inherit;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.2em;
+}
+
+.sidonia-scope :where(button, input, select, textarea) {
+  font: inherit;
+  color: inherit;
+  letter-spacing: inherit;
+}
+
+.sidonia-scope :where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: 2px solid var(--sidonia-focus);
+  outline-offset: 3px;
+  border-radius: var(--sidonia-radius-s);
+}
+
+.sidonia-h1 { font-size: var(--sidonia-fs-h1); line-height: 1.04; }
+.sidonia-h2 { font-size: var(--sidonia-fs-h2); line-height: 1.08; }
+.sidonia-h3 { font-size: var(--sidonia-fs-xl); line-height: 1.18; }
+.sidonia-h4 { font-size: var(--sidonia-fs-lg); line-height: 1.25; }
+
+/* ---------------------------------------------------------------- utilidades */
+
+.sidonia-sr {
+  position: absolute !important;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+.sidonia-container {
+  width: 100%;
+  max-width: calc(var(--sidonia-page-width) + 2 * var(--sidonia-gutter));
+  margin-inline: auto;
+  padding-inline: var(--sidonia-gutter);
+}
+
+.sidonia-container--narrow {
+  max-width: calc(var(--sidonia-narrow) + 2 * var(--sidonia-gutter));
+}
+
+.sidonia-section {
+  background: var(--sidonia-section-bg, var(--sidonia-bg));
+  padding-block: var(--sidonia-section-y);
+}
+
+.sidonia-section--surface { --sidonia-section-bg: var(--sidonia-surface); }
+.sidonia-section--alt { --sidonia-section-bg: var(--sidonia-alt); }
+.sidonia-section--flush-top { padding-top: 0; }
+.sidonia-section--tight { padding-block: calc(var(--sidonia-section-y) * 0.55); }
+
+.sidonia-eyebrow {
+  margin: 0 0 var(--sidonia-s3);
+  font-size: var(--sidonia-fs-sm);
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  color: var(--sidonia-muted);
+}
+
+.sidonia-lede {
+  font-size: var(--sidonia-fs-md);
+  color: var(--sidonia-muted);
+  max-width: 40rem;
+}
+
+.sidonia-note {
+  font-size: var(--sidonia-fs-sm);
+  color: var(--sidonia-muted);
+}
+
+.sidonia-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  justify-content: space-between;
+  gap: var(--sidonia-s4) var(--sidonia-s8);
+  margin-bottom: var(--sidonia-s8);
+}
+
+.sidonia-head__text {
+  display: grid;
+  gap: var(--sidonia-s3);
+  max-width: 48rem;
+}
+
+.sidonia-head__text .sidonia-eyebrow {
+  margin: 0;
+}
+
+.sidonia-rte > * + * {
+  margin-top: var(--sidonia-s4);
+}
+
+.sidonia-rte :where(h2, h3, h4) {
+  margin-top: var(--sidonia-s8);
+}
+
+.sidonia-rte :where(ul, ol) {
+  padding-left: 1.25rem;
+}
+
+/* Aviso solo visible en el editor de temas */
+.sidonia-editor-hint {
+  margin: 0;
+  padding: var(--sidonia-s4) var(--sidonia-s5);
+  border: 1px dashed var(--sidonia-control);
+  border-radius: var(--sidonia-radius);
+  background: var(--sidonia-surface);
+  color: var(--sidonia-text);
+  font-size: var(--sidonia-fs-sm);
+}
+
+.sidonia-editor-hint strong {
+  font-weight: 600;
+}
+
+/* ---------------------------------------------------------------- punto de categoría */
+
+.sidonia-cat {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sidonia-dot-gap);
+  white-space: nowrap;
+}
+
+.sidonia-dot {
+  flex: none;
+  display: inline-block;
+  width: var(--sidonia-dot-size);
+  height: var(--sidonia-dot-size);
+  border-radius: 50%;
+  background: var(--sidonia-dot, currentColor);
+  /* alineación óptica con la altura de las minúsculas */
+  transform: translateY(0.02em);
+}
+
+.sidonia-cat--garage, .sidonia-dot--garage { --sidonia-dot: var(--sidonia-garage); }
+.sidonia-cat--harbor, .sidonia-dot--harbor { --sidonia-dot: var(--sidonia-harbor); }
+.sidonia-cat--estate, .sidonia-dot--estate { --sidonia-dot: var(--sidonia-estate); }
+
+@media (forced-colors: active) {
+  .sidonia-dot {
+    forced-color-adjust: none;
+    border: 1px solid CanvasText;
+  }
+}
+
+/* ---------------------------------------------------------------- botones */
+
+.sidonia-btn {
+  --sidonia-btn-bg: var(--sidonia-button);
+  --sidonia-btn-fg: var(--sidonia-button-text);
+  --sidonia-btn-border: var(--sidonia-button);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sidonia-s2);
+  min-height: var(--sidonia-control-h);
+  padding: 0.6rem 1.25rem;
+  border: var(--sidonia-border) solid var(--sidonia-btn-border);
+  border-radius: var(--sidonia-radius-control);
+  background: var(--sidonia-btn-bg);
+  color: var(--sidonia-btn-fg);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: -0.005em;
+  text-align: center;
+  text-decoration: none;
+  cursor: pointer;
+  transition:
+    background-color var(--sidonia-d1) var(--sidonia-ease),
+    border-color var(--sidonia-d1) var(--sidonia-ease),
+    color var(--sidonia-d1) var(--sidonia-ease),
+    transform var(--sidonia-d1) var(--sidonia-ease);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.sidonia-btn:hover {
+  --sidonia-btn-bg: color-mix(in srgb, var(--sidonia-button) 86%, var(--sidonia-surface));
+}
+
+.sidonia-btn:active {
+  transform: scale(0.985);
+}
+
+.sidonia-btn[disabled],
+.sidonia-btn[aria-disabled='true'] {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.sidonia-btn--secondary {
+  --sidonia-btn-bg: transparent;
+  --sidonia-btn-fg: var(--sidonia-text);
+  --sidonia-btn-border: var(--sidonia-text);
+}
+
+.sidonia-btn--secondary:hover {
+  --sidonia-btn-bg: var(--sidonia-alt);
+}
+
+.sidonia-btn--quiet {
+  --sidonia-btn-bg: var(--sidonia-alt);
+  --sidonia-btn-fg: var(--sidonia-text);
+  --sidonia-btn-border: var(--sidonia-alt);
+}
+
+.sidonia-btn--quiet:hover {
+  --sidonia-btn-bg: color-mix(in srgb, var(--sidonia-alt) 80%, var(--sidonia-text));
+  --sidonia-btn-border: var(--sidonia-btn-bg);
+}
+
+/* Sobre imagen o vídeo (el fondo lleva siempre degradado de contraste) */
+.sidonia-btn--light {
+  --sidonia-btn-bg: var(--sidonia-surface);
+  --sidonia-btn-fg: var(--sidonia-text);
+  --sidonia-btn-border: var(--sidonia-surface);
+}
+
+.sidonia-btn--light:hover {
+  --sidonia-btn-bg: #fff;
+  --sidonia-btn-border: #fff;
+}
+
+.sidonia-btn--ghost-light {
+  --sidonia-btn-bg: rgb(20 21 19 / 0.28);
+  --sidonia-btn-fg: #fff;
+  --sidonia-btn-border: rgb(255 255 255 / 0.85);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+}
+
+.sidonia-btn--ghost-light:hover {
+  --sidonia-btn-bg: rgb(20 21 19 / 0.45);
+}
+
+.sidonia-btn--block {
+  width: 100%;
+}
+
+.sidonia-btn--sm {
+  min-height: 2.25rem;
+  padding: 0.4rem 0.875rem;
+  font-size: var(--sidonia-fs-sm);
+}
+
+.sidonia-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35em;
+  font-weight: 600;
+  text-decoration: none;
+  border-radius: var(--sidonia-radius-s);
+}
+
+.sidonia-link:hover {
+  text-decoration: underline;
+}
+
+.sidonia-link svg {
+  transition: transform var(--sidonia-d1) var(--sidonia-ease);
+}
+
+.sidonia-link:hover svg {
+  transform: translateX(2px);
+}
+
+.sidonia-icon {
+  flex: none;
+  width: var(--sidonia-icon, 1.25rem);
+  height: var(--sidonia-icon, 1.25rem);
+}
+
+/* ---------------------------------------------------------------- chips de estado */
+
+.sidonia-status {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.5rem;
+  padding: 0.125rem 0.5rem;
+  border: var(--sidonia-border) solid var(--sidonia-control);
+  border-radius: var(--sidonia-radius-s);
+  background: var(--sidonia-surface);
+  color: var(--sidonia-text);
+  font-size: var(--sidonia-fs-xs);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.sidonia-status--reserved {
+  background: var(--sidonia-alt);
+  border-color: var(--sidonia-alt);
+}
+
+.sidonia-status--sold {
+  background: var(--sidonia-text);
+  border-color: var(--sidonia-text);
+  color: var(--sidonia-surface);
+}
+
+/* ---------------------------------------------------------------- precio */
+
+.sidonia-price {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+.sidonia-price--ask,
+.sidonia-price--hidden {
+  font-weight: 500;
+  letter-spacing: 0;
+}
+
+.sidonia-price--sold {
+  color: var(--sidonia-muted);
+  font-weight: 500;
+}
+
+/* ---------------------------------------------------------------- formularios */
+
+.sidonia-field {
+  display: grid;
+  gap: var(--sidonia-s2);
+  min-width: 0;
+}
+
+.sidonia-field__label {
+  font-size: var(--sidonia-fs-sm);
+  font-weight: 600;
+}
+
+.sidonia-field__opt {
+  font-weight: 400;
+  color: var(--sidonia-muted);
+}
+
+.sidonia-field__help {
+  margin: 0;
+  font-size: var(--sidonia-fs-sm);
+  color: var(--sidonia-muted);
+}
+
+.sidonia-field__error {
+  margin: 0;
+  display: flex;
+  gap: var(--sidonia-s2);
+  align-items: flex-start;
+  font-size: var(--sidonia-fs-sm);
+  font-weight: 500;
+  color: var(--sidonia-error);
+}
+
+.sidonia-input,
+.sidonia-select,
+.sidonia-textarea {
+  width: 100%;
+  min-height: var(--sidonia-control-h);
+  padding: 0.625rem 0.875rem;
+  border: var(--sidonia-border) solid var(--sidonia-control);
+  border-radius: var(--sidonia-radius-control);
+  background: var(--sidonia-surface);
+  color: var(--sidonia-text);
+  font-size: 1rem; /* 16 px: evita el zoom automático de iOS */
+  line-height: 1.4;
+  transition: border-color var(--sidonia-d1) var(--sidonia-ease), box-shadow var(--sidonia-d1) var(--sidonia-ease);
+  appearance: none;
+}
+
+.sidonia-textarea {
+  min-height: 7.5rem;
+  resize: vertical;
+}
+
+.sidonia-select {
+  padding-right: 2.5rem;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5l5 5 5-5' fill='none' stroke='%23252723' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.9rem center;
+}
+
+.sidonia-input:hover,
+.sidonia-select:hover,
+.sidonia-textarea:hover {
+  border-color: var(--sidonia-text);
+}
+
+.sidonia-input:focus-visible,
+.sidonia-select:focus-visible,
+.sidonia-textarea:focus-visible {
+  outline: 2px solid var(--sidonia-focus);
+  outline-offset: 1px;
+  border-color: var(--sidonia-text);
+}
+
+.sidonia-input[aria-invalid='true'],
+.sidonia-select[aria-invalid='true'],
+.sidonia-textarea[aria-invalid='true'] {
+  border-color: var(--sidonia-error);
+  box-shadow: 0 0 0 1px var(--sidonia-error);
+}
+
+.sidonia-input::placeholder,
+.sidonia-textarea::placeholder {
+  color: color-mix(in srgb, var(--sidonia-muted) 82%, var(--sidonia-surface));
+}
+
+.sidonia-choice {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sidonia-s3);
+  cursor: pointer;
+  font-size: var(--sidonia-fs-base);
+}
+
+.sidonia-choice input {
+  flex: none;
+  width: 1.25rem;
+  height: 1.25rem;
+  margin: 0.125rem 0 0;
+  accent-color: var(--sidonia-text);
+}
+
+.sidonia-fieldset {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+
+.sidonia-fieldset > legend {
+  padding: 0;
+  margin-bottom: var(--sidonia-s3);
+  font-size: var(--sidonia-fs-sm);
+  font-weight: 600;
+}
+
+.sidonia-form-grid {
+  display: grid;
+  gap: var(--sidonia-s5);
+}
+
+@media (min-width: 640px) {
+  .sidonia-form-grid--2 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .sidonia-form-grid--2 > .sidonia-field--wide {
+    grid-column: 1 / -1;
+  }
+}
+
+.sidonia-alert {
+  display: flex;
+  gap: var(--sidonia-s3);
+  align-items: flex-start;
+  margin: 0 0 var(--sidonia-s5);
+  padding: var(--sidonia-s4) var(--sidonia-s5);
+  border-radius: var(--sidonia-radius);
+  border: var(--sidonia-border) solid currentColor;
+  background: var(--sidonia-surface);
+  font-size: var(--sidonia-fs-sm);
+}
+
+.sidonia-alert--error { color: var(--sidonia-error); }
+.sidonia-alert--success { color: var(--sidonia-success); }
+
+.sidonia-alert__body {
+  color: var(--sidonia-text);
+}
+
+.sidonia-alert__body strong {
+  display: block;
+  margin-bottom: var(--sidonia-s1);
+}
+
+.sidonia-alert ul {
+  padding-left: 1.1rem;
+  margin-top: var(--sidonia-s2);
+}
+
+/* ---------------------------------------------------------------- tarjeta de pieza */
+
+.sidonia-grid {
+  display: grid;
+  grid-template-columns: repeat(var(--sidonia-cols-mobile), minmax(0, 1fr));
+  gap: var(--sidonia-s8) var(--sidonia-s4);
+}
+
+@media (min-width: 560px) {
+  .sidonia-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--sidonia-s10) var(--sidonia-s5);
+  }
+}
+
+@media (min-width: 1024px) {
+  .sidonia-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1280px) {
+  .sidonia-grid {
+    grid-template-columns: repeat(var(--sidonia-cols-desktop), minmax(0, 1fr));
+  }
+}
+
+.sidonia-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  color: var(--sidonia-text);
+}
+
+.sidonia-card__media {
+  position: relative;
+  aspect-ratio: var(--sidonia-card-ratio);
+  overflow: hidden;
+  border-radius: var(--sidonia-radius);
+  background: var(--sidonia-alt);
+  isolation: isolate;
+}
+
+.sidonia-card__cover {
+  position: absolute;
+  inset: 0;
+  display: block;
+}
+
+.sidonia-card__img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: var(--sidonia-focal, 50% 50%);
+  transition: transform var(--sidonia-d3) var(--sidonia-ease);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .sidonia-card:hover .sidonia-card__img {
+    transform: scale(1.025);
+  }
+}
+
+.sidonia-card__preview {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  pointer-events: none;
+}
+
+.sidonia-card__placeholder {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  gap: var(--sidonia-s2);
+  padding: var(--sidonia-s4);
+  background:
+    radial-gradient(120% 90% at 20% 0%, var(--sidonia-surface) 0%, transparent 60%),
+    var(--sidonia-alt);
+  color: var(--sidonia-muted);
+  font-size: var(--sidonia-fs-sm);
+  font-weight: 600;
+  letter-spacing: 0.24em;
+  text-align: center;
+}
+
+.sidonia-card__placeholder img {
+  width: 2.5rem;
+  height: auto;
+  opacity: 0.55;
+}
+
+.sidonia-card__badge {
+  position: absolute;
+  top: var(--sidonia-s3);
+  left: var(--sidonia-s3);
+  z-index: var(--sidonia-z-raised);
+  pointer-events: none;
+}
+
+.sidonia-card__save {
+  position: absolute;
+  top: var(--sidonia-s2);
+  right: var(--sidonia-s2);
+  z-index: var(--sidonia-z-raised);
+}
+
+.sidonia-card__play {
+  position: absolute;
+  left: var(--sidonia-s3);
+  bottom: var(--sidonia-s3);
+  z-index: var(--sidonia-z-raised);
+}
+
+.sidonia-card__body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--sidonia-s1);
+  padding-top: var(--sidonia-s4);
+}
+
+.sidonia-card__top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sidonia-s1) var(--sidonia-s3);
+  min-height: 1.75rem;
+}
+
+.sidonia-card__price {
+  margin: 0;
+  font-size: var(--sidonia-fs-lg);
+  line-height: 1.25;
+}
+
+.sidonia-card__title {
+  margin: 0;
+  font-family: var(--sidonia-font-body);
+  font-size: var(--sidonia-fs-md);
+  font-weight: 500;
+  letter-spacing: -0.005em;
+  line-height: 1.35;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+
+.sidonia-card__link {
+  text-decoration: none;
+}
+
+.sidonia-card__link:hover {
+  text-decoration: underline;
+}
+
+.sidonia-card__hook {
+  margin: 0;
+  color: var(--sidonia-muted);
+  font-size: var(--sidonia-fs-sm);
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.sidonia-card__specs {
+  display: flex;
+  flex-wrap: wrap;
+  margin: 0;
+  color: var(--sidonia-text);
+  font-size: var(--sidonia-fs-sm);
+}
+
+.sidonia-card__specs li + li::before {
+  content: '·';
+  margin-inline: 0.45em;
+  color: var(--sidonia-muted);
+}
+
+.sidonia-card__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sidonia-s1) var(--sidonia-s3);
+  margin: var(--sidonia-s1) 0 0;
+  color: var(--sidonia-muted);
+  font-size: var(--sidonia-fs-sm);
+}
+
+.sidonia-card__meta .sidonia-cat {
+  color: var(--sidonia-text);
+}
+
+.sidonia-card__place {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sidonia-card--sold .sidonia-card__img {
+  filter: saturate(0.6);
+}
+
+.sidonia-card--compact .sidonia-card__price {
+  font-size: var(--sidonia-fs-md);
+}
+
+/* Vista en lista (catálogo) */
+.sidonia-grid--list {
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--sidonia-s6);
+}
+
+@media (min-width: 720px) {
+  .sidonia-grid--list .sidonia-card {
+    display: grid;
+    grid-template-columns: minmax(16rem, 2fr) 3fr;
+    gap: var(--sidonia-s6);
+    align-items: center;
+  }
+
+  .sidonia-grid--list .sidonia-card__body {
+    padding-top: 0;
+  }
+}
+
+/* ---------------------------------------------------------------- guardar (favorito) */
+
+.sidonia-save__btn {
+  display: inline-grid;
+  place-items: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--sidonia-surface) 92%, transparent);
+  color: var(--sidonia-text);
+  box-shadow: var(--sidonia-shadow-1);
+  cursor: pointer;
+  transition: transform var(--sidonia-d1) var(--sidonia-ease), background-color var(--sidonia-d1) var(--sidonia-ease);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.sidonia-save__btn:hover {
+  background: var(--sidonia-surface);
+}
+
+.sidonia-save__btn:active {
+  transform: scale(0.92);
+}
+
+.sidonia-save__btn .sidonia-icon {
+  --sidonia-icon: 1.25rem;
+}
+
+.sidonia-save__btn .sidonia-heart-fill {
+  fill: transparent;
+  transition: fill var(--sidonia-d1) var(--sidonia-ease);
+}
+
+.sidonia-save__btn[aria-pressed='true'] .sidonia-heart-fill {
+  fill: currentColor;
+}
+
+.sidonia-save--inline .sidonia-save__btn {
+  width: auto;
+  height: auto;
+  min-height: var(--sidonia-control-h);
+  padding: 0.6rem 1rem;
+  gap: var(--sidonia-s2);
+  display: inline-flex;
+  border: var(--sidonia-border) solid var(--sidonia-text);
+  border-radius: var(--sidonia-radius-control);
+  background: transparent;
+  box-shadow: none;
+  font-size: 0.9375rem;
+  font-weight: 600;
+}
+
+.sidonia-save--inline .sidonia-save__btn:hover {
+  background: var(--sidonia-alt);
+}
+
+.sidonia-save__state {
+  font-weight: 600;
+}
+
+/* ---------------------------------------------------------------- reproducir */
+
+.sidonia-play {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sidonia-s2);
+  min-height: 2.5rem;
+  padding: 0.3rem 0.9rem 0.3rem 0.35rem;
+  border: 0;
+  border-radius: var(--sidonia-radius-pill);
+  background: rgb(20 21 19 / 0.62);
+  color: #fff;
+  font-size: var(--sidonia-fs-sm);
+  font-weight: 600;
+  line-height: 1;
+  cursor: pointer;
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  transition: background-color var(--sidonia-d1) var(--sidonia-ease), transform var(--sidonia-d1) var(--sidonia-ease);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.sidonia-play:hover {
+  background: rgb(20 21 19 / 0.82);
+}
+
+.sidonia-play:active {
+  transform: scale(0.97);
+}
+
+.sidonia-play__icon {
+  display: inline-grid;
+  place-items: center;
+  width: 1.875rem;
+  height: 1.875rem;
+  border-radius: 50%;
+  background: #fff;
+  color: #141513;
+}
+
+.sidonia-play__icon .sidonia-icon {
+  --sidonia-icon: 0.875rem;
+  margin-left: 2px;
+}
+
+.sidonia-play__time {
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.86;
+}
+
+.sidonia-scope .sidonia-play:focus-visible,
+.sidonia-scope .sidonia-save__btn:focus-visible {
+  outline: 2px solid #fff;
+  box-shadow: 0 0 0 4px var(--sidonia-text);
+  outline-offset: 0;
+}
+
+/* ---------------------------------------------------------------- modal (dialog nativo) */
+
+.sidonia-modal {
+  width: min(100% - 2rem, 40rem);
+  max-height: min(100dvh - 2rem, 56rem);
+  margin: auto;
+  padding: 0;
+  border: 0;
+  border-radius: var(--sidonia-radius);
+  background: var(--sidonia-surface);
+  color: var(--sidonia-text);
+  box-shadow: var(--sidonia-shadow-2);
+  overflow: auto;
+}
+
+.sidonia-modal::backdrop {
+  background: rgb(20 21 19 / 0.62);
+}
+
+.sidonia-modal[open] {
+  animation: sidonia-in var(--sidonia-d2) var(--sidonia-ease);
+}
+
+.sidonia-modal__bar {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sidonia-s4);
+  padding: var(--sidonia-s3) var(--sidonia-s3) var(--sidonia-s3) var(--sidonia-s5);
+  background: inherit;
+  border-bottom: var(--sidonia-border) solid var(--sidonia-line);
+}
+
+.sidonia-modal__title {
+  margin: 0;
+  font-size: var(--sidonia-fs-md);
+  font-weight: 600;
+}
+
+.sidonia-modal__body {
+  padding: var(--sidonia-s5);
+}
+
+.sidonia-icon-btn {
+  display: inline-grid;
+  place-items: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  transition: background-color var(--sidonia-d1) var(--sidonia-ease);
+}
+
+.sidonia-icon-btn:hover {
+  background: var(--sidonia-alt);
+}
+
+@keyframes sidonia-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.99);
+  }
+}
+
+/* Modal de vídeo: zona oscura para preservar el encuadre */
+.sidonia-video-modal {
+  width: min(100% - 1.5rem, 72rem);
+  max-height: calc(100dvh - 1.5rem);
+  background: var(--sidonia-media);
+  color: var(--sidonia-on-media);
+  overflow: hidden;
+}
+
+.sidonia-video-modal .sidonia-modal__bar {
+  background: var(--sidonia-media);
+  border-color: rgb(255 255 255 / 0.12);
+}
+
+.sidonia-video-modal .sidonia-icon-btn:hover {
+  background: rgb(255 255 255 / 0.12);
+}
+
+.sidonia-video-modal .sidonia-modal__body {
+  display: grid;
+  place-items: center;
+  padding: 0 var(--sidonia-s3) var(--sidonia-s3);
+}
+
+.sidonia-video-modal .sidonia-player {
+  --sidonia-player-max-h: calc(100dvh - 7rem);
+  border-radius: var(--sidonia-radius-s);
+}
+
+.sidonia-video-modal__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sidonia-s2) var(--sidonia-s5);
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  padding: var(--sidonia-s3) var(--sidonia-s2) var(--sidonia-s1);
+  font-size: var(--sidonia-fs-sm);
+  color: rgb(250 248 244 / 0.82);
+}
+
+.sidonia-video-modal__meta a {
+  color: #fff;
+  font-weight: 600;
+}
+
+html.sidonia-lock {
+  overflow: hidden;
+}
+
+/* ---------------------------------------------------------------- reproductor */
+
+/* Destinos de desplazamiento (pasos del formulario, resultados, anclas #sidonia-…) visibles bajo la cabecera fija */
+[data-sidonia-form],
+[data-sidonia-results],
+.sidonia-scope[id^='sidonia-'] {
+  scroll-margin-top: calc(var(--sidonia-sticky-top, 0px) + var(--sidonia-s4));
+}
+
+/* «hidden» siempre gana a las reglas de display de los componentes Sidonia (y solo a las suyas). */
+[class*='sidonia-'][hidden],
+.sidonia-scope [hidden] {
+  display: none !important;
+}
+
+/* Los elementos personalizados son «inline» por defecto: se fijan como bloque. */
+sidonia-player:not([hidden]),
+sidonia-facets:not([hidden]),
+sidonia-favorites-page:not([hidden]),
+sidonia-favorites-tools:not([hidden]),
+sidonia-autopreview:not([hidden]),
+sidonia-share:not([hidden]) {
+  display: block;
+}
+
+/* El ancho se calcula a partir del alto máximo y la proporción real del vídeo: un vertical nunca se recorta
+   ni desborda el viewport; un horizontal ocupa el ancho disponible. */
+.sidonia-player {
+  position: relative;
+  display: block;
+  width: min(100%, calc(var(--sidonia-player-max-h, 82vh) * var(--sidonia-video-ratio, 0.5625)));
+  aspect-ratio: var(--sidonia-video-ratio, 9 / 16);
+  max-width: 100%;
+  margin-inline: auto;
+  overflow: hidden;
+  border-radius: var(--sidonia-radius);
+  background: var(--sidonia-media);
+  color: var(--sidonia-on-media);
+}
+
+.sidonia-player__poster,
+.sidonia-player video,
+.sidonia-player iframe {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+
+.sidonia-player__poster {
+  object-fit: cover;
+  object-position: var(--sidonia-focal, 50% 50%);
+}
+
+.sidonia-player video {
+  object-fit: contain;
+  background: var(--sidonia-media);
+}
+
+.sidonia-player__start {
+  position: absolute;
+  left: 50%;
+  bottom: var(--sidonia-s5);
+  z-index: 2;
+  transform: translateX(-50%);
+  min-height: 3rem;
+  padding-inline: 0.5rem 1.25rem;
+  font-size: 0.9375rem;
+  white-space: nowrap;
+}
+
+.sidonia-player__start .sidonia-play__icon {
+  width: 2.25rem;
+  height: 2.25rem;
+}
+
+.sidonia-player__shade {
+  position: absolute;
+  inset: auto 0 0;
+  height: 45%;
+  background: linear-gradient(to top, rgb(0 0 0 / 0.5), transparent);
+  pointer-events: none;
+}
+
+.sidonia-player__msg {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  display: grid;
+  place-content: center;
+  gap: var(--sidonia-s3);
+  padding: var(--sidonia-s6);
+  background: rgb(20 21 19 / 0.82);
+  color: #fff;
+  text-align: center;
+  font-size: var(--sidonia-fs-sm);
+}
+
+.sidonia-player__msg .sidonia-btn {
+  justify-self: center;
+}
+
+.sidonia-player__consent {
+  max-width: 22rem;
+}
+
+.sidonia-player--empty {
+  display: grid;
+  place-content: center;
+  gap: var(--sidonia-s2);
+  padding: var(--sidonia-s6);
+  background: var(--sidonia-alt);
+  color: var(--sidonia-muted);
+  text-align: center;
+  font-size: var(--sidonia-fs-sm);
+}
+
+/* ---------------------------------------------------------------- avisos */
+
+.sidonia-live {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.sidonia-toast {
+  position: fixed;
+  left: 50%;
+  bottom: calc(var(--sidonia-s6) + var(--sidonia-safe-bottom) + var(--sidonia-toast-offset, 0px));
+  z-index: var(--sidonia-z-toast);
+  max-width: min(100% - 2rem, 28rem);
+  padding: var(--sidonia-s3) var(--sidonia-s5);
+  border-radius: var(--sidonia-radius-control);
+  background: var(--sidonia-text);
+  color: var(--sidonia-surface);
+  font-size: var(--sidonia-fs-sm);
+  font-weight: 500;
+  box-shadow: var(--sidonia-shadow-2);
+  transform: translateX(-50%);
+  animation: sidonia-toast var(--sidonia-d2) var(--sidonia-ease);
+  pointer-events: none;
+}
+
+@keyframes sidonia-toast {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 8px);
+  }
+}
+
+/* ---------------------------------------------------------------- integración con la cabecera */
+
+/* Contador de favoritos y CTA «Vender con Sidonia» (snippet sidonia-header-actions) */
+.sidonia-header-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sidonia-s2);
+}
+
+.sidonia-fav-link {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 50%;
+  color: inherit;
+  text-decoration: none;
+}
+
+.sidonia-fav-link--text {
+  display: inline-flex;
+  gap: var(--sidonia-s2);
+  width: auto;
+  height: auto;
+  border-radius: 0;
+  color: inherit;
+  text-decoration: none;
+}
+
+.sidonia-fav-link--text .sidonia-fav-count {
+  position: static;
+}
+
+.sidonia-fav-link:hover {
+  background: color-mix(in srgb, currentColor 10%, transparent);
+}
+
+.sidonia-fav-count {
+  position: absolute;
+  top: 0.3rem;
+  right: 0.2rem;
+  min-width: 1.125rem;
+  height: 1.125rem;
+  padding-inline: 0.3rem;
+  border-radius: var(--sidonia-radius-pill);
+  background: var(--sidonia-text);
+  color: var(--sidonia-surface);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  line-height: 1.125rem;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.sidonia-fav-count[hidden] {
+  display: none;
+}
+
+.sidonia-sell-cta {
+  white-space: nowrap;
+}
+
+.sidonia-sell-cta__short {
+  display: none;
+}
+
+@media (max-width: 559px) {
+  .sidonia-sell-cta__long {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .sidonia-sell-cta__short {
+    display: inline;
+  }
+}
+
+/* ---------------------------------------------------------------- miga de pan */
+
+.sidonia-crumbs ol {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sidonia-s1) 0;
+  font-size: var(--sidonia-fs-sm);
+  color: var(--sidonia-muted);
+}
+
+.sidonia-crumbs li + li::before {
+  content: '/';
+  margin-inline: 0.55em;
+  color: var(--sidonia-line);
+}
+
+.sidonia-crumbs a {
+  color: var(--sidonia-muted);
+  text-decoration: none;
+}
+
+.sidonia-crumbs a:hover {
+  color: var(--sidonia-text);
+  text-decoration: underline;
+}
+
+.sidonia-crumbs [aria-current='page'] {
+  color: var(--sidonia-text);
+}
+
+/* ---------------------------------------------------------------- paginación */
+
+.sidonia-pagination {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sidonia-s2);
+  margin-top: var(--sidonia-s12);
+}
+
+.sidonia-pagination ol {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sidonia-s1);
+}
+
+.sidonia-pagination a,
+.sidonia-pagination span[aria-current] {
+  display: inline-grid;
+  place-items: center;
+  min-width: 2.75rem;
+  height: 2.75rem;
+  padding-inline: var(--sidonia-s3);
+  border-radius: var(--sidonia-radius-control);
+  text-decoration: none;
+  font-variant-numeric: tabular-nums;
+}
+
+.sidonia-pagination a:hover {
+  background: var(--sidonia-alt);
+}
+
+.sidonia-pagination span[aria-current] {
+  background: var(--sidonia-text);
+  color: var(--sidonia-surface);
+  font-weight: 600;
+}
+
+/* ---------------------------------------------------------------- impresión */
+
+@media print {
+  .sidonia-save,
+  .sidonia-play,
+  .sidonia-contact-bar,
+  .sidonia-video-modal {
+    display: none !important;
+  }
+}

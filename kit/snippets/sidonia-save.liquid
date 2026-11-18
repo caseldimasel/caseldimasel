@@ -1,0 +1,23 @@
+{%- comment -%}
+  Botón «Guardar» (favoritos anónimos de este navegador). El corazón significa Guardar,
+  no popularidad: no hay contadores públicos.
+  El estado (aria-pressed) lo gestiona <sidonia-save> en sidonia-core.js. Sin JavaScript no se
+  muestra (no podría guardar nada), por eso empieza oculto.
+
+  Parámetros: product, variant = card (círculo sobre la portada) | inline (botón con texto), class
+{%- endcomment -%}
+{%- assign v = variant | default: 'card' -%}
+<sidonia-save
+  class="sidonia-save sidonia-save--{{ v }}{% if class != blank %} {{ class }}{% endif %}"
+  data-id="{{ product.id }}"
+  data-handle="{{ product.handle }}"
+  data-title="{{ product.title | truncate: 120 | escape }}"
+  hidden
+>
+  <button type="button" class="sidonia-save__btn" aria-pressed="false" aria-label="{{ 'sidonia.favorites.save_aria' | t: title: product.title | escape }}">
+    {%- render 'sidonia-icon', name: 'heart', size: 22 -%}
+    {%- if v == 'inline' -%}
+      <span class="sidonia-save__state" data-sidonia-save-label aria-hidden="true">{{ 'sidonia.favorites.save' | t }}</span>
+    {%- endif -%}
+  </button>
+</sidonia-save>

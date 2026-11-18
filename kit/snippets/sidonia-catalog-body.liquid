@@ -1,0 +1,103 @@
+{%- comment -%}
+  Cuerpo común del catálogo (colección y búsqueda): barra de filtros, orden, vista, chips,
+  rejilla, estado vacío y paginación. Las zonas data-sidonia-swap se sustituyen con la
+  Section Rendering API al filtrar (sidonia-catalog.js).
+
+  Parámetros: section_id, results, items, total, uid, paginate, load_more, clear_url, wanted_url, explore_url,
+              is_search, archive, div_keys, current_key
+{%- endcomment -%}
+{%- liquid
+  assign active_n = 0
+  for filter in results.filters
+    if filter.type == 'price_range'
+      if filter.min_value.value != blank or filter.max_value.value != blank
+        assign active_n = active_n | plus: 1
+      endif
+    else
+      assign active_n = active_n | plus: filter.active_values.size
+    endif
+  endfor
+  if is_search
+    assign form_action = routes.search_url
+  else
+    assign form_action = results.url
+  endif
+-%}
+<sidonia-facets class="sidonia-facets" data-section-id="{{ section_id }}" data-load-more="{{ load_more }}">
+  <form class="sidonia-facets__form" action="{{ form_action }}" method="get" data-sidonia-facets-form>
+    {%- if is_search -%}
+      <input type="hidden" name="q" value="{{ results.terms | escape }}">
+      <input type="hidden" name="type" value="product">
+      <input type="hidden" name="options[prefix]" value="last">
+    {%- endif -%}
+
+    <div class="sidonia-toolbar">
+      <p class="sidonia-toolbar__count" data-sidonia-swap="count" role="status">{{ 'sidonia.catalog.count' | t: count: total }}</p>
+      <div class="sidonia-toolbar__actions">
+        <button type="button" class="sidonia-btn sidonia-btn--secondary sidonia-btn--sm sidonia-filters-open" data-sidonia-open-filters aria-haspopup="dialog" aria-controls="{{ uid }}-filters">
+          {%- render 'sidonia-icon', name: 'filter', size: 18 -%}
+          <span>{{ 'sidonia.catalog.filters' | t }}</span>
+          <span data-sidonia-swap="badge">{%- if active_n > 0 -%}<span class="sidonia-badge">{{ active_n }}</span>{%- endif -%}</span>
+        </button>
+        {%- render 'sidonia-sort', results: results, uid: uid -%}
+        <div class="sidonia-view" role="group" aria-label="{{ 'sidonia.catalog.view' | t }}" data-sidonia-view hidden>
+          <button type="button" class="sidonia-icon-btn" data-view="grid" aria-pressed="true" aria-label="{{ 'sidonia.catalog.view_grid' | t }}">{%- render 'sidonia-icon', name: 'grid', size: 18 -%}</button>
+          <button type="button" class="sidonia-icon-btn" data-view="list" aria-pressed="false" aria-label="{{ 'sidonia.catalog.view_list' | t }}">{%- render 'sidonia-icon', name: 'list', size: 18 -%}</button>
+        </div>
+      </div>
+    </div>
+
+    <dialog class="sidonia-filters" id="{{ uid }}-filters" open aria-labelledby="{{ uid }}-ftitle" data-sidonia-filters>
+      <div class="sidonia-filters__head">
+        <h2 class="sidonia-filters__title" id="{{ uid }}-ftitle">{{ 'sidonia.catalog.filters' | t }}</h2>
+        <button type="button" class="sidonia-icon-btn" data-sidonia-close-filters aria-label="{{ 'sidonia.general.close' | t }}">{%- render 'sidonia-icon', name: 'close', size: 22 -%}</button>
+      </div>
+      <div class="sidonia-filters__body" data-sidonia-swap="filters">
+        {%- render 'sidonia-facets', results: results, uid: uid -%}
+      </div>
+      <div class="sidonia-filters__foot">
+        <a class="sidonia-btn sidonia-btn--quiet" href="{{ clear_url }}" data-sidonia-facet-link>{{ 'sidonia.catalog.clear_all' | t }}</a>
+        <button type="button" class="sidonia-btn" data-sidonia-close-filters><span data-sidonia-swap="apply">{{ 'sidonia.catalog.view_results' | t: count: total }}</span></button>
+      </div>
+      <noscript><button type="submit" class="sidonia-btn">{{ 'sidonia.catalog.apply' | t }}</button></noscript>
+    </dialog>
+
+    <div class="sidonia-results" data-sidonia-results aria-busy="false">
+      <h2 class="sidonia-sr">{{ 'sidonia.catalog.results_heading' | t }}</h2>
+      <div data-sidonia-swap="active">{%- render 'sidonia-facets-active', results: results, clear_url: clear_url -%}</div>
+      <div data-sidonia-swap="grid">
+        {%- if items.size > 0 -%}
+          <ul class="sidonia-grid" role="list" data-sidonia-grid data-page="{{ paginate.current_page }}">
+            {%- for item in items -%}
+              {%- if item.object_type == 'product' or is_search == false -%}
+                <li>{%- render 'sidonia-card', product: item, priority: forloop.first, heading: 'h3' -%}</li>
+              {%- endif -%}
+            {%- endfor -%}
+          </ul>
+        {%- else -%}
+          <div class="sidonia-empty">
+            {%- if active_n > 0 -%}
+              <h3 class="sidonia-h3">{{ 'sidonia.catalog.empty_filtered_title' | t }}</h3>
+              <p>{{ 'sidonia.catalog.empty_filtered_text' | t }}</p>
+              <div class="sidonia-empty__actions">
+                <a class="sidonia-btn" href="{{ clear_url }}" data-sidonia-facet-link>{{ 'sidonia.catalog.clear_all' | t }}</a>
+                <a class="sidonia-btn sidonia-btn--secondary" href="{{ wanted_url }}">{{ 'sidonia.catalog.wanted_cta' | t }}</a>
+              </div>
+            {%- else -%}
+              <h3 class="sidonia-h3">{% if is_search %}{{ 'sidonia.search.empty_title' | t }}{% else %}{{ 'sidonia.catalog.empty_title' | t }}{% endif %}</h3>
+              <p>{% if is_search %}{{ 'sidonia.search.empty_text' | t }}{% else %}{{ 'sidonia.catalog.empty_text' | t }}{% endif %}</p>
+              <div class="sidonia-empty__actions">
+                <a class="sidonia-btn" href="{{ explore_url }}">{{ 'sidonia.catalog.explore_all' | t }}</a>
+                <a class="sidonia-btn sidonia-btn--secondary" href="{{ wanted_url }}">{{ 'sidonia.catalog.wanted_cta' | t }}</a>
+              </div>
+              {%- if request.design_mode and is_search == false -%}
+                <p class="sidonia-editor-hint">{{ 'sidonia.editor.catalog_empty' | t }}</p>
+              {%- endif -%}
+            {%- endif -%}
+          </div>
+        {%- endif -%}
+      </div>
+      <div data-sidonia-swap="pagination">{%- render 'sidonia-pagination', paginate: paginate, load_more: load_more -%}</div>
+    </div>
+  </form>
+</sidonia-facets>

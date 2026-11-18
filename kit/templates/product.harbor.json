@@ -1,0 +1,56 @@
+/*
+ * ------------------------------------------------------------
+ * Plantilla del kit Sidonia para Impact. Generada por tools/build-templates.mjs.
+ * Edítala desde el editor de temas; si regeneras, se pierden los cambios hechos aquí a mano.
+ * ------------------------------------------------------------
+ */
+{
+  "sections": {
+    "main": {
+      "type": "sidonia-listing",
+      "settings": {
+        "mobile_bar": true
+      }
+    },
+    "story": {
+      "type": "sidonia-listing-story",
+      "settings": {}
+    },
+    "specs": {
+      "type": "sidonia-listing-specs",
+      "settings": {}
+    },
+    "details": {
+      "type": "sidonia-listing-details",
+      "settings": {}
+    },
+    "timeline": {
+      "type": "sidonia-listing-timeline",
+      "settings": {}
+    },
+    "inquiry": {
+      "type": "sidonia-listing-inquiry",
+      "settings": {}
+    },
+    "related": {
+      "type": "sidonia-listing-related",
+      "settings": {}
+    },
+    "owner_cta": {
+      "type": "sidonia-owner-cta",
+      "settings": {
+        "preselect": "auto"
+      }
+    }
+  },
+  "order": [
+    "main",
+    "story",
+    "specs",
+    "details",
+    "timeline",
+    "inquiry",
+    "related",
+    "owner_cta"
+  ]
+}

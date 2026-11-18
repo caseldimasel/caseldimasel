@@ -1,0 +1,7 @@
+# Se generan en la compilación (Codemagic): npm install y scripts/nativo.mjs
+node_modules/
+android/
+ios/
+# Los archivos de Firebase van como variables en Codemagic, nunca en el repositorio
+google-services.json
+GoogleService-Info.plist

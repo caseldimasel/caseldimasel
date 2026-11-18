@@ -1,0 +1,81 @@
+{%- comment -%}
+  Datos de una categoría (división) desde Ajustes del tema > Sidonia · Categorías.
+
+  Parámetros:
+    key  clave interna (garage, harbor, estate…)
+    out  name | community | tagline | url | handle | image_url | email | whatsapp | count | exists
+
+  La colección se elige en los ajustes; si no se ha elegido, se busca una colección cuyo handle
+  sea el nombre público en minúsculas («coches», «barcos», «casas»).
+  «count» solo devuelve un número cuando la colección existe: es el mismo total que verá el visitante
+  al abrirla (products_count de Shopify), nunca una cifra escrita a mano.
+{%- endcomment -%}
+{%- liquid
+  assign k = key | downcase | strip
+  assign prefix = 'sidonia_' | append: k | append: '_'
+  assign name_key = prefix | append: 'name'
+  assign name = settings[name_key] | strip
+  if name == blank
+    assign name = k | capitalize
+  endif
+  assign col_key = prefix | append: 'collection'
+  assign col = settings[col_key]
+  if col == blank
+    assign guess = name | handleize
+    assign col = collections[guess]
+  endif
+
+  case out
+    when 'name'
+      echo name
+    when 'community'
+      assign ck = prefix | append: 'community'
+      echo settings[ck]
+    when 'tagline'
+      assign tk = prefix | append: 'tagline'
+      echo settings[tk]
+    when 'exists'
+      if col != blank and col.handle != blank
+        echo 'true'
+      endif
+    when 'handle'
+      if col != blank
+        echo col.handle
+      endif
+    when 'url'
+      if col != blank and col.url != blank
+        echo col.url
+      elsif settings.sidonia_collection_explore != blank
+        echo settings.sidonia_collection_explore.url
+      else
+        echo routes.all_products_collection_url
+      endif
+    when 'image_url'
+      assign ik = prefix | append: 'image'
+      assign img = settings[ik]
+      if img == blank and col != blank
+        assign img = col.featured_image
+      endif
+      if img != blank
+        echo img | image_url: width: 1400
+      endif
+    when 'email'
+      assign ek = prefix | append: 'email'
+      assign v = settings[ek] | strip
+      if v == blank
+        assign v = settings.sidonia_email | strip
+      endif
+      echo v
+    when 'whatsapp'
+      assign wk = prefix | append: 'whatsapp'
+      assign v = settings[wk] | strip
+      if v == blank
+        assign v = settings.sidonia_whatsapp | strip
+      endif
+      echo v
+    when 'count'
+      if col != blank and col.handle != blank
+        echo col.products_count
+      endif
+  endcase
+-%}
